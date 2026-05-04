@@ -22,6 +22,8 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '5');
             $this->setDefaultSetting(STTSetting::MAX_FILE_SIZE_MB, '500');
             $this->setDefaultSetting(STTSetting::CDR_SCAN_LIMIT, '200');
+            $this->setDefaultSetting(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
+            $this->setDefaultSetting(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL);
             $this->setDefaultSetting(STTSetting::DELAYED_RECORDINGS, '[]');
         } catch (Throwable $exception) {
             $this->messages[] = $exception->getMessage();

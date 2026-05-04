@@ -8,4 +8,5 @@ class MenuProvider
 {
     public const string DASHBOARD_PATH = 'module-local-speech-to-text/module-local-speech-to-text/index';
     public const string TRANSCRIPTS_PATH = 'module-local-speech-to-text/module-local-speech-to-text/transcripts';
+    public const string TRANSCRIPT_PATH = 'module-local-speech-to-text/module-local-speech-to-text/transcript';
 }

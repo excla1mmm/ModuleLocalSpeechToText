@@ -38,5 +38,10 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'min' => 1,
             'max' => 1000,
         ]));
+        $this->add(new Numeric('processing_timeout_sec', [
+            'value' => $entity->processing_timeout_sec ?? '1800',
+            'min' => 60,
+            'max' => 86400,
+        ]));
     }
 }

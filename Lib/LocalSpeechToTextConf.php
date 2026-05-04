@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib;
 
+use MikoPBX\Common\Providers\PBXConfModulesProvider;
+use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
 use MikoPBX\Modules\Config\ConfigClass;
 
@@ -17,5 +19,11 @@ class LocalSpeechToTextConf extends ConfigClass
                 'worker' => WorkerCreateTranscriptionJobs::class,
             ],
         ];
+    }
+
+    public function onAfterModuleEnable(): void
+    {
+        PBXConfModulesProvider::recreateModulesProvider();
+        Processes::restartAllWorkers(true);
     }
 }

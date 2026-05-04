@@ -57,6 +57,14 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CDR_SCAN_LIMIT,
             (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000)
         );
+        STTSetting::setValue(
+            STTSetting::PROCESSING_TIMEOUT_SEC,
+            (string)$this->postInt(STTSetting::PROCESSING_TIMEOUT_SEC, 1800, 60, 86400)
+        );
+        STTSetting::setValue(
+            STTSetting::SELECTED_MODEL,
+            STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL, 64))
+        );
     }
 
     protected function countJobsByStatus(string $status): int
@@ -76,6 +84,8 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
         $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
+        $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
+        $settings->selected_model = STTSetting::selectedModelId();
 
         return $settings;
     }

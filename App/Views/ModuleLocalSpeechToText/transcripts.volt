@@ -19,19 +19,23 @@
                 <th>{{ t._('module_local_speech_to_text_Duration') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
                 <th>{{ t._('module_local_speech_to_text_CreatedAt') }}</th>
-                <th>{{ t._('module_local_speech_to_text_Transcript') }}</th>
+                <th>{{ t._('module_local_speech_to_text_Conversation') }}</th>
             </tr>
         </thead>
         <tbody>
         {% for result in results %}
-            <tr>
+            <tr class="stt-clickable-row" onclick="window.location.href='{{ url(transcriptPath~'?id='~result.id) }}'">
                 <td>#{{ result.job_id }}</td>
                 <td>{{ result.STTJob.call_id }}</td>
                 <td>{{ result.language }}</td>
                 <td>{{ result.duration }}</td>
                 <td>{{ result.model_used }}</td>
                 <td>{{ date('Y-m-d H:i:s', result.created_at) }}</td>
-                <td><pre class="stt-transcript-json">{{ result.transcript }}</pre></td>
+                <td>
+                    <a href="{{ url(transcriptPath~'?id='~result.id) }}" onclick="event.stopPropagation();">
+                        {{ t._('module_local_speech_to_text_OpenConversation') }}
+                    </a>
+                </td>
             </tr>
         {% else %}
             <tr>

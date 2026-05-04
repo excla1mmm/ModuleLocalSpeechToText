@@ -20,6 +20,7 @@ class STTJob extends ModulesModelsBase
     public const string STATUS_PROCESSING = 'processing';
     public const string STATUS_DONE = 'done';
     public const string STATUS_ERROR = 'error';
+    private const int DEFAULT_PROCESSING_TIMEOUT_SECONDS = 1800;
 
     /**
      * @Primary
@@ -148,6 +149,7 @@ class STTJob extends ModulesModelsBase
         $model = new self();
         $connection = $model->getWriteConnection();
         $workerId = (int)$worker->id;
+        self::requeueStaleProcessing();
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $job = self::findFirst([
@@ -159,7 +161,6 @@ class STTJob extends ModulesModelsBase
             ]);
 
             if ($job === null) {
-                $connection->commit();
                 return null;
             }
 
@@ -184,6 +185,45 @@ class STTJob extends ModulesModelsBase
         }
 
         return null;
+    }
+
+    public static function requeueStaleProcessing(): int
+    {
+        $timeout = self::processingTimeoutSeconds();
+        if ($timeout <= 0) {
+            return 0;
+        }
+
+        $model = new self();
+        $connection = $model->getWriteConnection();
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET status = :pending, worker_id = NULL, started_at = NULL, finished_at = NULL, error_msg = :error_msg
+              WHERE status = :processing
+                AND (
+                    started_at IS NULL
+                    OR started_at = \'\'
+                    OR CAST(started_at AS INTEGER) < :threshold
+                )',
+            [
+                'pending' => self::STATUS_PENDING,
+                'processing' => self::STATUS_PROCESSING,
+                'threshold' => (string)(time() - $timeout),
+                'error_msg' => 'Requeued after processing timeout',
+            ]
+        );
+
+        return (int)$connection->affectedRows();
+    }
+
+    private static function processingTimeoutSeconds(): int
+    {
+        $timeout = (int)STTSetting::getValue(
+            STTSetting::PROCESSING_TIMEOUT_SEC,
+            (string)self::DEFAULT_PROCESSING_TIMEOUT_SECONDS
+        );
+
+        return max(60, min(86400, $timeout));
     }
 
     public function markDone(): void

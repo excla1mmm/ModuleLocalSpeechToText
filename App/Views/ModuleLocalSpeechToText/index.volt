@@ -11,7 +11,7 @@
     </div>
 
     <form class="ui form large grey segment" id="module-local-speech-to-text-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
-        <div class="four fields">
+        <div class="three fields">
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }}</label>
                 {{ form.render('default_language') }}
@@ -24,10 +24,26 @@
                 <label>{{ t._('module_local_speech_to_text_MaxFileSize') }}</label>
                 {{ form.render('max_file_size_mb') }}
             </div>
+        </div>
+        <div class="two fields">
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }}</label>
                 {{ form.render('cdr_scan_limit') }}
             </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }}</label>
+                {{ form.render('processing_timeout_sec') }}
+            </div>
+        </div>
+        <div class="field">
+            <label>{{ t._('module_local_speech_to_text_SelectedModel') }}</label>
+            <select name="selected_model" class="ui dropdown">
+                {% for modelId, model in modelPresets %}
+                    <option value="{{ modelId }}" {% if modelId === selectedModel %}selected="selected"{% endif %}>
+                        {{ t._(model['label']) }} - {{ t._(model['description']) }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
         <button class="ui primary button" type="submit" id="submitbutton">{{ t._('bt_Save') }}</button>
     </form>
