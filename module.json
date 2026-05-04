@@ -1,0 +1,8 @@
+{
+  "developer": "Local",
+  "moduleUniqueID": "ModuleLocalSpeechToText",
+  "support_email": "support@example.local",
+  "version": "1.0.0",
+  "min_pbx_version": "2025.1.1",
+  "module_type": "ai"
+}

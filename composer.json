@@ -1,0 +1,27 @@
+{
+    "name": "local/module-local-speech-to-text",
+    "description": "Local speech-to-text module for MikoPBX",
+    "require": {
+        "mikopbx/core": ">=2025.1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ModuleLocalSpeechToText\\": "/"
+        }
+    },
+    "type": "application",
+    "keywords": [
+        "mikopbx",
+        "stt",
+        "transcription",
+        "whisper",
+        "local-ai"
+    ],
+    "license": "GPL-3.0-or-later",
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.3"
+        }
+    }
+}

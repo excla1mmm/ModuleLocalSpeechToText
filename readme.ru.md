@@ -1,0 +1,29 @@
+# ModuleLocalSpeechToText
+
+Модуль локальной транскрибации для MikoPBX.
+
+Модуль хранит очередь заданий и результаты в локальной SQLite-БД, предоставляет REST API для внешнего Mac worker на Apple Silicon и минимальный интерфейс администратора для просмотра очереди, воркеров и транскриптов.
+
+## PBX worker
+
+`Modules\ModuleLocalSpeechToText\Lib\WorkerCreateTranscriptionJobs` регистрируется через `LocalSpeechToTextConf::getModuleWorkers()`.
+
+Он периодически читает завершенные CDR с доступным файлом записи внутри monitor-директории MikoPBX и создает по одному `m_STTJob` на путь записи. Дубликаты предотвращаются проверкой/индексом `file_path`.
+
+## API воркера
+
+Базовый путь:
+
+```text
+/pbxcore/api/v3/module-local-speech-to-text
+```
+
+Эндпоинты:
+
+- `POST /workers:register`
+- `GET /jobs:getNext?worker_uid=...`
+- `GET /jobs/{job_id}:download`
+- `POST /jobs/{job_id}:submitResult`
+- `POST /jobs/{job_id}:submitError`
+
+Все JSON-эндпоинты используют стандартную обёртку MikoPBX REST v3 `PBXApiResult` и защищены Bearer token или localhost-правилами.

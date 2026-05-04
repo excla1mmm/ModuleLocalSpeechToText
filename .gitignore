@@ -1,0 +1,14 @@
+.DS_Store
+._*
+__MACOSX/
+
+.idea/
+.vscode/
+
+vendor/
+node_modules/
+
+*.zip
+*.tar
+*.tar.gz
+*.log
