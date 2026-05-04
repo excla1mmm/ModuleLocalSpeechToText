@@ -8,7 +8,7 @@ The module stores transcription jobs in a local SQLite database, exposes REST en
 
 `Modules\ModuleLocalSpeechToText\Lib\WorkerCreateTranscriptionJobs` is registered through `LocalSpeechToTextConf::getModuleWorkers()`.
 
-It periodically scans completed CDR rows with a readable recording file under the MikoPBX monitor directory and creates one `m_STTJob` per recording path. Duplicate jobs are prevented by the `file_path` lookup/index.
+It periodically scans completed CDR rows under the MikoPBX monitor directory and creates one `m_STTJob` per readable recording path. Duplicate jobs are prevented by the `file_path` lookup/index, and records whose audio file appears with a delay are kept in a retry buffer.
 
 ## Worker API
 
@@ -22,7 +22,7 @@ Endpoints:
 
 - `POST /workers:register`
 - `GET /jobs:getNext?worker_uid=...`
-- `GET /jobs/{job_id}:download`
+- `GET /jobs/{job_id}:download?worker_uid=...`
 - `POST /jobs/{job_id}:submitResult`
 - `POST /jobs/{job_id}:submitError`
 

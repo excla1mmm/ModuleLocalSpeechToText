@@ -11,7 +11,7 @@
     </div>
 
     <form class="ui form large grey segment" id="module-local-speech-to-text-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
-        <div class="three fields">
+        <div class="four fields">
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }}</label>
                 {{ form.render('default_language') }}
@@ -23,6 +23,10 @@
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_MaxFileSize') }}</label>
                 {{ form.render('max_file_size_mb') }}
+            </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }}</label>
+                {{ form.render('cdr_scan_limit') }}
             </div>
         </div>
         <button class="ui primary button" type="submit" id="submitbutton">{{ t._('bt_Save') }}</button>

@@ -64,6 +64,7 @@ class Controller extends BaseRestController
         operationId: 'downloadLocalSpeechToTextJobFile'
     )]
     #[ApiParameterRef('id', required: true)]
+    #[ApiParameterRef('worker_uid', required: true)]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     public function download(string $id): void

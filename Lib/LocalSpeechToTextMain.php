@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib;
 
 use JsonException;
 use MikoPBX\Core\System\Directories;
+use MikoPBX\Core\System\SystemMessages;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -37,14 +38,15 @@ class LocalSpeechToTextMain
                 $workerUid,
                 self::stringField($data, 'name', $workerUid),
                 self::stringField($data, 'model', 'unknown'),
-                self::stringField($data, 'ip', self::clientIp($data))
+                self::clientIp($data)
             );
 
             return self::success([
                 'worker_id' => (int)$worker->id,
                 'poll_interval' => (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5'),
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
     }
@@ -68,8 +70,9 @@ class LocalSpeechToTextMain
                 return self::success(['job' => null]);
             }
 
-            return self::success(['job' => self::formatJob($job)]);
-        } catch (Throwable) {
+            return self::success(['job' => self::formatJob($job, $workerUid)]);
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
     }
@@ -77,8 +80,9 @@ class LocalSpeechToTextMain
     public static function downloadJobFile(array $data): PBXApiResult
     {
         $jobId = (int)($data['id'] ?? 0);
-        if ($jobId <= 0) {
-            return self::error('validation_error', 'Job id is required', 422);
+        $workerUid = self::stringField($data, 'worker_uid');
+        if ($jobId <= 0 || $workerUid === '') {
+            return self::error('validation_error', 'Job id and worker_uid are required', 422);
         }
 
         try {
@@ -87,13 +91,25 @@ class LocalSpeechToTextMain
                 return self::error('job_not_found', "Job #$jobId not found", 404);
             }
 
+            $worker = self::findWorker($workerUid);
+            if ($worker === null) {
+                return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $worker->touchOnline(self::clientIp($data));
+
+            $ownershipError = self::validateAssignedJob($job, $worker);
+            if ($ownershipError !== null) {
+                return $ownershipError;
+            }
+
             $filePath = self::safeRecordingPath((string)$job->file_path);
             if ($filePath === null || !is_readable($filePath)) {
                 return self::error('file_not_found', 'Recording file is not available', 404);
             }
 
             return self::fileResponse($filePath);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
     }
@@ -119,6 +135,11 @@ class LocalSpeechToTextMain
             }
 
             $worker->touchOnline(self::clientIp($data));
+            $ownershipError = self::validateAssignedJob($job, $worker);
+            if ($ownershipError !== null) {
+                return $ownershipError;
+            }
+
             STTResult::saveForJob(
                 $job,
                 self::encodeTranscript($data['transcript']),
@@ -131,7 +152,8 @@ class LocalSpeechToTextMain
             return self::success();
         } catch (JsonException) {
             return self::error('validation_error', 'transcript must be valid JSON serializable data', 422);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
     }
@@ -156,23 +178,29 @@ class LocalSpeechToTextMain
             }
 
             $worker->touchOnline(self::clientIp($data));
+            $ownershipError = self::validateAssignedJob($job, $worker);
+            if ($ownershipError !== null) {
+                return $ownershipError;
+            }
+
             $job->markFailed(self::stringField($data, 'error_msg', 'Worker failed to process audio'));
 
             return self::success([
                 'status' => (string)$job->status,
                 'attempts' => (int)$job->attempts,
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
     }
 
-    private static function formatJob(STTJob $job): array
+    private static function formatJob(STTJob $job, string $workerUid): array
     {
         return [
             'id' => (int)$job->id,
             'call_id' => (string)$job->call_id,
-            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download',
+            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid),
             'duration_hint' => null,
             'language_hint' => STTSetting::getValue(STTSetting::DEFAULT_LANGUAGE, 'ru'),
         ];
@@ -188,6 +216,19 @@ class LocalSpeechToTextMain
         ]);
 
         return $worker instanceof STTWorker ? $worker : null;
+    }
+
+    private static function validateAssignedJob(STTJob $job, STTWorker $worker): ?PBXApiResult
+    {
+        if ((string)$job->status !== STTJob::STATUS_PROCESSING) {
+            return self::error('job_not_processing', 'Job is not assigned for processing', 409);
+        }
+
+        if ((int)$job->worker_id !== (int)$worker->id) {
+            return self::error('job_assigned_to_another_worker', 'Job is assigned to another worker', 403);
+        }
+
+        return null;
     }
 
     private static function safeRecordingPath(string $filePath): ?string
@@ -279,5 +320,14 @@ class LocalSpeechToTextMain
     private static function clientIp(array $data): string
     {
         return self::stringField($data, '_remote_addr');
+    }
+
+    private static function logException(string $context, Throwable $exception): void
+    {
+        SystemMessages::sysLogMsg(
+            __CLASS__,
+            sprintf('%s failed: %s', $context, $exception->getMessage()),
+            LOG_ERR
+        );
     }
 }

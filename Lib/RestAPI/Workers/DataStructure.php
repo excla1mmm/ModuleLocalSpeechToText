@@ -34,13 +34,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => false,
                     'maxLength' => 255,
                 ],
-                'ip' => [
-                    'type' => 'string',
-                    'description' => 'Worker IP address.',
-                    'example' => '192.168.88.20',
-                    'required' => false,
-                    'maxLength' => 64,
-                ],
             ],
             'response' => [
                 'worker_id' => [

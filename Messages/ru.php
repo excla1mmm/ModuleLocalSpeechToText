@@ -25,6 +25,7 @@ return [
     'module_local_speech_to_text_DefaultLanguage' => 'Язык по умолчанию',
     'module_local_speech_to_text_PollInterval' => 'Интервал опроса, сек.',
     'module_local_speech_to_text_MaxFileSize' => 'Максимальный файл, МБ',
+    'module_local_speech_to_text_CdrScanLimit' => 'CDR за проход',
     'module_local_speech_to_text_Job' => 'Задание',
     'module_local_speech_to_text_CallId' => 'ID звонка',
     'module_local_speech_to_text_Language' => 'Язык',

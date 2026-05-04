@@ -17,6 +17,7 @@ class STTWorker extends ModulesModelsBase
 {
     public const string STATUS_ONLINE = 'online';
     public const string STATUS_OFFLINE = 'offline';
+    private const int MIN_OFFLINE_TIMEOUT_SECONDS = 60;
 
     /**
      * @Primary
@@ -117,5 +118,31 @@ class STTWorker extends ModulesModelsBase
         if (!$this->save()) {
             throw new RuntimeException(implode(', ', $this->getMessages()));
         }
+    }
+
+    public static function markStaleOffline(): void
+    {
+        $threshold = time() - self::offlineTimeoutSeconds();
+        $workers = self::find([
+            'conditions' => 'status = :status: AND (last_seen IS NULL OR last_seen < :threshold:)',
+            'bind' => [
+                'status' => self::STATUS_ONLINE,
+                'threshold' => (string)$threshold,
+            ],
+        ]);
+
+        foreach ($workers as $worker) {
+            $worker->status = self::STATUS_OFFLINE;
+            if (!$worker->save()) {
+                throw new RuntimeException(implode(', ', $worker->getMessages()));
+            }
+        }
+    }
+
+    private static function offlineTimeoutSeconds(): int
+    {
+        $pollInterval = (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
+
+        return max(self::MIN_OFFLINE_TIMEOUT_SECONDS, min(7200, $pollInterval * 3));
     }
 }

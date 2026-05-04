@@ -8,7 +8,7 @@
 
 `Modules\ModuleLocalSpeechToText\Lib\WorkerCreateTranscriptionJobs` регистрируется через `LocalSpeechToTextConf::getModuleWorkers()`.
 
-Он периодически читает завершенные CDR с доступным файлом записи внутри monitor-директории MikoPBX и создает по одному `m_STTJob` на путь записи. Дубликаты предотвращаются проверкой/индексом `file_path`.
+Он периодически читает завершенные CDR внутри monitor-директории MikoPBX и создает по одному `m_STTJob` на доступный путь записи. Дубликаты предотвращаются проверкой/индексом `file_path`, а записи, у которых аудиофайл появляется с задержкой, сохраняются в retry-буфере.
 
 ## API воркера
 
@@ -22,7 +22,7 @@
 
 - `POST /workers:register`
 - `GET /jobs:getNext?worker_uid=...`
-- `GET /jobs/{job_id}:download`
+- `GET /jobs/{job_id}:download?worker_uid=...`
 - `POST /jobs/{job_id}:submitResult`
 - `POST /jobs/{job_id}:submitError`
 

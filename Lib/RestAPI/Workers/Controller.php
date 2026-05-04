@@ -47,7 +47,6 @@ class Controller extends BaseRestController
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('name')]
     #[ApiParameterRef('model')]
-    #[ApiParameterRef('ip')]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]

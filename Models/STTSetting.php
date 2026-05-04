@@ -18,6 +18,7 @@ class STTSetting extends ModulesModelsBase
     public const string POLL_INTERVAL_SEC = 'poll_interval_sec';
     public const string MAX_FILE_SIZE_MB = 'max_file_size_mb';
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
+    public const string DELAYED_RECORDINGS = 'delayed_recordings';
 
     /**
      * @Primary

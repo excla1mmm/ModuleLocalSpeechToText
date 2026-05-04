@@ -25,6 +25,7 @@ return [
     'module_local_speech_to_text_DefaultLanguage' => 'Default language',
     'module_local_speech_to_text_PollInterval' => 'Poll interval, sec.',
     'module_local_speech_to_text_MaxFileSize' => 'Max file size, MB',
+    'module_local_speech_to_text_CdrScanLimit' => 'CDR per scan',
     'module_local_speech_to_text_Job' => 'Job',
     'module_local_speech_to_text_CallId' => 'Call ID',
     'module_local_speech_to_text_Language' => 'Language',

@@ -28,6 +28,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             ],
         ]);
         $this->view->errorCount = $this->countJobsByStatus(STTJob::STATUS_ERROR);
+        STTWorker::markStaleOffline();
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
         ]);

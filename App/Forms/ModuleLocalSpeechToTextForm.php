@@ -33,5 +33,10 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'min' => 1,
             'max' => 10240,
         ]));
+        $this->add(new Numeric('cdr_scan_limit', [
+            'value' => $entity->cdr_scan_limit ?? '200',
+            'min' => 1,
+            'max' => 1000,
+        ]));
     }
 }

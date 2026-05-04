@@ -7,7 +7,6 @@ namespace Modules\ModuleLocalSpeechToText\Models;
 use MikoPBX\Modules\Models\ModulesModelsBase;
 use Phalcon\Mvc\Model\Relation;
 use RuntimeException;
-use Throwable;
 
 /**
  * @Indexes(
@@ -148,9 +147,9 @@ class STTJob extends ModulesModelsBase
     {
         $model = new self();
         $connection = $model->getWriteConnection();
-        $connection->begin();
+        $workerId = (int)$worker->id;
 
-        try {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
             $job = self::findFirst([
                 'conditions' => 'status = :status:',
                 'bind' => [
@@ -164,21 +163,27 @@ class STTJob extends ModulesModelsBase
                 return null;
             }
 
-            $job->status = self::STATUS_PROCESSING;
-            $job->worker_id = (int)$worker->id;
-            $job->started_at = (string)time();
-            $job->error_msg = null;
+            $connection->execute(
+                'UPDATE m_STTJob
+                    SET status = :processing, worker_id = :worker_id, started_at = :started_at, finished_at = NULL, error_msg = NULL
+                  WHERE id = :id AND status = :pending',
+                [
+                    'processing' => self::STATUS_PROCESSING,
+                    'worker_id' => $workerId,
+                    'started_at' => (string)time(),
+                    'id' => (int)$job->id,
+                    'pending' => self::STATUS_PENDING,
+                ]
+            );
 
-            if (!$job->save()) {
-                throw new RuntimeException(implode(', ', $job->getMessages()));
+            if ((int)$connection->affectedRows() === 1) {
+                $claimedJob = self::findFirstById($job->id);
+
+                return $claimedJob instanceof self ? $claimedJob : null;
             }
-
-            $connection->commit();
-            return $job;
-        } catch (Throwable $exception) {
-            $connection->rollback();
-            throw $exception;
         }
+
+        return null;
     }
 
     public function markDone(): void

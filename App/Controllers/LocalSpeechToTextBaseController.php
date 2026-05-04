@@ -53,6 +53,10 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::MAX_FILE_SIZE_MB,
             (string)$this->postInt(STTSetting::MAX_FILE_SIZE_MB, 500, 1, 10240)
         );
+        STTSetting::setValue(
+            STTSetting::CDR_SCAN_LIMIT,
+            (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000)
+        );
     }
 
     protected function countJobsByStatus(string $status): int
@@ -71,6 +75,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->default_language = STTSetting::getValue(STTSetting::DEFAULT_LANGUAGE, 'ru');
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
         $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
+        $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
 
         return $settings;
     }
