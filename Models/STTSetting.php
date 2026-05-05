@@ -21,6 +21,7 @@ class STTSetting extends ModulesModelsBase
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string SELECTED_MODEL = 'selected_model';
     public const string DELAYED_RECORDINGS = 'delayed_recordings';
+    public const string WORKER_API_KEY_ID = 'worker_api_key_id';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';

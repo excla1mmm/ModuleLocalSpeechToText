@@ -1,12 +1,12 @@
 <div class="ui basic segment module-local-speech-to-text" id="module-local-speech-to-text">
     <div class="ui top attached tabular menu" id="module-local-speech-to-text-menu">
-        <a class="item active" data-tab="settings">{{ t._('module_local_speech_to_text_SettingsTab') }}</a>
-        <a class="item" data-tab="queue">{{ t._('module_local_speech_to_text_QueueTab') }}</a>
-        <a class="item" data-tab="workers">{{ t._('module_local_speech_to_text_WorkersTab') }}</a>
-        <a class="item" data-tab="transcripts">{{ t._('module_local_speech_to_text_Transcripts') }}</a>
+        <a class="item{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">{{ t._('module_local_speech_to_text_SettingsTab') }}</a>
+        <a class="item{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">{{ t._('module_local_speech_to_text_QueueTab') }}</a>
+        <a class="item{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">{{ t._('module_local_speech_to_text_WorkersTab') }}</a>
+        <a class="item{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">{{ t._('module_local_speech_to_text_Transcripts') }}</a>
     </div>
 
-    <div class="ui bottom attached tab segment active" data-tab="settings">
+    <div class="ui bottom attached tab segment{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">
         <form class="ui form large" id="module-local-speech-to-text-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
             <div class="three fields">
                 <div class="field">
@@ -50,7 +50,7 @@
         </form>
     </div>
 
-    <div class="ui bottom attached tab segment" data-tab="queue">
+    <div class="ui bottom attached tab segment{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">
         <table class="ui selectable compact celled striped table stt-queue-table">
             <thead>
             <tr>
@@ -86,7 +86,51 @@
         </div>
     </div>
 
-    <div class="ui bottom attached tab segment" data-tab="workers">
+    <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">
+        <div class="ui segment stt-worker-api-key">
+            <div class="ui stackable grid">
+                <div class="ten wide column">
+                    <h4 class="ui header">
+                        <i class="key icon"></i>
+                        <span class="content">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</span>
+                    </h4>
+                    {% if workerApiKey %}
+                        <div class="ui small label">{{ workerApiKey.key_display }}</div>
+                    {% else %}
+                        <span class="ui grey text">{{ t._('module_local_speech_to_text_WorkerApiKeyMissing') }}</span>
+                    {% endif %}
+                </div>
+                <div class="six wide right aligned column">
+                    <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/generateWorkerApiKey') }}">
+                        <button class="ui left labeled icon primary button" type="submit">
+                            <i class="sync alternate icon"></i>
+                            {% if workerApiKey %}
+                                {{ t._('module_local_speech_to_text_RegenerateWorkerApiKey') }}
+                            {% else %}
+                                {{ t._('module_local_speech_to_text_GenerateWorkerApiKey') }}
+                            {% endif %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% if generatedApiKey !== '' %}
+                <div class="ui info message stt-api-key-message">
+                    <div class="header">{{ t._('module_local_speech_to_text_WorkerApiKeyShownOnce') }}</div>
+                    <div class="ui action fluid input stt-copy-input">
+                        <input type="text" readonly="readonly" value="{{ generatedApiKey }}">
+                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ generatedApiKey }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
+                            <i class="copy icon"></i>
+                        </button>
+                    </div>
+                    <div class="ui action fluid input stt-copy-input">
+                        <input type="text" readonly="readonly" value="{{ workerInstallCommand }}">
+                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ workerInstallCommand }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
+                            <i class="copy icon"></i>
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
         <table class="ui selectable compact celled striped table stt-workers-table">
             <thead>
             <tr>
@@ -121,7 +165,7 @@
         </table>
     </div>
 
-    <div class="ui bottom attached tab segment" data-tab="transcripts">
+    <div class="ui bottom attached tab segment{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">
         <table class="ui selectable compact celled striped table stt-transcripts-table">
             <thead>
             <tr>

@@ -25,6 +25,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->setDefaultSetting(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
             $this->setDefaultSetting(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL);
             $this->setDefaultSetting(STTSetting::DELAYED_RECORDINGS, '[]');
+            $this->setDefaultSetting(STTSetting::WORKER_API_KEY_ID, '');
         } catch (Throwable $exception) {
             $this->messages[] = $exception->getMessage();
             return false;

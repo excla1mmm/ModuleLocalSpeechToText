@@ -17,6 +17,19 @@
 
         $('.module-local-speech-to-text .ui.dropdown').dropdown();
         $('.module-local-speech-to-text [data-content]').popup();
+        $('.module-local-speech-to-text .stt-copy-button').on('click', function () {
+            var text = $(this).data('clipboard-text') || '';
+            var $button = $(this);
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    $button.addClass('positive');
+                    setTimeout(function () {
+                        $button.removeClass('positive');
+                    }, 900);
+                });
+            }
+        });
 
         $('#module-local-speech-to-text-form').form({
             fields: {

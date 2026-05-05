@@ -4,19 +4,35 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
+use MikoPBX\Common\Models\ApiKeys;
+use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
+use RuntimeException;
 use Throwable;
 
 class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 {
+    private const string SESSION_GENERATED_API_KEY = 'ModuleLocalSpeechToTextGeneratedApiKey';
+
     public function indexAction(): void
+    {
+        $generatedApiKey = (string)$this->session->get(self::SESSION_GENERATED_API_KEY, '');
+        if ($generatedApiKey !== '') {
+            $this->session->remove(self::SESSION_GENERATED_API_KEY);
+        }
+
+        $this->prepareIndexView($generatedApiKey, $this->activeTabFromRequest($generatedApiKey));
+    }
+
+    private function prepareIndexView(string $generatedApiKey = '', string $activeTab = 'settings'): void
     {
         $this->addModuleAssets();
 
+        $this->view->activeTab = $activeTab;
         $this->view->form = $this->buildSettingsForm();
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
         $this->view->modelPresets = STTSetting::MODEL_PRESETS;
@@ -35,6 +51,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
         ]);
+        $this->view->workerApiKey = $this->workerApiKey();
+        $this->view->generatedApiKey = $generatedApiKey;
+        $this->view->workerInstallCommand = $generatedApiKey === ''
+            ? ''
+            : $this->workerInstallCommand($generatedApiKey);
         $this->view->results = STTResult::find([
             'order' => 'created_at DESC, id DESC',
             'limit' => 100,
@@ -75,6 +96,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=queue');
+    }
+
+    public function generateWorkerApiKeyAction(): void
+    {
+        try {
+            $apiKey = ApiKeys::generateApiKey();
+            $this->replaceWorkerApiKey($apiKey);
+            $this->session->set(self::SESSION_GENERATED_API_KEY, $apiKey);
+            $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyCreated'));
+            $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+            $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+        }
     }
 
     public function transcriptsAction(): void
@@ -260,5 +295,67 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         return sprintf('%s - %s', $this->timeLabel($start), $this->timeLabel($end));
+    }
+
+    private function workerApiKey(): ?ApiKeys
+    {
+        $apiKeyId = (int)STTSetting::getValue(STTSetting::WORKER_API_KEY_ID, '0');
+        if ($apiKeyId <= 0) {
+            return null;
+        }
+
+        $apiKey = ApiKeys::findFirstById($apiKeyId);
+
+        return $apiKey instanceof ApiKeys ? $apiKey : null;
+    }
+
+    private function replaceWorkerApiKey(string $plainApiKey): void
+    {
+        $oldApiKey = $this->workerApiKey();
+        if ($oldApiKey instanceof ApiKeys && !$oldApiKey->delete()) {
+            throw new RuntimeException(implode(', ', $oldApiKey->getMessages()));
+        }
+
+        $apiKey = new ApiKeys();
+        $apiKey->description = 'Local Speech To Text Worker';
+        $apiKey->key_hash = password_hash($plainApiKey, PASSWORD_BCRYPT);
+        $apiKey->key_suffix = substr($plainApiKey, -4);
+        $apiKey->key_display = substr($plainApiKey, 0, 5) . '...' . substr($plainApiKey, -5);
+        $apiKey->networkfilterid = null;
+        $apiKey->full_permissions = '0';
+        $apiKey->allowed_paths = json_encode([
+            '/api/v3/module-local-speech-to-text/workers' => 'write',
+            '/api/v3/module-local-speech-to-text/jobs' => 'write',
+        ]);
+        $apiKey->created_at = date('Y-m-d H:i:s');
+
+        if (!$apiKey->save()) {
+            throw new RuntimeException(implode(', ', $apiKey->getMessages()));
+        }
+
+        STTSetting::setValue(STTSetting::WORKER_API_KEY_ID, (string)$apiKey->id);
+        TokenValidationService::clearCache();
+    }
+
+    private function workerInstallCommand(string $apiKey): string
+    {
+        $scheme = $this->request->isSecure() ? 'https://' : 'http://';
+
+        return sprintf(
+            "./install.sh --pbx-url '%s' --token '%s'",
+            $scheme . $this->request->getHttpHost(),
+            $apiKey
+        );
+    }
+
+    private function activeTabFromRequest(string $generatedApiKey): string
+    {
+        if ($generatedApiKey !== '') {
+            return 'workers';
+        }
+
+        $tab = (string)$this->request->getQuery('tab', 'string', 'settings');
+
+        return in_array($tab, ['settings', 'queue', 'workers', 'transcripts'], true) ? $tab : 'settings';
     }
 }
