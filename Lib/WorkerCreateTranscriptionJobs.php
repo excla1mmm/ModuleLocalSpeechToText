@@ -23,6 +23,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     private const int LONG_CALL_SECONDS = 1800;
     private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
     private const int MAX_DELAYED_RECORDINGS = 500;
+    private const int MAX_SKIPPED_RECORDINGS = 100;
 
     public static function getCheckInterval(): int
     {
@@ -124,6 +125,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         $this->forgetDelayedRecording($delayedRecordings, $this->recordId($record));
         if (!$this->recordingWithinSizeLimit($recordingPath)) {
             $this->logSkippedLargeRecording($recordingPath);
+            $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath);
             return;
         }
 
@@ -168,6 +170,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             }
 
             if ($now - (int)($record['first_seen'] ?? $now) > self::DELAYED_RECORDING_TTL_SECONDS) {
+                $this->rememberSkippedRecording($record, 'recording_missing_timeout', '', (int)$recordId);
                 unset($delayedRecordings[$recordId]);
                 $changed = true;
                 continue;
@@ -180,6 +183,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
             if (!$this->recordingWithinSizeLimit($recordingPath)) {
                 $this->logSkippedLargeRecording($recordingPath);
+                $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath, (int)$recordId);
                 unset($delayedRecordings[$recordId]);
                 $changed = true;
                 continue;
@@ -262,6 +266,67 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             );
             $delayedRecordings = array_slice($delayedRecordings, -self::MAX_DELAYED_RECORDINGS, null, true);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function rememberSkippedRecording(array $record, string $reason, string $recordingPath = '', int $recordId = 0): void
+    {
+        $recordId = $recordId > 0 ? $recordId : $this->recordId($record);
+        if ($recordId <= 0) {
+            return;
+        }
+
+        $skippedRecordings = $this->skippedRecordings();
+        $skippedRecordings[$recordId] = [
+            'recordingfile' => (string)($record['recordingfile'] ?? $recordingPath),
+            'recording_path' => $recordingPath,
+            'call_id' => (string)($record['call_id'] ?? $this->callId($record)),
+            'reason' => $reason,
+            'created_at' => time(),
+        ];
+
+        if (count($skippedRecordings) > self::MAX_SKIPPED_RECORDINGS) {
+            uasort(
+                $skippedRecordings,
+                static fn (array $left, array $right): int => ((int)($left['created_at'] ?? 0)) <=> ((int)($right['created_at'] ?? 0))
+            );
+            $skippedRecordings = array_slice($skippedRecordings, -self::MAX_SKIPPED_RECORDINGS, null, true);
+        }
+
+        STTSetting::setValue(
+            STTSetting::SKIPPED_RECORDINGS,
+            json_encode($skippedRecordings, JSON_THROW_ON_ERROR)
+        );
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function skippedRecordings(): array
+    {
+        $json = STTSetting::getValue(STTSetting::SKIPPED_RECORDINGS, '[]');
+        $records = json_decode($json, true);
+        if (!is_array($records)) {
+            return [];
+        }
+
+        $skippedRecordings = [];
+        foreach ($records as $recordId => $record) {
+            if (!is_array($record)) {
+                continue;
+            }
+
+            $recordId = (int)$recordId;
+            if ($recordId <= 0) {
+                continue;
+            }
+
+            $skippedRecordings[$recordId] = $record;
+        }
+
+        return $skippedRecordings;
     }
 
     /**

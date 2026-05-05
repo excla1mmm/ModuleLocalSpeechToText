@@ -29,13 +29,78 @@
     margin-top: 0.75em;
 }
 
-.module-local-speech-to-text .stt-clickable-row {
-    cursor: pointer;
+.module-local-speech-to-text .stt-queue-summary-table,
+.module-local-speech-to-text .stt-queue-files-table {
+    margin-bottom: 1.2em;
 }
 
-.module-local-speech-to-text .stt-queue-table td:first-child .icon {
-    width: 1.6em;
+.module-local-speech-to-text .stt-queue-summary-table td,
+.module-local-speech-to-text .stt-queue-files-table td {
+    vertical-align: top;
+}
+
+.module-local-speech-to-text .stt-queue-empty-row {
+    color: rgba(0, 0, 0, 0.48);
+}
+
+.module-local-speech-to-text .stt-queue-status-label {
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-queue-status-label .icon {
+    width: 1.25em;
     margin-right: 0.35em;
+}
+
+.module-local-speech-to-text .stt-call-id {
+    overflow-wrap: anywhere;
+}
+
+.module-local-speech-to-text .stt-recording-path {
+    max-width: 30em;
+    overflow-wrap: anywhere;
+}
+
+.module-local-speech-to-text .stt-transcripts-table td {
+    vertical-align: top;
+}
+
+.module-local-speech-to-text .stt-date-group-row td {
+    background: #f7f7f8 !important;
+    color: rgba(0, 0, 0, 0.64);
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-date-group-row .icon {
+    width: 1.5em;
+    margin-right: 0.2em;
+}
+
+.module-local-speech-to-text .stt-call-date-cell {
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-call-date {
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-table-muted {
+    margin-top: 0.15em;
+    color: rgba(0, 0, 0, 0.48);
+    font-size: 0.9em;
+    line-height: 1.2;
+}
+
+.module-local-speech-to-text .stt-recording-file {
+    display: block;
+    max-width: 24em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-open-conversation {
+    min-width: 2.6em;
 }
 
 .module-local-speech-to-text .stt-conversation-summary {
@@ -173,6 +238,10 @@
     .module-local-speech-to-text .stt-conversation-summary td {
         display: block;
         width: 100% !important;
+    }
+
+    .module-local-speech-to-text .stt-recording-file {
+        max-width: 12em;
     }
 
     .module-local-speech-to-text .stt-dialogue-headers,

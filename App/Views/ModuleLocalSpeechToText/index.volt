@@ -51,30 +51,33 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">
-        <table class="ui selectable compact celled striped table stt-queue-table">
+        <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_QueueStatusSummary') }}</h4>
+        <table class="ui compact celled table stt-queue-summary-table">
             <thead>
             <tr>
                 <th>{{ t._('module_local_speech_to_text_Status') }}</th>
                 <th class="right aligned">{{ t._('module_local_speech_to_text_Count') }}</th>
+                <th>{{ t._('module_local_speech_to_text_LastEvent') }}</th>
             </tr>
             </thead>
             <tbody>
-            <tr>
-                <td><i class="clock outline icon"></i>{{ t._('module_local_speech_to_text_Pending') }}</td>
-                <td class="right aligned">{{ pendingCount }}</td>
-            </tr>
-            <tr>
-                <td><i class="spinner icon"></i>{{ t._('module_local_speech_to_text_Processing') }}</td>
-                <td class="right aligned">{{ processingCount }}</td>
-            </tr>
-            <tr>
-                <td><i class="check circle outline icon"></i>{{ t._('module_local_speech_to_text_DoneToday') }}</td>
-                <td class="right aligned">{{ doneTodayCount }}</td>
-            </tr>
-            <tr>
-                <td><i class="exclamation triangle icon"></i>{{ t._('module_local_speech_to_text_Errors') }}</td>
-                <td class="right aligned">{{ errorCount }}</td>
-            </tr>
+            {% for row in queueSummaryRows %}
+                <tr{% if row['count'] == 0 %} class="stt-queue-empty-row"{% endif %}>
+                    <td>
+                        <span class="ui tiny {{ row['labelClass'] }} label stt-queue-status-label">
+                            <i class="{{ row['icon'] }} icon"></i>{{ row['label']|e }}
+                        </span>
+                    </td>
+                    <td class="right aligned"><strong>{{ row['count'] }}</strong></td>
+                    <td>
+                        {% if row['lastEventLabel'] !== '' %}
+                            {{ row['lastEventLabel']|e }}
+                        {% else %}
+                            <span class="stt-table-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
             </tbody>
         </table>
         <div class="ui clearing basic segment stt-queue-actions">
@@ -84,6 +87,49 @@
                 </button>
             </form>
         </div>
+
+        <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_QueueFiles') }}</h4>
+        <table class="ui selectable compact celled striped table stt-queue-files-table">
+            <thead>
+            <tr>
+                <th>{{ t._('module_local_speech_to_text_RecordingDate') }}</th>
+                <th>{{ t._('module_local_speech_to_text_Status') }}</th>
+                <th>{{ t._('module_local_speech_to_text_Source') }}</th>
+                <th>{{ t._('module_local_speech_to_text_CallId') }}</th>
+                <th>{{ t._('module_local_speech_to_text_Worker') }}</th>
+                <th class="right aligned">{{ t._('module_local_speech_to_text_Attempts') }}</th>
+                <th>{{ t._('module_local_speech_to_text_CreatedAt') }}</th>
+                <th>{{ t._('module_local_speech_to_text_UpdatedAt') }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in queueFileRows %}
+                <tr>
+                    <td class="stt-call-date-cell">
+                        <div class="stt-call-date">{{ row['recordingDateLabel']|e }}</div>
+                        {% if row['recordingTimeLabel'] !== '' %}
+                            <div class="stt-table-muted">{{ row['recordingTimeLabel']|e }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="ui tiny {{ row['labelClass'] }} label stt-queue-status-label">
+                            <i class="{{ row['icon'] }} icon"></i>{{ row['statusLabel']|e }}
+                        </span>
+                    </td>
+                    <td>{{ row['sourceLabel']|e }}</td>
+                    <td><span class="stt-call-id">{{ row['callId']|e }}</span></td>
+                    <td>{{ row['workerLabel']|e }}</td>
+                    <td class="right aligned">{{ row['attemptsLabel']|e }}</td>
+                    <td>{{ row['createdAtLabel']|e }}</td>
+                    <td>{{ row['updatedAtLabel']|e }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_QueueFilesEmpty') }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">
@@ -169,33 +215,53 @@
         <table class="ui selectable compact celled striped table stt-transcripts-table">
             <thead>
             <tr>
-                <th>{{ t._('module_local_speech_to_text_Job') }}</th>
+                <th>{{ t._('module_local_speech_to_text_CallDate') }}</th>
                 <th>{{ t._('module_local_speech_to_text_CallId') }}</th>
+                <th>{{ t._('module_local_speech_to_text_RecordingFile') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Language') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Duration') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
-                <th>{{ t._('module_local_speech_to_text_CreatedAt') }}</th>
+                <th>{{ t._('module_local_speech_to_text_TranscriptCreatedAt') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Conversation') }}</th>
             </tr>
             </thead>
             <tbody>
-            {% for result in results %}
-                <tr class="stt-clickable-row" onclick="window.location.href='{{ url(transcriptPath~'?id='~result.id) }}'">
-                    <td>#{{ result.job_id|e }}</td>
-                    <td>{{ result.STTJob.call_id|e }}</td>
+            {% set currentDateKey = '' %}
+            {% for row in transcriptRows %}
+                {% set result = row['result'] %}
+                {% if row['dateKey'] !== currentDateKey %}
+                    <tr class="stt-date-group-row">
+                        <td colspan="8">
+                            <i class="calendar alternate outline icon"></i>{{ row['dateGroupLabel']|e }}
+                        </td>
+                    </tr>
+                    {% set currentDateKey = row['dateKey'] %}
+                {% endif %}
+                <tr>
+                    <td class="stt-call-date-cell">
+                        <div class="stt-call-date">{{ row['callDateLabel']|e }}</div>
+                        {% if row['callTimeLabel'] !== '' %}
+                            <div class="stt-table-muted">{{ row['callTimeLabel']|e }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div>{{ row['callId']|e }}</div>
+                        <div class="stt-table-muted">#{{ result.job_id|e }}</div>
+                    </td>
+                    <td><span class="stt-recording-file">{{ row['recordingName']|e }}</span></td>
                     <td>{{ result.language|e }}</td>
                     <td>{{ result.duration|e }}</td>
                     <td><span class="stt-model-text">{{ result.model_used|e }}</span></td>
-                    <td>{{ date('Y-m-d H:i:s', result.created_at) }}</td>
+                    <td>{{ row['createdAtLabel']|e }}</td>
                     <td class="right aligned">
-                        <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="ui compact icon button" onclick="event.stopPropagation();" title="{{ t._('module_local_speech_to_text_OpenConversation') }}">
+                        <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="ui compact icon button stt-open-conversation" title="{{ t._('module_local_speech_to_text_OpenConversation') }}">
                             <i class="eye icon"></i>
                         </a>
                     </td>
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="7" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoTranscripts') }}</td>
+                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoTranscripts') }}</td>
                 </tr>
             {% endfor %}
             </tbody>

@@ -248,33 +248,124 @@ class STTJob extends ModulesModelsBase
         return max(60, min(86400, $timeout));
     }
 
-    public function markDone(): void
+    public function markDoneForWorker(int $workerId): bool
     {
+        $finishedAt = (string)time();
+        $connection = $this->getWriteConnection();
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET status = :done,
+                    finished_at = :finished_at,
+                    error_msg = NULL
+              WHERE id = :id
+                AND status = :processing
+                AND worker_id = :worker_id',
+            [
+                'done' => self::STATUS_DONE,
+                'finished_at' => $finishedAt,
+                'id' => (int)$this->id,
+                'processing' => self::STATUS_PROCESSING,
+                'worker_id' => $workerId,
+            ]
+        );
+
+        if ((int)$connection->affectedRows() !== 1) {
+            return false;
+        }
+
         $this->status = self::STATUS_DONE;
-        $this->finished_at = (string)time();
+        $this->finished_at = $finishedAt;
         $this->error_msg = null;
 
-        if (!$this->save()) {
-            throw new RuntimeException(implode(', ', $this->getMessages()));
-        }
+        return true;
     }
 
-    public function markFailed(string $errorMessage): void
+    public function refreshProcessingLeaseForWorker(int $workerId): bool
     {
-        $this->attempts = (string)(((int)$this->attempts) + 1);
-        $this->error_msg = substr($errorMessage, 0, 1000);
+        $startedAt = (string)time();
+        $connection = $this->getWriteConnection();
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET started_at = :started_at
+              WHERE id = :id
+                AND status = :processing
+                AND worker_id = :worker_id',
+            [
+                'started_at' => $startedAt,
+                'id' => (int)$this->id,
+                'processing' => self::STATUS_PROCESSING,
+                'worker_id' => $workerId,
+            ]
+        );
 
-        if ((int)$this->attempts >= 3) {
-            $this->status = self::STATUS_ERROR;
-            $this->finished_at = (string)time();
+        if ((int)$connection->affectedRows() !== 1) {
+            return false;
+        }
+
+        $this->started_at = $startedAt;
+
+        return true;
+    }
+
+    public function markFailedForWorker(int $workerId, string $errorMessage): bool
+    {
+        $currentAttempts = (int)$this->attempts;
+        $nextAttempts = $currentAttempts + 1;
+        $finalFailure = $nextAttempts >= 3;
+        $finishedAt = (string)time();
+        $connection = $this->getWriteConnection();
+        $bind = [
+            'attempts' => (string)$nextAttempts,
+            'error_msg' => substr($errorMessage, 0, 1000),
+            'id' => (int)$this->id,
+            'processing' => self::STATUS_PROCESSING,
+            'worker_id' => $workerId,
+            'current_attempts' => (string)$currentAttempts,
+        ];
+
+        if ($finalFailure) {
+            $sql = 'UPDATE m_STTJob
+                    SET attempts = :attempts,
+                        error_msg = :error_msg,
+                        status = :error,
+                        finished_at = :finished_at
+                  WHERE id = :id
+                    AND status = :processing
+                    AND worker_id = :worker_id
+                    AND CAST(attempts AS INTEGER) = :current_attempts';
+            $bind['error'] = self::STATUS_ERROR;
+            $bind['finished_at'] = $finishedAt;
         } else {
-            $this->status = self::STATUS_PENDING;
-            $this->worker_id = null;
-            $this->started_at = null;
+            $sql = 'UPDATE m_STTJob
+                    SET attempts = :attempts,
+                        error_msg = :error_msg,
+                        status = :pending,
+                        worker_id = NULL,
+                        started_at = NULL,
+                        finished_at = NULL
+                  WHERE id = :id
+                    AND status = :processing
+                    AND worker_id = :worker_id
+                    AND CAST(attempts AS INTEGER) = :current_attempts';
+            $bind['pending'] = self::STATUS_PENDING;
         }
 
-        if (!$this->save()) {
-            throw new RuntimeException(implode(', ', $this->getMessages()));
+        $connection->execute($sql, $bind);
+
+        if ((int)$connection->affectedRows() !== 1) {
+            return false;
         }
+
+        $freshJob = self::findFirstById($this->id);
+        if ($freshJob instanceof self) {
+            $this->status = $freshJob->status;
+            $this->worker_id = $freshJob->worker_id;
+            $this->attempts = $freshJob->attempts;
+            $this->started_at = $freshJob->started_at;
+            $this->finished_at = $freshJob->finished_at;
+            $this->error_msg = $freshJob->error_msg;
+        }
+
+        return true;
     }
 }

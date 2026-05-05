@@ -143,14 +143,25 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
 
-            STTResult::saveForJob(
-                $job,
-                self::encodeTranscript($data['transcript']),
-                self::nullableStringField($data, 'language'),
-                isset($data['duration']) ? (float)$data['duration'] : null,
-                self::nullableStringField($data, 'model_used')
-            );
-            $job->markDone();
+            $connection = $job->getWriteConnection();
+            $connection->begin();
+            try {
+                STTResult::saveForJob(
+                    $job,
+                    self::encodeTranscript($data['transcript']),
+                    self::nullableStringField($data, 'language'),
+                    isset($data['duration']) ? (float)$data['duration'] : null,
+                    self::nullableStringField($data, 'model_used')
+                );
+                if (!$job->markDoneForWorker((int)$worker->id)) {
+                    $connection->rollback();
+                    return self::assignedJobConflict($jobId, $worker);
+                }
+                $connection->commit();
+            } catch (Throwable $exception) {
+                $connection->rollback();
+                throw $exception;
+            }
 
             return self::success();
         } catch (JsonException) {
@@ -186,11 +197,55 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
 
-            $job->markFailed(self::stringField($data, 'error_msg', 'Worker failed to process audio'));
+            if (!$job->markFailedForWorker(
+                (int)$worker->id,
+                self::stringField($data, 'error_msg', 'Worker failed to process audio')
+            )) {
+                return self::assignedJobConflict($jobId, $worker);
+            }
 
             return self::success([
                 'status' => (string)$job->status,
                 'attempts' => (int)$job->attempts,
+            ]);
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
+            return self::error('internal_error', 'Internal server error', 500);
+        }
+    }
+
+    public static function heartbeatJob(array $data): PBXApiResult
+    {
+        $jobId = (int)($data['id'] ?? 0);
+        $workerUid = self::stringField($data, 'worker_uid');
+        if ($jobId <= 0 || $workerUid === '') {
+            return self::error('validation_error', 'Job id and worker_uid are required', 422);
+        }
+
+        try {
+            $job = STTJob::findFirstById($jobId);
+            if ($job === null) {
+                return self::error('job_not_found', "Job #$jobId not found", 404);
+            }
+
+            $worker = self::findWorker($workerUid);
+            if ($worker === null) {
+                return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+
+            $worker->touchOnline(self::clientIp($data));
+            $ownershipError = self::validateAssignedJob($job, $worker);
+            if ($ownershipError !== null) {
+                return $ownershipError;
+            }
+
+            if (!$job->refreshProcessingLeaseForWorker((int)$worker->id)) {
+                return self::assignedJobConflict($jobId, $worker);
+            }
+
+            return self::success([
+                'status' => (string)$job->status,
+                'lease_refreshed_at' => (int)$job->started_at,
             ]);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
@@ -234,6 +289,17 @@ class LocalSpeechToTextMain
         }
 
         return null;
+    }
+
+    private static function assignedJobConflict(int $jobId, STTWorker $worker): PBXApiResult
+    {
+        $job = STTJob::findFirstById($jobId);
+        if (!$job instanceof STTJob) {
+            return self::error('job_not_found', "Job #$jobId not found", 404);
+        }
+
+        return self::validateAssignedJob($job, $worker)
+            ?? self::error('job_update_conflict', 'Job state changed while processing request', 409);
     }
 
     private static function safeRecordingPath(string $filePath): ?string

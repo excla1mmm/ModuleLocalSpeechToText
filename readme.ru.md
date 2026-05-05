@@ -36,9 +36,10 @@
 - `POST /workers:register`
 - `GET /jobs:getNext?worker_uid=...`
 - `GET /jobs/{job_id}:download?worker_uid=...`
+- `POST /jobs/{job_id}:heartbeat`
 - `POST /jobs/{job_id}:submitResult`
 - `POST /jobs/{job_id}:submitError`
 
 Все JSON-эндпоинты используют стандартную обёртку MikoPBX REST v3 `PBXApiResult` и защищены Bearer token или localhost-правилами.
 
-`jobs:getNext` возвращает `model_id` и `model_repo`; внешний worker использует `model_repo` для ленивой локальной загрузки модели. Download, `submitResult` и `submitError` проверяют, что задание сейчас закреплено именно за этим worker'ом.
+`jobs:getNext` возвращает `model_id` и `model_repo`; внешний worker использует `model_repo` для ленивой локальной загрузки модели. Download, `heartbeat`, `submitResult` и `submitError` проверяют, что задание сейчас закреплено именно за этим worker'ом.

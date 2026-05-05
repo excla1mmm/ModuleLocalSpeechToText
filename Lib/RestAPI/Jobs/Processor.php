@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\DownloadAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\GetNextAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\SubmitErrorAction;
@@ -17,6 +18,7 @@ enum JobAction: string
     case DOWNLOAD = 'download';
     case SUBMIT_RESULT = 'submitResult';
     case SUBMIT_ERROR = 'submitError';
+    case HEARTBEAT = 'heartbeat';
 }
 
 class Processor extends Injectable
@@ -41,6 +43,7 @@ class Processor extends Injectable
             JobAction::DOWNLOAD => DownloadAction::main($data),
             JobAction::SUBMIT_RESULT => SubmitResultAction::main($data),
             JobAction::SUBMIT_ERROR => SubmitErrorAction::main($data),
+            JobAction::HEARTBEAT => LocalSpeechToTextMain::heartbeatJob($data),
         };
 
         $result->processor = __METHOD__;

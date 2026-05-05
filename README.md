@@ -36,9 +36,10 @@ Endpoints:
 - `POST /workers:register`
 - `GET /jobs:getNext?worker_uid=...`
 - `GET /jobs/{job_id}:download?worker_uid=...`
+- `POST /jobs/{job_id}:heartbeat`
 - `POST /jobs/{job_id}:submitResult`
 - `POST /jobs/{job_id}:submitError`
 
 All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and are protected by Bearer token or localhost access rules.
 
-`jobs:getNext` returns `model_id` and `model_repo`; the external worker uses `model_repo` for lazy local model download. Download, `submitResult`, and `submitError` validate that the job is currently assigned to the requesting worker.
+`jobs:getNext` returns `model_id` and `model_repo`; the external worker uses `model_repo` for lazy local model download. Download, `heartbeat`, `submitResult`, and `submitError` validate that the job is currently assigned to the requesting worker.

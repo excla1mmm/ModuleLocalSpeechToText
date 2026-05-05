@@ -25,11 +25,11 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 #[HttpMapping(
     mapping: [
         'GET' => ['getNext', 'download'],
-        'POST' => ['submitResult', 'submitError'],
+        'POST' => ['submitResult', 'submitError', 'heartbeat'],
     ],
-    resourceLevelMethods: ['download', 'submitResult', 'submitError'],
+    resourceLevelMethods: ['download', 'submitResult', 'submitError', 'heartbeat'],
     collectionLevelMethods: ['getNext'],
-    customMethods: ['getNext', 'download', 'submitResult', 'submitError'],
+    customMethods: ['getNext', 'download', 'submitResult', 'submitError', 'heartbeat'],
     idPattern: '[0-9]+'
 )]
 class Controller extends BaseRestController
@@ -88,6 +88,8 @@ class Controller extends BaseRestController
     #[ApiParameterRef('duration')]
     #[ApiParameterRef('model_used')]
     #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
     public function submitResult(string $id): void
     {
@@ -107,8 +109,30 @@ class Controller extends BaseRestController
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('error_msg')]
     #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
     public function submitError(string $id): void
+    {
+        // Implementation handled by BaseRestController.
+    }
+
+    /**
+     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:heartbeat
+     */
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiOperation(
+        summary: 'module_local_speech_to_text_HeartbeatJob',
+        description: 'module_local_speech_to_text_HeartbeatJobDesc',
+        operationId: 'heartbeatLocalSpeechToTextJob'
+    )]
+    #[ApiParameterRef('id', required: true)]
+    #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    public function heartbeat(string $id): void
     {
         // Implementation handled by BaseRestController.
     }

@@ -18,6 +18,7 @@ class STTWorker extends ModulesModelsBase
     public const string STATUS_ONLINE = 'online';
     public const string STATUS_OFFLINE = 'offline';
     private const int MIN_OFFLINE_TIMEOUT_SECONDS = 60;
+    private const int HEARTBEAT_WRITE_INTERVAL_SECONDS = 30;
 
     /**
      * @Primary
@@ -109,11 +110,23 @@ class STTWorker extends ModulesModelsBase
 
     public function touchOnline(?string $ip = null): void
     {
+        $now = time();
+        $nextIp = $ip !== null && $ip !== '' ? $ip : (string)$this->ip;
+        $lastSeen = (int)$this->last_seen;
+        if (
+            (string)$this->status === self::STATUS_ONLINE
+            && (string)$this->ip === $nextIp
+            && $lastSeen > 0
+            && $now - $lastSeen < self::HEARTBEAT_WRITE_INTERVAL_SECONDS
+        ) {
+            return;
+        }
+
         if ($ip !== null && $ip !== '') {
             $this->ip = $ip;
         }
         $this->status = self::STATUS_ONLINE;
-        $this->last_seen = (string)time();
+        $this->last_seen = (string)$now;
 
         if (!$this->save()) {
             throw new RuntimeException(implode(', ', $this->getMessages()));

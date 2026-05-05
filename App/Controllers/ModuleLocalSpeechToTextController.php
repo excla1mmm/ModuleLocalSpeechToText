@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\Common\Models\ApiKeys;
+use MikoPBX\Common\Models\CallDetailRecords;
 use MikoPBX\Common\Models\LanInterfaces;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
@@ -39,16 +40,33 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
         $this->view->modelPresets = STTSetting::MODEL_PRESETS;
         $this->view->selectedModel = STTSetting::selectedModelId();
-        $this->view->pendingCount = $this->countJobsByStatus(STTJob::STATUS_PENDING);
-        $this->view->processingCount = $this->countJobsByStatus(STTJob::STATUS_PROCESSING);
-        $this->view->doneTodayCount = STTJob::count([
+        $pendingCount = $this->countJobsByStatus(STTJob::STATUS_PENDING);
+        $processingCount = $this->countJobsByStatus(STTJob::STATUS_PROCESSING);
+        $doneTodayCount = (int)STTJob::count([
             'conditions' => 'status = :status: AND finished_at >= :since:',
             'bind' => [
                 'status' => STTJob::STATUS_DONE,
                 'since' => strtotime('today'),
             ],
         ]);
-        $this->view->errorCount = $this->countJobsByStatus(STTJob::STATUS_ERROR);
+        $errorCount = $this->countJobsByStatus(STTJob::STATUS_ERROR);
+        $delayedRecordings = $this->storedRecords(STTSetting::DELAYED_RECORDINGS);
+        $skippedRecordings = $this->storedRecords(STTSetting::SKIPPED_RECORDINGS);
+        $this->view->pendingCount = $pendingCount;
+        $this->view->processingCount = $processingCount;
+        $this->view->doneTodayCount = $doneTodayCount;
+        $this->view->errorCount = $errorCount;
+        $this->view->delayedRecordingCount = count($delayedRecordings);
+        $this->view->skippedRecordingCount = count($skippedRecordings);
+        $this->view->queueSummaryRows = $this->queueSummaryRows(
+            $pendingCount,
+            $processingCount,
+            $doneTodayCount,
+            $errorCount,
+            $delayedRecordings,
+            $skippedRecordings
+        );
+        $this->view->queueFileRows = $this->queueFileRows($delayedRecordings, $skippedRecordings);
         STTWorker::markStaleOffline();
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
@@ -58,10 +76,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->workerInstallCommand = $generatedApiKey === ''
             ? ''
             : $this->workerInstallCommand($generatedApiKey);
-        $this->view->results = STTResult::find([
-            'order' => 'created_at DESC, id DESC',
-            'limit' => 100,
-        ]);
+        $this->view->transcriptRows = $this->transcriptRows();
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/index');
     }
@@ -120,10 +135,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $this->view->dashboardPath = MenuProvider::DASHBOARD_PATH;
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-        $this->view->results = STTResult::find([
-            'order' => 'created_at DESC, id DESC',
-            'limit' => 100,
-        ]);
+        $this->view->transcriptRows = $this->transcriptRows();
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcripts');
     }
@@ -393,6 +405,449 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return ':' . $portNumber;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function queueSummaryRows(
+        int $pendingCount,
+        int $processingCount,
+        int $doneTodayCount,
+        int $errorCount,
+        array $delayedRecordings,
+        array $skippedRecordings
+    ): array {
+        return [
+            [
+                'icon' => 'clock outline',
+                'label' => $this->translation->_('module_local_speech_to_text_Pending'),
+                'labelClass' => 'blue',
+                'count' => $pendingCount,
+                'lastEventLabel' => $this->formatTimestamp($this->latestJobTimestamp(STTJob::STATUS_PENDING, 'created_at')),
+            ],
+            [
+                'icon' => 'spinner',
+                'label' => $this->translation->_('module_local_speech_to_text_Processing'),
+                'labelClass' => 'orange',
+                'count' => $processingCount,
+                'lastEventLabel' => $this->formatTimestamp($this->latestJobTimestamp(STTJob::STATUS_PROCESSING, 'started_at')),
+            ],
+            [
+                'icon' => 'check circle outline',
+                'label' => $this->translation->_('module_local_speech_to_text_DoneToday'),
+                'labelClass' => 'green',
+                'count' => $doneTodayCount,
+                'lastEventLabel' => $this->formatTimestamp(
+                    $this->latestJobTimestamp(STTJob::STATUS_DONE, 'finished_at', strtotime('today'))
+                ),
+            ],
+            [
+                'icon' => 'exclamation triangle',
+                'label' => $this->translation->_('module_local_speech_to_text_Errors'),
+                'labelClass' => 'red',
+                'count' => $errorCount,
+                'lastEventLabel' => $this->formatTimestamp($this->latestJobTimestamp(STTJob::STATUS_ERROR, 'finished_at')),
+            ],
+            [
+                'icon' => 'hourglass half',
+                'label' => $this->translation->_('module_local_speech_to_text_DelayedRecordings'),
+                'labelClass' => 'yellow',
+                'count' => count($delayedRecordings),
+                'lastEventLabel' => $this->formatTimestamp($this->latestStoredRecordTimestamp($delayedRecordings, 'last_seen')),
+            ],
+            [
+                'icon' => 'ban',
+                'label' => $this->translation->_('module_local_speech_to_text_SkippedRecordings'),
+                'labelClass' => 'grey',
+                'count' => count($skippedRecordings),
+                'lastEventLabel' => $this->formatTimestamp($this->latestStoredRecordTimestamp($skippedRecordings, 'created_at')),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $delayedRecordings
+     * @param array<int, array<string, mixed>> $skippedRecordings
+     * @return array<int, array<string, mixed>>
+     */
+    private function queueFileRows(array $delayedRecordings, array $skippedRecordings): array
+    {
+        $rows = [];
+        $jobs = STTJob::find([
+            'conditions' => 'status = :pending: OR status = :processing: OR status = :error:',
+            'bind' => [
+                'pending' => STTJob::STATUS_PENDING,
+                'processing' => STTJob::STATUS_PROCESSING,
+                'error' => STTJob::STATUS_ERROR,
+            ],
+            'order' => 'id ASC',
+            'limit' => 100,
+        ]);
+
+        foreach ($jobs as $job) {
+            if (!$job instanceof STTJob) {
+                continue;
+            }
+
+            $status = $this->queueJobStatusPresentation((string)$job->status);
+            $filePath = (string)$job->file_path;
+            $worker = $job->STTWorker;
+            $updatedTimestamp = $this->queueJobUpdatedTimestamp($job);
+            $recordingTimestamp = $this->queueRecordingTimestamp(
+                (string)$job->call_id,
+                $filePath,
+                (int)$job->created_at
+            );
+
+            $rows[] = [
+                'sourceRank' => 10,
+                'sourceId' => (int)$job->id,
+                'recordingDateLabel' => $this->queueDateLabel($recordingTimestamp),
+                'recordingTimeLabel' => $this->queueTimeLabel($recordingTimestamp),
+                'icon' => $status['icon'],
+                'labelClass' => $status['labelClass'],
+                'statusLabel' => $status['label'],
+                'sourceLabel' => $this->translation->_('module_local_speech_to_text_Job') . ' #' . (int)$job->id,
+                'callId' => (string)$job->call_id,
+                'workerLabel' => $worker instanceof STTWorker && trim((string)$worker->name) !== ''
+                    ? (string)$worker->name
+                    : $this->translation->_('module_local_speech_to_text_WorkerUnassigned'),
+                'attemptsLabel' => (string)(int)$job->attempts,
+                'createdAtLabel' => $this->formatTimestamp((int)$job->created_at),
+                'updatedAtLabel' => $this->formatTimestamp($updatedTimestamp),
+                'updatedTimestamp' => $updatedTimestamp,
+            ];
+        }
+
+        foreach ($delayedRecordings as $recordId => $record) {
+            $recordingFile = (string)($record['recordingfile'] ?? '');
+            $updatedTimestamp = (int)($record['last_seen'] ?? $record['first_seen'] ?? 0);
+            $recordingTimestamp = $this->queueRecordingTimestamp(
+                (string)($record['call_id'] ?? ''),
+                $recordingFile,
+                (int)($record['first_seen'] ?? 0)
+            );
+            $rows[] = [
+                'sourceRank' => 20,
+                'sourceId' => (int)$recordId,
+                'recordingDateLabel' => $this->queueDateLabel($recordingTimestamp),
+                'recordingTimeLabel' => $this->queueTimeLabel($recordingTimestamp),
+                'icon' => 'hourglass half',
+                'labelClass' => 'yellow',
+                'statusLabel' => $this->translation->_('module_local_speech_to_text_DelayedRecordings'),
+                'sourceLabel' => $this->translation->_('module_local_speech_to_text_CdrRecord') . ' #' . (int)$recordId,
+                'callId' => (string)($record['call_id'] ?? ''),
+                'workerLabel' => '',
+                'attemptsLabel' => '',
+                'createdAtLabel' => $this->formatTimestamp((int)($record['first_seen'] ?? 0)),
+                'updatedAtLabel' => $this->formatTimestamp($updatedTimestamp),
+                'updatedTimestamp' => $updatedTimestamp,
+            ];
+        }
+
+        foreach ($skippedRecordings as $recordId => $record) {
+            $recordingPath = (string)($record['recording_path'] ?? '');
+            $recordingFile = $recordingPath !== '' ? $recordingPath : (string)($record['recordingfile'] ?? '');
+            $updatedTimestamp = (int)($record['created_at'] ?? 0);
+            $recordingTimestamp = $this->queueRecordingTimestamp(
+                (string)($record['call_id'] ?? ''),
+                $recordingFile,
+                $updatedTimestamp
+            );
+            $rows[] = [
+                'sourceRank' => 30,
+                'sourceId' => (int)$recordId,
+                'recordingDateLabel' => $this->queueDateLabel($recordingTimestamp),
+                'recordingTimeLabel' => $this->queueTimeLabel($recordingTimestamp),
+                'icon' => 'ban',
+                'labelClass' => 'grey',
+                'statusLabel' => $this->translation->_('module_local_speech_to_text_SkippedRecordings'),
+                'sourceLabel' => $this->translation->_('module_local_speech_to_text_CdrRecord') . ' #' . (int)$recordId,
+                'callId' => (string)($record['call_id'] ?? ''),
+                'workerLabel' => '',
+                'attemptsLabel' => '',
+                'createdAtLabel' => $this->formatTimestamp($updatedTimestamp),
+                'updatedAtLabel' => $this->formatTimestamp($updatedTimestamp),
+                'updatedTimestamp' => $updatedTimestamp,
+            ];
+        }
+
+        usort(
+            $rows,
+            static function (array $left, array $right): int {
+                $sourceRank = ((int)$left['sourceRank']) <=> ((int)$right['sourceRank']);
+                if ($sourceRank !== 0) {
+                    return $sourceRank;
+                }
+
+                return ((int)$left['sourceId']) <=> ((int)$right['sourceId']);
+            }
+        );
+
+        return $rows;
+    }
+
+    private function latestJobTimestamp(string $status, string $column, int $since = 0): int
+    {
+        $conditions = "status = :status: AND {$column} IS NOT NULL AND {$column} <> :empty:";
+        $bind = [
+            'status' => $status,
+            'empty' => '',
+        ];
+        if ($since > 0) {
+            $conditions .= " AND {$column} >= :since:";
+            $bind['since'] = (string)$since;
+        }
+
+        $job = STTJob::findFirst([
+            'conditions' => $conditions,
+            'bind' => $bind,
+            'order' => "{$column} DESC, id DESC",
+        ]);
+        if (!$job instanceof STTJob) {
+            return 0;
+        }
+
+        return (int)$job->{$column};
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $records
+     */
+    private function latestStoredRecordTimestamp(array $records, string $field): int
+    {
+        $latest = 0;
+        foreach ($records as $record) {
+            $latest = max($latest, (int)($record[$field] ?? 0));
+        }
+
+        return $latest;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function storedRecords(string $settingKey): array
+    {
+        $records = json_decode(STTSetting::getValue($settingKey, '[]'), true);
+        if (!is_array($records)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($records as $recordId => $record) {
+            $recordId = (int)$recordId;
+            if ($recordId <= 0 || !is_array($record)) {
+                continue;
+            }
+
+            $normalized[$recordId] = $record;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array{icon: string, labelClass: string, label: string}
+     */
+    private function queueJobStatusPresentation(string $status): array
+    {
+        return match ($status) {
+            STTJob::STATUS_PROCESSING => [
+                'icon' => 'spinner',
+                'labelClass' => 'orange',
+                'label' => $this->translation->_('module_local_speech_to_text_Processing'),
+            ],
+            STTJob::STATUS_ERROR => [
+                'icon' => 'exclamation triangle',
+                'labelClass' => 'red',
+                'label' => $this->translation->_('module_local_speech_to_text_Errors'),
+            ],
+            default => [
+                'icon' => 'clock outline',
+                'labelClass' => 'blue',
+                'label' => $this->translation->_('module_local_speech_to_text_Pending'),
+            ],
+        };
+    }
+
+    private function queueJobUpdatedTimestamp(STTJob $job): int
+    {
+        if ((string)$job->status === STTJob::STATUS_PROCESSING) {
+            return (int)$job->started_at;
+        }
+        if ((string)$job->status === STTJob::STATUS_ERROR) {
+            return (int)$job->finished_at;
+        }
+
+        return (int)$job->created_at;
+    }
+
+    private function queueRecordingTimestamp(string $callId, string $filePath, int $fallbackTimestamp): int
+    {
+        $cdrTimestamp = $this->cdrCallStartTimestamp($callId);
+        if ($cdrTimestamp > 0) {
+            return $cdrTimestamp;
+        }
+
+        $recordingTimestamp = $this->recordingTimestamp($filePath);
+        if ($recordingTimestamp > 0) {
+            return $recordingTimestamp;
+        }
+
+        return max(0, $fallbackTimestamp);
+    }
+
+    private function queueDateLabel(int $timestamp): string
+    {
+        return $timestamp > 0 ? date('Y-m-d', $timestamp) : '';
+    }
+
+    private function queueTimeLabel(int $timestamp): string
+    {
+        return $timestamp > 0 ? date('H:i:s', $timestamp) : '';
+    }
+
+    private function formatTimestamp(int $timestamp): string
+    {
+        return $timestamp > 0 ? date('Y-m-d H:i:s', $timestamp) : '';
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function transcriptRows(int $limit = 100): array
+    {
+        $rows = [];
+        $results = STTResult::find([
+            'order' => 'created_at DESC, id DESC',
+            'limit' => $limit,
+        ]);
+
+        foreach ($results as $result) {
+            if (!$result instanceof STTResult) {
+                continue;
+            }
+
+            $job = $result->STTJob;
+            $job = $job instanceof STTJob ? $job : null;
+            $callTimestamp = $this->callTimestamp($result, $job);
+            $hasCallTimestamp = $callTimestamp > 0;
+            $filePath = $job instanceof STTJob ? (string)$job->file_path : '';
+            $createdAt = (int)$result->created_at;
+
+            $rows[] = [
+                'result' => $result,
+                'job' => $job,
+                'callId' => $job instanceof STTJob ? (string)$job->call_id : '',
+                'recordingName' => $filePath === '' ? '' : basename($filePath),
+                'callTimestamp' => $callTimestamp,
+                'dateKey' => $hasCallTimestamp ? date('Y-m-d', $callTimestamp) : 'unknown',
+                'dateGroupLabel' => $hasCallTimestamp
+                    ? date('Y-m-d', $callTimestamp)
+                    : $this->translation->_('module_local_speech_to_text_CallDateUnknown'),
+                'callDateLabel' => $hasCallTimestamp
+                    ? date('Y-m-d', $callTimestamp)
+                    : $this->translation->_('module_local_speech_to_text_CallDateUnknown'),
+                'callTimeLabel' => $hasCallTimestamp ? date('H:i:s', $callTimestamp) : '',
+                'createdAtLabel' => $createdAt > 0 ? date('Y-m-d H:i:s', $createdAt) : '',
+            ];
+        }
+
+        usort(
+            $rows,
+            static fn (array $left, array $right): int => [
+                $right['callTimestamp'],
+                (int)$right['result']->id,
+            ] <=> [
+                $left['callTimestamp'],
+                (int)$left['result']->id,
+            ]
+        );
+
+        return $rows;
+    }
+
+    private function callTimestamp(STTResult $result, ?STTJob $job): int
+    {
+        if ($job instanceof STTJob) {
+            $cdrTimestamp = $this->cdrCallStartTimestamp((string)$job->call_id);
+            if ($cdrTimestamp > 0) {
+                return $cdrTimestamp;
+            }
+
+            $recordingTimestamp = $this->recordingTimestamp((string)$job->file_path);
+            if ($recordingTimestamp > 0) {
+                return $recordingTimestamp;
+            }
+
+            $jobTimestamp = (int)$job->created_at;
+            if ($jobTimestamp > 0) {
+                return $jobTimestamp;
+            }
+        }
+
+        return (int)$result->created_at;
+    }
+
+    private function cdrCallStartTimestamp(string $callId): int
+    {
+        $callId = trim($callId);
+        if ($callId === '') {
+            return 0;
+        }
+
+        $record = CallDetailRecords::findFirst([
+            'conditions' => '(linkedid = :call_id: OR UNIQUEID = :call_id:) AND start <> :empty:',
+            'bind' => [
+                'call_id' => $callId,
+                'empty' => '',
+            ],
+            'order' => 'start ASC, id ASC',
+        ]);
+        if (!$record instanceof CallDetailRecords) {
+            return 0;
+        }
+
+        $timestamp = strtotime((string)$record->start);
+
+        return $timestamp === false ? 0 : $timestamp;
+    }
+
+    private function recordingTimestamp(string $filePath): int
+    {
+        $filePath = trim($filePath);
+        if ($filePath === '') {
+            return 0;
+        }
+
+        $baseName = basename($filePath);
+        if (preg_match('/(20\d{2})([01]\d)([0-3]\d)[-_ ]?([0-2]\d)([0-5]\d)([0-5]\d)/', $baseName, $matches) === 1) {
+            $timestamp = strtotime(sprintf(
+                '%s-%s-%s %s:%s:%s',
+                $matches[1],
+                $matches[2],
+                $matches[3],
+                $matches[4],
+                $matches[5],
+                $matches[6]
+            ));
+            if ($timestamp !== false) {
+                return $timestamp;
+            }
+        }
+
+        if (preg_match('~/((?:20)\d{2})/([01]\d)/([0-3]\d)(?:/|$)~', $filePath, $matches) === 1) {
+            $timestamp = strtotime(sprintf('%s-%s-%s 00:00:00', $matches[1], $matches[2], $matches[3]));
+            if ($timestamp !== false) {
+                return $timestamp;
+            }
+        }
+
+        $fileTimestamp = @filemtime($filePath);
+
+        return $fileTimestamp === false ? 0 : $fileTimestamp;
+    }
+
     private function activeTabFromRequest(string $generatedApiKey): string
     {
         if ($generatedApiKey !== '') {
@@ -403,4 +858,5 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         return in_array($tab, ['settings', 'queue', 'workers', 'transcripts'], true) ? $tab : 'settings';
     }
+
 }
