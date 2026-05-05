@@ -5,22 +5,22 @@
 
     <div class="ui header">
         {{ t._('module_local_speech_to_text_Conversation') }}
-        <div class="sub header">#{{ result.job_id }} - {{ result.STTJob.call_id }}</div>
+        <div class="sub header">#{{ result.job_id|e }} - {{ result.STTJob.call_id|e }}</div>
     </div>
 
     <table class="ui very compact definition table stt-conversation-summary">
         <tbody>
         <tr>
             <td class="three wide">{{ t._('module_local_speech_to_text_Language') }}</td>
-            <td>{{ result.language }}</td>
+            <td>{{ result.language|e }}</td>
             <td class="three wide">{{ t._('module_local_speech_to_text_Duration') }}</td>
-            <td>{{ result.duration }}</td>
+            <td>{{ result.duration|e }}</td>
             <td class="three wide">{{ t._('module_local_speech_to_text_CreatedAt') }}</td>
             <td>{{ date('Y-m-d H:i:s', result.created_at) }}</td>
         </tr>
         <tr>
             <td>{{ t._('module_local_speech_to_text_Model') }}</td>
-            <td colspan="5"><span class="stt-model-text">{{ result.model_used }}</span></td>
+            <td colspan="5"><span class="stt-model-text">{{ result.model_used|e }}</span></td>
         </tr>
         </tbody>
     </table>
@@ -29,9 +29,9 @@
         <div class="stt-dialogue-board">
             <div class="stt-dialogue-headers">
                 {% for speaker in conversation['speakers'] %}
-                    <div class="stt-dialogue-header stt-speaker-{{ speaker['key'] }}">
+                    <div class="stt-dialogue-header stt-speaker-{{ speaker['key']|e }}">
                         <span class="stt-speaker-dot"></span>
-                        {{ speaker['label'] }}
+                        {{ speaker['label']|e }}
                     </div>
                 {% endfor %}
             </div>
@@ -45,14 +45,14 @@
                                 <div class="stt-dialogue-turn stt-turn-left">
                                     <div class="stt-turn-rail">
                                         <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['startLabel'] }}</span>
+                                        <span class="stt-turn-time">{{ turn['startLabel']|e }}</span>
                                     </div>
                                     <div class="stt-turn-card">
                                         <div class="stt-turn-meta">
-                                            <span>{{ turn['rangeLabel'] }}</span>
-                                            <span>{{ turn['speakerLabel'] }}</span>
+                                            <span>{{ turn['rangeLabel']|e }}</span>
+                                            <span>{{ turn['speakerLabel']|e }}</span>
                                         </div>
-                                        <div class="stt-turn-text" dir="auto">{{ turn['text'] }}</div>
+                                        <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
                                     </div>
                                 </div>
                             {% endif %}
@@ -63,14 +63,14 @@
                                 <div class="stt-dialogue-turn stt-turn-right">
                                     <div class="stt-turn-rail">
                                         <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['startLabel'] }}</span>
+                                        <span class="stt-turn-time">{{ turn['startLabel']|e }}</span>
                                     </div>
                                     <div class="stt-turn-card">
                                         <div class="stt-turn-meta">
-                                            <span>{{ turn['rangeLabel'] }}</span>
-                                            <span>{{ turn['speakerLabel'] }}</span>
+                                            <span>{{ turn['rangeLabel']|e }}</span>
+                                            <span>{{ turn['speakerLabel']|e }}</span>
                                         </div>
-                                        <div class="stt-turn-text" dir="auto">{{ turn['text'] }}</div>
+                                        <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
                                     </div>
                                 </div>
                             {% endif %}

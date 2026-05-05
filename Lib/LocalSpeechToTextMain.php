@@ -106,6 +106,9 @@ class LocalSpeechToTextMain
             if ($filePath === null || !is_readable($filePath)) {
                 return self::error('file_not_found', 'Recording file is not available', 404);
             }
+            if (!self::fileWithinSizeLimit($filePath)) {
+                return self::error('file_too_large', 'Recording file exceeds configured maximum size', 413);
+            }
 
             return self::fileResponse($filePath);
         } catch (Throwable $exception) {
@@ -248,6 +251,13 @@ class LocalSpeechToTextMain
         }
 
         return $resolvedPath;
+    }
+
+    private static function fileWithinSizeLimit(string $filePath): bool
+    {
+        $fileSize = @filesize($filePath);
+
+        return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
     }
 
     private static function fileResponse(string $filePath): PBXApiResult

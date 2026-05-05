@@ -21,10 +21,13 @@ class STTSetting extends ModulesModelsBase
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string SELECTED_MODEL = 'selected_model';
     public const string DELAYED_RECORDINGS = 'delayed_recordings';
+    public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
+    public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';
+    private const int DEFAULT_MAX_FILE_SIZE_MB = 500;
 
     public const array LANGUAGE_PRESETS = [
         'auto' => 'module_local_speech_to_text_LanguageAuto',
@@ -166,6 +169,14 @@ class STTSetting extends ModulesModelsBase
         $language = self::selectedLanguageId();
 
         return $language === self::AUTO_LANGUAGE ? '' : $language;
+    }
+
+    public static function maxFileSizeBytes(): int
+    {
+        $megabytes = (int)self::getValue(self::MAX_FILE_SIZE_MB, (string)self::DEFAULT_MAX_FILE_SIZE_MB);
+        $megabytes = max(1, min(10240, $megabytes));
+
+        return $megabytes * 1024 * 1024;
     }
 
     public static function normalizeModelId(string $modelId): string

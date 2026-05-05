@@ -18,11 +18,11 @@
         <tbody>
         {% for result in results %}
             <tr class="stt-clickable-row" onclick="window.location.href='{{ url(transcriptPath~'?id='~result.id) }}'">
-                <td>#{{ result.job_id }}</td>
-                <td>{{ result.STTJob.call_id }}</td>
-                <td>{{ result.language }}</td>
-                <td>{{ result.duration }}</td>
-                <td><span class="stt-model-text">{{ result.model_used }}</span></td>
+                <td>#{{ result.job_id|e }}</td>
+                <td>{{ result.STTJob.call_id|e }}</td>
+                <td>{{ result.language|e }}</td>
+                <td>{{ result.duration|e }}</td>
+                <td><span class="stt-model-text">{{ result.model_used|e }}</span></td>
                 <td>{{ date('Y-m-d H:i:s', result.created_at) }}</td>
                 <td class="right aligned">
                     <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="ui compact icon button" onclick="event.stopPropagation();" title="{{ t._('module_local_speech_to_text_OpenConversation') }}">

@@ -36,7 +36,7 @@
                 <label>{{ t._('module_local_speech_to_text_SelectedModel') }}</label>
                 <select name="selected_model" class="ui fluid dropdown">
                     {% for modelId, model in modelPresets %}
-                        <option value="{{ modelId }}" {% if modelId === selectedModel %}selected="selected"{% endif %}>
+                        <option value="{{ modelId|e }}" {% if modelId === selectedModel %}selected="selected"{% endif %}>
                             {{ t._(model['label']) }} - {{ t._(model['description']) }}
                         </option>
                     {% endfor %}
@@ -95,7 +95,7 @@
                         <span class="content">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</span>
                     </h4>
                     {% if workerApiKey %}
-                        <div class="ui small label">{{ workerApiKey.key_display }}</div>
+                        <div class="ui small label">{{ workerApiKey.key_display|e }}</div>
                     {% else %}
                         <span class="ui grey text">{{ t._('module_local_speech_to_text_WorkerApiKeyMissing') }}</span>
                     {% endif %}
@@ -117,14 +117,14 @@
                 <div class="ui info message stt-api-key-message">
                     <div class="header">{{ t._('module_local_speech_to_text_WorkerApiKeyShownOnce') }}</div>
                     <div class="ui action fluid input stt-copy-input">
-                        <input type="text" readonly="readonly" value="{{ generatedApiKey }}">
-                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ generatedApiKey }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
+                        <input type="text" readonly="readonly" value="{{ generatedApiKey|e }}">
+                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ generatedApiKey|e }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
                             <i class="copy icon"></i>
                         </button>
                     </div>
                     <div class="ui action fluid input stt-copy-input">
-                        <input type="text" readonly="readonly" value="{{ workerInstallCommand }}">
-                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ workerInstallCommand }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
+                        <input type="text" readonly="readonly" value="{{ workerInstallCommand|e }}">
+                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ workerInstallCommand|e }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
                             <i class="copy icon"></i>
                         </button>
                     </div>
@@ -144,9 +144,9 @@
             <tbody>
             {% for worker in workers %}
                 <tr>
-                    <td>{{ worker.name }}</td>
-                    <td>{{ worker.ip }}</td>
-                    <td><span class="stt-model-text">{{ worker.model }}</span></td>
+                    <td>{{ worker.name|e }}</td>
+                    <td>{{ worker.ip|e }}</td>
+                    <td><span class="stt-model-text">{{ worker.model|e }}</span></td>
                     <td class="center aligned">
                         {% if worker.status === 'online' %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Online') }}</span>
@@ -181,11 +181,11 @@
             <tbody>
             {% for result in results %}
                 <tr class="stt-clickable-row" onclick="window.location.href='{{ url(transcriptPath~'?id='~result.id) }}'">
-                    <td>#{{ result.job_id }}</td>
-                    <td>{{ result.STTJob.call_id }}</td>
-                    <td>{{ result.language }}</td>
-                    <td>{{ result.duration }}</td>
-                    <td><span class="stt-model-text">{{ result.model_used }}</span></td>
+                    <td>#{{ result.job_id|e }}</td>
+                    <td>{{ result.STTJob.call_id|e }}</td>
+                    <td>{{ result.language|e }}</td>
+                    <td>{{ result.duration|e }}</td>
+                    <td><span class="stt-model-text">{{ result.model_used|e }}</span></td>
                     <td>{{ date('Y-m-d H:i:s', result.created_at) }}</td>
                     <td class="right aligned">
                         <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="ui compact icon button" onclick="event.stopPropagation();" title="{{ t._('module_local_speech_to_text_OpenConversation') }}">

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\Common\Models\ApiKeys;
+use MikoPBX\Common\Models\LanInterfaces;
+use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -339,13 +341,56 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     private function workerInstallCommand(string $apiKey): string
     {
-        $scheme = $this->request->isSecure() ? 'https://' : 'http://';
-
         return sprintf(
-            "./install.sh --pbx-url '%s' --token '%s'",
-            $scheme . $this->request->getHttpHost(),
-            $apiKey
+            './install.sh --pbx-url %s --token %s',
+            escapeshellarg($this->trustedPbxUrl()),
+            escapeshellarg($apiKey)
         );
+    }
+
+    private function trustedPbxUrl(): string
+    {
+        $host = LanInterfaces::getExternalHostname();
+        if ($host === '') {
+            $host = LanInterfaces::getExternalAddress();
+        }
+
+        $httpsPort = trim(PbxSettings::getValueByKey(PbxSettings::WEB_HTTPS_PORT));
+        if ($httpsPort !== '') {
+            return 'https://' . $this->hostForUrl($host) . $this->portSuffix('https', $httpsPort);
+        }
+
+        $httpPort = trim(PbxSettings::getValueByKey(PbxSettings::WEB_PORT));
+
+        return 'http://' . $this->hostForUrl($host) . $this->portSuffix('http', $httpPort);
+    }
+
+    private function hostForUrl(string $host): string
+    {
+        $host = trim($host);
+        if ($host === '') {
+            return 'localhost';
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            return '[' . $host . ']';
+        }
+
+        return $host;
+    }
+
+    private function portSuffix(string $scheme, string $port): string
+    {
+        $portNumber = (int)$port;
+        if (
+            $portNumber <= 0
+            || ($scheme === 'https' && $portNumber === 443)
+            || ($scheme === 'http' && $portNumber === 80)
+        ) {
+            return '';
+        }
+
+        return ':' . $portNumber;
     }
 
     private function activeTabFromRequest(string $generatedApiKey): string

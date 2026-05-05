@@ -67,39 +67,71 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     private function createJobsFromCompletedCdr(): void
     {
         $delayedRecordings = $this->delayedRecordings();
+        [$cursorEndtime, $cursorId] = $this->scanCursor();
 
         $records = CallDetailRecords::find([
-            'conditions' => 'recordingfile <> :empty: AND work_completed = :completed:',
+            'conditions' => 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
+                . ' AND (endtime > :cursor_endtime: OR (endtime = :cursor_endtime: AND id > :cursor_id:))',
             'bind' => [
                 'empty' => '',
                 'completed' => '1',
+                'cursor_endtime' => $cursorEndtime,
+                'cursor_id' => $cursorId,
             ],
-            'order' => 'id DESC',
+            'order' => 'endtime ASC, id ASC',
             'limit' => $this->scanLimit(),
         ]);
 
-        $records = array_reverse($records->toArray());
-        foreach ($records as $record) {
+        $lastEndtime = $cursorEndtime;
+        $lastId = $cursorId;
+
+        foreach ($records->toArray() as $record) {
             if ($this->needRestart) {
                 $this->saveDelayedRecordings($delayedRecordings);
+                $this->saveScanCursor($lastEndtime, $lastId);
                 return;
             }
 
-            $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
-            if ($recordingPath === null) {
-                $this->rememberDelayedRecording($delayedRecordings, $record);
-                continue;
-            }
+            $this->processCompletedRecord($delayedRecordings, $record);
 
-            $this->forgetDelayedRecording($delayedRecordings, $this->recordId($record));
-            if (STTJob::existsForFilePath($recordingPath)) {
-                continue;
+            $recordEndtime = $this->endtime($record);
+            $recordId = $this->recordId($record);
+            if (
+                $recordEndtime !== ''
+                && ($recordEndtime > $lastEndtime || ($recordEndtime === $lastEndtime && $recordId > $lastId))
+            ) {
+                $lastEndtime = $recordEndtime;
+                $lastId = $recordId;
             }
-
-            $this->createJob($record, $recordingPath);
         }
 
         $this->saveDelayedRecordings($delayedRecordings);
+        $this->saveScanCursor($lastEndtime, $lastId);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $delayedRecordings
+     * @param array<string, mixed> $record
+     */
+    private function processCompletedRecord(array &$delayedRecordings, array $record): void
+    {
+        $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
+        if ($recordingPath === null) {
+            $this->rememberDelayedRecording($delayedRecordings, $record);
+            return;
+        }
+
+        $this->forgetDelayedRecording($delayedRecordings, $this->recordId($record));
+        if (!$this->recordingWithinSizeLimit($recordingPath)) {
+            $this->logSkippedLargeRecording($recordingPath);
+            return;
+        }
+
+        if (STTJob::existsForFilePath($recordingPath)) {
+            return;
+        }
+
+        $this->createJob($record, $recordingPath);
     }
 
     private function createJob(array $record, string $recordingPath): void
@@ -143,6 +175,13 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
             $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
             if ($recordingPath === null) {
+                continue;
+            }
+
+            if (!$this->recordingWithinSizeLimit($recordingPath)) {
+                $this->logSkippedLargeRecording($recordingPath);
+                unset($delayedRecordings[$recordId]);
+                $changed = true;
                 continue;
             }
 
@@ -245,11 +284,36 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     }
 
     /**
+     * @return array{0: string, 1: int}
+     */
+    private function scanCursor(): array
+    {
+        return [
+            trim(STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, '')),
+            (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0'),
+        ];
+    }
+
+    private function saveScanCursor(string $endtime, int $recordId): void
+    {
+        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, $endtime);
+        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, (string)max(0, $recordId));
+    }
+
+    /**
      * @param array<string, mixed> $record
      */
     private function recordId(array $record): int
     {
         return (int)($record['id'] ?? 0);
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function endtime(array $record): string
+    {
+        return trim((string)($record['endtime'] ?? ''));
     }
 
     private function scanLimit(): int
@@ -309,6 +373,22 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         }
 
         return $resolvedPath;
+    }
+
+    private function recordingWithinSizeLimit(string $recordingPath): bool
+    {
+        $fileSize = @filesize($recordingPath);
+
+        return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
+    }
+
+    private function logSkippedLargeRecording(string $recordingPath): void
+    {
+        SystemMessages::sysLogMsg(
+            __CLASS__,
+            sprintf('Skipped transcription job for %s: file exceeds configured maximum size', $recordingPath),
+            LOG_WARNING
+        );
     }
 }
 
