@@ -18,7 +18,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->addModuleAssets();
 
         $this->view->form = $this->buildSettingsForm();
-        $this->view->transcriptsPath = MenuProvider::TRANSCRIPTS_PATH;
+        $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
         $this->view->modelPresets = STTSetting::MODEL_PRESETS;
         $this->view->selectedModel = STTSetting::selectedModelId();
         $this->view->pendingCount = $this->countJobsByStatus(STTJob::STATUS_PENDING);
@@ -34,6 +34,10 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         STTWorker::markStaleOffline();
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
+        ]);
+        $this->view->results = STTResult::find([
+            'order' => 'created_at DESC, id DESC',
+            'limit' => 100,
         ]);
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/index');
