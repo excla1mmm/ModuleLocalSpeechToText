@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Forms;
 
 use MikoPBX\AdminCabinet\Forms\BaseForm;
+use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Phalcon\Forms\Element\Numeric;
-use Phalcon\Forms\Element\Text;
+use Phalcon\Forms\Element\Select;
 use stdClass;
 
 class ModuleLocalSpeechToTextForm extends BaseForm
@@ -19,10 +20,16 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             $entity = new stdClass();
         }
 
-        $this->add(new Text('default_language', [
-            'value' => $entity->default_language ?? 'ru',
-            'maxlength' => 16,
-        ]));
+        $languageSelect = new Select(
+            'default_language',
+            $this->languageOptions(),
+            [
+                'class' => 'ui fluid dropdown',
+                'useEmpty' => false,
+            ]
+        );
+        $languageSelect->setDefault($entity->default_language ?? STTSetting::AUTO_LANGUAGE);
+        $this->add($languageSelect);
         $this->add(new Numeric('poll_interval_sec', [
             'value' => $entity->poll_interval_sec ?? '5',
             'min' => 1,
@@ -43,5 +50,15 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'min' => 60,
             'max' => 86400,
         ]));
+    }
+
+    private function languageOptions(): array
+    {
+        $options = [];
+        foreach (STTSetting::LANGUAGE_PRESETS as $languageId => $label) {
+            $options[$languageId] = $this->translation->_($label);
+        }
+
+        return $options;
     }
 }

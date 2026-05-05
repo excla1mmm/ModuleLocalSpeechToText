@@ -42,9 +42,11 @@
                     {% endfor %}
                 </select>
             </div>
-            <button class="ui labeled icon blue button" type="submit" id="submitbutton">
-                <i class="save icon"></i>{{ t._('bt_Save') }}
-            </button>
+            <div class="ui clearing basic segment stt-form-actions">
+                <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" id="submitbutton">
+                    <i class="save icon"></i>{{ t._('bt_SaveSettings') }}
+                </button>
+            </div>
         </form>
     </div>
 
@@ -75,6 +77,13 @@
             </tr>
             </tbody>
         </table>
+        <div class="ui clearing basic segment stt-queue-actions">
+            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/retryErrors') }}">
+                <button class="ui left labeled icon primary right floated button{% if errorCount == 0 %} disabled{% endif %}" type="submit">
+                    <i class="redo icon"></i>{{ t._('module_local_speech_to_text_RetryErrorsButton') }}
+                </button>
+            </form>
+        </div>
     </div>
 
     <div class="ui bottom attached tab segment" data-tab="workers">

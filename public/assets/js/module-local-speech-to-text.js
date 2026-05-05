@@ -1,8 +1,20 @@
 (function () {
     'use strict';
 
+    function requestedTab() {
+        var params = new URLSearchParams(window.location.search);
+        var tabName = params.get('tab') || window.location.hash.replace(/^#/, '');
+
+        return /^[a-z0-9_-]+$/.test(tabName) ? tabName : '';
+    }
+
     $(function () {
-        $('#module-local-speech-to-text-menu .item').tab();
+        var $tabItems = $('#module-local-speech-to-text-menu .item');
+        $tabItems.tab();
+        if (requestedTab() !== '') {
+            $tabItems.tab('change tab', requestedTab());
+        }
+
         $('.module-local-speech-to-text .ui.dropdown').dropdown();
         $('.module-local-speech-to-text [data-content]').popup();
 

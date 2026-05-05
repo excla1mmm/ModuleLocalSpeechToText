@@ -16,7 +16,7 @@ It periodically scans completed CDR rows under the MikoPBX monitor directory and
 
 The main module page uses MikoPBX-style tabs:
 
-- `Settings`: language, polling interval, max file size, CDR scan limit, processing timeout, Whisper model.
+- `Settings`: language (`auto` by default plus 20 popular Whisper languages), polling interval, max file size, CDR scan limit, processing timeout, Whisper model.
 - `Queue`: pending, processing, done today, and error counters.
 - `Workers`: registered workers with IP, model, status, and last seen time.
 - `Transcripts`: last 100 results with a link to the conversation view.

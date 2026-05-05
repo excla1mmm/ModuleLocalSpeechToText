@@ -60,6 +60,23 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
     }
 
+    public function retryErrorsAction(): void
+    {
+        try {
+            $count = STTJob::requeueErrors();
+            if ($count > 0) {
+                $message = sprintf($this->translation->_('module_local_speech_to_text_RetryErrorsSuccess'), $count);
+                $this->flash->success($message);
+            } else {
+                $this->flash->warning($this->translation->_('module_local_speech_to_text_RetryErrorsEmpty'));
+            }
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=queue');
+    }
+
     public function transcriptsAction(): void
     {
         $this->addModuleAssets(false);
@@ -86,7 +103,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             return;
         }
 
-        $this->view->transcriptsPath = MenuProvider::TRANSCRIPTS_PATH;
+        $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->result = $result;
         $this->view->conversation = $this->conversationFromTranscript((string)$result->transcript);
 

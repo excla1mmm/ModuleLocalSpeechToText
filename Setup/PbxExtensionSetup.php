@@ -18,7 +18,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         }
 
         try {
-            $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, 'ru');
+            $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE);
             $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '5');
             $this->setDefaultSetting(STTSetting::MAX_FILE_SIZE_MB, '500');
             $this->setDefaultSetting(STTSetting::CDR_SCAN_LIMIT, '200');

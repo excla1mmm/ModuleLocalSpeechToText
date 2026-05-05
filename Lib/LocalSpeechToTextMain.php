@@ -202,7 +202,7 @@ class LocalSpeechToTextMain
             'call_id' => (string)$job->call_id,
             'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid),
             'duration_hint' => null,
-            'language_hint' => STTSetting::getValue(STTSetting::DEFAULT_LANGUAGE, 'ru'),
+            'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelId(),
             'model_repo' => STTSetting::selectedModelRepo(),
         ];

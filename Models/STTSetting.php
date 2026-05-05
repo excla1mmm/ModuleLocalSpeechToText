@@ -23,6 +23,31 @@ class STTSetting extends ModulesModelsBase
     public const string DELAYED_RECORDINGS = 'delayed_recordings';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
+    public const string AUTO_LANGUAGE = 'auto';
+
+    public const array LANGUAGE_PRESETS = [
+        'auto' => 'module_local_speech_to_text_LanguageAuto',
+        'ru' => 'module_local_speech_to_text_LanguageRussian',
+        'en' => 'module_local_speech_to_text_LanguageEnglish',
+        'de' => 'module_local_speech_to_text_LanguageGerman',
+        'es' => 'module_local_speech_to_text_LanguageSpanish',
+        'fr' => 'module_local_speech_to_text_LanguageFrench',
+        'it' => 'module_local_speech_to_text_LanguageItalian',
+        'pt' => 'module_local_speech_to_text_LanguagePortuguese',
+        'zh' => 'module_local_speech_to_text_LanguageChinese',
+        'ja' => 'module_local_speech_to_text_LanguageJapanese',
+        'ko' => 'module_local_speech_to_text_LanguageKorean',
+        'ar' => 'module_local_speech_to_text_LanguageArabic',
+        'tr' => 'module_local_speech_to_text_LanguageTurkish',
+        'pl' => 'module_local_speech_to_text_LanguagePolish',
+        'uk' => 'module_local_speech_to_text_LanguageUkrainian',
+        'nl' => 'module_local_speech_to_text_LanguageDutch',
+        'hi' => 'module_local_speech_to_text_LanguageHindi',
+        'id' => 'module_local_speech_to_text_LanguageIndonesian',
+        'vi' => 'module_local_speech_to_text_LanguageVietnamese',
+        'th' => 'module_local_speech_to_text_LanguageThai',
+        'he' => 'module_local_speech_to_text_LanguageHebrew',
+    ];
 
     public const array MODEL_PRESETS = [
         'tiny' => [
@@ -130,10 +155,29 @@ class STTSetting extends ModulesModelsBase
         return self::selectedModelPreset()['repo'];
     }
 
+    public static function selectedLanguageId(): string
+    {
+        return self::normalizeLanguageId(self::getValue(self::DEFAULT_LANGUAGE, self::AUTO_LANGUAGE));
+    }
+
+    public static function selectedLanguageHint(): string
+    {
+        $language = self::selectedLanguageId();
+
+        return $language === self::AUTO_LANGUAGE ? '' : $language;
+    }
+
     public static function normalizeModelId(string $modelId): string
     {
         $modelId = trim($modelId);
 
         return array_key_exists($modelId, self::MODEL_PRESETS) ? $modelId : self::DEFAULT_MODEL;
+    }
+
+    public static function normalizeLanguageId(string $languageId): string
+    {
+        $languageId = strtolower(trim($languageId));
+
+        return array_key_exists($languageId, self::LANGUAGE_PRESETS) ? $languageId : self::AUTO_LANGUAGE;
     }
 }

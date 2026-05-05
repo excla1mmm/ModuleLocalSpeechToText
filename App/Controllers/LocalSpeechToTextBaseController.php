@@ -43,7 +43,7 @@ class LocalSpeechToTextBaseController extends BaseController
     {
         STTSetting::setValue(
             STTSetting::DEFAULT_LANGUAGE,
-            $this->postString(STTSetting::DEFAULT_LANGUAGE, 'ru', 16)
+            STTSetting::normalizeLanguageId($this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16))
         );
         STTSetting::setValue(
             STTSetting::POLL_INTERVAL_SEC,
@@ -80,7 +80,7 @@ class LocalSpeechToTextBaseController extends BaseController
     private function settingsEntity(): stdClass
     {
         $settings = new stdClass();
-        $settings->default_language = STTSetting::getValue(STTSetting::DEFAULT_LANGUAGE, 'ru');
+        $settings->default_language = STTSetting::selectedLanguageId();
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
         $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');

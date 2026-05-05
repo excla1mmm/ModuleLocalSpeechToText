@@ -216,6 +216,28 @@ class STTJob extends ModulesModelsBase
         return (int)$connection->affectedRows();
     }
 
+    public static function requeueErrors(): int
+    {
+        $model = new self();
+        $connection = $model->getWriteConnection();
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET status = :pending,
+                    worker_id = NULL,
+                    attempts = 0,
+                    started_at = NULL,
+                    finished_at = NULL,
+                    error_msg = NULL
+              WHERE status = :error',
+            [
+                'pending' => self::STATUS_PENDING,
+                'error' => self::STATUS_ERROR,
+            ]
+        );
+
+        return (int)$connection->affectedRows();
+    }
+
     private static function processingTimeoutSeconds(): int
     {
         $timeout = (int)STTSetting::getValue(

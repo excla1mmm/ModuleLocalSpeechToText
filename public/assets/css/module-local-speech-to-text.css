@@ -16,6 +16,11 @@
     word-break: break-word;
 }
 
+.module-local-speech-to-text .stt-form-actions {
+    padding: 0 !important;
+    margin: 1.5em 0 0 0 !important;
+}
+
 .module-local-speech-to-text .stt-clickable-row {
     cursor: pointer;
 }
