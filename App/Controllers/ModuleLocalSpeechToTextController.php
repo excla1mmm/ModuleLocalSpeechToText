@@ -6,8 +6,11 @@ namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\CallDetailRecords;
+use MikoPBX\Common\Models\Extensions;
 use MikoPBX\Common\Models\LanInterfaces;
 use MikoPBX\Common\Models\PbxSettings;
+use MikoPBX\Common\Models\Users;
+use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -185,7 +188,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function transcriptAction(): void
     {
-        $this->addModuleAssets(false);
+        $this->addModuleAssets();
 
         $resultId = (int)$this->request->getQuery('id', 'int', 0);
         $result = STTResult::findFirstById($resultId);
@@ -198,8 +201,32 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->result = $result;
         $this->view->conversation = $this->conversationFromTranscript((string)$result->transcript);
+        $job = $result->STTJob;
+        $this->view->recording = $this->recordingCard($result, $job instanceof STTJob ? $job : null);
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcript');
+    }
+
+    public function recordingAction(): void
+    {
+        $this->view->disable();
+
+        $resultId = (int)$this->request->getQuery('id', 'int', 0);
+        $download = (int)$this->request->getQuery('download', 'int', 0) === 1;
+        $result = STTResult::findFirstById($resultId);
+        $job = $result instanceof STTResult ? $result->STTJob : null;
+        if (!$job instanceof STTJob) {
+            $this->sendRecordingError(404, 'Recording not found');
+            return;
+        }
+
+        $filePath = $this->safeMonitorRecordingPath((string)$job->file_path);
+        if ($filePath === '') {
+            $this->sendRecordingError(404, 'Recording not found');
+            return;
+        }
+
+        $this->streamRecordingFile($filePath, $download);
     }
 
     /**
@@ -352,6 +379,346 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         return sprintf('%s - %s', $this->timeLabel($start), $this->timeLabel($end));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function recordingCard(STTResult $result, ?STTJob $job): array
+    {
+        $cdr = $job instanceof STTJob ? $this->cdrRecordForJob($job) : null;
+        $filePath = $job instanceof STTJob ? (string)$job->file_path : '';
+        $playbackUrl = '';
+        $downloadUrl = '';
+        $safeFilePath = $this->safeMonitorRecordingPath($filePath);
+        if ($safeFilePath !== '') {
+            $recordingUrl = MenuProvider::RECORDING_PATH . '?id=' . (int)$result->id;
+            $playbackUrl = $this->url->get($recordingUrl);
+            $downloadUrl = $this->url->get($recordingUrl . '&download=1');
+        }
+        $callTimestamp = $this->callTimestamp($result, $job);
+        $duration = (float)($result->duration ?? 0);
+        if ($duration <= 0 && $cdr instanceof CallDetailRecords) {
+            $duration = (float)$cdr->duration;
+        }
+        $sourceNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->src_num) : '';
+        $destinationNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->dst_num) : '';
+
+        $rows = [
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_CallDate'),
+                'value' => $callTimestamp > 0 ? date('Y-m-d H:i:s', $callTimestamp) : '',
+            ],
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_Duration'),
+                'value' => $duration > 0 ? $this->durationLabel($duration) : '',
+            ],
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_SourceNumber'),
+                'value' => $sourceNumber,
+            ],
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_DestinationNumber'),
+                'value' => $destinationNumber,
+            ],
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_TranscriptCreatedAt'),
+                'value' => (int)$result->created_at > 0 ? date('Y-m-d H:i:s', (int)$result->created_at) : '',
+            ],
+            [
+                'label' => $this->translation->_('module_local_speech_to_text_Model'),
+                'value' => (string)$result->model_used,
+            ],
+        ];
+
+        return [
+            'hasPlayback' => $playbackUrl !== '',
+            'playbackUrl' => $playbackUrl,
+            'downloadUrl' => $downloadUrl,
+            'durationSeconds' => $duration > 0 ? (string)$duration : '',
+            'durationLabel' => $duration > 0 ? $this->durationLabel($duration) : '',
+            'rows' => array_values(array_filter(
+                $rows,
+                static fn (array $row): bool => trim((string)$row['value']) !== ''
+            )),
+        ];
+    }
+
+    private function sendRecordingError(int $statusCode, string $message): void
+    {
+        $reason = match ($statusCode) {
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            default => 'Error',
+        };
+
+        $this->response->setStatusCode($statusCode, $reason);
+        $this->response->setContentType('text/plain', 'UTF-8');
+        $this->response->setContent($message);
+    }
+
+    private function streamRecordingFile(string $filePath, bool $download): void
+    {
+        $fileSize = filesize($filePath);
+        if ($fileSize === false || $fileSize <= 0) {
+            $this->sendRecordingError(404, 'Recording not found');
+            return;
+        }
+
+        $fileHandle = fopen($filePath, 'rb');
+        if ($fileHandle === false) {
+            $this->sendRecordingError(403, 'Recording not readable');
+            return;
+        }
+
+        $start = 0;
+        $end = $fileSize - 1;
+        $statusCode = 200;
+        $rangeHeader = (string)$this->request->getHeader('Range');
+        if ($rangeHeader !== '' && preg_match('/bytes=(\d*)-(\d*)/', $rangeHeader, $matches) === 1) {
+            $rangeStart = $matches[1];
+            $rangeEnd = $matches[2];
+
+            if ($rangeStart === '' && $rangeEnd === '') {
+                fclose($fileHandle);
+                $this->sendInvalidRecordingRange($fileSize);
+                return;
+            }
+
+            if ($rangeStart === '') {
+                $suffixLength = (int)$rangeEnd;
+                if ($suffixLength <= 0) {
+                    fclose($fileHandle);
+                    $this->sendInvalidRecordingRange($fileSize);
+                    return;
+                }
+                $start = max(0, $fileSize - $suffixLength);
+            } else {
+                $start = (int)$rangeStart;
+                $end = $rangeEnd === '' ? $end : (int)$rangeEnd;
+            }
+
+            if ($start > $end || $start >= $fileSize) {
+                fclose($fileHandle);
+                $this->sendInvalidRecordingRange($fileSize);
+                return;
+            }
+
+            $end = min($end, $fileSize - 1);
+            $statusCode = 206;
+        }
+
+        $length = $end - $start + 1;
+        $fileName = basename($filePath);
+        $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '_', $fileName) ?: 'recording';
+        $disposition = $download ? 'attachment' : 'inline';
+
+        $this->response->setStatusCode($statusCode, $statusCode === 206 ? 'Partial Content' : 'OK');
+        $this->response->setHeader('Content-Type', $this->recordingMimeType($filePath));
+        $this->response->setHeader('Accept-Ranges', 'bytes');
+        $this->response->setHeader('Content-Length', (string)$length);
+        $this->response->setHeader('Content-Disposition', $disposition . '; filename="' . $safeFileName . '"');
+        if ($statusCode === 206) {
+            $this->response->setHeader('Content-Range', sprintf('bytes %d-%d/%d', $start, $end, $fileSize));
+        }
+        $this->response->sendHeaders();
+
+        fseek($fileHandle, $start);
+        $remainingBytes = $length;
+        while ($remainingBytes > 0 && !feof($fileHandle)) {
+            $chunk = fread($fileHandle, min(8192, $remainingBytes));
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            echo $chunk;
+            $remainingBytes -= strlen($chunk);
+            flush();
+            if (connection_aborted()) {
+                break;
+            }
+        }
+
+        fclose($fileHandle);
+        exit;
+    }
+
+    private function sendInvalidRecordingRange(int $fileSize): void
+    {
+        $this->response->setStatusCode(416, 'Range Not Satisfiable');
+        $this->response->setHeader('Content-Range', 'bytes */' . $fileSize);
+        $this->response->setContentType('text/plain', 'UTF-8');
+        $this->response->setContent('Invalid range');
+    }
+
+    private function recordingMimeType(string $filePath): string
+    {
+        return match (strtolower(pathinfo($filePath, PATHINFO_EXTENSION))) {
+            'aac' => 'audio/aac',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            'mp3' => 'audio/mpeg',
+            'ogg' => 'audio/ogg',
+            'wav' => 'audio/wav',
+            'webm' => 'audio/webm',
+            default => 'application/octet-stream',
+        };
+    }
+
+    private function numberWithEmployeeName(string $number): string
+    {
+        $number = trim($number);
+        if ($number === '') {
+            return '';
+        }
+
+        $extension = $this->employeeExtensionByNumber($number);
+        if (!$extension instanceof Extensions) {
+            return $number;
+        }
+
+        $employeeName = '';
+        $user = $extension->Users;
+        if ($user instanceof Users) {
+            $employeeName = trim((string)$user->username);
+        }
+        if ($employeeName === '') {
+            $employeeName = trim((string)$extension->callerid);
+        }
+
+        return $employeeName === '' ? $number : sprintf('%s (%s)', $number, $employeeName);
+    }
+
+    private function employeeExtensionByNumber(string $number): ?Extensions
+    {
+        $number = trim($number);
+        if ($number === '') {
+            return null;
+        }
+
+        $extension = Extensions::findFirst([
+            'conditions' => 'number = :number: AND userid IS NOT NULL AND userid > 0',
+            'bind' => [
+                'number' => $number,
+            ],
+            'order' => 'is_general_user_number DESC, id ASC',
+        ]);
+
+        return $extension instanceof Extensions ? $extension : null;
+    }
+
+    private function cdrRecordForJob(STTJob $job): ?CallDetailRecords
+    {
+        $callId = trim((string)$job->call_id);
+        $jobFilePath = realpath((string)$job->file_path) ?: '';
+        $preferredRecord = null;
+
+        if ($callId !== '') {
+            $records = CallDetailRecords::find([
+                'conditions' => '(linkedid = :call_id: OR UNIQUEID = :call_id:) AND recordingfile <> :empty:',
+                'bind' => [
+                    'call_id' => $callId,
+                    'empty' => '',
+                ],
+                'order' => 'start ASC, id ASC',
+            ]);
+
+            foreach ($records as $record) {
+                if (!$record instanceof CallDetailRecords) {
+                    continue;
+                }
+                if (!$preferredRecord instanceof CallDetailRecords) {
+                    $preferredRecord = $record;
+                }
+
+                $recordingPath = $this->cdrRecordingPath((string)$record->recordingfile);
+                if ($jobFilePath !== '' && $recordingPath === $jobFilePath) {
+                    return $record;
+                }
+            }
+        }
+
+        if ($preferredRecord instanceof CallDetailRecords) {
+            return $preferredRecord;
+        }
+
+        return $this->cdrRecordByRecordingPath($jobFilePath);
+    }
+
+    private function cdrRecordByRecordingPath(string $jobFilePath): ?CallDetailRecords
+    {
+        if ($jobFilePath === '') {
+            return null;
+        }
+
+        $records = CallDetailRecords::find([
+            'conditions' => 'recordingfile <> :empty:',
+            'bind' => [
+                'empty' => '',
+            ],
+            'order' => 'start DESC, id DESC',
+            'limit' => 500,
+        ]);
+
+        foreach ($records as $record) {
+            if (!$record instanceof CallDetailRecords) {
+                continue;
+            }
+
+            if ($this->cdrRecordingPath((string)$record->recordingfile) === $jobFilePath) {
+                return $record;
+            }
+        }
+
+        return null;
+    }
+
+    private function cdrRecordingPath(string $recordingFile): string
+    {
+        $recordingFile = trim($recordingFile);
+        if ($recordingFile === '' || $recordingFile === '-') {
+            return '';
+        }
+
+        $monitorDir = Directories::getDir(Directories::AST_MONITOR_DIR);
+        $candidate = str_starts_with($recordingFile, '/')
+            ? $recordingFile
+            : $monitorDir . '/' . ltrim($recordingFile, '/');
+        $resolvedPath = realpath($candidate);
+
+        return $resolvedPath === false ? '' : $resolvedPath;
+    }
+
+    private function safeMonitorRecordingPath(string $filePath): string
+    {
+        $filePath = trim($filePath);
+        if ($filePath === '') {
+            return '';
+        }
+
+        $allowedBase = realpath(Directories::getDir(Directories::AST_MONITOR_DIR));
+        $resolvedPath = realpath($filePath);
+        if ($allowedBase === false || $resolvedPath === false || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
+            return '';
+        }
+
+        $allowedPrefix = rtrim($allowedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if ($resolvedPath !== $allowedBase && strncmp($resolvedPath, $allowedPrefix, strlen($allowedPrefix)) !== 0) {
+            return '';
+        }
+
+        return $resolvedPath;
+    }
+
+    private function durationLabel(float $seconds): string
+    {
+        $totalSeconds = (int)round(max(0.0, $seconds));
+        $hours = intdiv($totalSeconds, 3600);
+        $minutes = intdiv($totalSeconds % 3600, 60);
+        $rest = $totalSeconds % 60;
+
+        return $hours > 0
+            ? sprintf('%d:%02d:%02d', $hours, $minutes, $rest)
+            : sprintf('%d:%02d', $minutes, $rest);
     }
 
     /**

@@ -121,8 +121,140 @@
     min-width: 2.6em;
 }
 
-.module-local-speech-to-text .stt-conversation-summary {
-    margin-bottom: 1.5em;
+.module-local-speech-to-text .stt-recording-panel {
+    margin: 1em 0 1.2em 0;
+    border: 1px solid rgba(34, 36, 38, 0.12);
+    border-radius: 0.28571429rem;
+    background: #fff;
+}
+
+.module-local-speech-to-text .stt-recording-player {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18em, 34em);
+    gap: 1em;
+    align-items: center;
+    padding: 1em;
+    border-bottom: 1px solid rgba(34, 36, 38, 0.08);
+}
+
+.module-local-speech-to-text .stt-recording-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: 1.08em;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.module-local-speech-to-text .stt-recording-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65em;
+    min-width: 0;
+}
+
+.module-local-speech-to-text .stt-cdr-player {
+    display: grid;
+    grid-template-columns: auto minmax(11em, 1fr) auto auto;
+    gap: 0.75em;
+    align-items: center;
+    width: 100%;
+    min-width: 18em;
+}
+
+.module-local-speech-to-text .stt-cdr-player audio {
+    display: none;
+}
+
+.module-local-speech-to-text .stt-player-play,
+.module-local-speech-to-text .stt-player-download {
+    margin: 0 !important;
+}
+
+.module-local-speech-to-text .stt-player-range-wrap {
+    min-width: 0;
+    padding: 0 0.35em;
+}
+
+.module-local-speech-to-text .ui.range.cdr-player.stt-player-range {
+    position: relative;
+    margin: 0;
+}
+
+.module-local-speech-to-text .ui.range.cdr-player.stt-player-range .inner {
+    margin: 0;
+}
+
+.module-local-speech-to-text .cdr-slider-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    z-index: 1000;
+    padding: 5px 12px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(-8px);
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .cdr-slider-tooltip::after {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+    content: '';
+    transform: translateX(-50%);
+}
+
+.module-local-speech-to-text .ui.range.cdr-player.stt-player-range:hover .cdr-slider-tooltip {
+    opacity: 1;
+}
+
+.module-local-speech-to-text .stt-player-duration {
+    color: rgba(0, 0, 0, 0.62);
+    font-family: monospace;
+    font-size: 0.95em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-recording-details {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+}
+
+.module-local-speech-to-text .stt-recording-detail {
+    min-width: 0;
+    padding: 0.85em 1em;
+    border-right: 1px solid rgba(34, 36, 38, 0.08);
+    border-bottom: 1px solid rgba(34, 36, 38, 0.08);
+}
+
+.module-local-speech-to-text .stt-recording-detail:nth-child(3n) {
+    border-right: 0;
+}
+
+.module-local-speech-to-text .stt-recording-detail-label {
+    margin-bottom: 0.25em;
+    color: rgba(0, 0, 0, 0.48);
+    font-size: 0.86em;
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-recording-detail-value {
+    color: rgba(0, 0, 0, 0.87);
+    overflow-wrap: anywhere;
 }
 
 .module-local-speech-to-text .stt-dialogue-board {
@@ -191,6 +323,15 @@
     align-items: start;
 }
 
+.module-local-speech-to-text .stt-playable-turn {
+    cursor: pointer;
+}
+
+.module-local-speech-to-text .stt-playable-turn:focus {
+    outline: 2px solid rgba(33, 133, 208, 0.35);
+    outline-offset: 3px;
+}
+
 .module-local-speech-to-text .stt-turn-rail {
     display: flex;
     flex-direction: column;
@@ -233,6 +374,16 @@
     background: #fff3e8;
 }
 
+.module-local-speech-to-text .stt-turn-active .stt-turn-card {
+    border-color: rgba(33, 186, 69, 0.42);
+    box-shadow: 0 0 0 2px rgba(33, 186, 69, 0.12), 0 1px 2px rgba(34, 36, 38, 0.06);
+}
+
+.module-local-speech-to-text .stt-turn-active .stt-turn-line {
+    background: #21ba45;
+    box-shadow: 0 0 0 3px rgba(33, 186, 69, 0.12);
+}
+
 .module-local-speech-to-text .stt-turn-meta {
     display: flex;
     flex-wrap: wrap;
@@ -253,9 +404,34 @@
 }
 
 @media only screen and (max-width: 767px) {
-    .module-local-speech-to-text .stt-conversation-summary td {
-        display: block;
-        width: 100% !important;
+    .module-local-speech-to-text .stt-recording-player,
+    .module-local-speech-to-text .stt-recording-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .module-local-speech-to-text .stt-recording-actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .module-local-speech-to-text .stt-cdr-player {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        min-width: 0;
+    }
+
+    .module-local-speech-to-text .stt-player-download {
+        grid-column: 3;
+    }
+
+    .module-local-speech-to-text .stt-player-duration {
+        grid-column: 2 / 3;
+        grid-row: 2;
+        justify-self: start;
+    }
+
+    .module-local-speech-to-text .stt-recording-detail,
+    .module-local-speech-to-text .stt-recording-detail:nth-child(3n) {
+        border-right: 0;
     }
 
     .module-local-speech-to-text .stt-recording-file {
