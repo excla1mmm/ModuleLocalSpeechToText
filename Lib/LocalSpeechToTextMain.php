@@ -12,6 +12,7 @@ use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
+use RuntimeException;
 use Throwable;
 
 class LocalSpeechToTextMain
@@ -33,12 +34,23 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'worker_uid is required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
+        $registrationBindingError = self::validateWorkerRegistrationBinding($workerUid, $data);
+        if ($registrationBindingError !== null) {
+            return $registrationBindingError;
+        }
+
         try {
             $worker = STTWorker::registerWorker(
                 $workerUid,
                 self::stringField($data, 'name', $workerUid),
-                self::stringField($data, 'model', 'unknown'),
-                self::clientIp($data)
+                self::currentWorkerModelName(),
+                self::clientIp($data),
+                self::requestApiKeyId($data)
             );
 
             return self::success([
@@ -58,13 +70,23 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'worker_uid is required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
         try {
             $worker = self::findWorker($workerUid);
             if ($worker === null) {
                 return self::error('worker_not_registered', 'Worker is not registered', 404);
             }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
+            }
 
             $worker->touchOnline(self::clientIp($data));
+            self::syncWorkerModel($worker);
             $job = STTJob::claimNextForWorker($worker);
             if ($job === null) {
                 return self::success(['job' => null]);
@@ -85,6 +107,11 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'Job id and worker_uid are required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
@@ -94,6 +121,10 @@ class LocalSpeechToTextMain
             $worker = self::findWorker($workerUid);
             if ($worker === null) {
                 return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
             }
             $worker->touchOnline(self::clientIp($data));
 
@@ -126,6 +157,11 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'job id, worker_uid and transcript are required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
@@ -135,6 +171,10 @@ class LocalSpeechToTextMain
             $worker = self::findWorker($workerUid);
             if ($worker === null) {
                 return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
             }
 
             $worker->touchOnline(self::clientIp($data));
@@ -180,6 +220,11 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'Job id and worker_uid are required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
@@ -189,6 +234,10 @@ class LocalSpeechToTextMain
             $worker = self::findWorker($workerUid);
             if ($worker === null) {
                 return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
             }
 
             $worker->touchOnline(self::clientIp($data));
@@ -222,6 +271,11 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'Job id and worker_uid are required', 422);
         }
 
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
@@ -231,6 +285,10 @@ class LocalSpeechToTextMain
             $worker = self::findWorker($workerUid);
             if ($worker === null) {
                 return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
             }
 
             $worker->touchOnline(self::clientIp($data));
@@ -266,6 +324,24 @@ class LocalSpeechToTextMain
         ];
     }
 
+    private static function currentWorkerModelName(): string
+    {
+        return STTSetting::selectedModelId();
+    }
+
+    private static function syncWorkerModel(STTWorker $worker): void
+    {
+        $currentModel = self::currentWorkerModelName();
+        if ((string)$worker->model === $currentModel) {
+            return;
+        }
+
+        $worker->model = $currentModel;
+        if (!$worker->save()) {
+            throw new RuntimeException(implode(', ', $worker->getMessages()));
+        }
+    }
+
     private static function findWorker(string $workerUid): ?STTWorker
     {
         $worker = STTWorker::findFirst([
@@ -276,6 +352,91 @@ class LocalSpeechToTextMain
         ]);
 
         return $worker instanceof STTWorker ? $worker : null;
+    }
+
+    private static function validateWorkerApiKey(array $data): ?PBXApiResult
+    {
+        if (!self::isBearerAuthenticatedRequest($data)) {
+            return null;
+        }
+
+        $apiKeyId = self::requestApiKeyId($data) ?? 0;
+        if ($apiKeyId <= 0) {
+            return self::error('worker_api_key_required', 'Worker REST API key is required', 403);
+        }
+
+        $workerApiKeyIds = STTSetting::workerApiKeyIds();
+        if ($workerApiKeyIds === []) {
+            return self::error('worker_api_key_not_configured', 'Worker REST API key is not configured', 403);
+        }
+
+        if (!in_array($apiKeyId, $workerApiKeyIds, true)) {
+            return self::error('worker_api_key_forbidden', 'This API key is not assigned to Local Speech To Text workers', 403);
+        }
+
+        return null;
+    }
+
+    private static function validateWorkerRegistrationBinding(string $workerUid, array $data): ?PBXApiResult
+    {
+        if (!self::isBearerAuthenticatedRequest($data)) {
+            return null;
+        }
+
+        $worker = self::findWorker($workerUid);
+        $requestApiKeyId = self::requestApiKeyId($data) ?? 0;
+        if (!$worker instanceof STTWorker) {
+            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
+        }
+
+        $boundApiKeyId = (int)$worker->api_key_id;
+        if ($boundApiKeyId <= 0 || $boundApiKeyId === $requestApiKeyId) {
+            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
+        }
+
+        if (!STTSetting::isWorkerApiKeyIdAllowed($boundApiKeyId)) {
+            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
+        }
+
+        return self::error('worker_api_key_mismatch', 'Worker is bound to another API key', 403);
+    }
+
+    private static function validateWorkerApiKeyExclusiveBinding(string $workerUid, int $apiKeyId): ?PBXApiResult
+    {
+        if ($apiKeyId <= 0) {
+            return null;
+        }
+
+        $worker = STTWorker::findFirst([
+            'conditions' => 'api_key_id = :api_key_id: AND worker_uid <> :worker_uid:',
+            'bind' => [
+                'api_key_id' => $apiKeyId,
+                'worker_uid' => $workerUid,
+            ],
+        ]);
+        if ($worker instanceof STTWorker) {
+            return self::error('worker_api_key_already_bound', 'This API key is already bound to another worker', 409);
+        }
+
+        return null;
+    }
+
+    private static function validateWorkerApiKeyBinding(STTWorker $worker, array $data): ?PBXApiResult
+    {
+        if (!self::isBearerAuthenticatedRequest($data)) {
+            return null;
+        }
+
+        $boundApiKeyId = (int)$worker->api_key_id;
+        if ($boundApiKeyId <= 0) {
+            return self::error('worker_api_key_not_bound', 'Worker must be registered with the configured API key', 403);
+        }
+
+        if ($boundApiKeyId !== self::requestApiKeyId($data)) {
+            return self::error('worker_api_key_mismatch', 'Worker is bound to another API key', 403);
+        }
+
+        return null;
     }
 
     private static function validateAssignedJob(STTJob $job, STTWorker $worker): ?PBXApiResult
@@ -398,6 +559,18 @@ class LocalSpeechToTextMain
     private static function clientIp(array $data): string
     {
         return self::stringField($data, '_remote_addr');
+    }
+
+    private static function isBearerAuthenticatedRequest(array $data): bool
+    {
+        return self::stringField($data, '_auth_type') === 'bearer_token';
+    }
+
+    private static function requestApiKeyId(array $data): ?int
+    {
+        $apiKeyId = (int)($data['_api_key_id'] ?? 0);
+
+        return $apiKeyId > 0 ? $apiKeyId : null;
     }
 
     private static function logException(string $context, Throwable $exception): void

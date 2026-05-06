@@ -43,9 +43,16 @@ class Processor extends Injectable
     {
         $data = $request['data'] ?? [];
         $data = is_array($data) ? $data : [];
+        unset($data['_remote_addr'], $data['_auth_type'], $data['_api_key_id']);
 
         if (isset($request['sessionContext']['remote_addr']) && is_scalar($request['sessionContext']['remote_addr'])) {
             $data['_remote_addr'] = (string)$request['sessionContext']['remote_addr'];
+        }
+        if (isset($request['sessionContext']['auth_type']) && is_scalar($request['sessionContext']['auth_type'])) {
+            $data['_auth_type'] = (string)$request['sessionContext']['auth_type'];
+        }
+        if (isset($request['sessionContext']['token_id']) && is_scalar($request['sessionContext']['token_id'])) {
+            $data['_api_key_id'] = (int)$request['sessionContext']['token_id'];
         }
 
         return $data;

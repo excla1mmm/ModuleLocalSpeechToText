@@ -25,6 +25,7 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
     public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
+    public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';
@@ -178,6 +179,72 @@ class STTSetting extends ModulesModelsBase
         $megabytes = max(1, min(10240, $megabytes));
 
         return $megabytes * 1024 * 1024;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function workerApiKeyIds(): array
+    {
+        $ids = [];
+        $encodedIds = self::getValue(self::WORKER_API_KEY_IDS, '[]');
+        $decodedIds = json_decode($encodedIds, true);
+        if (is_array($decodedIds)) {
+            foreach ($decodedIds as $id) {
+                $id = (int)$id;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        $legacyId = (int)self::getValue(self::WORKER_API_KEY_ID, '0');
+        if ($legacyId > 0) {
+            $ids[] = $legacyId;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param array<int, int|string> $ids
+     */
+    public static function setWorkerApiKeyIds(array $ids): void
+    {
+        $normalizedIds = [];
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                $normalizedIds[] = $id;
+            }
+        }
+
+        $normalizedIds = array_values(array_unique($normalizedIds));
+        self::setValue(self::WORKER_API_KEY_IDS, json_encode($normalizedIds) ?: '[]');
+        self::setValue(self::WORKER_API_KEY_ID, $normalizedIds === [] ? '' : (string)$normalizedIds[0]);
+    }
+
+    public static function addWorkerApiKeyId(int $id): void
+    {
+        $ids = self::workerApiKeyIds();
+        $ids[] = $id;
+
+        self::setWorkerApiKeyIds($ids);
+    }
+
+    public static function removeWorkerApiKeyId(int $id): void
+    {
+        $ids = array_values(array_filter(
+            self::workerApiKeyIds(),
+            static fn (int $storedId): bool => $storedId !== $id
+        ));
+
+        self::setWorkerApiKeyIds($ids);
+    }
+
+    public static function isWorkerApiKeyIdAllowed(int $id): bool
+    {
+        return $id > 0 && in_array($id, self::workerApiKeyIds(), true);
     }
 
     public static function normalizeModelId(string $modelId): string

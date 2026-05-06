@@ -10,7 +10,8 @@ use RuntimeException;
 
 /**
  * @Indexes(
- *     [name='worker_uid', columns=['worker_uid'], type='UNIQUE']
+ *     [name='worker_uid', columns=['worker_uid'], type='UNIQUE'],
+ *     [name='api_key_id', columns=['api_key_id'], type='']
  * )
  */
 class STTWorker extends ModulesModelsBase
@@ -55,6 +56,11 @@ class STTWorker extends ModulesModelsBase
     /**
      * @Column(type="integer", nullable=true)
      */
+    public ?int $api_key_id = null;
+
+    /**
+     * @Column(type="integer", nullable=true)
+     */
     public ?string $last_seen = null;
 
     /**
@@ -81,7 +87,13 @@ class STTWorker extends ModulesModelsBase
         );
     }
 
-    public static function registerWorker(string $workerUid, string $name, string $modelName, ?string $ip): self
+    public static function registerWorker(
+        string $workerUid,
+        string $name,
+        string $modelName,
+        ?string $ip,
+        ?int $apiKeyId = null
+    ): self
     {
         $worker = self::findFirst([
             'conditions' => 'worker_uid = :worker_uid:',
@@ -98,6 +110,9 @@ class STTWorker extends ModulesModelsBase
         $worker->name = $name;
         $worker->model = $modelName;
         $worker->ip = $ip;
+        if ($apiKeyId !== null && $apiKeyId > 0) {
+            $worker->api_key_id = $apiKeyId;
+        }
         $worker->status = self::STATUS_ONLINE;
         $worker->last_seen = (string)time();
 

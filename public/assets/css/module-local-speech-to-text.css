@@ -29,6 +29,14 @@
     margin-top: 0.75em;
 }
 
+.module-local-speech-to-text .stt-worker-api-keys-table {
+    margin-top: 1em;
+}
+
+.module-local-speech-to-text .stt-api-key-actions form {
+    margin: 0;
+}
+
 .module-local-speech-to-text .stt-queue-summary-table,
 .module-local-speech-to-text .stt-queue-files-table {
     margin-bottom: 1.2em;
@@ -97,6 +105,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-transcripts-filter-form {
+    margin-bottom: 1em;
+}
+
+.module-local-speech-to-text .stt-transcripts-filter-form label {
+    display: block;
+    margin-bottom: 0.35em;
+    font-weight: 700;
 }
 
 .module-local-speech-to-text .stt-open-conversation {

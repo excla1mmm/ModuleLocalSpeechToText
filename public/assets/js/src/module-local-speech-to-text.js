@@ -1,11 +1,119 @@
 (function () {
     'use strict';
 
+    function translation(key, fallback) {
+        if (typeof globalTranslate !== 'undefined' && globalTranslate[key]) {
+            return globalTranslate[key];
+        }
+
+        return fallback;
+    }
+
     function requestedTab() {
         var params = new URLSearchParams(window.location.search);
         var tabName = params.get('tab') || window.location.hash.replace(/^#/, '');
 
         return /^[a-z0-9_-]+$/.test(tabName) ? tabName : '';
+    }
+
+    function calendarLocale() {
+        var days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+        var months = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December'
+        ];
+
+        if (typeof SemanticLocalization !== 'undefined' && SemanticLocalization.calendarText) {
+            days = SemanticLocalization.calendarText.days || days;
+            months = SemanticLocalization.calendarText.months || months;
+        }
+
+        return {
+            format: 'DD/MM/YYYY',
+            separator: ' - ',
+            applyLabel: translation('cal_ApplyBtn', 'Apply'),
+            cancelLabel: translation('cal_CancelBtn', 'Cancel'),
+            fromLabel: translation('cal_from', 'From'),
+            toLabel: translation('cal_to', 'To'),
+            customRangeLabel: translation('cal_CustomPeriod', 'Custom range'),
+            daysOfWeek: days,
+            monthNames: months,
+            firstDay: 1
+        };
+    }
+
+    function momentDate(value, fallback) {
+        var date = moment(value, 'YYYY-MM-DD', true);
+
+        return date.isValid() ? date : fallback.clone();
+    }
+
+    function initializeTranscriptDateFilter() {
+        var $form = $('#stt-transcripts-filter-form');
+        var $selector = $('#stt-transcripts-date-range-selector');
+
+        if ($form.length === 0 || $selector.length === 0) {
+            return;
+        }
+        if (typeof moment === 'undefined' || typeof $.fn.daterangepicker === 'undefined') {
+            return;
+        }
+
+        var $dateFrom = $form.find('input[name="date_from"]');
+        var $dateTo = $form.find('input[name="date_to"]');
+        var today = moment();
+        var startDate = momentDate($dateFrom.val(), today);
+        var endDate = momentDate($dateTo.val(), startDate);
+
+        if (startDate.isAfter(endDate)) {
+            var swapDate = startDate;
+            startDate = endDate;
+            endDate = swapDate;
+        }
+
+        function updateHiddenInputs(start, end) {
+            $dateFrom.val(start.format('YYYY-MM-DD'));
+            $dateTo.val(end.format('YYYY-MM-DD'));
+        }
+
+        updateHiddenInputs(startDate, endDate);
+        $selector.daterangepicker({
+            ranges: {
+                [translation('cal_Today', 'Today')]: [moment(), moment()],
+                [translation('cal_Yesterday', 'Yesterday')]: [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                [translation('cal_LastWeek', 'Last 7 days')]: [moment().subtract(6, 'days'), moment()],
+                [translation('cal_Last30Days', 'Last 30 days')]: [moment().subtract(29, 'days'), moment()],
+                [translation('cal_ThisMonth', 'This month')]: [moment().startOf('month'), moment().endOf('month')],
+                [translation('cal_LastMonth', 'Last month')]: [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+            },
+            alwaysShowCalendars: true,
+            autoUpdateInput: true,
+            linkedCalendars: true,
+            maxDate: moment(),
+            startDate: startDate.startOf('day'),
+            endDate: endDate.endOf('day'),
+            locale: calendarLocale()
+        }, function (start, end) {
+            updateHiddenInputs(start, end);
+            $form.trigger('submit');
+        });
+
+        $form.on('submit', function () {
+            var picker = $selector.data('daterangepicker');
+            if (picker && picker.startDate && picker.endDate) {
+                updateHiddenInputs(picker.startDate, picker.endDate);
+            }
+        });
     }
 
     $(function () {
@@ -18,6 +126,12 @@
 
         $('.module-local-speech-to-text .ui.dropdown').dropdown();
         $('.module-local-speech-to-text [data-content]').popup();
+        initializeTranscriptDateFilter();
+        $('.module-local-speech-to-text .stt-delete-api-key-form').on('submit', function () {
+            var message = $(this).data('confirm') || '';
+
+            return message === '' || window.confirm(message);
+        });
         $('.module-local-speech-to-text .stt-copy-button').on('click', function () {
             var text = $(this).data('clipboard-text') || '';
             var $button = $(this);

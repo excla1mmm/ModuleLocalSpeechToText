@@ -29,6 +29,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->setDefaultSetting(STTSetting::CDR_SCAN_CURSOR_ENDTIME, '');
             $this->setDefaultSetting(STTSetting::CDR_SCAN_CURSOR_ID, '0');
             $this->setDefaultSetting(STTSetting::WORKER_API_KEY_ID, '');
+            $this->setDefaultSetting(STTSetting::WORKER_API_KEY_IDS, '[]');
         } catch (Throwable $exception) {
             $this->messages[] = $exception->getMessage();
             return false;

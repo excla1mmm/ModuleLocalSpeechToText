@@ -3,6 +3,23 @@
         {{ link_to(dashboardPath, '<i class="dashboard icon"></i> '~t._('module_local_speech_to_text_Dashboard'), "class": "ui labeled icon button") }}
     </div>
 
+    <form class="ui form stt-transcripts-filter-form" id="stt-transcripts-filter-form" method="get" action="{{ url(transcriptFilterAction) }}">
+        {% if transcriptFilterKeepTab %}
+            <input type="hidden" name="tab" value="transcripts">
+        {% endif %}
+        <input type="hidden" name="date_from" value="{{ transcriptFilter['dateFrom']|e }}">
+        <input type="hidden" name="date_to" value="{{ transcriptFilter['dateTo']|e }}">
+        <div class="ui stackable grid">
+            <div class="five wide column">
+                <label>{{ t._('module_local_speech_to_text_TranscriptDateRange') }}</label>
+                <div class="ui fluid input left icon">
+                    <i class="calendar alternate outline icon"></i>
+                    <input type="text" id="stt-transcripts-date-range-selector" value="{{ transcriptFilter['displayRange']|e }}" autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </form>
+
     <table class="ui selectable compact celled striped table stt-transcripts-table">
         <thead>
             <tr>

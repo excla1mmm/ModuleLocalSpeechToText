@@ -138,23 +138,14 @@
                 <div class="ten wide column">
                     <h4 class="ui header">
                         <i class="key icon"></i>
-                        <span class="content">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</span>
+                        <span class="content">{{ t._('module_local_speech_to_text_WorkerApiKeys') }}</span>
                     </h4>
-                    {% if workerApiKey %}
-                        <div class="ui small label">{{ workerApiKey.key_display|e }}</div>
-                    {% else %}
-                        <span class="ui grey text">{{ t._('module_local_speech_to_text_WorkerApiKeyMissing') }}</span>
-                    {% endif %}
                 </div>
                 <div class="six wide right aligned column">
                     <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/generateWorkerApiKey') }}">
-                        <button class="ui left labeled icon primary button" type="submit">
-                            <i class="sync alternate icon"></i>
-                            {% if workerApiKey %}
-                                {{ t._('module_local_speech_to_text_RegenerateWorkerApiKey') }}
-                            {% else %}
-                                {{ t._('module_local_speech_to_text_GenerateWorkerApiKey') }}
-                            {% endif %}
+                        <button class="ui left labeled icon blue button" type="submit">
+                            <i class="add circle icon"></i>
+                            {{ t._('module_local_speech_to_text_GenerateWorkerApiKey') }}
                         </button>
                     </form>
                 </div>
@@ -176,6 +167,41 @@
                     </div>
                 </div>
             {% endif %}
+            <table class="ui selectable compact celled striped table stt-worker-api-keys-table">
+                <thead>
+                <tr>
+                    <th>{{ t._('module_local_speech_to_text_WorkerApiKey') }}</th>
+                    <th>{{ t._('module_local_speech_to_text_WorkerApiKeyCreatedAt') }}</th>
+                    <th>{{ t._('module_local_speech_to_text_WorkerApiKeyLastUsed') }}</th>
+                    <th class="center aligned">{{ t._('module_local_speech_to_text_WorkerApiKeyBoundWorkers') }}</th>
+                    <th class="collapsing"></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in workerApiKeyRows %}
+                    <tr>
+                        <td>
+                            <span class="ui small label">{{ row['keyDisplay']|e }}</span>
+                        </td>
+                        <td>{{ row['createdAtLabel']|e }}</td>
+                        <td>{{ row['lastUsedAtLabel']|e }}</td>
+                        <td class="center aligned">{{ row['boundWorkers']|e }}</td>
+                        <td class="right aligned collapsing stt-api-key-actions">
+                            <form class="stt-delete-api-key-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/deleteWorkerApiKey') }}" data-confirm="{{ t._('module_local_speech_to_text_DeleteWorkerApiKeyConfirm') }}">
+                                <input type="hidden" name="api_key_id" value="{{ row['id']|e }}">
+                                <button class="ui compact icon button" type="submit" data-content="{{ t._('module_local_speech_to_text_DeleteWorkerApiKey') }}">
+                                    <i class="trash alternate outline icon"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="center aligned disabled">{{ t._('module_local_speech_to_text_WorkerApiKeysEmpty') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
         <table class="ui selectable compact celled striped table stt-workers-table">
             <thead>
@@ -192,7 +218,7 @@
                 <tr>
                     <td>{{ worker.name|e }}</td>
                     <td>{{ worker.ip|e }}</td>
-                    <td><span class="stt-model-text">{{ worker.model|e }}</span></td>
+                    <td><span class="stt-model-text">{{ workerRuntimeModel|e }}</span></td>
                     <td class="center aligned">
                         {% if worker.status === 'online' %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Online') }}</span>
@@ -212,6 +238,23 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">
+        <form class="ui form stt-transcripts-filter-form" id="stt-transcripts-filter-form" method="get" action="{{ url(transcriptFilterAction) }}">
+            {% if transcriptFilterKeepTab %}
+                <input type="hidden" name="tab" value="transcripts">
+            {% endif %}
+            <input type="hidden" name="date_from" value="{{ transcriptFilter['dateFrom']|e }}">
+            <input type="hidden" name="date_to" value="{{ transcriptFilter['dateTo']|e }}">
+            <div class="ui stackable grid">
+                <div class="five wide column">
+                    <label>{{ t._('module_local_speech_to_text_TranscriptDateRange') }}</label>
+                    <div class="ui fluid input left icon">
+                        <i class="calendar alternate outline icon"></i>
+                        <input type="text" id="stt-transcripts-date-range-selector" value="{{ transcriptFilter['displayRange']|e }}" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+        </form>
+
         <table class="ui selectable compact celled striped table stt-transcripts-table">
             <thead>
             <tr>

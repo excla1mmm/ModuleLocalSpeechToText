@@ -23,15 +23,18 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function indexAction(): void
     {
-        $generatedApiKey = (string)$this->session->get(self::SESSION_GENERATED_API_KEY, '');
-        if ($generatedApiKey !== '') {
+        $generatedApiKey = $this->generatedApiKeyFromSession();
+        if ($generatedApiKey['apiKey'] !== '') {
             $this->session->remove(self::SESSION_GENERATED_API_KEY);
         }
 
-        $this->prepareIndexView($generatedApiKey, $this->activeTabFromRequest($generatedApiKey));
+        $this->prepareIndexView($generatedApiKey, $this->activeTabFromRequest($generatedApiKey['apiKey']));
     }
 
-    private function prepareIndexView(string $generatedApiKey = '', string $activeTab = 'settings'): void
+    /**
+     * @param array{apiKey: string, apiKeyId: int} $generatedApiKey
+     */
+    private function prepareIndexView(array $generatedApiKey = ['apiKey' => '', 'apiKeyId' => 0], string $activeTab = 'settings'): void
     {
         $this->addModuleAssets();
 
@@ -71,12 +74,18 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
         ]);
-        $this->view->workerApiKey = $this->workerApiKey();
-        $this->view->generatedApiKey = $generatedApiKey;
-        $this->view->workerInstallCommand = $generatedApiKey === ''
+        $this->view->workerRuntimeModel = STTSetting::selectedModelId();
+        $this->view->workerApiKeyRows = $this->workerApiKeyRows();
+        $this->view->generatedApiKey = $generatedApiKey['apiKey'];
+        $this->view->workerInstallCommand = $generatedApiKey['apiKey'] === ''
             ? ''
-            : $this->workerInstallCommand($generatedApiKey);
-        $this->view->transcriptRows = $this->transcriptRows();
+            : $this->workerInstallCommand($generatedApiKey['apiKey']);
+        $transcriptFilter = $this->transcriptDateFilterFromRequest();
+        $transcriptRows = $this->transcriptRows(100, $transcriptFilter);
+        $this->view->transcriptRows = $transcriptRows;
+        $this->view->transcriptFilter = $this->transcriptFilterView($transcriptFilter);
+        $this->view->transcriptFilterAction = MenuProvider::DASHBOARD_PATH;
+        $this->view->transcriptFilterKeepTab = true;
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/index');
     }
@@ -118,9 +127,12 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function generateWorkerApiKeyAction(): void
     {
         try {
-            $apiKey = ApiKeys::generateApiKey();
-            $this->replaceWorkerApiKey($apiKey);
-            $this->session->set(self::SESSION_GENERATED_API_KEY, $apiKey);
+            $plainApiKey = ApiKeys::generateApiKey();
+            $apiKey = $this->createWorkerApiKey($plainApiKey);
+            $this->session->set(self::SESSION_GENERATED_API_KEY, [
+                'apiKey' => $plainApiKey,
+                'apiKeyId' => (int)$apiKey->id,
+            ]);
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyCreated'));
             $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
         } catch (Throwable $exception) {
@@ -129,13 +141,44 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
     }
 
+    public function deleteWorkerApiKeyAction(): void
+    {
+        try {
+            $apiKeyId = (int)$this->request->getPost('api_key_id', 'int', 0);
+            if (!STTSetting::isWorkerApiKeyIdAllowed($apiKeyId)) {
+                $this->flash->warning($this->translation->_('module_local_speech_to_text_WorkerApiKeyNotFound'));
+                $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+                return;
+            }
+
+            $apiKey = ApiKeys::findFirstById($apiKeyId);
+            if ($apiKey instanceof ApiKeys && !$apiKey->delete()) {
+                throw new RuntimeException(implode(', ', $apiKey->getMessages()));
+            }
+
+            STTSetting::removeWorkerApiKeyId($apiKeyId);
+            $this->unbindWorkersFromApiKey($apiKeyId);
+            TokenValidationService::clearCache();
+            $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyDeleted'));
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+    }
+
     public function transcriptsAction(): void
     {
-        $this->addModuleAssets(false);
+        $this->addModuleAssets();
+        $transcriptFilter = $this->transcriptDateFilterFromRequest();
+        $transcriptRows = $this->transcriptRows(100, $transcriptFilter);
 
         $this->view->dashboardPath = MenuProvider::DASHBOARD_PATH;
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-        $this->view->transcriptRows = $this->transcriptRows();
+        $this->view->transcriptRows = $transcriptRows;
+        $this->view->transcriptFilter = $this->transcriptFilterView($transcriptFilter);
+        $this->view->transcriptFilterAction = MenuProvider::TRANSCRIPTS_PATH;
+        $this->view->transcriptFilterKeepTab = false;
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcripts');
     }
@@ -311,27 +354,66 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return sprintf('%s - %s', $this->timeLabel($start), $this->timeLabel($end));
     }
 
-    private function workerApiKey(): ?ApiKeys
+    /**
+     * @return array{apiKey: string, apiKeyId: int}
+     */
+    private function generatedApiKeyFromSession(): array
     {
-        $apiKeyId = (int)STTSetting::getValue(STTSetting::WORKER_API_KEY_ID, '0');
-        if ($apiKeyId <= 0) {
-            return null;
+        $generatedApiKey = $this->session->get(self::SESSION_GENERATED_API_KEY, '');
+        if (is_array($generatedApiKey)) {
+            return [
+                'apiKey' => (string)($generatedApiKey['apiKey'] ?? ''),
+                'apiKeyId' => (int)($generatedApiKey['apiKeyId'] ?? 0),
+            ];
         }
 
-        $apiKey = ApiKeys::findFirstById($apiKeyId);
-
-        return $apiKey instanceof ApiKeys ? $apiKey : null;
+        return [
+            'apiKey' => is_scalar($generatedApiKey) ? (string)$generatedApiKey : '',
+            'apiKeyId' => 0,
+        ];
     }
 
-    private function replaceWorkerApiKey(string $plainApiKey): void
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function workerApiKeyRows(): array
     {
-        $oldApiKey = $this->workerApiKey();
-        if ($oldApiKey instanceof ApiKeys && !$oldApiKey->delete()) {
-            throw new RuntimeException(implode(', ', $oldApiKey->getMessages()));
+        $rows = [];
+        $existingIds = [];
+        $storedIds = STTSetting::workerApiKeyIds();
+
+        foreach ($storedIds as $apiKeyId) {
+            $apiKey = ApiKeys::findFirstById($apiKeyId);
+            if (!$apiKey instanceof ApiKeys) {
+                continue;
+            }
+
+            $existingIds[] = (int)$apiKey->id;
+            $rows[] = [
+                'id' => (int)$apiKey->id,
+                'keyDisplay' => (string)$apiKey->key_display,
+                'createdAtLabel' => $this->apiKeyDateLabel((string)$apiKey->created_at),
+                'lastUsedAtLabel' => $this->apiKeyDateLabel((string)$apiKey->last_used_at),
+                'boundWorkers' => (int)STTWorker::count([
+                    'conditions' => 'api_key_id = :api_key_id:',
+                    'bind' => [
+                        'api_key_id' => (int)$apiKey->id,
+                    ],
+                ]),
+            ];
         }
 
+        if ($existingIds !== $storedIds) {
+            STTSetting::setWorkerApiKeyIds($existingIds);
+        }
+
+        return $rows;
+    }
+
+    private function createWorkerApiKey(string $plainApiKey): ApiKeys
+    {
         $apiKey = new ApiKeys();
-        $apiKey->description = 'Local Speech To Text Worker';
+        $apiKey->description = 'Local Speech To Text Worker ' . date('Y-m-d H:i:s');
         $apiKey->key_hash = password_hash($plainApiKey, PASSWORD_BCRYPT);
         $apiKey->key_suffix = substr($plainApiKey, -4);
         $apiKey->key_display = substr($plainApiKey, 0, 5) . '...' . substr($plainApiKey, -5);
@@ -347,8 +429,38 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             throw new RuntimeException(implode(', ', $apiKey->getMessages()));
         }
 
-        STTSetting::setValue(STTSetting::WORKER_API_KEY_ID, (string)$apiKey->id);
+        STTSetting::addWorkerApiKeyId((int)$apiKey->id);
         TokenValidationService::clearCache();
+
+        return $apiKey;
+    }
+
+    private function unbindWorkersFromApiKey(int $apiKeyId): void
+    {
+        $workers = STTWorker::find([
+            'conditions' => 'api_key_id = :api_key_id:',
+            'bind' => [
+                'api_key_id' => $apiKeyId,
+            ],
+        ]);
+
+        foreach ($workers as $worker) {
+            if (!$worker instanceof STTWorker) {
+                continue;
+            }
+
+            $worker->api_key_id = null;
+            if (!$worker->save()) {
+                throw new RuntimeException(implode(', ', $worker->getMessages()));
+            }
+        }
+    }
+
+    private function apiKeyDateLabel(string $dateTime): string
+    {
+        $dateTime = trim($dateTime);
+
+        return $dateTime === '' ? '-' : $dateTime;
     }
 
     private function workerInstallCommand(string $apiKey): string
@@ -713,15 +825,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     }
 
     /**
+     * @param array{dateFrom: string, dateTo: string, start: int, end: int, isActive: bool}|null $dateFilter
      * @return array<int, array<string, mixed>>
      */
-    private function transcriptRows(int $limit = 100): array
+    private function transcriptRows(int $limit = 100, ?array $dateFilter = null): array
     {
         $rows = [];
-        $results = STTResult::find([
+        $findParams = [
             'order' => 'created_at DESC, id DESC',
-            'limit' => $limit,
-        ]);
+        ];
+        if (!($dateFilter['isActive'] ?? false)) {
+            $findParams['limit'] = $limit;
+        }
+
+        $results = STTResult::find($findParams);
 
         foreach ($results as $result) {
             if (!$result instanceof STTResult) {
@@ -731,6 +848,10 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $job = $result->STTJob;
             $job = $job instanceof STTJob ? $job : null;
             $callTimestamp = $this->callTimestamp($result, $job);
+            if (!$this->transcriptMatchesDateFilter($callTimestamp, $dateFilter)) {
+                continue;
+            }
+
             $hasCallTimestamp = $callTimestamp > 0;
             $filePath = $job instanceof STTJob ? (string)$job->file_path : '';
             $createdAt = (int)$result->created_at;
@@ -765,6 +886,116 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         );
 
         return $rows;
+    }
+
+    /**
+     * @return array{dateFrom: string, dateTo: string, start: int, end: int, isActive: bool}
+     */
+    private function transcriptDateFilterFromRequest(): array
+    {
+        $dateFrom = $this->normalizeDateQuery((string)$this->request->getQuery('date_from', 'string', ''));
+        $dateTo = $this->normalizeDateQuery((string)$this->request->getQuery('date_to', 'string', ''));
+
+        if ($dateFrom === '' && $dateTo === '') {
+            $todayStart = strtotime('today 00:00:00');
+            $todayStart = $todayStart === false ? time() : $todayStart;
+            $start = strtotime('-6 days', $todayStart);
+            $start = $start === false ? $todayStart : $start;
+            $end = strtotime('today 23:59:59');
+            $end = $end === false ? $todayStart : $end;
+
+            return [
+                'dateFrom' => date('Y-m-d', $start),
+                'dateTo' => date('Y-m-d', $end),
+                'start' => $start,
+                'end' => $end,
+                'isActive' => true,
+            ];
+        }
+
+        if ($dateFrom === '') {
+            $dateFrom = $dateTo;
+        }
+        if ($dateTo === '') {
+            $dateTo = $dateFrom;
+        }
+
+        $start = strtotime($dateFrom . ' 00:00:00');
+        $end = strtotime($dateTo . ' 23:59:59');
+        if ($start === false || $end === false) {
+            return [
+                'dateFrom' => '',
+                'dateTo' => '',
+                'start' => 0,
+                'end' => 0,
+                'isActive' => false,
+            ];
+        }
+
+        if ($start > $end) {
+            [$start, $end] = [$end, $start];
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
+        return [
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'start' => $start,
+            'end' => $end,
+            'isActive' => true,
+        ];
+    }
+
+    private function normalizeDateQuery(string $date): string
+    {
+        $date = trim($date);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            return '';
+        }
+
+        $timestamp = strtotime($date . ' 00:00:00');
+
+        return $timestamp === false ? '' : date('Y-m-d', $timestamp);
+    }
+
+    /**
+     * @param array{dateFrom: string, dateTo: string, start: int, end: int, isActive: bool}|null $dateFilter
+     */
+    private function transcriptMatchesDateFilter(int $callTimestamp, ?array $dateFilter): bool
+    {
+        if (!($dateFilter['isActive'] ?? false)) {
+            return true;
+        }
+
+        return $callTimestamp > 0
+            && $callTimestamp >= (int)$dateFilter['start']
+            && $callTimestamp <= (int)$dateFilter['end'];
+    }
+
+    /**
+     * @param array{dateFrom: string, dateTo: string, start: int, end: int, isActive: bool} $dateFilter
+     * @return array<string, mixed>
+     */
+    private function transcriptFilterView(array $dateFilter): array
+    {
+        $dateFrom = $dateFilter['dateFrom'];
+        $dateTo = $dateFilter['dateTo'];
+
+        $displayRange = '';
+        if ($dateFrom !== '' && $dateTo !== '') {
+            $fromTimestamp = strtotime($dateFrom . ' 00:00:00');
+            $toTimestamp = strtotime($dateTo . ' 00:00:00');
+            if ($fromTimestamp !== false && $toTimestamp !== false) {
+                $displayRange = date('d/m/Y', $fromTimestamp) . ' - ' . date('d/m/Y', $toTimestamp);
+            }
+        }
+
+        return [
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'displayRange' => $displayRange,
+            'isActive' => $dateFilter['isActive'],
+        ];
     }
 
     private function callTimestamp(STTResult $result, ?STTJob $job): int
