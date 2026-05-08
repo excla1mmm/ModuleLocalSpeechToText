@@ -4,7 +4,7 @@ Local speech-to-text module for MikoPBX.
 
 `ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, and the administrator UI.
 
-Current module version: `1.0.42`.
+Current module version: `1.0.46`.
 
 ## What It Does
 
@@ -42,6 +42,7 @@ The main module page has four tabs:
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
+- `Logging`: aggregated recent module logs with quick time filters.
 
 The conversation view includes the source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker.
 

@@ -144,6 +144,158 @@
     min-width: 2.6em;
 }
 
+.module-local-speech-to-text #system-logs-segment {
+    margin: 0;
+    padding: 0;
+}
+
+.module-local-speech-to-text #system-logs-segment .stt-logs-dimmer {
+    display: none;
+}
+
+.module-local-speech-to-text #system-logs-segment.stt-logs-loading .stt-logs-dimmer {
+    display: flex;
+}
+
+.module-local-speech-to-text #universal-navigation .time-navigation-modern {
+    margin-bottom: 12px;
+    padding: 0;
+}
+
+.module-local-speech-to-text #universal-navigation .time-controls-inline {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+}
+
+.module-local-speech-to-text #period-buttons.quick-period-buttons {
+    display: flex;
+    gap: 3px;
+}
+
+.module-local-speech-to-text .period-btn {
+    background: #f5f5f5;
+    border: 1px solid #d0d0d0;
+    border-radius: 3px;
+    color: #333;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    padding: 4px 10px;
+    transition: all 0.2s;
+}
+
+.module-local-speech-to-text .period-btn:hover {
+    background: #e8e8e8;
+    border-color: #b0b0b0;
+}
+
+.module-local-speech-to-text .period-btn.active {
+    background: #3f8fff;
+    border-color: #3f8fff;
+    color: #fff;
+}
+
+.module-local-speech-to-text .time-slider-inline {
+    flex: 1;
+    min-width: 0;
+}
+
+.module-local-speech-to-text #time-slider-container.stt-log-time-range {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    color: #767676;
+    font-size: 11px;
+    line-height: 24px;
+    min-height: 24px;
+    overflow: hidden;
+    padding: 0 10px;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-logs-meta {
+    color: rgba(0, 0, 0, 0.48);
+    font-size: 12px;
+    margin: -6px 0 10px 0;
+    min-height: 16px;
+}
+
+.module-local-speech-to-text .code-container {
+    position: relative;
+}
+
+.module-local-speech-to-text .log-content-readonly {
+    background: #050505;
+    border: 1px solid #222;
+    border-radius: 4px;
+    color: #d7d7d7;
+    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    max-height: calc(100vh - 340px);
+    min-height: calc(100vh - 400px);
+    overflow: auto;
+    padding: 14px;
+}
+
+.module-local-speech-to-text .log-content-readonly pre {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    margin: 0;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.module-local-speech-to-text .log-content-readonly.stt-log-loading {
+    color: #8f8f8f;
+}
+
+.module-local-speech-to-text .fullscreen-toggle-btn {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 4px;
+    bottom: 20px;
+    cursor: pointer;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    position: absolute;
+    right: 20px;
+    transition: all 0.2s;
+    width: 42px;
+    z-index: 1000;
+}
+
+.module-local-speech-to-text .fullscreen-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.05);
+}
+
+.module-local-speech-to-text .fullscreen-toggle-btn i.icon {
+    color: #fff;
+    font-size: 20px;
+    margin: 0;
+}
+
+.module-local-speech-to-text #system-logs-segment.fullscreen .log-content-readonly {
+    max-height: none;
+    min-height: calc(100vh - 100px);
+}
+
+.module-local-speech-to-text #system-logs-segment:fullscreen {
+    background: #1e1e1e;
+    padding: 20px;
+}
+
+.module-local-speech-to-text #system-logs-segment:fullscreen .code-container {
+    height: calc(100vh - 140px);
+}
+
 .module-local-speech-to-text .stt-recording-panel {
     margin: 1em 0 1.2em 0;
     border: 1px solid rgba(34, 36, 38, 0.12);
@@ -548,5 +700,18 @@
 
     .module-local-speech-to-text .stt-dialogue-turn {
         grid-template-columns: 1.8em minmax(0, 1fr);
+    }
+
+    .module-local-speech-to-text #universal-navigation .time-controls-inline {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .module-local-speech-to-text #period-buttons.quick-period-buttons {
+        flex-wrap: wrap;
+    }
+
+    .module-local-speech-to-text .log-content-readonly {
+        min-height: 360px;
     }
 }

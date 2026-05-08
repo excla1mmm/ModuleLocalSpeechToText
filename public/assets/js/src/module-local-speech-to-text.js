@@ -408,6 +408,155 @@
         updateDurationLabel();
     }
 
+    function initializeModuleLogs() {
+        var $form = $('#stt-module-logs-form');
+        var $content = $('#stt-module-log-content');
+        var $viewer = $('#log-content-readonly');
+        var $segment = $('#system-logs-segment');
+        var $meta = $('#stt-module-logs-meta');
+        var $timeRange = $('#time-slider-container');
+        var $fullscreenButton = $('.stt-logs-fullscreen-toggle');
+        var $fullscreenIcon = $fullscreenButton.find('i.icon');
+
+        if ($form.length === 0 || $content.length === 0 || $viewer.length === 0) {
+            return;
+        }
+
+        var dataUrl = $form.data('url');
+        var $periodButtons = $form.find('.period-btn');
+        var $refreshButton = $form.find('.stt-log-refresh');
+        var currentPeriod = parseInt($periodButtons.filter('.active').data('period'), 10) || 3600;
+        var loadedOnce = false;
+        var request = null;
+
+        function metaText(response) {
+            var template = translation(
+                'module_local_speech_to_text_LogsMeta',
+                '%lines% lines from %files% files, updated %time%'
+            );
+
+            return template
+                .replace('%lines%', response.lineCount || 0)
+                .replace('%files%', response.fileCount || 0)
+                .replace('%time%', response.generatedAt || '');
+        }
+
+        function setLoading() {
+            $segment.addClass('stt-logs-loading');
+            $viewer.addClass('stt-log-loading');
+            $content.text(translation(
+                'module_local_speech_to_text_LogsLoading',
+                'Loading logs...'
+            ));
+        }
+
+        function updatePeriodLabel(response) {
+            var activeLabel = $periodButtons.filter('.active').text() || '';
+            var lineCount = response && response.lineCount ? response.lineCount : 0;
+
+            $timeRange.text(activeLabel + ' · ' + lineCount + ' lines');
+        }
+
+        function loadLogs(force) {
+            if (!force && loadedOnce) {
+                return;
+            }
+            if (!dataUrl) {
+                return;
+            }
+            if (request !== null) {
+                request.abort();
+            }
+
+            setLoading();
+            $refreshButton.addClass('loading disabled');
+            request = $.ajax({
+                url: dataUrl,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    period: currentPeriod
+                }
+            }).done(function (response) {
+                var logText = response && response.logText ? response.logText : '';
+
+                $viewer.removeClass('stt-log-loading');
+                $content.text(logText || translation(
+                    'module_local_speech_to_text_LogsEmpty',
+                    'No module log entries found for the selected period.'
+                ));
+                if (response) {
+                    $meta.text(metaText(response));
+                    updatePeriodLabel(response);
+                }
+                loadedOnce = true;
+                $viewer.scrollTop($viewer[0].scrollHeight);
+            }).fail(function (xhr, status) {
+                if (status === 'abort') {
+                    return;
+                }
+
+                $viewer.removeClass('stt-log-loading');
+                $content.text(translation(
+                    'module_local_speech_to_text_LogsError',
+                    'Unable to load module logs.'
+                ));
+            }).always(function () {
+                request = null;
+                $segment.removeClass('stt-logs-loading');
+                $refreshButton.removeClass('loading disabled');
+            });
+        }
+
+        function setFullscreenState(isFullscreen) {
+            $segment.toggleClass('fullscreen', isFullscreen);
+            $fullscreenIcon.toggleClass('expand', !isFullscreen);
+            $fullscreenIcon.toggleClass('compress', isFullscreen);
+        }
+
+        $periodButtons.on('click', function () {
+            var $button = $(this);
+            currentPeriod = parseInt($button.data('period'), 10) || 3600;
+            $periodButtons.removeClass('active');
+            $button.addClass('active');
+            updatePeriodLabel({ lineCount: 0 });
+            loadedOnce = false;
+            loadLogs(true);
+        });
+
+        $refreshButton.on('click', function () {
+            loadLogs(true);
+        });
+
+        $fullscreenButton.on('click', function () {
+            var element = $segment[0];
+
+            if (!document.fullscreenElement && element && element.requestFullscreen) {
+                element.requestFullscreen();
+                return;
+            }
+
+            if (document.fullscreenElement && document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', function () {
+            setFullscreenState(document.fullscreenElement === $segment[0]);
+        });
+
+        $('#module-local-speech-to-text-menu .item[data-tab="logs"]').on('click', function () {
+            window.setTimeout(function () {
+                loadLogs(false);
+            }, 0);
+        });
+
+        updatePeriodLabel({ lineCount: 0 });
+        if (requestedTab() === 'logs' || $form.closest('.tab.segment').hasClass('active')) {
+            loadLogs(false);
+        }
+    }
+
     $(function () {
         var $tabItems = $('#module-local-speech-to-text-menu .item');
         var $settingsForm = $('#module-local-speech-to-text-form');
@@ -420,6 +569,7 @@
         $('.module-local-speech-to-text [data-content]').popup();
         initializeTranscriptDateFilter();
         initializeTranscriptPlayer();
+        initializeModuleLogs();
         $('.module-local-speech-to-text .stt-delete-api-key-form').on('submit', function () {
             var message = $(this).data('confirm') || '';
 
