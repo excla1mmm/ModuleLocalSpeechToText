@@ -16,7 +16,7 @@ It periodically scans completed CDR rows under the MikoPBX monitor directory and
 
 The main module page uses MikoPBX-style tabs:
 
-- `Settings`: language (`auto` by default plus 20 popular Whisper languages), polling interval, max file size, CDR scan limit, processing timeout, Whisper model.
+- `Settings`: language (`auto` by default plus 20 popular Whisper languages), polling interval, max file size, CDR scan limit, processing timeout, Whisper model, predefined vocabulary dictionaries, and custom vocabulary terms.
 - `Queue`: pending, processing, done today, and error counters.
 - `Workers`: registered workers with IP, model, status, and last seen time.
 - `Transcripts`: last 100 results with a link to the conversation view.
@@ -42,4 +42,6 @@ Endpoints:
 
 All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and are protected by Bearer token or localhost access rules.
 
-`jobs:getNext` returns `model_id` and `model_repo`; the external worker uses `model_repo` for lazy local model download. Download, `heartbeat`, `submitResult`, and `submitError` validate that the job is currently assigned to the requesting worker.
+`jobs:getNext` returns `model_id`, `model_repo`, and the selected `vocabulary_terms`; the external worker uses `model_repo` for lazy local model download and injects vocabulary terms into the context prompt. Download, `heartbeat`, `submitResult`, and `submitError` validate that the job is currently assigned to the requesting worker.
+
+`submitResult` may include optional `technical_info` JSON with worker-side quality and performance metrics. The module stores it with the transcript and renders it in the "Technical information" section of the conversation card.

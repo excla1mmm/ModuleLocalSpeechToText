@@ -55,7 +55,7 @@ class LocalSpeechToTextMain
 
             return self::success([
                 'worker_id' => (int)$worker->id,
-                'poll_interval' => (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5'),
+                'poll_interval' => (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
             ]);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
@@ -191,7 +191,8 @@ class LocalSpeechToTextMain
                     self::encodeTranscript($data['transcript']),
                     self::nullableStringField($data, 'language'),
                     isset($data['duration']) ? (float)$data['duration'] : null,
-                    self::nullableStringField($data, 'model_used')
+                    self::nullableStringField($data, 'model_used'),
+                    self::encodeTechnicalInfo($data['technical_info'] ?? null)
                 );
                 if (!$job->markDoneForWorker((int)$worker->id)) {
                     $connection->rollback();
@@ -321,6 +322,7 @@ class LocalSpeechToTextMain
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelId(),
             'model_repo' => STTSetting::selectedModelRepo(),
+            'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
     }
 
@@ -547,6 +549,18 @@ class LocalSpeechToTextMain
     private static function encodeTranscript(array $segments): string
     {
         return json_encode($segments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    private static function encodeTechnicalInfo(mixed $technicalInfo): ?string
+    {
+        if (!is_array($technicalInfo) || $technicalInfo === []) {
+            return null;
+        }
+
+        return json_encode($technicalInfo, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     private static function detectContentType(string $filePath): string

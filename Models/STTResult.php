@@ -48,6 +48,11 @@ class STTResult extends ModulesModelsBase
     public ?string $model_used = '';
 
     /**
+     * @Column(type="string", nullable=true)
+     */
+    public ?string $technical_info = '';
+
+    /**
      * @Column(type="integer", nullable=false)
      */
     public ?string $created_at = '0';
@@ -76,7 +81,8 @@ class STTResult extends ModulesModelsBase
         string $transcript,
         ?string $language,
         ?float $duration,
-        ?string $modelUsed
+        ?string $modelUsed,
+        ?string $technicalInfo = null
     ): self {
         $result = self::findFirst([
             'conditions' => 'job_id = :job_id:',
@@ -93,6 +99,7 @@ class STTResult extends ModulesModelsBase
         $result->language = $language;
         $result->duration = $duration === null ? null : (string)$duration;
         $result->model_used = $modelUsed;
+        $result->technical_info = $technicalInfo;
         $result->created_at = (string)time();
 
         if (!$result->save()) {

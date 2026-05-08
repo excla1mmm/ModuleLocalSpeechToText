@@ -44,7 +44,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'poll_interval' => [
                     'type' => 'integer',
                     'description' => 'Recommended polling interval in seconds.',
-                    'example' => 5,
+                    'example' => 30,
                 ],
             ],
         ];

@@ -20,6 +20,8 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string SELECTED_MODEL = 'selected_model';
+    public const string SELECTED_VOCABULARY_DICTIONARIES = 'selected_vocabulary_dictionaries';
+    public const string CUSTOM_VOCABULARY_TERMS = 'custom_vocabulary_terms';
     public const string DELAYED_RECORDINGS = 'delayed_recordings';
     public const string SKIPPED_RECORDINGS = 'skipped_recordings';
     public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
@@ -85,6 +87,79 @@ class STTSetting extends ModulesModelsBase
             'repo' => 'mlx-community/whisper-large-v3-mlx',
             'label' => 'module_local_speech_to_text_ModelLargeV3',
             'description' => 'module_local_speech_to_text_ModelLargeV3Desc',
+        ],
+    ];
+
+    public const array VOCABULARY_DICTIONARIES = [
+        'ip-telephony' => [
+            'label' => 'module_local_speech_to_text_VocabularyIpTelephony',
+            'description' => 'module_local_speech_to_text_VocabularyIpTelephonyDesc',
+            'category' => 'module_local_speech_to_text_VocabularyCategoryTelephony',
+            'terms' => [
+                'SIP', 'RTP', 'RTCP', 'SDP', 'VoIP', 'Asterisk', 'FreePBX', 'MikoPBX',
+                'extension', 'trunk', 'route', 'dial plan', 'dialplan', 'codec', 'G.711',
+                'G.729', 'Opus', 'GSM', 'DTMF', 'IVR', 'queue', 'ring group',
+                'call forward', 'call transfer', 'call park', 'voicemail', 'conference',
+                'music on hold', 'caller ID', 'DID', 'DDI', 'DOD', 'NAT', 'STUN',
+                'TURN', 'ICE', 'jitter', 'latency', 'packet loss', 'softphone',
+                'IP phone', 'provider', 'gateway', 'PBX', 'PABX', 'CDR',
+                'call detail record', 'callback', 'WebRTC', 'PJSIP', 'chan_sip',
+                'AMI', 'AGI', 'ARI', 'outbound route', 'inbound route',
+            ],
+        ],
+        'php-development' => [
+            'label' => 'module_local_speech_to_text_VocabularyPhpDevelopment',
+            'description' => 'module_local_speech_to_text_VocabularyPhpDevelopmentDesc',
+            'category' => 'module_local_speech_to_text_VocabularyCategoryProgramming',
+            'terms' => [
+                'PHP', 'namespace', 'class', 'interface', 'trait', 'function', 'method',
+                'property', 'array', 'string', 'integer', 'boolean', 'null', 'composer',
+                'autoload', 'PHPStan', 'PHPUnit', 'PSR', 'Symfony', 'Laravel',
+                'Doctrine', 'PDO', 'JSON', 'XML', 'API', 'REST', 'controller',
+                'model', 'view', 'router', 'middleware', 'validation', 'authentication',
+                'authorization', 'database', 'query', 'migration', 'cache', 'Redis',
+            ],
+        ],
+        'cloud-devops' => [
+            'label' => 'module_local_speech_to_text_VocabularyCloudDevops',
+            'description' => 'module_local_speech_to_text_VocabularyCloudDevopsDesc',
+            'category' => 'module_local_speech_to_text_VocabularyCategoryInfrastructure',
+            'terms' => [
+                'Docker', 'container', 'image', 'Dockerfile', 'docker-compose',
+                'Kubernetes', 'K8s', 'pod', 'deployment', 'service', 'ingress',
+                'kubectl', 'helm', 'AWS', 'EC2', 'S3', 'Azure', 'GCP', 'CI/CD',
+                'GitHub Actions', 'GitLab CI', 'pipeline', 'build', 'deploy',
+                'release', 'Git', 'repository', 'commit', 'branch', 'pull request',
+                'nginx', 'Apache', 'HAProxy', 'SSL', 'TLS', 'certificate', 'DNS',
+                'firewall', 'VPN', 'Prometheus', 'Grafana', 'backup', 'restore',
+                'Terraform', 'Ansible', 'systemd',
+            ],
+        ],
+        'database-sql' => [
+            'label' => 'module_local_speech_to_text_VocabularyDatabaseSql',
+            'description' => 'module_local_speech_to_text_VocabularyDatabaseSqlDesc',
+            'category' => 'module_local_speech_to_text_VocabularyCategoryDatabase',
+            'terms' => [
+                'SQL', 'database', 'table', 'column', 'row', 'record', 'SELECT',
+                'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'WHERE',
+                'JOIN', 'GROUP BY', 'ORDER BY', 'primary key', 'foreign key',
+                'index', 'transaction', 'commit', 'rollback', 'MySQL', 'PostgreSQL',
+                'SQLite', 'MariaDB', 'MongoDB', 'NoSQL', 'schema', 'migration',
+                'dump', 'restore', 'query plan', 'replication', 'stored procedure',
+            ],
+        ],
+        'web-development' => [
+            'label' => 'module_local_speech_to_text_VocabularyWebDevelopment',
+            'description' => 'module_local_speech_to_text_VocabularyWebDevelopmentDesc',
+            'category' => 'module_local_speech_to_text_VocabularyCategoryWeb',
+            'terms' => [
+                'HTML', 'CSS', 'JavaScript', 'TypeScript', 'React', 'Vue', 'Angular',
+                'component', 'props', 'state', 'hook', 'DOM', 'async', 'await',
+                'promise', 'fetch', 'webpack', 'Vite', 'Babel', 'ESLint', 'Prettier',
+                'npm', 'yarn', 'pnpm', 'package.json', 'module', 'import', 'export',
+                'responsive', 'Flexbox', 'CSS Grid', 'SASS', 'Tailwind', 'SEO',
+                'ARIA', 'Progressive Web App', 'PWA', 'GraphQL', 'WebSocket',
+            ],
         ],
     ];
 
@@ -171,6 +246,107 @@ class STTSetting extends ModulesModelsBase
         $language = self::selectedLanguageId();
 
         return $language === self::AUTO_LANGUAGE ? '' : $language;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function selectedVocabularyDictionaryIds(): array
+    {
+        $decoded = json_decode(self::getValue(self::SELECTED_VOCABULARY_DICTIONARIES, '[]'), true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $selected = [];
+        foreach ($decoded as $dictionaryId) {
+            $dictionaryId = trim((string)$dictionaryId);
+            if (array_key_exists($dictionaryId, self::VOCABULARY_DICTIONARIES)) {
+                $selected[] = $dictionaryId;
+            }
+        }
+
+        return array_values(array_unique($selected));
+    }
+
+    /**
+     * @param array<int, string> $dictionaryIds
+     */
+    public static function setSelectedVocabularyDictionaryIds(array $dictionaryIds): void
+    {
+        $selected = [];
+        foreach ($dictionaryIds as $dictionaryId) {
+            $dictionaryId = trim((string)$dictionaryId);
+            if (array_key_exists($dictionaryId, self::VOCABULARY_DICTIONARIES)) {
+                $selected[] = $dictionaryId;
+            }
+        }
+
+        self::setValue(
+            self::SELECTED_VOCABULARY_DICTIONARIES,
+            json_encode(array_values(array_unique($selected))) ?: '[]'
+        );
+    }
+
+    public static function customVocabularyTermsText(): string
+    {
+        return self::getValue(self::CUSTOM_VOCABULARY_TERMS, '');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function selectedVocabularyTerms(): array
+    {
+        $terms = [];
+        foreach (self::selectedVocabularyDictionaryIds() as $dictionaryId) {
+            $dictionary = self::VOCABULARY_DICTIONARIES[$dictionaryId] ?? null;
+            if (is_array($dictionary) && is_array($dictionary['terms'] ?? null)) {
+                foreach ($dictionary['terms'] as $term) {
+                    $terms[] = (string)$term;
+                }
+            }
+        }
+
+        $terms = array_merge($terms, self::splitVocabularyTerms(self::customVocabularyTermsText()));
+
+        $deduped = [];
+        $seen = [];
+        foreach ($terms as $term) {
+            $term = trim((string)$term);
+            if ($term === '') {
+                continue;
+            }
+            $key = function_exists('mb_strtolower') ? mb_strtolower($term) : strtolower($term);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $deduped[] = $term;
+        }
+
+        return array_slice($deduped, 0, 100);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function splitVocabularyTerms(string $termsText): array
+    {
+        $parts = preg_split('/[\r\n,;]+/', $termsText);
+        if (!is_array($parts)) {
+            return [];
+        }
+
+        $terms = [];
+        foreach ($parts as $part) {
+            $term = trim($part);
+            if ($term !== '') {
+                $terms[] = function_exists('mb_substr') ? mb_substr($term, 0, 120) : substr($term, 0, 120);
+            }
+        }
+
+        return $terms;
     }
 
     public static function maxFileSizeBytes(): int

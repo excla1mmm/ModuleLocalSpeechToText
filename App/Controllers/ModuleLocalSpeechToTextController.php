@@ -46,6 +46,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
         $this->view->modelPresets = STTSetting::MODEL_PRESETS;
         $this->view->selectedModel = STTSetting::selectedModelId();
+        $this->view->vocabularyDictionaries = STTSetting::VOCABULARY_DICTIONARIES;
+        $this->view->selectedVocabularyDictionaries = STTSetting::selectedVocabularyDictionaryIds();
+        $this->view->selectedVocabularyTermsCount = count(STTSetting::selectedVocabularyTerms());
         $pendingCount = $this->countJobsByStatus(STTJob::STATUS_PENDING);
         $processingCount = $this->countJobsByStatus(STTJob::STATUS_PROCESSING);
         $doneTodayCount = (int)STTJob::count([
@@ -203,6 +206,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->conversation = $this->conversationFromTranscript((string)$result->transcript);
         $job = $result->STTJob;
         $this->view->recording = $this->recordingCard($result, $job instanceof STTJob ? $job : null);
+        $this->view->technicalInfo = $this->technicalInfoCard((string)($result->technical_info ?? ''));
 
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcript');
     }
@@ -263,13 +267,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
             $start = $this->floatValue($segment['start'] ?? null);
             $end = $this->floatValue($segment['end'] ?? null);
+            $orderTime = $start > 0 ? $start : $end;
             $utterance = [
                 'text' => $text,
                 'speakerKey' => $speakerKey,
                 'speakerLabel' => $speakers[$speakerKey]['label'],
                 'start' => $start,
                 'end' => $end,
-                'startLabel' => $this->timeLabel($start),
+                'endLabel' => $this->timeLabel($orderTime),
+                'orderTime' => $orderTime,
                 'rangeLabel' => $this->rangeLabel($start, $end),
             ];
             $speakers[$speakerKey]['segments'][] = $utterance;
@@ -279,14 +285,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         foreach ($speakers as &$speaker) {
             usort(
                 $speaker['segments'],
-                static fn (array $left, array $right): int => ($left['start'] <=> $right['start'])
+                static fn (array $left, array $right): int => [$left['orderTime'], $left['start']]
+                    <=> [$right['orderTime'], $right['start']]
             );
         }
         unset($speaker);
 
         usort(
             $timeline,
-            static fn (array $left, array $right): int => [$left['start'], $left['end']] <=> [$right['start'], $right['end']]
+            static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
+                <=> [$right['orderTime'], $right['start'], $right['end']]
         );
 
         return [
@@ -442,6 +450,485 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 static fn (array $row): bool => trim((string)$row['value']) !== ''
             )),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function technicalInfoCard(string $technicalInfo): array
+    {
+        $data = json_decode($technicalInfo, true);
+        if (!is_array($data)) {
+            return [
+                'hasRows' => false,
+                'groups' => [],
+                'rawJson' => '',
+            ];
+        }
+        $data = $this->normalizeTechnicalInfo($data);
+
+        $groups = [
+            [
+                'title' => $this->translation->_('module_local_speech_to_text_TechnicalGroupPipeline'),
+                'rows' => array_values(array_filter([
+                    $this->technicalRow('module_local_speech_to_text_TechnicalModelResolved', $this->stringMetric($data, 'model.resolved')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalModelRequested', $this->stringMetric($data, 'model.requested')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalLanguageHint', $this->stringMetric($data, 'model.language_hint')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalLanguageDetected', $this->stringMetric($data, 'language.dominant')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalLanguageVotes', $this->languageVotesMetric($data)),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalStereoMode', $this->stringMetric($data, 'pipeline.stereo_mode')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSplitChannels', $this->boolMetric($data, 'pipeline.split_channels')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalAudioNormalize', $this->boolMetric($data, 'pipeline.audio_normalize')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalContext', $this->boolMetric($data, 'pipeline.context_enabled')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalVocabularyTerms', $this->numberMetric($data, 'pipeline.vocabulary_terms')),
+                ])),
+            ],
+            [
+                'title' => $this->translation->_('module_local_speech_to_text_TechnicalGroupVad'),
+                'rows' => array_values(array_filter([
+                    $this->technicalRow('module_local_speech_to_text_TechnicalVadEnabled', $this->boolMetric($data, 'vad.enabled')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalInputDuration', $this->secondsMetric($data, 'input.duration_seconds')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalInputChannels', $this->numberMetric($data, 'input.channels')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalVadSegments', $this->numberMetric($data, 'vad.detected_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSpeechSeconds', $this->secondsMetric($data, 'vad.speech_seconds')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalTimelineSpeechSeconds', $this->secondsMetric($data, 'vad.timeline_speech_seconds')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSpeechRatio', $this->percentMetric($data, 'vad.speech_ratio')),
+                ])),
+            ],
+            [
+                'title' => $this->translation->_('module_local_speech_to_text_TechnicalGroupPerformance'),
+                'rows' => array_values(array_filter([
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSubmittedSegments', $this->numberMetric($data, 'transcription.submitted_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalRecognizedSegments', $this->numberMetric($data, 'transcription.recognized_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalEmptySegments', $this->numberMetric($data, 'transcription.empty_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSttCommands', $this->numberMetric($data, 'transcription.stt_commands')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalElapsed', $this->secondsMetric($data, 'timing.elapsed_seconds')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSttCommandTime', $this->secondsMetric($data, 'timing.stt_command_seconds')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalRealTimeFactor', $this->ratioMetric($data, 'timing.real_time_factor')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalStartedAt', $this->timestampMetric($data, 'timing.started_at')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalRejectedSegments', $this->numberMetric($data, 'quality.rejected_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalSkippedShortSegments', $this->numberMetric($data, 'quality.skipped_short_segments')),
+                    $this->technicalRow('module_local_speech_to_text_TechnicalQualityReasons', $this->qualityReasonsMetric($data)),
+                ])),
+            ],
+        ];
+
+        $channelRows = $this->technicalChannelRows($data);
+        if ($channelRows !== []) {
+            $groups[] = [
+                'title' => $this->translation->_('module_local_speech_to_text_TechnicalGroupChannels'),
+                'rows' => $channelRows,
+            ];
+        }
+
+        $groups = array_values(array_filter(
+            $groups,
+            static fn (array $group): bool => ($group['rows'] ?? []) !== []
+        ));
+
+        return [
+            'hasRows' => $groups !== [],
+            'groups' => $groups,
+            'rawJson' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: '',
+        ];
+    }
+
+    private function normalizeTechnicalInfo(array $data): array
+    {
+        $duration = $this->normalizeLargeDecimal($this->metricValue($data, 'input.duration_seconds'));
+        $this->setMetricValue($data, 'input.duration_seconds', $duration);
+        $channelsCount = max(1, (int)($this->metricValue($data, 'input.channels') ?: 1));
+        $speechRatio = $this->normalizeRatio($this->metricValue($data, 'vad.speech_ratio'));
+
+        $speechSeconds = $this->normalizeDecimalWithExpected(
+            $this->metricValue($data, 'vad.speech_seconds'),
+            is_numeric($duration) && is_numeric($speechRatio) ? (float)$duration * $channelsCount * (float)$speechRatio : null
+        );
+        $this->setMetricValue($data, 'vad.speech_seconds', $speechSeconds);
+        $this->setMetricValue($data, 'vad.transcription_seconds', $this->normalizeDecimalWithExpected(
+            $this->metricValue($data, 'vad.transcription_seconds'),
+            $speechSeconds
+        ));
+        $this->setMetricValue($data, 'vad.speech_ratio', $speechRatio);
+        $timelineRatio = $this->normalizeRatio($this->metricValue($data, 'vad.timeline_speech_ratio'));
+        $timelineSpeechSeconds = $this->metricValue($data, 'vad.timeline_speech_seconds');
+        if ($timelineSpeechSeconds === null) {
+            $timelineSpeechSeconds = $this->timelineSpeechSecondsFromTechnicalInfo($data);
+        }
+        if ($timelineSpeechSeconds !== null) {
+            $timelineSpeechSeconds = $this->normalizeDecimalWithExpected(
+                $timelineSpeechSeconds,
+                is_numeric($duration) && is_numeric($timelineRatio) ? (float)$duration * (float)$timelineRatio : null
+            );
+            $this->setMetricValue($data, 'vad.timeline_speech_seconds', $timelineSpeechSeconds);
+        }
+        if ($timelineRatio !== null) {
+            $this->setMetricValue($data, 'vad.timeline_speech_ratio', $timelineRatio);
+        }
+        $this->setMetricValue($data, 'timing.elapsed_seconds', $this->normalizeLargeDecimal(
+            $this->metricValue($data, 'timing.elapsed_seconds')
+        ));
+        $this->setMetricValue($data, 'timing.stt_command_seconds', $this->normalizeLargeDecimal(
+            $this->metricValue($data, 'timing.stt_command_seconds')
+        ));
+        $this->setMetricValue($data, 'timing.real_time_factor', $this->normalizeRatio(
+            $this->metricValue($data, 'timing.real_time_factor'),
+            true
+        ));
+
+        $votes = $this->metricValue($data, 'language.votes_seconds');
+        if (is_array($votes)) {
+            foreach ($votes as $language => $seconds) {
+                $votes[$language] = $this->normalizeLargeDecimal($seconds, $duration);
+            }
+            $this->setMetricValue($data, 'language.votes_seconds', $votes);
+        }
+
+        $channels = $this->metricValue($data, 'vad.channels');
+        if (is_array($channels)) {
+            foreach ($channels as $channel => $stats) {
+                if (!is_array($stats)) {
+                    continue;
+                }
+                $stats['speech_ratio'] = $this->normalizeRatio($stats['speech_ratio'] ?? null);
+                $stats['duration_seconds'] = $this->normalizeDecimalWithExpected($stats['duration_seconds'] ?? null, $duration);
+                $stats['speech_seconds'] = $this->normalizeDecimalWithExpected(
+                    $stats['speech_seconds'] ?? null,
+                    is_numeric($stats['duration_seconds']) && is_numeric($stats['speech_ratio'])
+                        ? (float)$stats['duration_seconds'] * (float)$stats['speech_ratio']
+                        : null
+                );
+                $stats['transcription_seconds'] = $this->normalizeDecimalWithExpected(
+                    $stats['transcription_seconds'] ?? null,
+                    $stats['speech_seconds'] ?? null
+                );
+                $channels[$channel] = $stats;
+            }
+            $this->setMetricValue($data, 'vad.channels', $channels);
+        }
+
+        return $data;
+    }
+
+    private function timelineSpeechSecondsFromTechnicalInfo(array $data): ?float
+    {
+        $channels = $this->metricValue($data, 'vad.channels');
+        if (!is_array($channels)) {
+            return null;
+        }
+
+        $windows = [];
+        foreach ($channels as $stats) {
+            if (!is_array($stats) || !is_array($stats['speech_windows'] ?? null)) {
+                continue;
+            }
+
+            foreach ($stats['speech_windows'] as $window) {
+                if (!is_array($window) || count($window) < 2) {
+                    continue;
+                }
+
+                $start = $window[0] ?? null;
+                $end = $window[1] ?? null;
+                if (!is_numeric($start) || !is_numeric($end) || (float)$end <= (float)$start) {
+                    continue;
+                }
+
+                $windows[] = [(float)$start, (float)$end];
+            }
+        }
+
+        if ($windows === []) {
+            return null;
+        }
+
+        usort($windows, static fn (array $left, array $right): int => $left[0] <=> $right[0] ?: $left[1] <=> $right[1]);
+        [$currentStart, $currentEnd] = $windows[0];
+        $total = 0.0;
+        foreach (array_slice($windows, 1) as [$start, $end]) {
+            if ($start <= $currentEnd) {
+                $currentEnd = max($currentEnd, $end);
+                continue;
+            }
+
+            $total += $currentEnd - $currentStart;
+            $currentStart = $start;
+            $currentEnd = $end;
+        }
+
+        return round($total + $currentEnd - $currentStart, 3);
+    }
+
+    private function technicalRow(string $labelKey, string $value): ?array
+    {
+        if (trim($value) === '') {
+            return null;
+        }
+
+        return [
+            'label' => $this->translation->_($labelKey),
+            'value' => $value,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function technicalChannelRows(array $data): array
+    {
+        $channels = $this->metricValue($data, 'vad.channels');
+        if (!is_array($channels)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($channels as $channel => $stats) {
+            if (!is_array($stats)) {
+                continue;
+            }
+
+            $parts = array_values(array_filter([
+                $this->numberValue($stats['detected_segments'] ?? null) !== '' ? sprintf(
+                    '%s: %s',
+                    $this->translation->_('module_local_speech_to_text_TechnicalVadSegmentsShort'),
+                    $this->numberValue($stats['detected_segments'] ?? null)
+                ) : '',
+                $this->secondsValue($stats['speech_seconds'] ?? null) !== '' ? sprintf(
+                    '%s: %s',
+                    $this->translation->_('module_local_speech_to_text_TechnicalSpeechShort'),
+                    $this->secondsValue($stats['speech_seconds'] ?? null)
+                ) : '',
+                $this->percentValue($stats['speech_ratio'] ?? null) !== '' ? sprintf(
+                    '%s: %s',
+                    $this->translation->_('module_local_speech_to_text_TechnicalSpeechRatioShort'),
+                    $this->percentValue($stats['speech_ratio'] ?? null)
+                ) : '',
+            ]));
+
+            if ($parts === []) {
+                continue;
+            }
+
+            $rows[] = [
+                'label' => (string)$channel,
+                'value' => implode(' / ', $parts),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function stringMetric(array $data, string $path): string
+    {
+        $value = $this->metricValue($data, $path);
+
+        return is_scalar($value) ? trim((string)$value) : '';
+    }
+
+    private function numberMetric(array $data, string $path): string
+    {
+        return $this->numberValue($this->metricValue($data, $path));
+    }
+
+    private function secondsMetric(array $data, string $path): string
+    {
+        return $this->secondsValue($this->metricValue($data, $path));
+    }
+
+    private function percentMetric(array $data, string $path): string
+    {
+        return $this->percentValue($this->metricValue($data, $path));
+    }
+
+    private function languageVotesMetric(array $data): string
+    {
+        $votes = $this->metricValue($data, 'language.votes_seconds');
+        if (!is_array($votes) || $votes === []) {
+            return '';
+        }
+
+        arsort($votes, SORT_NUMERIC);
+        $parts = [];
+        foreach ($votes as $language => $seconds) {
+            if (!is_numeric($seconds)) {
+                continue;
+            }
+            $parts[] = sprintf('%s: %s', (string)$language, $this->secondsValue($seconds));
+        }
+
+        return implode(' / ', $parts);
+    }
+
+    private function qualityReasonsMetric(array $data): string
+    {
+        $reasons = $this->metricValue($data, 'quality.reasons');
+        if (!is_array($reasons) || $reasons === []) {
+            return '';
+        }
+
+        arsort($reasons, SORT_NUMERIC);
+        $parts = [];
+        foreach ($reasons as $reason => $count) {
+            if (!is_numeric($count)) {
+                continue;
+            }
+            $parts[] = sprintf('%s: %s', (string)$reason, $this->numberValue($count));
+        }
+
+        return implode(' / ', $parts);
+    }
+
+    private function ratioMetric(array $data, string $path): string
+    {
+        $value = $this->metricValue($data, $path);
+        if (!is_numeric($value)) {
+            return '';
+        }
+
+        return sprintf('%.3fx', (float)$value);
+    }
+
+    private function boolMetric(array $data, string $path): string
+    {
+        $value = $this->metricValue($data, $path);
+        if (!is_bool($value)) {
+            return '';
+        }
+
+        return $value
+            ? $this->translation->_('module_local_speech_to_text_Yes')
+            : $this->translation->_('module_local_speech_to_text_No');
+    }
+
+    private function timestampMetric(array $data, string $path): string
+    {
+        $value = $this->metricValue($data, $path);
+        if (!is_numeric($value) || (int)$value <= 0) {
+            return '';
+        }
+
+        return date('Y-m-d H:i:s', (int)$value);
+    }
+
+    private function numberValue(mixed $value): string
+    {
+        if (!is_numeric($value)) {
+            return '';
+        }
+
+        $number = (float)$value;
+        if (floor($number) === $number) {
+            return (string)(int)$number;
+        }
+
+        return rtrim(rtrim(sprintf('%.3f', $number), '0'), '.');
+    }
+
+    private function secondsValue(mixed $value): string
+    {
+        if (!is_numeric($value)) {
+            return '';
+        }
+
+        return sprintf('%s %s', $this->numberValue($value), $this->translation->_('module_local_speech_to_text_SecondsShort'));
+    }
+
+    private function percentValue(mixed $value): string
+    {
+        if (!is_numeric($value)) {
+            return '';
+        }
+
+        return sprintf('%.1f%%', (float)$value * 100);
+    }
+
+    private function normalizeLargeDecimal(mixed $value, mixed $maxReference = null): mixed
+    {
+        if (!is_numeric($value)) {
+            return $value;
+        }
+
+        $number = (float)$value;
+        $reference = is_numeric($maxReference) ? (float)$maxReference : 0.0;
+        if ($reference > 0 && $number > $reference * 1.5) {
+            return $this->normalizeDecimalWithExpected($number, $reference);
+        }
+        if ($number > 10000 || ($reference > 0 && $number > $reference * 1.5)) {
+            return $number / 1000;
+        }
+
+        return $number;
+    }
+
+    private function normalizeDecimalWithExpected(mixed $value, mixed $expected): mixed
+    {
+        if (!is_numeric($value)) {
+            return $value;
+        }
+
+        $number = (float)$value;
+        if (!is_numeric($expected) || (float)$expected <= 0) {
+            return $this->normalizeLargeDecimal($number);
+        }
+
+        $expectedNumber = (float)$expected;
+        $candidates = [$number, $number / 10, $number / 100, $number / 1000];
+        $best = $candidates[0];
+        $bestDistance = abs($best - $expectedNumber);
+        foreach ($candidates as $candidate) {
+            $distance = abs($candidate - $expectedNumber);
+            if ($distance < $bestDistance) {
+                $best = $candidate;
+                $bestDistance = $distance;
+            }
+        }
+
+        return $best;
+    }
+
+    private function normalizeRatio(mixed $value, bool $allowAboveOne = false): mixed
+    {
+        if (!is_numeric($value)) {
+            return $value;
+        }
+
+        $number = (float)$value;
+        if ($allowAboveOne) {
+            return $number > 100 ? $number / 1000 : $number;
+        }
+
+        return $number > 1 ? $number / 1000 : $number;
+    }
+
+    private function metricValue(array $data, string $path): mixed
+    {
+        $value = $data;
+        foreach (explode('.', $path) as $part) {
+            if (!is_array($value) || !array_key_exists($part, $value)) {
+                return null;
+            }
+            $value = $value[$part];
+        }
+
+        return $value;
+    }
+
+    private function setMetricValue(array &$data, string $path, mixed $newValue): void
+    {
+        $parts = explode('.', $path);
+        $value = &$data;
+        $lastIndex = count($parts) - 1;
+        foreach ($parts as $index => $part) {
+            if (!is_array($value)) {
+                return;
+            }
+            if (!array_key_exists($part, $value)) {
+                $value[$part] = $index === $lastIndex ? null : [];
+            }
+            $value = &$value[$part];
+        }
+
+        $value = $newValue;
     }
 
     private function sendRecordingError(int $statusCode, string $message): void

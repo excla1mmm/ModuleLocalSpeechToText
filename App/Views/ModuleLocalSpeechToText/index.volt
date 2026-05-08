@@ -42,6 +42,33 @@
                     {% endfor %}
                 </select>
             </div>
+            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyDictionaries') }}</h4>
+            <div class="ui info message">
+                {{ t._('module_local_speech_to_text_VocabularyDictionariesHint') }}
+                <strong>{{ selectedVocabularyTermsCount|e }}</strong>
+            </div>
+            <div class="ui stackable two column grid stt-vocabulary-grid">
+                {% for dictionaryId, dictionary in vocabularyDictionaries %}
+                    <div class="column">
+                        <div class="ui segment stt-vocabulary-dictionary">
+                            <div class="ui checkbox">
+                                <input type="checkbox" name="selected_vocabulary_dictionaries[]" value="{{ dictionaryId|e }}" {% if dictionaryId in selectedVocabularyDictionaries %}checked="checked"{% endif %}>
+                                <label>
+                                    <strong>{{ t._(dictionary['label']) }}</strong>
+                                    <span class="ui tiny label">{{ t._(dictionary['category']) }}</span>
+                                </label>
+                            </div>
+                            <div class="stt-table-muted">{{ t._(dictionary['description']) }}</div>
+                            <div class="stt-vocabulary-count">{{ dictionary['terms']|length }} {{ t._('module_local_speech_to_text_VocabularyTerms') }}</div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_CustomVocabularyTerms') }}</label>
+                {{ form.render('custom_vocabulary_terms') }}
+                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}</div>
+            </div>
             <div class="ui clearing basic segment stt-form-actions">
                 <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" id="submitbutton">
                     <i class="save icon"></i>{{ t._('bt_SaveSettings') }}

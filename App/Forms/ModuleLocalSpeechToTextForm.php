@@ -8,6 +8,7 @@ use MikoPBX\AdminCabinet\Forms\BaseForm;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Phalcon\Forms\Element\Numeric;
 use Phalcon\Forms\Element\Select;
+use Phalcon\Forms\Element\TextArea;
 use stdClass;
 
 class ModuleLocalSpeechToTextForm extends BaseForm
@@ -31,8 +32,8 @@ class ModuleLocalSpeechToTextForm extends BaseForm
         $languageSelect->setDefault($entity->default_language ?? STTSetting::AUTO_LANGUAGE);
         $this->add($languageSelect);
         $this->add(new Numeric('poll_interval_sec', [
-            'value' => $entity->poll_interval_sec ?? '5',
-            'min' => 1,
+            'value' => $entity->poll_interval_sec ?? '30',
+            'min' => 30,
             'max' => 3600,
         ]));
         $this->add(new Numeric('max_file_size_mb', [
@@ -49,6 +50,11 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'value' => $entity->processing_timeout_sec ?? '1800',
             'min' => 60,
             'max' => 86400,
+        ]));
+        $this->add(new TextArea('custom_vocabulary_terms', [
+            'value' => $entity->custom_vocabulary_terms ?? '',
+            'rows' => 5,
+            'placeholder' => 'MikoPBX, Asterisk, CRM, product names',
         ]));
     }
 

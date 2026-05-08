@@ -47,7 +47,7 @@ class LocalSpeechToTextBaseController extends BaseController
         );
         STTSetting::setValue(
             STTSetting::POLL_INTERVAL_SEC,
-            (string)$this->postInt(STTSetting::POLL_INTERVAL_SEC, 5, 1, 3600)
+            (string)$this->postInt(STTSetting::POLL_INTERVAL_SEC, 30, 30, 3600)
         );
         STTSetting::setValue(
             STTSetting::MAX_FILE_SIZE_MB,
@@ -65,6 +65,13 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::SELECTED_MODEL,
             STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL, 64))
         );
+        $selectedDictionaries = $this->request->getPost(STTSetting::SELECTED_VOCABULARY_DICTIONARIES);
+        STTSetting::setSelectedVocabularyDictionaryIds(is_array($selectedDictionaries) ? $selectedDictionaries : []);
+        $customTerms = trim((string)($this->request->getPost(STTSetting::CUSTOM_VOCABULARY_TERMS) ?? ''));
+        STTSetting::setValue(
+            STTSetting::CUSTOM_VOCABULARY_TERMS,
+            function_exists('mb_substr') ? mb_substr($customTerms, 0, 8000) : substr($customTerms, 0, 8000)
+        );
     }
 
     protected function countJobsByStatus(string $status): int
@@ -81,11 +88,12 @@ class LocalSpeechToTextBaseController extends BaseController
     {
         $settings = new stdClass();
         $settings->default_language = STTSetting::selectedLanguageId();
-        $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
+        $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
         $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
         $settings->selected_model = STTSetting::selectedModelId();
+        $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();
 
         return $settings;
     }

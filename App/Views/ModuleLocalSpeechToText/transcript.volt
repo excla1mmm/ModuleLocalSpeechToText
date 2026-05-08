@@ -69,7 +69,7 @@
                                 <div class="stt-dialogue-turn stt-turn-left{% if recording['hasPlayback'] %} stt-playable-turn{% endif %}" data-start="{{ turn['start']|e }}" data-end="{{ turn['end']|e }}"{% if recording['hasPlayback'] %} tabindex="0"{% endif %}>
                                     <div class="stt-turn-rail">
                                         <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['startLabel']|e }}</span>
+                                        <span class="stt-turn-time">{{ turn['endLabel']|e }}</span>
                                     </div>
                                     <div class="stt-turn-card">
                                         <div class="stt-turn-meta">
@@ -87,7 +87,7 @@
                                 <div class="stt-dialogue-turn stt-turn-right{% if recording['hasPlayback'] %} stt-playable-turn{% endif %}" data-start="{{ turn['start']|e }}" data-end="{{ turn['end']|e }}"{% if recording['hasPlayback'] %} tabindex="0"{% endif %}>
                                     <div class="stt-turn-rail">
                                         <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['startLabel']|e }}</span>
+                                        <span class="stt-turn-time">{{ turn['endLabel']|e }}</span>
                                     </div>
                                     <div class="stt-turn-card">
                                         <div class="stt-turn-meta">
@@ -105,5 +105,30 @@
         </div>
     {% else %}
         <div class="ui message">{{ t._('module_local_speech_to_text_NoConversationSegments') }}</div>
+    {% endif %}
+
+    {% if technicalInfo['hasRows'] %}
+        <div class="stt-technical-info">
+            <h3 class="ui dividing header">{{ t._('module_local_speech_to_text_TechnicalInformation') }}</h3>
+            <div class="stt-technical-grid">
+                {% for group in technicalInfo['groups'] %}
+                    <div class="stt-technical-group">
+                        <div class="stt-technical-group-title">{{ group['title']|e }}</div>
+                        {% for row in group['rows'] %}
+                            <div class="stt-technical-row">
+                                <span class="stt-technical-label">{{ row['label']|e }}</span>
+                                <span class="stt-technical-value">{{ row['value']|e }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% if technicalInfo['rawJson'] !== '' %}
+                <details class="stt-technical-raw">
+                    <summary>{{ t._('module_local_speech_to_text_TechnicalRawJson') }}</summary>
+                    <pre>{{ technicalInfo['rawJson']|e }}</pre>
+                </details>
+            {% endif %}
+        </div>
     {% endif %}
 </div>

@@ -18,7 +18,7 @@ class STTWorker extends ModulesModelsBase
 {
     public const string STATUS_ONLINE = 'online';
     public const string STATUS_OFFLINE = 'offline';
-    private const int MIN_OFFLINE_TIMEOUT_SECONDS = 60;
+    private const int MIN_OFFLINE_TIMEOUT_SECONDS = 900;
     private const int HEARTBEAT_WRITE_INTERVAL_SECONDS = 30;
 
     /**
@@ -169,7 +169,7 @@ class STTWorker extends ModulesModelsBase
 
     private static function offlineTimeoutSeconds(): int
     {
-        $pollInterval = (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '5');
+        $pollInterval = (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
 
         return max(self::MIN_OFFLINE_TIMEOUT_SECONDS, min(7200, $pollInterval * 3));
     }

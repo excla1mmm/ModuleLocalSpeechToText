@@ -51,6 +51,11 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => false,
                     'maxLength' => 255,
                 ],
+                'technical_info' => [
+                    'type' => 'object',
+                    'description' => 'Optional technical quality report produced by the worker.',
+                    'required' => false,
+                ],
                 'error_msg' => [
                     'type' => 'string',
                     'description' => 'Worker error message.',
@@ -90,6 +95,10 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                                 'language_hint' => ['type' => 'string'],
                                 'model_id' => ['type' => 'string'],
                                 'model_repo' => ['type' => 'string'],
+                                'vocabulary_terms' => [
+                                    'type' => 'array',
+                                    'items' => ['type' => 'string'],
+                                ],
                             ],
                         ],
                         ['type' => 'null'],
