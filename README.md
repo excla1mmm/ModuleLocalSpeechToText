@@ -85,7 +85,7 @@ All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and 
 - `model_repo`
 - `vocabulary_terms`
 
-The external worker should use `model_repo` for lazy local model download and include `vocabulary_terms` in its recognition context.
+The external worker should use `model_id` as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context.
 
 `download`, `heartbeat`, `submitResult`, and `submitError` validate that the job is still in `processing` state and assigned to the requesting worker.
 

@@ -85,7 +85,7 @@ Worker периодически сканирует завершенные CDR с
 - `model_repo`
 - `vocabulary_terms`
 
-Внешний worker должен использовать `model_repo` для ленивой локальной загрузки модели и добавлять `vocabulary_terms` в контекст распознавания.
+Внешний worker должен использовать `model_id` как имя модели WhisperKit, `model_repo` как Core ML репозиторий для ленивой локальной загрузки модели и добавлять `vocabulary_terms` в контекст распознавания.
 
 `download`, `heartbeat`, `submitResult` и `submitError` проверяют, что задание все еще находится в состоянии `processing` и назначено именно запрашивающему worker-у.
 

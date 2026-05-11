@@ -59,32 +59,32 @@ class STTSetting extends ModulesModelsBase
 
     public const array MODEL_PRESETS = [
         'tiny' => [
-            'repo' => 'mlx-community/whisper-tiny',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelTiny',
             'description' => 'module_local_speech_to_text_ModelTinyDesc',
         ],
         'base' => [
-            'repo' => 'mlx-community/whisper-base-mlx',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelBase',
             'description' => 'module_local_speech_to_text_ModelBaseDesc',
         ],
         'small' => [
-            'repo' => 'mlx-community/whisper-small-mlx',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelSmall',
             'description' => 'module_local_speech_to_text_ModelSmallDesc',
         ],
         'medium' => [
-            'repo' => 'mlx-community/whisper-medium-mlx',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelMedium',
             'description' => 'module_local_speech_to_text_ModelMediumDesc',
         ],
         'large-v3-turbo' => [
-            'repo' => 'mlx-community/whisper-large-v3-turbo',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelLargeV3Turbo',
             'description' => 'module_local_speech_to_text_ModelLargeV3TurboDesc',
         ],
         'large-v3' => [
-            'repo' => 'mlx-community/whisper-large-v3-mlx',
+            'repo' => 'argmaxinc/whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelLargeV3',
             'description' => 'module_local_speech_to_text_ModelLargeV3Desc',
         ],
