@@ -28,7 +28,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 ],
                 'transcript' => [
                     'type' => 'array',
-                    'description' => 'Transcript segments returned by the worker.',
+                    'description' => 'Transcript segments returned by the worker. Segment timestamps must use integer start_ms and end_ms fields.',
                     'required' => true,
                 ],
                 'language' => [
@@ -38,10 +38,10 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => false,
                     'maxLength' => 16,
                 ],
-                'duration' => [
-                    'type' => 'number',
-                    'description' => 'Audio duration in seconds.',
-                    'example' => 83.4,
+                'duration_ms' => [
+                    'type' => 'integer',
+                    'description' => 'Audio duration in milliseconds.',
+                    'example' => 83400,
                     'required' => false,
                 ],
                 'model_used' => [

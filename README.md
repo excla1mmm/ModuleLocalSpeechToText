@@ -94,14 +94,16 @@ The external worker should use `model_id` as the WhisperKit model name and `mode
 `submitResult` requires:
 
 - `worker_uid`
-- `transcript`
+- `transcript` with integer `start_ms` and `end_ms` segment timestamps
 
 Optional fields:
 
 - `language`
-- `duration`
+- `duration_ms`
 - `model_used`
 - `technical_info`
+
+All worker-to-PBX timestamps use integer milliseconds. PBX converts them to seconds only for database duration fields and UI rendering.
 
 `technical_info` is stored as JSON and rendered in the transcript card. It is intended for worker-side diagnostics such as input duration, VAD statistics, selected model, language votes, rejected segments, command timing, and real-time factor.
 

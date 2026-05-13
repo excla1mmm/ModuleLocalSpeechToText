@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib;
 
 use JsonException;
+use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\System\SystemMessages;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
@@ -187,15 +188,15 @@ class LocalSpeechToTextMain
             $connection->begin();
             try {
                 $technicalInfo = is_array($data['technical_info'] ?? null) ? $data['technical_info'] : null;
-                $duration = isset($data['duration']) ? self::normalizeSecondsValue($data['duration'], $technicalInfo) : null;
-                $transcript = self::normalizeTranscriptSegments($data['transcript'], $duration);
+                $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
+                $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
                 STTResult::saveForJob(
                     $job,
                     self::encodeTranscript($transcript),
                     self::nullableStringField($data, 'language'),
                     $duration,
                     self::nullableStringField($data, 'model_used'),
-                    self::encodeTechnicalInfo($data['technical_info'] ?? null)
+                    self::encodeTechnicalInfo($technicalInfo)
                 );
                 if (!$job->markDoneForWorker((int)$worker->id)) {
                     $connection->rollback();
@@ -208,8 +209,8 @@ class LocalSpeechToTextMain
             }
 
             return self::success();
-        } catch (JsonException) {
-            return self::error('validation_error', 'transcript must be valid JSON serializable data', 422);
+        } catch (InvalidArgumentException | JsonException $exception) {
+            return self::error('validation_error', $exception->getMessage(), 422);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
@@ -552,287 +553,6 @@ class LocalSpeechToTextMain
     private static function encodeTranscript(array $segments): string
     {
         return json_encode($segments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    private static function normalizeSecondsValue(mixed $value, ?array $technicalInfo = null): ?float
-    {
-        if (!is_numeric($value)) {
-            return null;
-        }
-
-        $number = (float)$value;
-        if ($number <= 0) {
-            return null;
-        }
-
-        $shortRecordingThreshold = self::numericPath($technicalInfo, ['short_recording_threshold_seconds']);
-        $isShortRecording = self::boolPath($technicalInfo, ['short_recording']);
-        if ($isShortRecording && $shortRecordingThreshold !== null && $number > $shortRecordingThreshold * 100) {
-            return $number / 1000;
-        }
-
-        if ($number > 10000) {
-            return $number / 1000;
-        }
-
-        return $number;
-    }
-
-    /**
-     * @param array<int, string> $path
-     */
-    private static function numericPath(?array $data, array $path): ?float
-    {
-        $value = self::valuePath($data, $path);
-
-        return is_numeric($value) ? (float)$value : null;
-    }
-
-    /**
-     * @param array<int, string> $path
-     */
-    private static function boolPath(?array $data, array $path): bool
-    {
-        return self::valuePath($data, $path) === true;
-    }
-
-    /**
-     * @param array<int, string> $path
-     */
-    private static function valuePath(?array $data, array $path): mixed
-    {
-        $value = $data;
-        foreach ($path as $part) {
-            if (!is_array($value) || !array_key_exists($part, $value)) {
-                return null;
-            }
-            $value = $value[$part];
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $segments
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private static function normalizeTranscriptSegments(array $segments, ?float $duration): array
-    {
-        $scale = self::transcriptTimeScale($segments, $duration);
-        $normalized = [];
-
-        foreach ($segments as $segment) {
-            if (!is_array($segment)) {
-                continue;
-            }
-
-            [$start, $end] = self::normalizeTranscriptRange(
-                $segment['start'] ?? null,
-                $segment['end'] ?? null,
-                $scale,
-                $duration
-            );
-            if (is_numeric($segment['start'] ?? null)) {
-                $segment['start'] = self::roundSeconds($start);
-            }
-            if (is_numeric($segment['end'] ?? null)) {
-                $segment['end'] = self::roundSeconds($end);
-            }
-
-            $normalized[] = $segment;
-        }
-
-        return $normalized;
-    }
-
-    /**
-     * @param array<int, mixed> $segments
-     */
-    private static function transcriptTimeScale(array $segments, ?float $duration): float
-    {
-        $maxTime = 0.0;
-        $hasFractionalTime = false;
-        foreach ($segments as $segment) {
-            if (!is_array($segment)) {
-                continue;
-            }
-            foreach (['start', 'end'] as $field) {
-                if (is_numeric($segment[$field] ?? null)) {
-                    $time = (float)$segment[$field];
-                    $maxTime = max($maxTime, abs($time));
-                    $hasFractionalTime = $hasFractionalTime || abs($time - round($time)) > 0.000001;
-                }
-            }
-        }
-
-        if ($maxTime <= 0) {
-            return 1.0;
-        }
-        if ($hasFractionalTime || $maxTime <= 10) {
-            return 1.0;
-        }
-        if ($maxTime <= 360000) {
-            return 100.0;
-        }
-
-        if ($duration !== null && $duration > 0) {
-            $bestScale = 1.0;
-            $bestScore = PHP_FLOAT_MAX;
-            foreach ([1.0, 10.0, 100.0, 1000.0] as $scale) {
-                $candidate = $maxTime / $scale;
-                $score = abs($candidate - $duration);
-                if ($candidate > $duration * 1.2) {
-                    $score += $duration;
-                }
-                if ($candidate < $duration * 0.01) {
-                    $score += $duration;
-                }
-                if ($score < $bestScore) {
-                    $bestScale = $scale;
-                    $bestScore = $score;
-                }
-            }
-
-            return $bestScale;
-        }
-
-        if ($maxTime > 360000) {
-            return 1000.0;
-        }
-        if ($maxTime > 1000) {
-            return 100.0;
-        }
-
-        return 1.0;
-    }
-
-    private static function normalizeTranscriptTime(
-        mixed $value,
-        float $scale,
-        ?float $duration,
-        ?float $minimum = null
-    ): float {
-        if (!is_numeric($value)) {
-            return 0.0;
-        }
-
-        $number = (float)$value;
-        $base = max(0.0, $number / max(1.0, $scale));
-        $durationLimit = $duration !== null && $duration > 0
-            ? $duration + max(2.0, $duration * 0.05)
-            : null;
-
-        if (($minimum === null || $base + 0.05 >= $minimum) && ($durationLimit === null || $base <= $durationLimit)) {
-            return $base;
-        }
-
-        $best = null;
-        $bestScore = PHP_FLOAT_MAX;
-        foreach ([1.0, 10.0, 100.0, 1000.0] as $candidateScale) {
-            $candidate = max(0.0, $number / $candidateScale);
-            if ($minimum !== null && $candidate + 0.05 < $minimum) {
-                continue;
-            }
-            if ($durationLimit !== null && $candidate > $durationLimit) {
-                continue;
-            }
-
-            $score = abs($candidate - $base);
-            if ($minimum !== null) {
-                $score += abs($candidate - $minimum) * 0.05;
-            }
-            if ($duration !== null && $duration > 0) {
-                $score += abs($candidate - min($candidate, $duration)) * 0.5;
-            }
-
-            if ($score < $bestScore) {
-                $best = $candidate;
-                $bestScore = $score;
-            }
-        }
-
-        return $best ?? $base;
-    }
-
-    /**
-     * @return array{0: float, 1: float}
-     */
-    private static function normalizeTranscriptRange(mixed $startValue, mixed $endValue, float $scale, ?float $duration): array
-    {
-        $start = self::normalizeTranscriptTime($startValue, $scale, $duration);
-        $end = self::normalizeTranscriptTime($endValue, $scale, $duration, $start);
-        if (!is_numeric($startValue) || !is_numeric($endValue)) {
-            return [$start, $end];
-        }
-
-        $segmentDuration = $end - $start;
-        if ($segmentDuration >= 0 && $segmentDuration <= self::maxTranscriptSegmentDuration($duration)) {
-            return [$start, $end];
-        }
-
-        $durationLimit = $duration !== null && $duration > 0
-            ? $duration + max(2.0, $duration * 0.05)
-            : null;
-        $bestStart = $start;
-        $bestEnd = $end;
-        $bestScore = PHP_FLOAT_MAX;
-        $baseStart = max(0.0, (float)$startValue / max(1.0, $scale));
-        $baseEnd = max(0.0, (float)$endValue / max(1.0, $scale));
-
-        foreach ([0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] as $startScale) {
-            $candidateStart = max(0.0, (float)$startValue / $startScale);
-            if ($durationLimit !== null && $candidateStart > $durationLimit) {
-                continue;
-            }
-
-            foreach ([0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] as $endScale) {
-                $candidateEnd = max(0.0, (float)$endValue / $endScale);
-                if ($durationLimit !== null && $candidateEnd > $durationLimit) {
-                    continue;
-                }
-                if ($candidateEnd + 0.05 < $candidateStart) {
-                    continue;
-                }
-
-                $candidateDuration = $candidateEnd - $candidateStart;
-                $score = self::scaleDistance($startScale, $scale) + self::scaleDistance($endScale, $scale);
-                $score += abs($candidateStart - $baseStart) * 0.01 + abs($candidateEnd - $baseEnd) * 0.01;
-                if ($candidateDuration > self::maxTranscriptSegmentDuration($duration)) {
-                    $score += ($candidateDuration - self::maxTranscriptSegmentDuration($duration)) * 10.0;
-                }
-                if ($duration !== null && $duration > 0) {
-                    $score += abs($candidateEnd - min($candidateEnd, $duration)) * 0.5;
-                }
-
-                if ($score < $bestScore) {
-                    $bestScore = $score;
-                    $bestStart = $candidateStart;
-                    $bestEnd = $candidateEnd;
-                }
-            }
-        }
-
-        return [$bestStart, $bestEnd];
-    }
-
-    private static function maxTranscriptSegmentDuration(?float $duration): float
-    {
-        if ($duration !== null && $duration > 0) {
-            return min(35.0, max(12.0, $duration * 0.25));
-        }
-
-        return 35.0;
-    }
-
-    private static function scaleDistance(float $candidateScale, float $baseScale): float
-    {
-        return abs(log($candidateScale / max(1.0, $baseScale), 10));
-    }
-
-    private static function roundSeconds(float $seconds): float
-    {
-        return round(max(0.0, $seconds), 3);
     }
 
     /**

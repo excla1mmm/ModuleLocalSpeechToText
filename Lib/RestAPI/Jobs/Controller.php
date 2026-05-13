@@ -85,7 +85,7 @@ class Controller extends BaseRestController
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('transcript', required: true)]
     #[ApiParameterRef('language')]
-    #[ApiParameterRef('duration')]
+    #[ApiParameterRef('duration_ms')]
     #[ApiParameterRef('model_used')]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]

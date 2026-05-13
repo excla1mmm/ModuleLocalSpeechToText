@@ -13,6 +13,7 @@ use MikoPBX\Common\Models\Users;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
+use Modules\ModuleLocalSpeechToText\Lib\TranscriptTimeNormalizer;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -207,13 +208,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $job = $result->STTJob;
         $job = $job instanceof STTJob ? $job : null;
         $cdr = $job instanceof STTJob ? $this->cdrRecordForJob($job) : null;
-        $durationReference = $cdr instanceof CallDetailRecords ? (float)$cdr->duration : null;
 
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->result = $result;
         $this->view->conversation = $this->conversationFromTranscript(
-            (string)$result->transcript,
-            $this->normalizedSecondsValue($result->duration ?? null, $durationReference)
+            (string)$result->transcript
         );
         $this->view->recording = $this->recordingCard($result, $job, $cdr);
         $this->view->technicalInfo = $this->technicalInfoCard((string)($result->technical_info ?? ''));
@@ -263,7 +262,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     /**
      * @return array<string, mixed>
      */
-    private function conversationFromTranscript(string $transcript, ?float $recordingDuration = null): array
+    private function conversationFromTranscript(string $transcript): array
     {
         $segments = json_decode($transcript, true);
         if (!is_array($segments)) {
@@ -276,7 +275,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         ];
 
         $timeline = [];
-        $timeScale = $this->transcriptTimeScale($segments, $recordingDuration);
 
         foreach ($segments as $segment) {
             if (!is_array($segment)) {
@@ -293,12 +291,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 $speakers[$speakerKey] = $this->speakerColumn($speakerKey, $this->speakerLabel($speakerKey, count($speakers) + 1));
             }
 
-            [$start, $end] = $this->normalizeTranscriptRange(
-                $segment['start'] ?? null,
-                $segment['end'] ?? null,
-                $timeScale,
-                $recordingDuration
-            );
+            [$start, $end] = TranscriptTimeNormalizer::segmentRangeSeconds($segment);
             $orderTime = $start > 0 ? $start : $end;
             $utterance = [
                 'text' => $text,
@@ -403,196 +396,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return 0.0;
     }
 
-    private function normalizedSecondsValue(mixed $value, mixed $maxReference = null): float
+    private function normalizedSecondsValue(mixed $value): float
     {
-        $normalized = $this->normalizeLargeDecimal($value, $maxReference);
-
-        return is_numeric($normalized) ? max(0.0, (float)$normalized) : 0.0;
-    }
-
-    /**
-     * @param array<int, mixed> $segments
-     */
-    private function transcriptTimeScale(array $segments, ?float $recordingDuration): float
-    {
-        $maxTime = 0.0;
-        $hasFractionalTime = false;
-        foreach ($segments as $segment) {
-            if (!is_array($segment)) {
-                continue;
-            }
-            foreach (['start', 'end'] as $field) {
-                if (is_numeric($segment[$field] ?? null)) {
-                    $time = (float)$segment[$field];
-                    $maxTime = max($maxTime, abs($time));
-                    $hasFractionalTime = $hasFractionalTime || abs($time - round($time)) > 0.000001;
-                }
-            }
-        }
-
-        if ($maxTime <= 0) {
-            return 1.0;
-        }
-        if ($hasFractionalTime || $maxTime <= 10) {
-            return 1.0;
-        }
-        if ($maxTime <= 360000) {
-            return 100.0;
-        }
-
-        $scales = [1.0, 10.0, 100.0, 1000.0];
-        if ($recordingDuration !== null && $recordingDuration > 0) {
-            $bestScale = 1.0;
-            $bestScore = PHP_FLOAT_MAX;
-            foreach ($scales as $scale) {
-                $candidate = $maxTime / $scale;
-                $score = abs($candidate - $recordingDuration);
-                if ($candidate > $recordingDuration * 1.2) {
-                    $score += $recordingDuration;
-                }
-                if ($candidate < $recordingDuration * 0.01) {
-                    $score += $recordingDuration;
-                }
-                if ($score < $bestScore) {
-                    $bestScore = $score;
-                    $bestScale = $scale;
-                }
-            }
-
-            return $bestScale;
-        }
-
-        if ($maxTime > 360000) {
-            return 1000.0;
-        }
-        if ($maxTime > 1000) {
-            return 100.0;
-        }
-
-        return 1.0;
-    }
-
-    private function normalizeTranscriptTime(
-        mixed $value,
-        float $scale,
-        ?float $recordingDuration,
-        ?float $minimum = null
-    ): float {
-        if (!is_numeric($value)) {
-            return 0.0;
-        }
-
-        $number = (float)$value;
-        $base = max(0.0, $number / max(1.0, $scale));
-        $durationLimit = $recordingDuration !== null && $recordingDuration > 0
-            ? $recordingDuration + max(2.0, $recordingDuration * 0.05)
-            : null;
-
-        if (($minimum === null || $base + 0.05 >= $minimum) && ($durationLimit === null || $base <= $durationLimit)) {
-            return $base;
-        }
-
-        $best = null;
-        $bestScore = PHP_FLOAT_MAX;
-        foreach ([1.0, 10.0, 100.0, 1000.0] as $candidateScale) {
-            $candidate = max(0.0, $number / $candidateScale);
-            if ($minimum !== null && $candidate + 0.05 < $minimum) {
-                continue;
-            }
-            if ($durationLimit !== null && $candidate > $durationLimit) {
-                continue;
-            }
-
-            $score = abs($candidate - $base);
-            if ($minimum !== null) {
-                $score += abs($candidate - $minimum) * 0.05;
-            }
-            if ($recordingDuration !== null && $recordingDuration > 0) {
-                $score += abs($candidate - min($candidate, $recordingDuration)) * 0.5;
-            }
-
-            if ($score < $bestScore) {
-                $best = $candidate;
-                $bestScore = $score;
-            }
-        }
-
-        return $best ?? $base;
-    }
-
-    /**
-     * @return array{0: float, 1: float}
-     */
-    private function normalizeTranscriptRange(mixed $startValue, mixed $endValue, float $scale, ?float $recordingDuration): array
-    {
-        $start = $this->normalizeTranscriptTime($startValue, $scale, $recordingDuration);
-        $end = $this->normalizeTranscriptTime($endValue, $scale, $recordingDuration, $start);
-        if (!is_numeric($startValue) || !is_numeric($endValue)) {
-            return [$start, $end];
-        }
-
-        $duration = $end - $start;
-        if ($duration >= 0 && $duration <= $this->maxTranscriptSegmentDuration($recordingDuration)) {
-            return [$start, $end];
-        }
-
-        $durationLimit = $recordingDuration !== null && $recordingDuration > 0
-            ? $recordingDuration + max(2.0, $recordingDuration * 0.05)
-            : null;
-        $bestStart = $start;
-        $bestEnd = $end;
-        $bestScore = PHP_FLOAT_MAX;
-        $baseStart = max(0.0, (float)$startValue / max(1.0, $scale));
-        $baseEnd = max(0.0, (float)$endValue / max(1.0, $scale));
-
-        foreach ([0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] as $startScale) {
-            $candidateStart = max(0.0, (float)$startValue / $startScale);
-            if ($durationLimit !== null && $candidateStart > $durationLimit) {
-                continue;
-            }
-
-            foreach ([0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] as $endScale) {
-                $candidateEnd = max(0.0, (float)$endValue / $endScale);
-                if ($durationLimit !== null && $candidateEnd > $durationLimit) {
-                    continue;
-                }
-                if ($candidateEnd + 0.05 < $candidateStart) {
-                    continue;
-                }
-
-                $candidateDuration = $candidateEnd - $candidateStart;
-                $score = $this->scaleDistance($startScale, $scale) + $this->scaleDistance($endScale, $scale);
-                $score += abs($candidateStart - $baseStart) * 0.01 + abs($candidateEnd - $baseEnd) * 0.01;
-                if ($candidateDuration > $this->maxTranscriptSegmentDuration($recordingDuration)) {
-                    $score += ($candidateDuration - $this->maxTranscriptSegmentDuration($recordingDuration)) * 10.0;
-                }
-                if ($recordingDuration !== null && $recordingDuration > 0) {
-                    $score += abs($candidateEnd - min($candidateEnd, $recordingDuration)) * 0.5;
-                }
-
-                if ($score < $bestScore) {
-                    $bestScore = $score;
-                    $bestStart = $candidateStart;
-                    $bestEnd = $candidateEnd;
-                }
-            }
-        }
-
-        return [$bestStart, $bestEnd];
-    }
-
-    private function maxTranscriptSegmentDuration(?float $recordingDuration): float
-    {
-        if ($recordingDuration !== null && $recordingDuration > 0) {
-            return min(35.0, max(12.0, $recordingDuration * 0.25));
-        }
-
-        return 35.0;
-    }
-
-    private function scaleDistance(float $candidateScale, float $baseScale): float
-    {
-        return abs(log($candidateScale / max(1.0, $baseScale), 10));
+        return is_numeric($value) ? max(0.0, (float)$value) : 0.0;
     }
 
     private function timeLabel(float $seconds): string
@@ -629,8 +435,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $downloadUrl = $this->url->get($recordingUrl . '&download=1');
         }
         $callTimestamp = $this->callTimestamp($result, $job);
-        $cdrDuration = $cdr instanceof CallDetailRecords ? (float)$cdr->duration : null;
-        $duration = $this->normalizedSecondsValue($result->duration ?? null, $cdrDuration);
+        $duration = $this->normalizedSecondsValue($result->duration ?? null);
         if ($duration <= 0 && $cdr instanceof CallDetailRecords) {
             $duration = (float)$cdr->duration;
         }
@@ -766,7 +571,14 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private function normalizeTechnicalInfo(array $data): array
     {
         if ($this->metricValue($data, 'input.duration_seconds') === null) {
-            $this->setMetricValue($data, 'input.duration_seconds', $this->metricValue($data, 'audio.duration_seconds'));
+            $durationMs = $this->metricValue($data, 'input.duration_ms') ?? $this->metricValue($data, 'audio.duration_ms');
+            $this->setMetricValue(
+                $data,
+                'input.duration_seconds',
+                $durationMs !== null
+                    ? TranscriptTimeNormalizer::secondsMetricFromMilliseconds($durationMs)
+                    : $this->metricValue($data, 'audio.duration_seconds')
+            );
         }
         if ($this->metricValue($data, 'input.channels') === null) {
             $this->setMetricValue($data, 'input.channels', $this->metricValue($data, 'audio.channels'));
@@ -789,6 +601,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $rawDuration = $this->metricValue($data, 'input.duration_seconds');
         $shortRecordingThreshold = $this->metricValue($data, 'short_recording_threshold_seconds');
+        if ($shortRecordingThreshold === null && $this->metricValue($data, 'short_recording_threshold_ms') !== null) {
+            $shortRecordingThreshold = TranscriptTimeNormalizer::secondsMetricFromMilliseconds(
+                $this->metricValue($data, 'short_recording_threshold_ms')
+            );
+        }
         $duration = $this->metricValue($data, 'short_recording') === true && is_numeric($shortRecordingThreshold)
             ? $this->normalizeDecimalWithExpected($rawDuration, (float)$shortRecordingThreshold)
             : $this->normalizeLargeDecimal($rawDuration);
@@ -796,11 +613,25 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $channelsCount = max(1, (int)($this->metricValue($data, 'input.channels') ?: 1));
         $speechRatio = $this->normalizeRatio($this->metricValue($data, 'vad.speech_ratio'));
 
+        if ($this->metricValue($data, 'vad.speech_ms') !== null) {
+            $this->setMetricValue(
+                $data,
+                'vad.speech_seconds',
+                TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'vad.speech_ms'))
+            );
+        }
         $speechSeconds = $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'vad.speech_seconds'),
             is_numeric($duration) && is_numeric($speechRatio) ? (float)$duration * $channelsCount * (float)$speechRatio : null
         );
         $this->setMetricValue($data, 'vad.speech_seconds', $speechSeconds);
+        if ($this->metricValue($data, 'vad.transcription_ms') !== null) {
+            $this->setMetricValue(
+                $data,
+                'vad.transcription_seconds',
+                TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'vad.transcription_ms'))
+            );
+        }
         $this->setMetricValue($data, 'vad.transcription_seconds', $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'vad.transcription_seconds'),
             $speechSeconds
@@ -808,6 +639,12 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->setMetricValue($data, 'vad.speech_ratio', $speechRatio);
         $timelineRatio = $this->normalizeRatio($this->metricValue($data, 'vad.timeline_speech_ratio'));
         $timelineSpeechSeconds = $this->metricValue($data, 'vad.timeline_speech_seconds');
+        if ($timelineSpeechSeconds === null) {
+            $timelineSpeechMs = $this->metricValue($data, 'vad.timeline_speech_ms');
+            if ($timelineSpeechMs !== null) {
+                $timelineSpeechSeconds = TranscriptTimeNormalizer::secondsMetricFromMilliseconds($timelineSpeechMs);
+            }
+        }
         if ($timelineSpeechSeconds === null) {
             $timelineSpeechSeconds = $this->timelineSpeechSecondsFromTechnicalInfo($data);
         }
@@ -829,11 +666,25 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $elapsedExpected = is_numeric($duration) && is_numeric($realTimeFactor)
             ? (float)$duration * (float)$realTimeFactor
             : null;
+        if ($this->metricValue($data, 'timing.elapsed_ms') !== null) {
+            $this->setMetricValue(
+                $data,
+                'timing.elapsed_seconds',
+                TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'timing.elapsed_ms'))
+            );
+        }
         $elapsedSeconds = $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'timing.elapsed_seconds'),
             $elapsedExpected
         );
         $this->setMetricValue($data, 'timing.elapsed_seconds', $elapsedSeconds);
+        if ($this->metricValue($data, 'timing.stt_command_ms') !== null) {
+            $this->setMetricValue(
+                $data,
+                'timing.stt_command_seconds',
+                TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'timing.stt_command_ms'))
+            );
+        }
         $this->setMetricValue($data, 'timing.stt_command_seconds', $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'timing.stt_command_seconds'),
             $elapsedSeconds
@@ -854,6 +705,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                     continue;
                 }
                 $stats['speech_ratio'] = $this->normalizeRatio($stats['speech_ratio'] ?? null);
+                if (isset($stats['duration_ms'])) {
+                    $stats['duration_seconds'] = TranscriptTimeNormalizer::secondsMetricFromMilliseconds($stats['duration_ms']);
+                }
+                if (isset($stats['speech_ms'])) {
+                    $stats['speech_seconds'] = TranscriptTimeNormalizer::secondsMetricFromMilliseconds($stats['speech_ms']);
+                }
+                if (isset($stats['transcription_ms'])) {
+                    $stats['transcription_seconds'] = TranscriptTimeNormalizer::secondsMetricFromMilliseconds($stats['transcription_ms']);
+                }
                 $stats['duration_seconds'] = $this->normalizeDecimalWithExpected($stats['duration_seconds'] ?? null, $duration);
                 $stats['speech_seconds'] = $this->normalizeDecimalWithExpected(
                     $stats['speech_seconds'] ?? null,
@@ -1107,60 +967,17 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     private function normalizeLargeDecimal(mixed $value, mixed $maxReference = null): mixed
     {
-        if (!is_numeric($value)) {
-            return $value;
-        }
-
-        $number = (float)$value;
-        $reference = is_numeric($maxReference) ? (float)$maxReference : 0.0;
-        if ($reference > 0 && $number > $reference * 1.5) {
-            return $this->normalizeDecimalWithExpected($number, $reference);
-        }
-        if ($number > 10000 || ($reference > 0 && $number > $reference * 1.5)) {
-            return $number / 1000;
-        }
-
-        return $number;
+        return TranscriptTimeNormalizer::normalizeLargeDecimal($value, $maxReference);
     }
 
     private function normalizeDecimalWithExpected(mixed $value, mixed $expected): mixed
     {
-        if (!is_numeric($value)) {
-            return $value;
-        }
-
-        $number = (float)$value;
-        if (!is_numeric($expected) || (float)$expected <= 0) {
-            return $this->normalizeLargeDecimal($number);
-        }
-
-        $expectedNumber = (float)$expected;
-        $candidates = [$number, $number / 10, $number / 100, $number / 1000];
-        $best = $candidates[0];
-        $bestDistance = abs($best - $expectedNumber);
-        foreach ($candidates as $candidate) {
-            $distance = abs($candidate - $expectedNumber);
-            if ($distance < $bestDistance) {
-                $best = $candidate;
-                $bestDistance = $distance;
-            }
-        }
-
-        return $best;
+        return TranscriptTimeNormalizer::normalizeDecimalWithExpected($value, $expected);
     }
 
     private function normalizeRatio(mixed $value, bool $allowAboveOne = false): mixed
     {
-        if (!is_numeric($value)) {
-            return $value;
-        }
-
-        $number = (float)$value;
-        if ($allowAboveOne) {
-            return $number > 100 ? $number / 1000 : $number;
-        }
-
-        return $number > 1 ? $number / 1000 : $number;
+        return TranscriptTimeNormalizer::normalizeRatio($value, $allowAboveOne);
     }
 
     private function metricValue(array $data, string $path): mixed
