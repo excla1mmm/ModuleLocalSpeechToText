@@ -324,15 +324,20 @@ class LocalSpeechToTextMain
             'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid),
             'duration_hint' => null,
             'language_hint' => STTSetting::selectedLanguageHint(),
-            'model_id' => STTSetting::selectedModelId(),
+            'model_id' => STTSetting::selectedModelRuntimeId(),
             'model_repo' => STTSetting::selectedModelRepo(),
+            'model_engine' => STTSetting::selectedModelEngine(),
+            'model_artifact_type' => STTSetting::selectedModelArtifactType(),
+            'whisperkit_model' => STTSetting::selectedModelRuntimeId(),
+            'model_display_name' => STTSetting::selectedModelDisplayName(),
+            'model_source_url' => STTSetting::selectedModelSourceUrl(),
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
     }
 
     private static function currentWorkerModelName(): string
     {
-        return STTSetting::selectedModelId();
+        return STTSetting::selectedModelDisplayName();
     }
 
     private static function syncWorkerModel(STTWorker $worker): void

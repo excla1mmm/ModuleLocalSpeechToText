@@ -16,6 +16,33 @@
     word-break: break-word;
 }
 
+.module-local-speech-to-text .stt-model-marketplace-table td {
+    vertical-align: top;
+}
+
+.module-local-speech-to-text .stt-custom-model-form {
+    margin-top: 1.2em;
+}
+
+.module-local-speech-to-text .stt-model-title {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.module-local-speech-to-text .stt-model-tags .ui.tiny.label {
+    margin-bottom: 0.25em;
+}
+
+.module-local-speech-to-text .stt-model-runtime {
+    display: inline-block;
+    max-width: 22em;
+    overflow-wrap: anywhere;
+}
+
+.module-local-speech-to-text .stt-delete-custom-model-form {
+    margin: 0;
+}
+
 .module-local-speech-to-text .stt-form-actions {
     padding: 0 !important;
     margin: 1.5em 0 0 0 !important;

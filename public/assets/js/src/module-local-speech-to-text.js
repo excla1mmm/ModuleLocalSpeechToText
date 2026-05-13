@@ -560,17 +560,31 @@
     $(function () {
         var $tabItems = $('#module-local-speech-to-text-menu .item');
         var $settingsForm = $('#module-local-speech-to-text-form');
+        var $modelForm = $('#module-local-speech-to-text-model-form');
         $tabItems.tab();
         if (requestedTab() !== '') {
             $tabItems.tab('change tab', requestedTab());
         }
 
         $('.module-local-speech-to-text .ui.dropdown').dropdown();
+        $('.module-local-speech-to-text .ui.checkbox').checkbox();
         $('.module-local-speech-to-text [data-content]').popup();
+        $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').on('click', function (event) {
+            if ($(event.target).closest('a, button, form, input, label').length > 0) {
+                return;
+            }
+
+            $(this).find('.ui.radio.checkbox').checkbox('check');
+        });
         initializeTranscriptDateFilter();
         initializeTranscriptPlayer();
         initializeModuleLogs();
         $('.module-local-speech-to-text .stt-delete-api-key-form').on('submit', function () {
+            var message = $(this).data('confirm') || '';
+
+            return message === '' || window.confirm(message);
+        });
+        $('.module-local-speech-to-text .stt-delete-custom-model-form').on('submit', function () {
             var message = $(this).data('confirm') || '';
 
             return message === '' || window.confirm(message);
@@ -613,10 +627,6 @@
                 processing_timeout_sec: {
                     identifier: 'processing_timeout_sec',
                     rules: [{ type: 'integer[60..86400]' }]
-                },
-                selected_model: {
-                    identifier: 'selected_model',
-                    rules: [{ type: 'empty' }]
                 }
             };
             Form.cbBeforeSendForm = function (settings) {
@@ -635,10 +645,22 @@
                     poll_interval_sec: ['integer[1..3600]'],
                     max_file_size_mb: ['integer[1..10240]'],
                     cdr_scan_limit: ['integer[1..1000]'],
-                    processing_timeout_sec: ['integer[60..86400]'],
-                    selected_model: ['empty']
+                    processing_timeout_sec: ['integer[60..86400]']
                 }
             });
         }
+
+        $modelForm.form({
+            fields: {
+                selected_model: ['empty']
+            }
+        });
+        $('.module-local-speech-to-text .stt-custom-model-form').form({
+            fields: {
+                model_repo: ['empty'],
+                runtime_model: ['empty'],
+                model_title: ['empty']
+            }
+        });
     });
 }());

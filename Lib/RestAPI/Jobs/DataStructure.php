@@ -95,6 +95,11 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                                 'language_hint' => ['type' => 'string'],
                                 'model_id' => ['type' => 'string'],
                                 'model_repo' => ['type' => 'string'],
+                                'model_engine' => ['type' => 'string'],
+                                'model_artifact_type' => ['type' => 'string'],
+                                'whisperkit_model' => ['type' => 'string'],
+                                'model_display_name' => ['type' => 'string'],
+                                'model_source_url' => ['type' => 'string'],
                                 'vocabulary_terms' => [
                                     'type' => 'array',
                                     'items' => ['type' => 'string'],

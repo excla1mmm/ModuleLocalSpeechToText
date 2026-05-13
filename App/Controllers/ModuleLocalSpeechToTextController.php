@@ -47,8 +47,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->activeTab = $activeTab;
         $this->view->form = $this->buildSettingsForm();
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-        $this->view->modelPresets = STTSetting::MODEL_PRESETS;
+        $this->view->modelPresets = STTSetting::modelPresets();
         $this->view->selectedModel = STTSetting::selectedModelId();
+        $this->view->modelMarketplaceRows = $this->modelMarketplaceRows();
         $this->view->vocabularyDictionaries = STTSetting::VOCABULARY_DICTIONARIES;
         $this->view->selectedVocabularyDictionaries = STTSetting::selectedVocabularyDictionaryIds();
         $this->view->selectedVocabularyTermsCount = count(STTSetting::selectedVocabularyTerms());
@@ -83,7 +84,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->workers = STTWorker::find([
             'order' => 'last_seen DESC, id DESC',
         ]);
-        $this->view->workerRuntimeModel = STTSetting::selectedModelId();
+        $this->view->workerRuntimeModel = STTSetting::selectedModelDisplayName();
         $this->view->workerApiKeyRows = $this->workerApiKeyRows();
         $this->view->generatedApiKey = $generatedApiKey['apiKey'];
         $this->view->workerInstallCommand = $generatedApiKey['apiKey'] === ''
@@ -115,6 +116,58 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         if ($this->request->isAjax() === false) {
             $this->response->redirect(MenuProvider::DASHBOARD_PATH);
         }
+    }
+
+    public function saveModelAction(): void
+    {
+        try {
+            $modelId = trim((string)$this->request->getPost(
+                STTSetting::SELECTED_MODEL,
+                'string',
+                STTSetting::selectedModelId()
+            ));
+            $modelId = substr($modelId, 0, 255);
+            STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId($modelId));
+            $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
+    }
+
+    public function addCustomModelAction(): void
+    {
+        try {
+            STTSetting::addCustomModel([
+                'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
+                'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
+                'label' => (string)$this->request->getPost('model_title', 'string', ''),
+                'description' => (string)$this->request->getPost('model_description', 'string', ''),
+                'language' => (string)$this->request->getPost('model_language', 'string', ''),
+                'license' => (string)$this->request->getPost('model_license', 'string', ''),
+                'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
+                'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
+            ]);
+            $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelAdded'));
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
+    }
+
+    public function deleteCustomModelAction(): void
+    {
+        try {
+            $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
+            STTSetting::removeCustomModel($modelId);
+            $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelDeleted'));
+        } catch (Throwable $exception) {
+            $this->flash->error($exception->getMessage());
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
     }
 
     public function retryErrorsAction(): void
@@ -611,8 +664,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             : $this->normalizeLargeDecimal($rawDuration);
         $this->setMetricValue($data, 'input.duration_seconds', $duration);
         $channelsCount = max(1, (int)($this->metricValue($data, 'input.channels') ?: 1));
-        $speechRatio = $this->normalizeRatio($this->metricValue($data, 'vad.speech_ratio'));
-
         if ($this->metricValue($data, 'vad.speech_ms') !== null) {
             $this->setMetricValue(
                 $data,
@@ -620,11 +671,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'vad.speech_ms'))
             );
         }
+        $rawSpeechRatio = $this->normalizeRatio($this->metricValue($data, 'vad.speech_ratio'));
         $speechSeconds = $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'vad.speech_seconds'),
-            is_numeric($duration) && is_numeric($speechRatio) ? (float)$duration * $channelsCount * (float)$speechRatio : null
+            is_numeric($duration) && is_numeric($rawSpeechRatio) ? (float)$duration * $channelsCount * (float)$rawSpeechRatio : null
         );
         $this->setMetricValue($data, 'vad.speech_seconds', $speechSeconds);
+        $speechRatio = is_numeric($duration) && (float)$duration > 0 && is_numeric($speechSeconds)
+            ? (float)$speechSeconds / ((float)$duration * $channelsCount)
+            : $this->normalizeDisplayRatio($rawSpeechRatio);
         if ($this->metricValue($data, 'vad.transcription_ms') !== null) {
             $this->setMetricValue(
                 $data,
@@ -637,7 +692,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $speechSeconds
         ));
         $this->setMetricValue($data, 'vad.speech_ratio', $speechRatio);
-        $timelineRatio = $this->normalizeRatio($this->metricValue($data, 'vad.timeline_speech_ratio'));
+        $rawTimelineRatio = $this->normalizeRatio($this->metricValue($data, 'vad.timeline_speech_ratio'));
         $timelineSpeechSeconds = $this->metricValue($data, 'vad.timeline_speech_seconds');
         if ($timelineSpeechSeconds === null) {
             $timelineSpeechMs = $this->metricValue($data, 'vad.timeline_speech_ms');
@@ -651,21 +706,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         if ($timelineSpeechSeconds !== null) {
             $timelineSpeechSeconds = $this->normalizeDecimalWithExpected(
                 $timelineSpeechSeconds,
-                is_numeric($duration) && is_numeric($timelineRatio) ? (float)$duration * (float)$timelineRatio : null
+                is_numeric($duration) && is_numeric($rawTimelineRatio) ? (float)$duration * (float)$rawTimelineRatio : null
             );
             $this->setMetricValue($data, 'vad.timeline_speech_seconds', $timelineSpeechSeconds);
         }
+        $timelineRatio = is_numeric($duration) && (float)$duration > 0 && is_numeric($timelineSpeechSeconds)
+            ? (float)$timelineSpeechSeconds / (float)$duration
+            : $this->normalizeDisplayRatio($rawTimelineRatio);
         if ($timelineRatio !== null) {
             $this->setMetricValue($data, 'vad.timeline_speech_ratio', $timelineRatio);
         }
-        $realTimeFactor = $this->normalizeRatio(
-            $this->metricValue($data, 'timing.real_time_factor'),
-            true
-        );
-        $this->setMetricValue($data, 'timing.real_time_factor', $realTimeFactor);
-        $elapsedExpected = is_numeric($duration) && is_numeric($realTimeFactor)
-            ? (float)$duration * (float)$realTimeFactor
-            : null;
         if ($this->metricValue($data, 'timing.elapsed_ms') !== null) {
             $this->setMetricValue(
                 $data,
@@ -673,11 +723,22 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 TranscriptTimeNormalizer::secondsMetricFromMilliseconds($this->metricValue($data, 'timing.elapsed_ms'))
             );
         }
+        $rawRealTimeFactor = $this->normalizeRatio(
+            $this->metricValue($data, 'timing.real_time_factor'),
+            true
+        );
+        $elapsedExpected = is_numeric($duration) && is_numeric($rawRealTimeFactor)
+            ? (float)$duration * (float)$rawRealTimeFactor
+            : null;
         $elapsedSeconds = $this->normalizeDecimalWithExpected(
             $this->metricValue($data, 'timing.elapsed_seconds'),
             $elapsedExpected
         );
         $this->setMetricValue($data, 'timing.elapsed_seconds', $elapsedSeconds);
+        $realTimeFactor = is_numeric($duration) && (float)$duration > 0 && is_numeric($elapsedSeconds)
+            ? (float)$elapsedSeconds / (float)$duration
+            : $this->normalizeDisplayRatio($rawRealTimeFactor, true);
+        $this->setMetricValue($data, 'timing.real_time_factor', $realTimeFactor);
         if ($this->metricValue($data, 'timing.stt_command_ms') !== null) {
             $this->setMetricValue(
                 $data,
@@ -704,7 +765,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 if (!is_array($stats)) {
                     continue;
                 }
-                $stats['speech_ratio'] = $this->normalizeRatio($stats['speech_ratio'] ?? null);
+                $rawChannelSpeechRatio = $this->normalizeRatio($stats['speech_ratio'] ?? null);
                 if (isset($stats['duration_ms'])) {
                     $stats['duration_seconds'] = TranscriptTimeNormalizer::secondsMetricFromMilliseconds($stats['duration_ms']);
                 }
@@ -717,10 +778,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 $stats['duration_seconds'] = $this->normalizeDecimalWithExpected($stats['duration_seconds'] ?? null, $duration);
                 $stats['speech_seconds'] = $this->normalizeDecimalWithExpected(
                     $stats['speech_seconds'] ?? null,
-                    is_numeric($stats['duration_seconds']) && is_numeric($stats['speech_ratio'])
-                        ? (float)$stats['duration_seconds'] * (float)$stats['speech_ratio']
+                    is_numeric($stats['duration_seconds']) && is_numeric($rawChannelSpeechRatio)
+                        ? (float)$stats['duration_seconds'] * (float)$rawChannelSpeechRatio
                         : null
                 );
+                $stats['speech_ratio'] = is_numeric($stats['duration_seconds'] ?? null)
+                    && (float)$stats['duration_seconds'] > 0
+                    && is_numeric($stats['speech_seconds'] ?? null)
+                        ? (float)$stats['speech_seconds'] / (float)$stats['duration_seconds']
+                        : $this->normalizeDisplayRatio($rawChannelSpeechRatio);
                 $stats['transcription_seconds'] = $this->normalizeDecimalWithExpected(
                     $stats['transcription_seconds'] ?? null,
                     $stats['speech_seconds'] ?? null
@@ -978,6 +1044,23 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private function normalizeRatio(mixed $value, bool $allowAboveOne = false): mixed
     {
         return TranscriptTimeNormalizer::normalizeRatio($value, $allowAboveOne);
+    }
+
+    private function normalizeDisplayRatio(mixed $value, bool $allowAboveOne = false): mixed
+    {
+        if (!is_numeric($value)) {
+            return $value;
+        }
+
+        $ratio = (float)$value;
+        if ($ratio > 10) {
+            $ratio /= 1000;
+        }
+        if (!$allowAboveOne && $ratio > 1) {
+            $ratio = min(1.0, $ratio);
+        }
+
+        return $ratio;
     }
 
     private function metricValue(array $data, string $path): mixed
@@ -2234,7 +2317,64 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $tab = (string)$this->request->getQuery('tab', 'string', 'settings');
 
-        return in_array($tab, ['settings', 'queue', 'workers', 'transcripts', 'logs'], true) ? $tab : 'settings';
+        return in_array($tab, ['settings', 'models', 'queue', 'workers', 'transcripts', 'logs'], true) ? $tab : 'settings';
     }
 
+    private function modelMarketplaceRows(): array
+    {
+        $rows = [];
+        $selectedModel = STTSetting::selectedModelId();
+
+        foreach (STTSetting::modelPresets() as $modelId => $model) {
+            $repo = (string)($model['repo'] ?? '');
+            $runtimeModel = (string)($model['model'] ?? $modelId);
+            $isCustom = (bool)($model['custom'] ?? false);
+            $tags = [
+                $isCustom ? 'custom' : ($repo === 'argmaxinc/whisperkit-coreml' ? 'default' : 'tuned'),
+                (string)($model['engine'] ?? 'whisperKit'),
+                $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
+            ];
+
+            if (($model['language'] ?? '') !== '') {
+                $tags[] = (string)$model['language'];
+            }
+            if (($model['license'] ?? '') !== '') {
+                $tags[] = (string)$model['license'];
+            }
+            foreach (($model['tags'] ?? []) as $tag) {
+                $tags[] = (string)$tag;
+            }
+
+            $rows[] = [
+                'id' => $modelId,
+                'title' => $repo . '/' . $runtimeModel,
+                'repo' => $repo,
+                'runtime' => $runtimeModel,
+                'label' => $this->modelText((string)$model['label']),
+                'description' => $this->modelText((string)$model['description']),
+                'sourceUrl' => (string)($model['source_url'] ?? ''),
+                'selected' => $modelId === $selectedModel,
+                'custom' => $isCustom,
+                'tags' => array_values(array_filter($tags)),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function modelArtifactLabel(string $artifactType): string
+    {
+        return match ($artifactType) {
+            'whisperkit-coreml' => 'Core ML',
+            '' => '',
+            default => $artifactType,
+        };
+    }
+
+    private function modelText(string $text): string
+    {
+        return str_starts_with($text, 'module_local_speech_to_text_')
+            ? $this->translation->_($text)
+            : $text;
+    }
 }

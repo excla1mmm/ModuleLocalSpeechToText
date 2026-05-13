@@ -4,7 +4,7 @@ Local speech-to-text module for MikoPBX.
 
 `ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, and the administrator UI.
 
-Current module version: `1.0.46`.
+Current module version: `1.0.60`.
 
 ## What It Does
 
@@ -36,9 +36,10 @@ Processing jobs are leased to a worker. If the worker stops refreshing the lease
 
 ## Admin UI
 
-The main module page has four tabs:
+The main module page has six tabs:
 
-- `Settings`: language hint, polling interval, maximum recording size, CDR scan limit, processing timeout, Whisper model, predefined vocabulary dictionaries, and custom vocabulary terms.
+- `Settings`: language hint, polling interval, maximum recording size, CDR scan limit, processing timeout, predefined vocabulary dictionaries, and custom vocabulary terms.
+- `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
@@ -83,9 +84,14 @@ All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and 
 - `language_hint`
 - `model_id`
 - `model_repo`
+- `model_engine`
+- `model_artifact_type`
+- `whisperkit_model`
+- `model_display_name`
+- `model_source_url`
 - `vocabulary_terms`
 
-The external worker should use `model_id` as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context.
+The external worker should use `whisperkit_model` (or `model_id` for older payloads) as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context. Marketplace entries keep the real Hugging Face repository and model folder names in the job payload. Custom marketplace entries must point to WhisperKit/Core ML compatible Hugging Face repositories.
 
 `download`, `heartbeat`, `submitResult`, and `submitError` validate that the job is still in `processing` state and assigned to the requesting worker.
 

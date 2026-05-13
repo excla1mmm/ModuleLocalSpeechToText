@@ -28,6 +28,7 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
+    public const string CUSTOM_MODELS = 'custom_models';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';
@@ -60,33 +61,86 @@ class STTSetting extends ModulesModelsBase
     public const array MODEL_PRESETS = [
         'tiny' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'tiny',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelTiny',
             'description' => 'module_local_speech_to_text_ModelTinyDesc',
         ],
         'base' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'base',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelBase',
             'description' => 'module_local_speech_to_text_ModelBaseDesc',
         ],
-        'small' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelSmall',
-            'description' => 'module_local_speech_to_text_ModelSmallDesc',
-        ],
         'medium' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'medium',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelMedium',
             'description' => 'module_local_speech_to_text_ModelMediumDesc',
         ],
         'large-v3-turbo' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'large-v3-v20240930_turbo',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelLargeV3Turbo',
             'description' => 'module_local_speech_to_text_ModelLargeV3TurboDesc',
         ],
-        'large-v3' => [
+        'argmaxinc/whisperkit-coreml:openai_whisper-large-v3-v20240930_turbo_632MB' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelLargeV3',
-            'description' => 'module_local_speech_to_text_ModelLargeV3Desc',
+            'model' => 'openai_whisper-large-v3-v20240930_turbo_632MB',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3Turbo632MB',
+            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3Turbo632MBDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo_632MB',
+            'tags' => ['popular', 'compressed', 'OpenAI'],
+        ],
+        'argmaxinc/whisperkit-coreml:openai_whisper-large-v3_947MB' => [
+            'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'openai_whisper-large-v3_947MB',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3947MB',
+            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3947MBDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3_947MB',
+            'tags' => ['popular', 'compressed', 'OpenAI'],
+        ],
+        'argmaxinc/whisperkit-coreml:distil-whisper_distil-large-v3_turbo_600MB' => [
+            'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'distil-whisper_distil-large-v3_turbo_600MB',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelDistilWhisperLargeV3Turbo600MB',
+            'description' => 'module_local_speech_to_text_ModelDistilWhisperLargeV3Turbo600MBDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/distil-whisper_distil-large-v3_turbo_600MB',
+            'tags' => ['popular', 'compressed', 'Distil'],
+        ],
+        'argmaxinc/whisperkit-coreml:openai_whisper-small_216MB' => [
+            'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'openai_whisper-small_216MB',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperSmall216MB',
+            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperSmall216MBDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small_216MB',
+            'tags' => ['popular', 'compressed', 'OpenAI'],
+        ],
+        'smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo' => [
+            'repo' => 'smkrv/whisper-podlodka-turbo-coreml',
+            'model' => 'bond005_whisper-podlodka-turbo',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelPodlodkaTurboCoreML',
+            'description' => 'module_local_speech_to_text_ModelPodlodkaTurboCoreMLDesc',
+            'license' => 'Apache-2.0',
+            'source_url' => 'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
+            'language' => 'ru',
         ],
     ];
 
@@ -224,16 +278,135 @@ class STTSetting extends ModulesModelsBase
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public static function selectedModelPreset(): array
     {
-        return self::MODEL_PRESETS[self::selectedModelId()];
+        return self::modelPresets()[self::selectedModelId()];
     }
 
     public static function selectedModelRepo(): string
     {
-        return self::selectedModelPreset()['repo'];
+        return (string)self::selectedModelPreset()['repo'];
+    }
+
+    public static function selectedModelRuntimeId(): string
+    {
+        return (string)self::selectedModelPreset()['model'];
+    }
+
+    public static function selectedModelEngine(): string
+    {
+        return (string)self::selectedModelPreset()['engine'];
+    }
+
+    public static function selectedModelArtifactType(): string
+    {
+        return (string)self::selectedModelPreset()['artifact_type'];
+    }
+
+    public static function selectedModelDisplayName(): string
+    {
+        $preset = self::selectedModelPreset();
+
+        return (string)$preset['repo'] . '/' . (string)$preset['model'];
+    }
+
+    public static function selectedModelSourceUrl(): string
+    {
+        return (string)(self::selectedModelPreset()['source_url'] ?? '');
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public static function modelPresets(): array
+    {
+        return self::MODEL_PRESETS + self::customModelPresets();
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public static function customModelPresets(): array
+    {
+        $decoded = json_decode(self::getValue(self::CUSTOM_MODELS, '{}'), true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $models = [];
+        foreach ($decoded as $modelId => $model) {
+            if (!is_array($model)) {
+                continue;
+            }
+
+            $repo = self::sanitizeModelRepo((string)($model['repo'] ?? ''));
+            $runtimeModel = self::sanitizeRuntimeModel((string)($model['model'] ?? ''));
+            if ($repo === '' || $runtimeModel === '') {
+                continue;
+            }
+
+            $modelId = self::customModelId($repo, $runtimeModel);
+            $models[$modelId] = [
+                'repo' => $repo,
+                'model' => $runtimeModel,
+                'engine' => 'whisperKit',
+                'artifact_type' => 'whisperkit-coreml',
+                'label' => self::truncateText((string)($model['label'] ?? $repo . '/' . $runtimeModel), 160),
+                'description' => self::truncateText((string)($model['description'] ?? ''), 240),
+                'license' => self::truncateText((string)($model['license'] ?? ''), 80),
+                'source_url' => self::sanitizeSourceUrl((string)($model['source_url'] ?? '')),
+                'language' => self::truncateText((string)($model['language'] ?? ''), 24),
+                'tags' => self::sanitizeModelTags($model['tags'] ?? []),
+                'custom' => true,
+            ];
+        }
+
+        return $models;
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     */
+    public static function addCustomModel(array $model): string
+    {
+        $repo = self::sanitizeModelRepo((string)($model['repo'] ?? ''));
+        $runtimeModel = self::sanitizeRuntimeModel((string)($model['model'] ?? ''));
+        if ($repo === '' || $runtimeModel === '') {
+            throw new RuntimeException('Invalid Hugging Face model repository or model folder.');
+        }
+
+        $modelId = self::customModelId($repo, $runtimeModel);
+        $models = self::customModelPresets();
+        $models[$modelId] = [
+            'repo' => $repo,
+            'model' => $runtimeModel,
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => self::truncateText((string)($model['label'] ?? $repo . '/' . $runtimeModel), 160),
+            'description' => self::truncateText((string)($model['description'] ?? ''), 240),
+            'license' => self::truncateText((string)($model['license'] ?? ''), 80),
+            'source_url' => self::sanitizeSourceUrl((string)($model['source_url'] ?? '')),
+            'language' => self::truncateText((string)($model['language'] ?? ''), 24),
+            'tags' => self::sanitizeModelTags($model['tags'] ?? []),
+            'custom' => true,
+        ];
+
+        self::setValue(self::CUSTOM_MODELS, json_encode($models, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+
+        return $modelId;
+    }
+
+    public static function removeCustomModel(string $modelId): void
+    {
+        $selectedModel = trim(self::getValue(self::SELECTED_MODEL, self::DEFAULT_MODEL));
+        $models = self::customModelPresets();
+        unset($models[$modelId]);
+        self::setValue(self::CUSTOM_MODELS, json_encode($models, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        if ($selectedModel === $modelId) {
+            self::setValue(self::SELECTED_MODEL, self::DEFAULT_MODEL);
+        }
     }
 
     public static function selectedLanguageId(): string
@@ -427,7 +600,7 @@ class STTSetting extends ModulesModelsBase
     {
         $modelId = trim($modelId);
 
-        return array_key_exists($modelId, self::MODEL_PRESETS) ? $modelId : self::DEFAULT_MODEL;
+        return array_key_exists($modelId, self::modelPresets()) ? $modelId : self::DEFAULT_MODEL;
     }
 
     public static function normalizeLanguageId(string $languageId): string
@@ -435,5 +608,75 @@ class STTSetting extends ModulesModelsBase
         $languageId = strtolower(trim($languageId));
 
         return array_key_exists($languageId, self::LANGUAGE_PRESETS) ? $languageId : self::AUTO_LANGUAGE;
+    }
+
+    private static function customModelId(string $repo, string $model): string
+    {
+        return 'custom:' . sha1($repo . ':' . $model);
+    }
+
+    private static function sanitizeModelRepo(string $repo): string
+    {
+        $repo = trim($repo);
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/', $repo)) {
+            return '';
+        }
+
+        return $repo;
+    }
+
+    private static function sanitizeRuntimeModel(string $model): string
+    {
+        $model = trim($model);
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,160}$/', $model)) {
+            return '';
+        }
+
+        return $model;
+    }
+
+    private static function sanitizeSourceUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (!preg_match('/^https:\/\/huggingface\.co\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/.*)?$/', $url)) {
+            return '';
+        }
+
+        return self::truncateText($url, 300);
+    }
+
+    /**
+     * @param mixed $tags
+     * @return array<int, string>
+     */
+    private static function sanitizeModelTags(mixed $tags): array
+    {
+        if (is_string($tags)) {
+            $tags = preg_split('/[\r\n,;]+/', $tags) ?: [];
+        }
+        if (!is_array($tags)) {
+            return [];
+        }
+
+        $sanitized = [];
+        foreach ($tags as $tag) {
+            $tag = trim((string)$tag);
+            if ($tag === '') {
+                continue;
+            }
+            $sanitized[] = self::truncateText($tag, 32);
+        }
+
+        return array_slice(array_values(array_unique($sanitized)), 0, 8);
+    }
+
+    private static function truncateText(string $text, int $length): string
+    {
+        $text = trim($text);
+
+        return function_exists('mb_substr') ? mb_substr($text, 0, $length) : substr($text, 0, $length);
     }
 }

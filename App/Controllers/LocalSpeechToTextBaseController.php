@@ -61,10 +61,12 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::PROCESSING_TIMEOUT_SEC,
             (string)$this->postInt(STTSetting::PROCESSING_TIMEOUT_SEC, 1800, 60, 86400)
         );
-        STTSetting::setValue(
-            STTSetting::SELECTED_MODEL,
-            STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL, 64))
-        );
+        if ($this->request->hasPost(STTSetting::SELECTED_MODEL)) {
+            STTSetting::setValue(
+                STTSetting::SELECTED_MODEL,
+                STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255))
+            );
+        }
         $selectedDictionaries = $this->request->getPost(STTSetting::SELECTED_VOCABULARY_DICTIONARIES);
         STTSetting::setSelectedVocabularyDictionaryIds(is_array($selectedDictionaries) ? $selectedDictionaries : []);
         $customTerms = trim((string)($this->request->getPost(STTSetting::CUSTOM_VOCABULARY_TERMS) ?? ''));
