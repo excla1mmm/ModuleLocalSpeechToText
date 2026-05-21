@@ -57,6 +57,17 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CDR_SCAN_LIMIT,
             (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000)
         );
+        $previousHistoryDays = STTSetting::cdrHistoryDays();
+        $nextHistoryDays = STTSetting::normalizeCdrHistoryDays(
+            (int)$this->request->getPost(STTSetting::CDR_HISTORY_DAYS, 'int', 30)
+        );
+        STTSetting::setValue(STTSetting::CDR_HISTORY_DAYS, (string)$nextHistoryDays);
+        if ($previousHistoryDays !== $nextHistoryDays) {
+            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
+            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
+            STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '');
+            STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
+        }
         STTSetting::setValue(
             STTSetting::PROCESSING_TIMEOUT_SEC,
             (string)$this->postInt(STTSetting::PROCESSING_TIMEOUT_SEC, 1800, 60, 86400)
@@ -93,6 +104,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
         $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
+        $settings->cdr_history_days = (string)STTSetting::cdrHistoryDays();
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
         $settings->selected_model = STTSetting::selectedModelId();
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();

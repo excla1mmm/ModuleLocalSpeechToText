@@ -12,6 +12,7 @@ use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use RuntimeException;
 use Throwable;
@@ -104,8 +105,9 @@ class LocalSpeechToTextMain
     {
         $jobId = (int)($data['id'] ?? 0);
         $workerUid = self::stringField($data, 'worker_uid');
-        if ($jobId <= 0 || $workerUid === '') {
-            return self::error('validation_error', 'Job id and worker_uid are required', 422);
+        $leaseToken = self::stringField($data, 'lease_token');
+        if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
+            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
         $apiKeyError = self::validateWorkerApiKey($data);
@@ -129,7 +131,7 @@ class LocalSpeechToTextMain
             }
             $worker->touchOnline(self::clientIp($data));
 
-            $ownershipError = self::validateAssignedJob($job, $worker);
+            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
@@ -153,9 +155,10 @@ class LocalSpeechToTextMain
     {
         $jobId = (int)($data['id'] ?? 0);
         $workerUid = self::stringField($data, 'worker_uid');
+        $leaseToken = self::stringField($data, 'lease_token');
 
-        if ($jobId <= 0 || $workerUid === '' || !isset($data['transcript']) || !is_array($data['transcript'])) {
-            return self::error('validation_error', 'job id, worker_uid and transcript are required', 422);
+        if ($jobId <= 0 || $workerUid === '' || $leaseToken === '' || !isset($data['transcript']) || !is_array($data['transcript'])) {
+            return self::error('validation_error', 'job id, worker_uid, lease_token and transcript are required', 422);
         }
 
         $apiKeyError = self::validateWorkerApiKey($data);
@@ -179,7 +182,7 @@ class LocalSpeechToTextMain
             }
 
             $worker->touchOnline(self::clientIp($data));
-            $ownershipError = self::validateAssignedJob($job, $worker);
+            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
@@ -190,7 +193,7 @@ class LocalSpeechToTextMain
                 $technicalInfo = is_array($data['technical_info'] ?? null) ? $data['technical_info'] : null;
                 $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                 $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
-                STTResult::saveForJob(
+                $result = STTResult::saveForJob(
                     $job,
                     self::encodeTranscript($transcript),
                     self::nullableStringField($data, 'language'),
@@ -198,9 +201,10 @@ class LocalSpeechToTextMain
                     self::nullableStringField($data, 'model_used'),
                     self::encodeTechnicalInfo($technicalInfo)
                 );
-                if (!$job->markDoneForWorker((int)$worker->id)) {
+                STTTranscriptEvent::ensureCompletedForResult($result, $job);
+                if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
                     $connection->rollback();
-                    return self::assignedJobConflict($jobId, $worker);
+                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
                 $connection->commit();
             } catch (Throwable $exception) {
@@ -221,8 +225,9 @@ class LocalSpeechToTextMain
     {
         $jobId = (int)($data['id'] ?? 0);
         $workerUid = self::stringField($data, 'worker_uid');
-        if ($jobId <= 0 || $workerUid === '') {
-            return self::error('validation_error', 'Job id and worker_uid are required', 422);
+        $leaseToken = self::stringField($data, 'lease_token');
+        if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
+            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
         $apiKeyError = self::validateWorkerApiKey($data);
@@ -246,16 +251,17 @@ class LocalSpeechToTextMain
             }
 
             $worker->touchOnline(self::clientIp($data));
-            $ownershipError = self::validateAssignedJob($job, $worker);
+            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
 
             if (!$job->markFailedForWorker(
                 (int)$worker->id,
+                $leaseToken,
                 self::stringField($data, 'error_msg', 'Worker failed to process audio')
             )) {
-                return self::assignedJobConflict($jobId, $worker);
+                return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
 
             return self::success([
@@ -272,8 +278,9 @@ class LocalSpeechToTextMain
     {
         $jobId = (int)($data['id'] ?? 0);
         $workerUid = self::stringField($data, 'worker_uid');
-        if ($jobId <= 0 || $workerUid === '') {
-            return self::error('validation_error', 'Job id and worker_uid are required', 422);
+        $leaseToken = self::stringField($data, 'lease_token');
+        if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
+            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
         $apiKeyError = self::validateWorkerApiKey($data);
@@ -297,18 +304,66 @@ class LocalSpeechToTextMain
             }
 
             $worker->touchOnline(self::clientIp($data));
-            $ownershipError = self::validateAssignedJob($job, $worker);
+            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
 
-            if (!$job->refreshProcessingLeaseForWorker((int)$worker->id)) {
-                return self::assignedJobConflict($jobId, $worker);
+            if (!$job->refreshProcessingLeaseForWorker((int)$worker->id, $leaseToken)) {
+                return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
 
             return self::success([
                 'status' => (string)$job->status,
-                'lease_refreshed_at' => (int)$job->started_at,
+                'lease_expires_at' => (int)$job->lease_expires_at,
+            ]);
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
+            return self::error('internal_error', 'Internal server error', 500);
+        }
+    }
+
+    public static function releaseJob(array $data): PBXApiResult
+    {
+        $jobId = (int)($data['id'] ?? 0);
+        $workerUid = self::stringField($data, 'worker_uid');
+        $leaseToken = self::stringField($data, 'lease_token');
+        if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
+            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
+        }
+
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
+        try {
+            $job = STTJob::findFirstById($jobId);
+            if ($job === null) {
+                return self::error('job_not_found', "Job #$jobId not found", 404);
+            }
+
+            $worker = self::findWorker($workerUid);
+            if ($worker === null) {
+                return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
+            }
+
+            $worker->touchOnline(self::clientIp($data));
+            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            if ($ownershipError !== null) {
+                return $ownershipError;
+            }
+
+            if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
+                return self::assignedJobConflict($jobId, $worker, $leaseToken);
+            }
+
+            return self::success([
+                'status' => (string)$job->status,
             ]);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
@@ -321,7 +376,10 @@ class LocalSpeechToTextMain
         return [
             'id' => (int)$job->id,
             'call_id' => (string)$job->call_id,
-            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid),
+            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid)
+                . '&lease_token=' . rawurlencode((string)$job->lease_token),
+            'lease_token' => (string)$job->lease_token,
+            'lease_expires_at' => (int)$job->lease_expires_at,
             'duration_hint' => null,
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelRuntimeId(),
@@ -450,7 +508,7 @@ class LocalSpeechToTextMain
         return null;
     }
 
-    private static function validateAssignedJob(STTJob $job, STTWorker $worker): ?PBXApiResult
+    private static function validateAssignedJob(STTJob $job, STTWorker $worker, string $leaseToken): ?PBXApiResult
     {
         if ((string)$job->status !== STTJob::STATUS_PROCESSING) {
             return self::error('job_not_processing', 'Job is not assigned for processing', 409);
@@ -460,17 +518,26 @@ class LocalSpeechToTextMain
             return self::error('job_assigned_to_another_worker', 'Job is assigned to another worker', 403);
         }
 
+        if ((string)$job->lease_token === '' || !hash_equals((string)$job->lease_token, $leaseToken)) {
+            return self::error('job_lease_mismatch', 'Job lease token is invalid or expired', 409);
+        }
+
+        if ((int)$job->lease_expires_at > 0 && (int)$job->lease_expires_at < time()) {
+            STTJob::requeueStaleProcessing();
+            return self::error('job_lease_expired', 'Job lease has expired', 409);
+        }
+
         return null;
     }
 
-    private static function assignedJobConflict(int $jobId, STTWorker $worker): PBXApiResult
+    private static function assignedJobConflict(int $jobId, STTWorker $worker, string $leaseToken): PBXApiResult
     {
         $job = STTJob::findFirstById($jobId);
         if (!$job instanceof STTJob) {
             return self::error('job_not_found', "Job #$jobId not found", 404);
         }
 
-        return self::validateAssignedJob($job, $worker)
+        return self::validateAssignedJob($job, $worker, $leaseToken)
             ?? self::error('job_update_conflict', 'Job state changed while processing request', 409);
     }
 

@@ -557,6 +557,56 @@
         }
     }
 
+    function initializeCdrHistorySlider($settingsForm) {
+        var $slider = $('#stt-cdr-history-days-slider');
+        var $input = $settingsForm.find('input[name="cdr_history_days"]');
+
+        if ($slider.length === 0 || $input.length === 0 || typeof $slider.slider !== 'function') {
+            return;
+        }
+
+        var values = ['1', '7', '30', '90', '180', '365', '730', '0'];
+        var labels = {
+            0: translation('module_local_speech_to_text_CdrHistory1Day', '1 day'),
+            1: translation('module_local_speech_to_text_CdrHistory7Days', '7 days'),
+            2: translation('module_local_speech_to_text_CdrHistory30Days', '30 days'),
+            3: translation('module_local_speech_to_text_CdrHistory90Days', '90 days'),
+            4: translation('module_local_speech_to_text_CdrHistory180Days', '6 months'),
+            5: translation('module_local_speech_to_text_CdrHistory365Days', '1 year'),
+            6: translation('module_local_speech_to_text_CdrHistory730Days', '2 years'),
+            7: translation('module_local_speech_to_text_CdrHistoryAll', 'All')
+        };
+        var currentValue = String($input.val() || '30');
+        var initialIndex = values.indexOf(currentValue);
+        var initialized = false;
+
+        if (initialIndex < 0) {
+            initialIndex = values.indexOf('30');
+            $input.val('30');
+        }
+
+        $slider.slider({
+            min: 0,
+            max: values.length - 1,
+            step: 1,
+            smooth: true,
+            autoAdjustLabels: false,
+            interpretLabel: function (value) {
+                return labels[value] || '';
+            },
+            onChange: function (value) {
+                var selected = values[value] || '30';
+
+                $input.val(selected);
+                if (initialized && typeof Form !== 'undefined' && typeof Form.dataChanged === 'function') {
+                    Form.dataChanged();
+                }
+            }
+        });
+        $slider.slider('set value', initialIndex, false);
+        initialized = true;
+    }
+
     $(function () {
         var $tabItems = $('#module-local-speech-to-text-menu .item');
         var $settingsForm = $('#module-local-speech-to-text-form');
@@ -579,6 +629,7 @@
         initializeTranscriptDateFilter();
         initializeTranscriptPlayer();
         initializeModuleLogs();
+        initializeCdrHistorySlider($settingsForm);
         $('.module-local-speech-to-text .stt-delete-api-key-form').on('submit', function () {
             var message = $(this).data('confirm') || '';
 
@@ -624,6 +675,10 @@
                     identifier: 'cdr_scan_limit',
                     rules: [{ type: 'integer[1..1000]' }]
                 },
+                cdr_history_days: {
+                    identifier: 'cdr_history_days',
+                    rules: [{ type: 'integer[0..730]' }]
+                },
                 processing_timeout_sec: {
                     identifier: 'processing_timeout_sec',
                     rules: [{ type: 'integer[60..86400]' }]
@@ -645,6 +700,7 @@
                     poll_interval_sec: ['integer[1..3600]'],
                     max_file_size_mb: ['integer[1..10240]'],
                     cdr_scan_limit: ['integer[1..1000]'],
+                    cdr_history_days: ['integer[0..730]'],
                     processing_timeout_sec: ['integer[60..86400]']
                 }
             });

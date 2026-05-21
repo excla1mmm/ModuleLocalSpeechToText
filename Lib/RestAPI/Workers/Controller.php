@@ -42,7 +42,7 @@ class Controller extends BaseRestController
     #[ApiOperation(
         summary: 'module_local_speech_to_text_RegisterWorker',
         description: 'module_local_speech_to_text_RegisterWorkerDesc',
-        operationId: 'registerLocalSpeechToTextWorker'
+        operationId: 'registerLocalSTTWorker'
     )]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('name')]

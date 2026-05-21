@@ -7,8 +7,6 @@ namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\CallDetailRecords;
 use MikoPBX\Common\Models\Extensions;
-use MikoPBX\Common\Models\LanInterfaces;
-use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Models\Users;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
@@ -26,6 +24,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private const string SESSION_GENERATED_API_KEY = 'ModuleLocalSpeechToTextGeneratedApiKey';
     private const int MODULE_LOG_MAX_RESPONSE_LINES = 2000;
     private const int MODULE_LOG_TAIL_LINES_PER_FILE = 4000;
+    private const float TRANSCRIPT_TURN_MAX_GAP_SECONDS = 2.0;
+    private const float TRANSCRIPT_TURN_MAX_DURATION_SECONDS = 45.0;
+    private const int TRANSCRIPT_TURN_MAX_TEXT_CHARS = 700;
 
     public function indexAction(): void
     {
@@ -87,9 +88,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->workerRuntimeModel = STTSetting::selectedModelDisplayName();
         $this->view->workerApiKeyRows = $this->workerApiKeyRows();
         $this->view->generatedApiKey = $generatedApiKey['apiKey'];
-        $this->view->workerInstallCommand = $generatedApiKey['apiKey'] === ''
-            ? ''
-            : $this->workerInstallCommand($generatedApiKey['apiKey']);
         $transcriptFilter = $this->transcriptDateFilterFromRequest();
         $transcriptRows = $this->transcriptRows(100, $transcriptFilter);
         $this->view->transcriptRows = $transcriptRows;
@@ -286,7 +284,8 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             return;
         }
 
-        $filePath = $this->safeMonitorRecordingPath((string)$job->file_path);
+        $cdr = $this->cdrRecordForJob($job);
+        $filePath = $this->recordingPathForPlayback($job, $cdr);
         if ($filePath === '') {
             $this->sendRecordingError(404, 'Recording not found');
             return;
@@ -327,7 +326,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             'right' => $this->speakerColumn('right', $this->translation->_('module_local_speech_to_text_Speaker2')),
         ];
 
-        $timeline = [];
+        $utterances = [];
 
         foreach ($segments as $segment) {
             if (!is_array($segment)) {
@@ -352,13 +351,24 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 'speakerLabel' => $speakers[$speakerKey]['label'],
                 'start' => $start,
                 'end' => $end,
-                'endLabel' => $this->timeLabel($orderTime),
                 'orderTime' => $orderTime,
-                'rangeLabel' => $this->rangeLabel($start, $end),
             ];
-            $speakers[$speakerKey]['segments'][] = $utterance;
-            $timeline[] = $utterance;
+            $utterances[] = $utterance;
         }
+
+        usort(
+            $utterances,
+            static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
+                <=> [$right['orderTime'], $right['start'], $right['end']]
+        );
+
+        $timeline = $this->coalescedConversationTurns($utterances);
+        foreach ($timeline as &$turn) {
+            $turn['endLabel'] = $this->timeLabel((float)$turn['orderTime']);
+            $turn['rangeLabel'] = $this->rangeLabel((float)$turn['start'], (float)$turn['end']);
+            $speakers[$turn['speakerKey']]['segments'][] = $turn;
+        }
+        unset($turn);
 
         foreach ($speakers as &$speaker) {
             usort(
@@ -380,6 +390,93 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             'timeline' => $timeline,
             'hasSegments' => count($timeline) > 0,
         ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $utterances
+     * @return array<int, array<string, mixed>>
+     */
+    private function coalescedConversationTurns(array $utterances): array
+    {
+        $turns = [];
+        $current = null;
+
+        foreach ($utterances as $utterance) {
+            if ($current === null || !$this->canAppendConversationTurn($current, $utterance)) {
+                if ($current !== null) {
+                    $turns[] = $current;
+                }
+                $current = $utterance;
+                continue;
+            }
+
+            $current = $this->appendConversationTurn($current, $utterance);
+        }
+
+        if ($current !== null) {
+            $turns[] = $current;
+        }
+
+        return $turns;
+    }
+
+    /**
+     * @param array<string, mixed> $turn
+     * @param array<string, mixed> $utterance
+     */
+    private function canAppendConversationTurn(array $turn, array $utterance): bool
+    {
+        if ((string)($turn['speakerKey'] ?? '') !== (string)($utterance['speakerKey'] ?? '')) {
+            return false;
+        }
+
+        $turnStart = (float)($turn['start'] ?? 0.0);
+        $turnEnd = (float)($turn['end'] ?? $turnStart);
+        $utteranceStart = (float)($utterance['start'] ?? 0.0);
+        $utteranceEnd = (float)($utterance['end'] ?? $utteranceStart);
+        if ($utteranceStart - $turnEnd > self::TRANSCRIPT_TURN_MAX_GAP_SECONDS) {
+            return false;
+        }
+        if ($utteranceEnd - $turnStart > self::TRANSCRIPT_TURN_MAX_DURATION_SECONDS) {
+            return false;
+        }
+
+        $text = $this->appendTranscriptText((string)($turn['text'] ?? ''), (string)($utterance['text'] ?? ''));
+        return $this->textLength($text) <= self::TRANSCRIPT_TURN_MAX_TEXT_CHARS;
+    }
+
+    /**
+     * @param array<string, mixed> $turn
+     * @param array<string, mixed> $utterance
+     * @return array<string, mixed>
+     */
+    private function appendConversationTurn(array $turn, array $utterance): array
+    {
+        $turn['text'] = $this->appendTranscriptText((string)$turn['text'], (string)$utterance['text']);
+        $turn['start'] = min((float)$turn['start'], (float)$utterance['start']);
+        $turn['end'] = max((float)$turn['end'], (float)$utterance['end']);
+        $turn['orderTime'] = (float)$turn['start'] > 0 ? (float)$turn['start'] : (float)$turn['end'];
+
+        return $turn;
+    }
+
+    private function appendTranscriptText(string $left, string $right): string
+    {
+        $left = trim($left);
+        $right = trim($right);
+        if ($left === '') {
+            return $right;
+        }
+        if ($right === '') {
+            return $left;
+        }
+
+        return preg_match('/[\s([{]$/u', $left) === 1 ? $left . $right : $left . ' ' . $right;
+    }
+
+    private function textLength(string $text): int
+    {
+        return function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
     }
 
     /**
@@ -478,16 +575,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private function recordingCard(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr = null): array
     {
         $cdr = $cdr instanceof CallDetailRecords ? $cdr : ($job instanceof STTJob ? $this->cdrRecordForJob($job) : null);
-        $filePath = $job instanceof STTJob ? (string)$job->file_path : '';
         $playbackUrl = '';
         $downloadUrl = '';
-        $safeFilePath = $this->safeMonitorRecordingPath($filePath);
+        $safeFilePath = $this->recordingPathForPlayback($job, $cdr);
         if ($safeFilePath !== '') {
             $recordingUrl = MenuProvider::RECORDING_PATH . '?id=' . (int)$result->id;
             $playbackUrl = $this->url->get($recordingUrl);
             $downloadUrl = $this->url->get($recordingUrl . '&download=1');
         }
-        $callTimestamp = $this->callTimestamp($result, $job);
+        $callTimestamp = $this->callTimestamp($result, $job, $cdr);
         $duration = $this->normalizedSecondsValue($result->duration ?? null);
         if ($duration <= 0 && $cdr instanceof CallDetailRecords) {
             $duration = (float)$cdr->duration;
@@ -1259,7 +1355,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private function cdrRecordForJob(STTJob $job): ?CallDetailRecords
     {
         $callId = trim((string)$job->call_id);
-        $jobFilePath = realpath((string)$job->file_path) ?: '';
+        $jobFilePath = $this->safeMonitorRecordingPath((string)$job->file_path);
         $preferredRecord = null;
 
         if ($callId !== '') {
@@ -1324,39 +1420,67 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     private function cdrRecordingPath(string $recordingFile): string
     {
-        $recordingFile = trim($recordingFile);
-        if ($recordingFile === '' || $recordingFile === '-') {
-            return '';
+        return $this->safeMonitorRecordingPath($recordingFile);
+    }
+
+    private function recordingPathForPlayback(?STTJob $job, ?CallDetailRecords $cdr): string
+    {
+        if ($job instanceof STTJob) {
+            $jobPath = $this->safeMonitorRecordingPath((string)$job->file_path);
+            if ($jobPath !== '') {
+                return $jobPath;
+            }
+        }
+
+        if ($cdr instanceof CallDetailRecords) {
+            return $this->cdrRecordingPath((string)$cdr->recordingfile);
+        }
+
+        return '';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function monitorRecordingCandidates(string $filePath): array
+    {
+        $filePath = trim($filePath);
+        if ($filePath === '' || $filePath === '-') {
+            return [];
+        }
+
+        if (str_starts_with($filePath, '/')) {
+            return [$filePath];
         }
 
         $monitorDir = Directories::getDir(Directories::AST_MONITOR_DIR);
-        $candidate = str_starts_with($recordingFile, '/')
-            ? $recordingFile
-            : $monitorDir . '/' . ltrim($recordingFile, '/');
-        $resolvedPath = realpath($candidate);
 
-        return $resolvedPath === false ? '' : $resolvedPath;
+        return [
+            $monitorDir . '/' . ltrim($filePath, '/'),
+            $filePath,
+        ];
     }
 
     private function safeMonitorRecordingPath(string $filePath): string
     {
-        $filePath = trim($filePath);
-        if ($filePath === '') {
-            return '';
-        }
-
         $allowedBase = realpath(Directories::getDir(Directories::AST_MONITOR_DIR));
-        $resolvedPath = realpath($filePath);
-        if ($allowedBase === false || $resolvedPath === false || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
+        if ($allowedBase === false) {
             return '';
         }
 
         $allowedPrefix = rtrim($allowedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        if ($resolvedPath !== $allowedBase && strncmp($resolvedPath, $allowedPrefix, strlen($allowedPrefix)) !== 0) {
-            return '';
+        foreach ($this->monitorRecordingCandidates($filePath) as $candidate) {
+            $resolvedPath = realpath($candidate);
+            if ($resolvedPath === false || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
+                continue;
+            }
+
+            if ($resolvedPath === $allowedBase || strncmp($resolvedPath, $allowedPrefix, strlen($allowedPrefix)) === 0) {
+                return $resolvedPath;
+            }
         }
 
-        return $resolvedPath;
+        return '';
     }
 
     private function durationLabel(float $seconds): string
@@ -1439,6 +1563,8 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $apiKey->allowed_paths = json_encode([
             '/api/v3/module-local-speech-to-text/workers' => 'write',
             '/api/v3/module-local-speech-to-text/jobs' => 'write',
+            '/api/v3/module-local-speech-to-text/transcripts' => 'read',
+            '/api/v3/module-local-speech-to-text/transcripts/events' => 'read',
         ]);
         $apiKey->created_at = date('Y-m-d H:i:s');
 
@@ -1478,60 +1604,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $dateTime = trim($dateTime);
 
         return $dateTime === '' ? '-' : $dateTime;
-    }
-
-    private function workerInstallCommand(string $apiKey): string
-    {
-        return sprintf(
-            './install.sh --pbx-url %s --token %s',
-            escapeshellarg($this->trustedPbxUrl()),
-            escapeshellarg($apiKey)
-        );
-    }
-
-    private function trustedPbxUrl(): string
-    {
-        $host = LanInterfaces::getExternalHostname();
-        if ($host === '') {
-            $host = LanInterfaces::getExternalAddress();
-        }
-
-        $httpsPort = trim(PbxSettings::getValueByKey(PbxSettings::WEB_HTTPS_PORT));
-        if ($httpsPort !== '') {
-            return 'https://' . $this->hostForUrl($host) . $this->portSuffix('https', $httpsPort);
-        }
-
-        $httpPort = trim(PbxSettings::getValueByKey(PbxSettings::WEB_PORT));
-
-        return 'http://' . $this->hostForUrl($host) . $this->portSuffix('http', $httpPort);
-    }
-
-    private function hostForUrl(string $host): string
-    {
-        $host = trim($host);
-        if ($host === '') {
-            return 'localhost';
-        }
-
-        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
-            return '[' . $host . ']';
-        }
-
-        return $host;
-    }
-
-    private function portSuffix(string $scheme, string $port): string
-    {
-        $portNumber = (int)$port;
-        if (
-            $portNumber <= 0
-            || ($scheme === 'https' && $portNumber === 443)
-            || ($scheme === 'http' && $portNumber === 80)
-        ) {
-            return '';
-        }
-
-        return ':' . $portNumber;
     }
 
     /**
@@ -1864,20 +1936,30 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
             $job = $result->STTJob;
             $job = $job instanceof STTJob ? $job : null;
-            $callTimestamp = $this->callTimestamp($result, $job);
+            $cdr = $job instanceof STTJob ? $this->cdrRecordForJob($job) : null;
+            $callTimestamp = $this->callTimestamp($result, $job, $cdr);
             if (!$this->transcriptMatchesDateFilter($callTimestamp, $dateFilter)) {
                 continue;
             }
 
             $hasCallTimestamp = $callTimestamp > 0;
             $filePath = $job instanceof STTJob ? (string)$job->file_path : '';
+            $recordingPath = $this->recordingPathForPlayback($job, $cdr);
+            $recordingName = $recordingPath !== '' ? basename($recordingPath) : basename($filePath);
+            if ($recordingName === '' && $cdr instanceof CallDetailRecords) {
+                $recordingName = basename((string)$cdr->recordingfile);
+            }
+            $callId = $job instanceof STTJob ? (string)$job->call_id : '';
+            if ($callId === '' && $cdr instanceof CallDetailRecords) {
+                $callId = trim((string)$cdr->linkedid) !== '' ? (string)$cdr->linkedid : (string)$cdr->UNIQUEID;
+            }
             $createdAt = (int)$result->created_at;
 
             $rows[] = [
                 'result' => $result,
                 'job' => $job,
-                'callId' => $job instanceof STTJob ? (string)$job->call_id : '',
-                'recordingName' => $filePath === '' ? '' : basename($filePath),
+                'callId' => $callId,
+                'recordingName' => $recordingName,
                 'callTimestamp' => $callTimestamp,
                 'dateKey' => $hasCallTimestamp ? date('Y-m-d', $callTimestamp) : 'unknown',
                 'dateGroupLabel' => $hasCallTimestamp
@@ -2015,9 +2097,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         ];
     }
 
-    private function callTimestamp(STTResult $result, ?STTJob $job): int
+    private function callTimestamp(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr = null): int
     {
         if ($job instanceof STTJob) {
+            if ((int)$job->cdr_endtime > 0) {
+                return (int)$job->cdr_endtime;
+            }
+
+            if ($cdr instanceof CallDetailRecords) {
+                $cdrTimestamp = strtotime((string)$cdr->start);
+                if ($cdrTimestamp !== false && $cdrTimestamp > 0) {
+                    return $cdrTimestamp;
+                }
+            }
+
             $cdrTimestamp = $this->cdrCallStartTimestamp((string)$job->call_id);
             if ($cdrTimestamp > 0) {
                 return $cdrTimestamp;

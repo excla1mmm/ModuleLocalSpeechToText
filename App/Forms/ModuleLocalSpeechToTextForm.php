@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\App\Forms;
 
 use MikoPBX\AdminCabinet\Forms\BaseForm;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Phalcon\Forms\Element\Hidden;
 use Phalcon\Forms\Element\Numeric;
 use Phalcon\Forms\Element\Select;
 use Phalcon\Forms\Element\TextArea;
@@ -45,6 +46,9 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'value' => $entity->cdr_scan_limit ?? '200',
             'min' => 1,
             'max' => 1000,
+        ]));
+        $this->add(new Hidden('cdr_history_days', [
+            'value' => $entity->cdr_history_days ?? '30',
         ]));
         $this->add(new Numeric('processing_timeout_sec', [
             'value' => $entity->processing_timeout_sec ?? '1800',

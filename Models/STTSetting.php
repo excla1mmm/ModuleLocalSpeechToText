@@ -18,6 +18,7 @@ class STTSetting extends ModulesModelsBase
     public const string POLL_INTERVAL_SEC = 'poll_interval_sec';
     public const string MAX_FILE_SIZE_MB = 'max_file_size_mb';
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
+    public const string CDR_HISTORY_DAYS = 'cdr_history_days';
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string SELECTED_MODEL = 'selected_model';
     public const string SELECTED_VOCABULARY_DICTIONARIES = 'selected_vocabulary_dictionaries';
@@ -26,6 +27,8 @@ class STTSetting extends ModulesModelsBase
     public const string SKIPPED_RECORDINGS = 'skipped_recordings';
     public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
     public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
+    public const string CDR_BACKFILL_CURSOR_ENDTIME = 'cdr_backfill_cursor_endtime';
+    public const string CDR_BACKFILL_CURSOR_ID = 'cdr_backfill_cursor_id';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
     public const string CUSTOM_MODELS = 'custom_models';
@@ -33,6 +36,8 @@ class STTSetting extends ModulesModelsBase
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';
     private const int DEFAULT_MAX_FILE_SIZE_MB = 500;
+    private const int DEFAULT_CDR_HISTORY_DAYS = 30;
+    private const int MAX_CDR_HISTORY_DAYS = 730;
 
     public const array LANGUAGE_PRESETS = [
         'auto' => 'module_local_speech_to_text_LanguageAuto',
@@ -528,6 +533,31 @@ class STTSetting extends ModulesModelsBase
         $megabytes = max(1, min(10240, $megabytes));
 
         return $megabytes * 1024 * 1024;
+    }
+
+    public static function cdrHistoryDays(): int
+    {
+        return self::normalizeCdrHistoryDays(self::getValue(self::CDR_HISTORY_DAYS, (string)self::DEFAULT_CDR_HISTORY_DAYS));
+    }
+
+    public static function cdrHistoryStartDateTime(): string
+    {
+        $days = self::cdrHistoryDays();
+        if ($days <= 0) {
+            return '';
+        }
+
+        return date('Y-m-d H:i:s', time() - ($days * 86400));
+    }
+
+    public static function normalizeCdrHistoryDays(string|int $value): int
+    {
+        $days = (int)$value;
+        if ($days <= 0) {
+            return 0;
+        }
+
+        return max(1, min(self::MAX_CDR_HISTORY_DAYS, $days));
     }
 
     /**

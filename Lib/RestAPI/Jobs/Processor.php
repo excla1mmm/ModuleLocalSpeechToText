@@ -19,6 +19,7 @@ enum JobAction: string
     case SUBMIT_RESULT = 'submitResult';
     case SUBMIT_ERROR = 'submitError';
     case HEARTBEAT = 'heartbeat';
+    case RELEASE = 'release';
 }
 
 class Processor extends Injectable
@@ -44,6 +45,7 @@ class Processor extends Injectable
             JobAction::SUBMIT_RESULT => SubmitResultAction::main($data),
             JobAction::SUBMIT_ERROR => SubmitErrorAction::main($data),
             JobAction::HEARTBEAT => LocalSpeechToTextMain::heartbeatJob($data),
+            JobAction::RELEASE => LocalSpeechToTextMain::releaseJob($data),
         };
 
         $result->processor = __METHOD__;

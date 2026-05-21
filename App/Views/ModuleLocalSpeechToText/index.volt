@@ -34,6 +34,14 @@
                     {{ form.render('processing_timeout_sec') }}
                 </div>
             </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_CdrHistoryDays') }}</label>
+                <div class="ui segment stt-cdr-history-slider">
+                    <div class="ui bottom aligned ticked labeled slider" id="stt-cdr-history-days-slider"></div>
+                    {{ form.render('cdr_history_days') }}
+                </div>
+                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}</div>
+            </div>
             <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyDictionaries') }}</h4>
             <div class="ui info message">
                 {{ t._('module_local_speech_to_text_VocabularyDictionariesHint') }}
@@ -278,12 +286,6 @@
                     <div class="ui action fluid input stt-copy-input">
                         <input type="text" readonly="readonly" value="{{ generatedApiKey|e }}">
                         <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ generatedApiKey|e }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
-                            <i class="copy icon"></i>
-                        </button>
-                    </div>
-                    <div class="ui action fluid input stt-copy-input">
-                        <input type="text" readonly="readonly" value="{{ workerInstallCommand|e }}">
-                        <button class="ui icon button stt-copy-button" type="button" data-clipboard-text="{{ workerInstallCommand|e }}" title="{{ t._('module_local_speech_to_text_Copy') }}">
                             <i class="copy icon"></i>
                         </button>
                     </div>

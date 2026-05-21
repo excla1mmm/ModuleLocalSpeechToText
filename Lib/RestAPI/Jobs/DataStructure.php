@@ -26,6 +26,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => true,
                     'maxLength' => 255,
                 ],
+                'lease_token' => [
+                    'type' => 'string',
+                    'description' => 'Opaque processing lease token returned with the claimed job.',
+                    'example' => '9d587d4f4c5b4a8fa2423e746dc82f6a',
+                    'required' => false,
+                    'maxLength' => 255,
+                ],
                 'transcript' => [
                     'type' => 'array',
                     'description' => 'Transcript segments returned by the worker. Segment timestamps must use integer start_ms and end_ms fields.',
@@ -91,6 +98,8 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                                 'id' => ['type' => 'integer'],
                                 'call_id' => ['type' => 'string'],
                                 'file_url' => ['type' => 'string'],
+                                'lease_token' => ['type' => 'string'],
+                                'lease_expires_at' => ['type' => 'integer'],
                                 'duration_hint' => ['type' => 'number', 'nullable' => true],
                                 'language_hint' => ['type' => 'string'],
                                 'model_id' => ['type' => 'string'],

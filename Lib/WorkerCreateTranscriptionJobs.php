@@ -45,6 +45,14 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
             try {
                 STTWorker::markStaleOffline();
+                $requeued = STTJob::requeueStaleProcessing();
+                if ($requeued > 0) {
+                    SystemMessages::sysLogMsg(
+                        __CLASS__,
+                        sprintf('Requeued %d stale processing transcription job(s)', $requeued),
+                        LOG_NOTICE
+                    );
+                }
                 $this->retryDelayedRecordings();
                 $this->createJobsFromCompletedCdr();
             } catch (Throwable $exception) {
@@ -68,17 +76,41 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     private function createJobsFromCompletedCdr(): void
     {
         $delayedRecordings = $this->delayedRecordings();
+        $historyStart = STTSetting::cdrHistoryStartDateTime();
+
+        $this->initializeRealtimeScanCursor();
+        $this->createRealtimeJobsFromCompletedCdr($delayedRecordings, $historyStart);
+        if ($this->needRestart) {
+            $this->saveDelayedRecordings($delayedRecordings);
+            return;
+        }
+
+        $this->createBackfillJobsFromCompletedCdr($delayedRecordings, $historyStart);
+        $this->saveDelayedRecordings($delayedRecordings);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $delayedRecordings
+     */
+    private function createRealtimeJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): void
+    {
         [$cursorEndtime, $cursorId] = $this->scanCursor();
+        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
+            . ' AND (endtime > :cursor_endtime: OR (endtime = :cursor_endtime: AND id > :cursor_id:))';
+        $bind = [
+            'empty' => '',
+            'completed' => '1',
+            'cursor_endtime' => $cursorEndtime,
+            'cursor_id' => $cursorId,
+        ];
+        if ($historyStart !== '') {
+            $conditions .= ' AND endtime >= :history_start:';
+            $bind['history_start'] = $historyStart;
+        }
 
         $records = CallDetailRecords::find([
-            'conditions' => 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
-                . ' AND (endtime > :cursor_endtime: OR (endtime = :cursor_endtime: AND id > :cursor_id:))',
-            'bind' => [
-                'empty' => '',
-                'completed' => '1',
-                'cursor_endtime' => $cursorEndtime,
-                'cursor_id' => $cursorId,
-            ],
+            'conditions' => $conditions,
+            'bind' => $bind,
             'order' => 'endtime ASC, id ASC',
             'limit' => $this->scanLimit(),
         ]);
@@ -88,12 +120,11 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
         foreach ($records->toArray() as $record) {
             if ($this->needRestart) {
-                $this->saveDelayedRecordings($delayedRecordings);
                 $this->saveScanCursor($lastEndtime, $lastId);
                 return;
             }
 
-            $this->processCompletedRecord($delayedRecordings, $record);
+            $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
 
             $recordEndtime = $this->endtime($record);
             $recordId = $this->recordId($record);
@@ -106,16 +137,72 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             }
         }
 
-        $this->saveDelayedRecordings($delayedRecordings);
         $this->saveScanCursor($lastEndtime, $lastId);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $delayedRecordings
+     */
+    private function createBackfillJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): void
+    {
+        [$cursorEndtime, $cursorId] = $this->backfillCursor();
+        if ($cursorEndtime === '') {
+            $cursorEndtime = date('Y-m-d H:i:s');
+            $cursorId = PHP_INT_MAX;
+        }
+
+        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
+            . ' AND (endtime < :cursor_endtime: OR (endtime = :cursor_endtime: AND id < :cursor_id:))';
+        $bind = [
+            'empty' => '',
+            'completed' => '1',
+            'cursor_endtime' => $cursorEndtime,
+            'cursor_id' => $cursorId,
+        ];
+        if ($historyStart !== '') {
+            $conditions .= ' AND endtime >= :history_start:';
+            $bind['history_start'] = $historyStart;
+        }
+
+        $records = CallDetailRecords::find([
+            'conditions' => $conditions,
+            'bind' => $bind,
+            'order' => 'endtime DESC, id DESC',
+            'limit' => $this->scanLimit(),
+        ]);
+
+        $lastEndtime = '';
+        $lastId = 0;
+
+        foreach ($records->toArray() as $record) {
+            if ($this->needRestart) {
+                if ($lastEndtime !== '') {
+                    $this->saveBackfillCursor($lastEndtime, $lastId);
+                }
+                return;
+            }
+
+            $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
+            $lastEndtime = $this->endtime($record);
+            $lastId = $this->recordId($record);
+        }
+
+        if ($lastEndtime !== '') {
+            $this->saveBackfillCursor($lastEndtime, $lastId);
+        }
     }
 
     /**
      * @param array<int, array<string, mixed>> $delayedRecordings
      * @param array<string, mixed> $record
      */
-    private function processCompletedRecord(array &$delayedRecordings, array $record): void
+    private function processCompletedRecord(array &$delayedRecordings, array $record, string $historyStart): void
     {
+        if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
+            $this->rememberSkippedRecording($record, 'outside_history_window');
+            return;
+        }
+
         $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
         if ($recordingPath === null) {
             $this->rememberDelayedRecording($delayedRecordings, $record);
@@ -141,7 +228,8 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         STTJob::createPending(
             $this->callId($record),
             $recordingPath,
-            $this->priority($record)
+            $this->priority($record),
+            $this->recordEndtimeTimestamp($record)
         );
 
         SystemMessages::sysLogMsg(
@@ -160,6 +248,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
         $changed = false;
         $now = time();
+        $historyStart = STTSetting::cdrHistoryStartDateTime();
 
         foreach ($delayedRecordings as $recordId => $record) {
             if ($this->needRestart) {
@@ -167,6 +256,13 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
                     $this->saveDelayedRecordings($delayedRecordings);
                 }
                 return;
+            }
+
+            if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
+                $this->rememberSkippedRecording($record, 'outside_history_window', '', (int)$recordId);
+                unset($delayedRecordings[$recordId]);
+                $changed = true;
+                continue;
             }
 
             if ($now - (int)($record['first_seen'] ?? $now) > self::DELAYED_RECORDING_TTL_SECONDS) {
@@ -193,7 +289,8 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
                 STTJob::createPending(
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
-                    (int)($record['priority'] ?? 5)
+                    (int)($record['priority'] ?? 5),
+                    (int)($record['cdr_endtime'] ?? 0) ?: null
                 );
                 SystemMessages::sysLogMsg(
                     __CLASS__,
@@ -255,6 +352,8 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             'recordingfile' => (string)($record['recordingfile'] ?? ''),
             'call_id' => $this->callId($record),
             'priority' => $this->priority($record),
+            'endtime' => $this->endtime($record),
+            'cdr_endtime' => $this->recordEndtimeTimestamp($record),
             'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
             'last_seen' => $now,
         ];
@@ -359,10 +458,37 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         ];
     }
 
+    private function initializeRealtimeScanCursor(): void
+    {
+        [$cursorEndtime] = $this->scanCursor();
+        if ($cursorEndtime !== '') {
+            return;
+        }
+
+        $this->saveScanCursor(date('Y-m-d H:i:s'), 0);
+    }
+
     private function saveScanCursor(string $endtime, int $recordId): void
     {
         STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, $endtime);
         STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, (string)max(0, $recordId));
+    }
+
+    /**
+     * @return array{0: string, 1: int}
+     */
+    private function backfillCursor(): array
+    {
+        return [
+            trim(STTSetting::getValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '')),
+            (int)STTSetting::getValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0'),
+        ];
+    }
+
+    private function saveBackfillCursor(string $endtime, int $recordId): void
+    {
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, $endtime);
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, (string)max(0, $recordId));
     }
 
     /**
@@ -379,6 +505,38 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     private function endtime(array $record): string
     {
         return trim((string)($record['endtime'] ?? ''));
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function recordEndtimeTimestamp(array $record): ?int
+    {
+        $endtime = $this->endtime($record);
+        if ($endtime === '') {
+            return null;
+        }
+
+        $timestamp = strtotime($endtime);
+
+        return $timestamp === false ? null : $timestamp;
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function recordWithinHistoryWindow(array $record, string $historyStart): bool
+    {
+        if ($historyStart === '') {
+            return true;
+        }
+
+        $endtime = $this->endtime($record);
+        if ($endtime === '') {
+            return true;
+        }
+
+        return $endtime >= $historyStart;
     }
 
     private function scanLimit(): int

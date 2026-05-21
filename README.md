@@ -4,7 +4,7 @@ Local speech-to-text module for MikoPBX.
 
 `ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, and the administrator UI.
 
-Current module version: `1.0.60`.
+Current module version: `1.7`.
 
 ## What It Does
 
@@ -52,8 +52,8 @@ The conversation view includes the source recording metadata, playback/download 
 1. Open the module page in MikoPBX.
 2. Go to `Workers`.
 3. Generate a worker API key.
-4. Copy the generated worker install command.
-5. Run it on an Apple Silicon Mac with the external worker package.
+4. Copy the generated worker API key.
+5. Paste the PBX URL and API key into the macOS worker app, then register this Mac.
 
 Generated API keys are stored as normal MikoPBX REST API keys with limited permissions for this module only. A worker is bound to the API key used during registration; later job actions must use the same key.
 
@@ -113,6 +113,18 @@ All worker-to-PBX timestamps use integer milliseconds. PBX converts them to seco
 
 `technical_info` is stored as JSON and rendered in the transcript card. It is intended for worker-side diagnostics such as input duration, VAD statistics, selected model, language votes, rejected segments, command timing, and real-time factor.
 
+## Integration API
+
+The module also exposes read-only completed transcript endpoints for other local modules, including a future AI Supervisor module:
+
+- `GET /transcripts?limit=50&offset=0&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
+- `GET /transcripts/{result_id}`
+- `GET /transcripts/events?cursor=created_at:event_id&limit=100`
+
+Transcript list responses return compact summaries only. Transcript detail responses return normalized raw segments with stable `segment_id` values in the form `stt:{result_id}:{index}`, plus readable coalesced `turns` and plain `text` for downstream modules that do not need low-level STT chunks. Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling.
+
+These endpoints use the same MikoPBX REST v3 `PBXApiResult` envelope and should be used instead of direct table reads by new modules.
+
 ## Data Tables
 
 The module stores its state in module tables:
@@ -121,10 +133,11 @@ The module stores its state in module tables:
 - `m_STTWorker`: registered worker identity, status, IP, model, API key binding, and heartbeat timestamp.
 - `m_STTJob`: transcription queue records.
 - `m_STTResult`: completed transcript JSON and optional technical report.
+- `m_STTTranscriptEvent`: integration event outbox for completed transcripts.
 
 ## Notes
 
 - Recordings are served only from the MikoPBX monitor directory after `realpath` validation.
 - The configured maximum recording size is enforced both when creating jobs and when a worker downloads a job file.
 - The module supports multiple worker API keys, but one API key cannot be bound to multiple worker UIDs.
-- The external worker package is released separately from this PBX module.
+- The macOS worker app is released separately from this PBX module.

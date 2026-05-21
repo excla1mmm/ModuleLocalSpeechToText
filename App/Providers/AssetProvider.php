@@ -19,6 +19,7 @@ class AssetProvider
             ->collection(AdminAssetProvider::HEADER_CSS)
             ->addCss('css/vendor/datepicker/daterangepicker.css', true)
             ->addCss('css/vendor/range/range.min.css', true)
+            ->addCss('css/vendor/semantic/slider.min.css', true)
             ->addCss('css/cache/' . self::MODULE_UNIQUE_ID . '/' . self::CSS_FILE, true);
     }
 
@@ -27,6 +28,7 @@ class AssetProvider
         $assets
             ->collection(AdminAssetProvider::FOOTER_JS)
             ->addJs('js/vendor/range/range.min.js', true)
+            ->addJs('js/vendor/semantic/slider.min.js', true)
             ->addJs('js/vendor/moment/moment.min.js', true)
             ->addJs('js/vendor/datepicker/daterangepicker.js', true)
             ->addJs('js/cache/' . self::MODULE_UNIQUE_ID . '/' . self::JS_FILE, true);

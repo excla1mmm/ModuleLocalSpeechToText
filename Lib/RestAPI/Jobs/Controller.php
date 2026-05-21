@@ -25,11 +25,11 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 #[HttpMapping(
     mapping: [
         'GET' => ['getNext', 'download'],
-        'POST' => ['submitResult', 'submitError', 'heartbeat'],
+        'POST' => ['submitResult', 'submitError', 'heartbeat', 'release'],
     ],
-    resourceLevelMethods: ['download', 'submitResult', 'submitError', 'heartbeat'],
+    resourceLevelMethods: ['download', 'submitResult', 'submitError', 'heartbeat', 'release'],
     collectionLevelMethods: ['getNext'],
-    customMethods: ['getNext', 'download', 'submitResult', 'submitError', 'heartbeat'],
+    customMethods: ['getNext', 'download', 'submitResult', 'submitError', 'heartbeat', 'release'],
     idPattern: '[0-9]+'
 )]
 class Controller extends BaseRestController
@@ -65,6 +65,7 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('lease_token', required: true)]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     public function download(string $id): void
@@ -83,6 +84,7 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('lease_token', required: true)]
     #[ApiParameterRef('transcript', required: true)]
     #[ApiParameterRef('language')]
     #[ApiParameterRef('duration_ms')]
@@ -107,6 +109,7 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('lease_token', required: true)]
     #[ApiParameterRef('error_msg')]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
@@ -128,11 +131,33 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('lease_token', required: true)]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
     public function heartbeat(string $id): void
+    {
+        // Implementation handled by BaseRestController.
+    }
+
+    /**
+     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:release
+     */
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiOperation(
+        summary: 'module_local_speech_to_text_ReleaseJob',
+        description: 'module_local_speech_to_text_ReleaseJobDesc',
+        operationId: 'releaseLocalSpeechToTextJob'
+    )]
+    #[ApiParameterRef('id', required: true)]
+    #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('lease_token', required: true)]
+    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    public function release(string $id): void
     {
         // Implementation handled by BaseRestController.
     }

@@ -10,7 +10,7 @@ use RuntimeException;
 
 /**
  * @Indexes(
- *     [name='queue', columns=['status', 'priority', 'created_at'], type=''],
+ *     [name='queue', columns=['status', 'priority', 'cdr_endtime', 'created_at'], type=''],
  *     [name='file_path', columns=['file_path'], type='UNIQUE']
  * )
  */
@@ -67,7 +67,22 @@ class STTJob extends ModulesModelsBase
     /**
      * @Column(type="integer", nullable=true)
      */
+    public ?string $cdr_endtime = null;
+
+    /**
+     * @Column(type="integer", nullable=true)
+     */
     public ?string $started_at = null;
+
+    /**
+     * @Column(type="string", nullable=true)
+     */
+    public ?string $lease_token = null;
+
+    /**
+     * @Column(type="integer", nullable=true)
+     */
+    public ?string $lease_expires_at = null;
 
     /**
      * @Column(type="integer", nullable=true)
@@ -110,15 +125,17 @@ class STTJob extends ModulesModelsBase
         );
     }
 
-    public static function createPending(string $callId, string $filePath, int $priority = 5): self
+    public static function createPending(string $callId, string $filePath, int $priority = 5, ?int $cdrEndtime = null): self
     {
+        $createdAt = time();
         $job = new self();
         $job->call_id = $callId;
         $job->file_path = $filePath;
         $job->status = self::STATUS_PENDING;
         $job->priority = (string)$priority;
         $job->attempts = '0';
-        $job->created_at = (string)time();
+        $job->created_at = (string)$createdAt;
+        $job->cdr_endtime = (string)($cdrEndtime !== null && $cdrEndtime > 0 ? $cdrEndtime : $createdAt);
 
         if (!$job->save()) {
             throw new RuntimeException(implode(', ', $job->getMessages()));
@@ -152,12 +169,15 @@ class STTJob extends ModulesModelsBase
         self::requeueStaleProcessing();
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
+            $now = time();
+            $leaseToken = self::newLeaseToken();
+            $leaseExpiresAt = $now + self::processingTimeoutSeconds();
             $job = self::findFirst([
                 'conditions' => 'status = :status:',
                 'bind' => [
                     'status' => self::STATUS_PENDING,
                 ],
-                'order' => 'priority ASC, created_at ASC, id ASC',
+                'order' => 'priority ASC, cdr_endtime DESC, created_at DESC, id DESC',
             ]);
 
             if ($job === null) {
@@ -166,12 +186,20 @@ class STTJob extends ModulesModelsBase
 
             $connection->execute(
                 'UPDATE m_STTJob
-                    SET status = :processing, worker_id = :worker_id, started_at = :started_at, finished_at = NULL, error_msg = NULL
+                    SET status = :processing,
+                        worker_id = :worker_id,
+                        started_at = :started_at,
+                        lease_token = :lease_token,
+                        lease_expires_at = :lease_expires_at,
+                        finished_at = NULL,
+                        error_msg = NULL
                   WHERE id = :id AND status = :pending',
                 [
                     'processing' => self::STATUS_PROCESSING,
                     'worker_id' => $workerId,
-                    'started_at' => (string)time(),
+                    'started_at' => (string)$now,
+                    'lease_token' => $leaseToken,
+                    'lease_expires_at' => (string)$leaseExpiresAt,
                     'id' => (int)$job->id,
                     'pending' => self::STATUS_PENDING,
                 ]
@@ -198,16 +226,33 @@ class STTJob extends ModulesModelsBase
         $connection = $model->getWriteConnection();
         $connection->execute(
             'UPDATE m_STTJob
-                SET status = :pending, worker_id = NULL, started_at = NULL, finished_at = NULL, error_msg = :error_msg
+                SET status = :pending,
+                    worker_id = NULL,
+                    started_at = NULL,
+                    lease_token = NULL,
+                    lease_expires_at = NULL,
+                    finished_at = NULL,
+                    error_msg = :error_msg
               WHERE status = :processing
                 AND (
-                    started_at IS NULL
-                    OR started_at = \'\'
-                    OR CAST(started_at AS INTEGER) < :threshold
+                    (
+                        lease_expires_at IS NOT NULL
+                        AND lease_expires_at <> \'\'
+                        AND CAST(lease_expires_at AS INTEGER) < :now
+                    )
+                    OR (
+                        (lease_expires_at IS NULL OR lease_expires_at = \'\')
+                        AND (
+                            started_at IS NULL
+                            OR started_at = \'\'
+                            OR CAST(started_at AS INTEGER) < :threshold
+                        )
+                    )
                 )',
             [
                 'pending' => self::STATUS_PENDING,
                 'processing' => self::STATUS_PROCESSING,
+                'now' => (string)time(),
                 'threshold' => (string)(time() - $timeout),
                 'error_msg' => 'Requeued after processing timeout',
             ]
@@ -226,6 +271,8 @@ class STTJob extends ModulesModelsBase
                     worker_id = NULL,
                     attempts = 0,
                     started_at = NULL,
+                    lease_token = NULL,
+                    lease_expires_at = NULL,
                     finished_at = NULL,
                     error_msg = NULL
               WHERE status = :error',
@@ -248,7 +295,12 @@ class STTJob extends ModulesModelsBase
         return max(60, min(86400, $timeout));
     }
 
-    public function markDoneForWorker(int $workerId): bool
+    private static function newLeaseToken(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+
+    public function markDoneForWorker(int $workerId, string $leaseToken): bool
     {
         $finishedAt = (string)time();
         $connection = $this->getWriteConnection();
@@ -256,16 +308,20 @@ class STTJob extends ModulesModelsBase
             'UPDATE m_STTJob
                 SET status = :done,
                     finished_at = :finished_at,
+                    lease_token = NULL,
+                    lease_expires_at = NULL,
                     error_msg = NULL
               WHERE id = :id
                 AND status = :processing
-                AND worker_id = :worker_id',
+                AND worker_id = :worker_id
+                AND lease_token = :lease_token',
             [
                 'done' => self::STATUS_DONE,
                 'finished_at' => $finishedAt,
                 'id' => (int)$this->id,
                 'processing' => self::STATUS_PROCESSING,
                 'worker_id' => $workerId,
+                'lease_token' => $leaseToken,
             ]
         );
 
@@ -275,26 +331,30 @@ class STTJob extends ModulesModelsBase
 
         $this->status = self::STATUS_DONE;
         $this->finished_at = $finishedAt;
+        $this->lease_token = null;
+        $this->lease_expires_at = null;
         $this->error_msg = null;
 
         return true;
     }
 
-    public function refreshProcessingLeaseForWorker(int $workerId): bool
+    public function refreshProcessingLeaseForWorker(int $workerId, string $leaseToken): bool
     {
-        $startedAt = (string)time();
+        $leaseExpiresAt = (string)(time() + self::processingTimeoutSeconds());
         $connection = $this->getWriteConnection();
         $connection->execute(
             'UPDATE m_STTJob
-                SET started_at = :started_at
+                SET lease_expires_at = :lease_expires_at
               WHERE id = :id
                 AND status = :processing
-                AND worker_id = :worker_id',
+                AND worker_id = :worker_id
+                AND lease_token = :lease_token',
             [
-                'started_at' => $startedAt,
+                'lease_expires_at' => $leaseExpiresAt,
                 'id' => (int)$this->id,
                 'processing' => self::STATUS_PROCESSING,
                 'worker_id' => $workerId,
+                'lease_token' => $leaseToken,
             ]
         );
 
@@ -302,12 +362,53 @@ class STTJob extends ModulesModelsBase
             return false;
         }
 
-        $this->started_at = $startedAt;
+        $this->lease_expires_at = $leaseExpiresAt;
 
         return true;
     }
 
-    public function markFailedForWorker(int $workerId, string $errorMessage): bool
+    public function releaseForWorker(int $workerId, string $leaseToken): bool
+    {
+        $connection = $this->getWriteConnection();
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET status = :pending,
+                    worker_id = NULL,
+                    started_at = NULL,
+                    lease_token = NULL,
+                    lease_expires_at = NULL,
+                    finished_at = NULL,
+                    error_msg = :error_msg
+              WHERE id = :id
+                AND status = :processing
+                AND worker_id = :worker_id
+                AND lease_token = :lease_token',
+            [
+                'pending' => self::STATUS_PENDING,
+                'error_msg' => 'Released by worker',
+                'id' => (int)$this->id,
+                'processing' => self::STATUS_PROCESSING,
+                'worker_id' => $workerId,
+                'lease_token' => $leaseToken,
+            ]
+        );
+
+        if ((int)$connection->affectedRows() !== 1) {
+            return false;
+        }
+
+        $this->status = self::STATUS_PENDING;
+        $this->worker_id = null;
+        $this->started_at = null;
+        $this->lease_token = null;
+        $this->lease_expires_at = null;
+        $this->finished_at = null;
+        $this->error_msg = 'Released by worker';
+
+        return true;
+    }
+
+    public function markFailedForWorker(int $workerId, string $leaseToken, string $errorMessage): bool
     {
         $currentAttempts = (int)$this->attempts;
         $nextAttempts = $currentAttempts + 1;
@@ -320,6 +421,7 @@ class STTJob extends ModulesModelsBase
             'id' => (int)$this->id,
             'processing' => self::STATUS_PROCESSING,
             'worker_id' => $workerId,
+            'lease_token' => $leaseToken,
             'current_attempts' => (string)$currentAttempts,
         ];
 
@@ -328,10 +430,13 @@ class STTJob extends ModulesModelsBase
                     SET attempts = :attempts,
                         error_msg = :error_msg,
                         status = :error,
+                        lease_token = NULL,
+                        lease_expires_at = NULL,
                         finished_at = :finished_at
                   WHERE id = :id
                     AND status = :processing
                     AND worker_id = :worker_id
+                    AND lease_token = :lease_token
                     AND CAST(attempts AS INTEGER) = :current_attempts';
             $bind['error'] = self::STATUS_ERROR;
             $bind['finished_at'] = $finishedAt;
@@ -342,10 +447,13 @@ class STTJob extends ModulesModelsBase
                         status = :pending,
                         worker_id = NULL,
                         started_at = NULL,
+                        lease_token = NULL,
+                        lease_expires_at = NULL,
                         finished_at = NULL
                   WHERE id = :id
                     AND status = :processing
                     AND worker_id = :worker_id
+                    AND lease_token = :lease_token
                     AND CAST(attempts AS INTEGER) = :current_attempts';
             $bind['pending'] = self::STATUS_PENDING;
         }
@@ -362,6 +470,8 @@ class STTJob extends ModulesModelsBase
             $this->worker_id = $freshJob->worker_id;
             $this->attempts = $freshJob->attempts;
             $this->started_at = $freshJob->started_at;
+            $this->lease_token = $freshJob->lease_token;
+            $this->lease_expires_at = $freshJob->lease_expires_at;
             $this->finished_at = $freshJob->finished_at;
             $this->error_msg = $freshJob->error_msg;
         }
