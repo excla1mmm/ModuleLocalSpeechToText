@@ -193,6 +193,9 @@ class LocalSpeechToTextMain
                 $technicalInfo = is_array($data['technical_info'] ?? null) ? $data['technical_info'] : null;
                 $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                 $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
+                $filterResult = TranscriptQualityFilter::filterSegments($transcript);
+                $transcript = $filterResult['segments'];
+                $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
                 $result = STTResult::saveForJob(
                     $job,
                     self::encodeTranscript($transcript),
@@ -625,6 +628,43 @@ class LocalSpeechToTextMain
     private static function encodeTranscript(array $segments): string
     {
         return json_encode($segments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param array<string, mixed>|null $technicalInfo
+     * @param array<string, mixed> $stats
+     * @return array<string, mixed>
+     */
+    private static function mergeTranscriptQualityInfo(?array $technicalInfo, array $stats): array
+    {
+        $technicalInfo ??= [];
+        $quality = is_array($technicalInfo['quality'] ?? null) ? $technicalInfo['quality'] : [];
+        $existingReasons = is_array($quality['reasons'] ?? null) ? $quality['reasons'] : [];
+        $serverReasons = is_array($stats['reasons'] ?? null) ? $stats['reasons'] : [];
+
+        $quality['server_filter'] = true;
+        $quality['server_raw_segments'] = (int)($stats['raw_segments'] ?? 0);
+        $quality['server_submitted_segments'] = (int)($stats['submitted_segments'] ?? 0);
+        $quality['server_rejected_segments'] = (int)($stats['rejected_segments'] ?? 0);
+        $quality['server_trimmed_segments'] = (int)($stats['trimmed_segments'] ?? 0);
+        $quality['rejected_segments'] = (int)($quality['rejected_segments'] ?? 0) + (int)($stats['rejected_segments'] ?? 0);
+        $quality['trimmed_segments'] = (int)($quality['trimmed_segments'] ?? 0) + (int)($stats['trimmed_segments'] ?? 0);
+        $quality['reasons'] = array_values(array_unique(array_merge(
+            array_map('strval', $existingReasons),
+            array_map('strval', $serverReasons)
+        )));
+
+        $technicalInfo['quality'] = $quality;
+        $technicalInfo['server_quality'] = [
+            'transcript_filter' => true,
+            'raw_segments' => (int)($stats['raw_segments'] ?? 0),
+            'submitted_segments' => (int)($stats['submitted_segments'] ?? 0),
+            'rejected_segments' => (int)($stats['rejected_segments'] ?? 0),
+            'trimmed_segments' => (int)($stats['trimmed_segments'] ?? 0),
+            'reasons' => $serverReasons,
+        ];
+
+        return $technicalInfo;
     }
 
     /**

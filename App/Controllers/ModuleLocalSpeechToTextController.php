@@ -1425,6 +1425,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     private function recordingPathForPlayback(?STTJob $job, ?CallDetailRecords $cdr): string
     {
+        $prettyPath = $this->prettyRecordingPathForPlayback($job, $cdr);
+        if ($prettyPath !== '') {
+            return $prettyPath;
+        }
+
         if ($job instanceof STTJob) {
             $jobPath = $this->safeMonitorRecordingPath((string)$job->file_path);
             if ($jobPath !== '') {
@@ -1434,6 +1439,59 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         if ($cdr instanceof CallDetailRecords) {
             return $this->cdrRecordingPath((string)$cdr->recordingfile);
+        }
+
+        return '';
+    }
+
+    private function prettyRecordingPathForPlayback(?STTJob $job, ?CallDetailRecords $cdr): string
+    {
+        if (!$job instanceof STTJob) {
+            return '';
+        }
+
+        $rawPath = $this->safeMonitorRecordingPath((string)$job->file_path);
+        if ($rawPath === '') {
+            return '';
+        }
+
+        $prettyBase = $this->prettyMonitorDir();
+        if ($prettyBase === '') {
+            return '';
+        }
+
+        $callId = preg_replace('/^mikopbx-/', '', trim((string)$job->call_id)) ?: '';
+        $matches = [];
+        foreach ($this->prettyMonitorSearchDirs($prettyBase, $job, $cdr, $rawPath) as $dir) {
+            foreach ((glob($dir . '/*') ?: []) as $candidate) {
+                if (!is_file($candidate) || realpath($candidate) !== $rawPath) {
+                    continue;
+                }
+
+                $matches[] = $candidate;
+            }
+        }
+
+        if ($matches === []) {
+            return '';
+        }
+
+        usort(
+            $matches,
+            static fn (string $left, string $right): int => [
+                $callId !== '' && str_contains(basename($left), $callId) ? 0 : 1,
+                basename($left),
+            ] <=> [
+                $callId !== '' && str_contains(basename($right), $callId) ? 0 : 1,
+                basename($right),
+            ]
+        );
+
+        foreach ($matches as $match) {
+            $safePath = $this->safePrettyRecordingPath($match, $rawPath);
+            if ($safePath !== '') {
+                return $safePath;
+            }
         }
 
         return '';
@@ -1481,6 +1539,64 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         return '';
+    }
+
+    private function prettyMonitorDir(): string
+    {
+        $monitorDir = rtrim(Directories::getDir(Directories::AST_MONITOR_DIR), DIRECTORY_SEPARATOR);
+        if ($monitorDir === '') {
+            return '';
+        }
+
+        return dirname($monitorDir) . DIRECTORY_SEPARATOR . 'pretty-monitor';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function prettyMonitorSearchDirs(string $prettyBase, STTJob $job, ?CallDetailRecords $cdr, string $rawPath): array
+    {
+        $dates = [];
+        foreach ([
+            $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->start) : false,
+            $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->endtime) : false,
+            (int)$job->cdr_endtime,
+            @filemtime($rawPath) ?: 0,
+        ] as $timestamp) {
+            if (is_int($timestamp) && $timestamp > 0) {
+                $dates[date('Y/m/d', $timestamp)] = true;
+            }
+        }
+
+        $dirs = [];
+        foreach (array_keys($dates) as $datePath) {
+            $dir = $prettyBase . DIRECTORY_SEPARATOR . $datePath;
+            if (is_dir($dir)) {
+                $dirs[] = $dir;
+            }
+        }
+
+        return array_values(array_unique($dirs));
+    }
+
+    private function safePrettyRecordingPath(string $filePath, string $expectedRawPath): string
+    {
+        $prettyBase = realpath($this->prettyMonitorDir());
+        $prettyDir = realpath(dirname($filePath));
+        $resolvedPath = realpath($filePath);
+        if ($prettyBase === false || $prettyDir === false || $resolvedPath === false) {
+            return '';
+        }
+        if ($resolvedPath !== $expectedRawPath || !is_file($filePath) || !is_readable($filePath)) {
+            return '';
+        }
+
+        $prettyPrefix = rtrim($prettyBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if ($prettyDir !== $prettyBase && strncmp($prettyDir, $prettyPrefix, strlen($prettyPrefix)) !== 0) {
+            return '';
+        }
+
+        return $filePath;
     }
 
     private function durationLabel(float $seconds): string

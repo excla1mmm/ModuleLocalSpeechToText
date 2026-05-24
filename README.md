@@ -2,9 +2,9 @@
 
 Local speech-to-text module for MikoPBX.
 
-`ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, and the administrator UI.
+`ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, integration events, and the administrator UI.
 
-Current module version: `1.7`.
+Current module version: `1.10`.
 
 ## What It Does
 
@@ -13,9 +13,11 @@ Current module version: `1.7`.
 - Lets administrators choose the Whisper model, language hint, queue limits, processing timeout, vocabulary dictionaries, and custom vocabulary terms.
 - Generates restricted Bearer API keys for external workers.
 - Tracks worker status, IP address, runtime model, API key binding, and last activity.
-- Stores transcript segments, detected language, duration, model used, and optional worker technical metrics.
+- Stores transcript segments, detected language, duration, model used, and worker technical metrics.
+- Applies a server-side transcript quality filter that trims or rejects obvious hallucination artifacts before saving results.
 - Shows transcripts as a conversation view, including left/right speaker columns for stereo recordings.
-- Exposes queue, delayed recording, skipped recording, worker, and transcript status in the MikoPBX admin UI.
+- Exposes queue, delayed recording, skipped recording, worker, transcript, and log status in the MikoPBX admin UI.
+- Publishes idempotent `transcript.completed` events for downstream modules such as `ModuleAISupervisor`.
 
 ## Architecture
 
@@ -24,7 +26,7 @@ The module has two moving parts:
 1. PBX module: installed under `Extensions/ModuleLocalSpeechToText`.
 2. External worker: a separate macOS Apple Silicon process that polls the PBX API, downloads assigned audio, runs local Whisper transcription, and submits the result.
 
-The PBX module does not run Whisper itself. It stores jobs in SQLite and only streams a recording after the job has been claimed by an authenticated worker.
+The PBX module does not run Whisper itself. It stores jobs in SQLite and streams a recording only after the job has been claimed by an authenticated worker.
 
 ## PBX Queue Worker
 
@@ -33,6 +35,18 @@ The PBX module does not run Whisper itself. It stores jobs in SQLite and only st
 It periodically scans completed CDR rows with recordings and creates one `m_STTJob` per recording path. Duplicate jobs are prevented by the unique `file_path` index. If a completed CDR row appears before its recording file is readable, the row is kept in a delayed-recording buffer and retried. Oversized or permanently missing recordings are tracked as skipped records so administrators can see why no job was created.
 
 Processing jobs are leased to a worker. If the worker stops refreshing the lease, stale jobs are returned to the pending queue after the configured processing timeout.
+
+## Transcript Quality Filter
+
+Submitted worker segments are normalized to integer millisecond timestamps, then passed through `TranscriptQualityFilter` before persistence. The filter removes empty text and common Whisper hallucination patterns such as:
+
+- dense text that is impossible for the segment duration;
+- repeated token, phrase, substring, or character floods;
+- punctuation floods;
+- replacement characters;
+- common subtitle or movie-tail markers.
+
+When possible, repeated prefixes or suffixes are trimmed instead of rejecting the whole segment. Filter statistics are merged into `technical_info.quality` and `technical_info.server_quality`, so the transcript card can show how many segments were submitted, trimmed, or rejected by the server.
 
 ## Admin UI
 
@@ -45,7 +59,7 @@ The main module page has six tabs:
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
 - `Logging`: aggregated recent module logs with quick time filters.
 
-The conversation view includes the source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker.
+The conversation view includes source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker. For playback display the module can resolve both raw monitor paths and matching `pretty-monitor` files after `realpath` validation.
 
 ## Worker Setup Flow
 
@@ -91,7 +105,7 @@ All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and 
 - `model_source_url`
 - `vocabulary_terms`
 
-The external worker should use `whisperkit_model` (or `model_id` for older payloads) as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context. Marketplace entries keep the real Hugging Face repository and model folder names in the job payload. Custom marketplace entries must point to WhisperKit/Core ML compatible Hugging Face repositories.
+The external worker should use `whisperkit_model` or `model_id` as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context. Marketplace entries keep the real Hugging Face repository and model folder names in the job payload. Custom marketplace entries must point to WhisperKit/Core ML compatible Hugging Face repositories.
 
 `download`, `heartbeat`, `submitResult`, and `submitError` validate that the job is still in `processing` state and assigned to the requesting worker.
 
@@ -100,6 +114,7 @@ The external worker should use `whisperkit_model` (or `model_id` for older paylo
 `submitResult` requires:
 
 - `worker_uid`
+- `lease_token`
 - `transcript` with integer `start_ms` and `end_ms` segment timestamps
 
 Optional fields:
@@ -111,17 +126,19 @@ Optional fields:
 
 All worker-to-PBX timestamps use integer milliseconds. PBX converts them to seconds only for database duration fields and UI rendering.
 
-`technical_info` is stored as JSON and rendered in the transcript card. It is intended for worker-side diagnostics such as input duration, VAD statistics, selected model, language votes, rejected segments, command timing, and real-time factor.
+`technical_info` is stored as JSON and rendered in the transcript card. It is intended for worker-side diagnostics such as input duration, VAD statistics, selected model, language votes, rejected segments, command timing, and real-time factor. Server-side quality filtering appends its own counters without discarding worker diagnostics.
 
 ## Integration API
 
-The module also exposes read-only completed transcript endpoints for other local modules, including a future AI Supervisor module:
+The module exposes read-only completed transcript endpoints for other local modules:
 
 - `GET /transcripts?limit=50&offset=0&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 - `GET /transcripts/{result_id}`
 - `GET /transcripts/events?cursor=created_at:event_id&limit=100`
 
-Transcript list responses return compact summaries only. Transcript detail responses return normalized raw segments with stable `segment_id` values in the form `stt:{result_id}:{index}`, plus readable coalesced `turns` and plain `text` for downstream modules that do not need low-level STT chunks. Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling.
+Transcript list responses return compact summaries only. Transcript detail responses return normalized raw segments with stable `segment_id` values in the form `stt:{result_id}:{index}`, plus readable coalesced `turns` and plain `text` for downstream modules that do not need low-level STT chunks.
+
+Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling. Event rows preserve `result_id`, `job_id`, and `call_id` when available. Summary generation can fall back from job data to event and CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
 
 These endpoints use the same MikoPBX REST v3 `PBXApiResult` envelope and should be used instead of direct table reads by new modules.
 

@@ -173,19 +173,18 @@ class TranscriptIntegrationService
     private function summary(STTResult $result): array
     {
         $job = $this->job($result);
-        $cdr = $job instanceof STTJob ? $this->cdrRecordForJob($job) : null;
+        $event = $this->event($result);
+        $callId = $this->callId($job, $event);
+        $cdr = $job instanceof STTJob ? $this->cdrRecordForJob($job) : $this->cdrRecordForCallId($callId);
         $callTimestamp = $this->callTimestamp($result, $job, $cdr);
-        $recording = $job instanceof STTJob ? $this->recordingInfo($job, $cdr) : [
-            'available' => false,
-            'name' => '',
-        ];
+        $recording = $this->recordingInfo($job, $cdr);
 
         return [
             'result_id' => (int)$result->id,
-            'job_id' => $job instanceof STTJob ? (int)$job->id : null,
-            'call_id' => $job instanceof STTJob ? (string)$job->call_id : '',
+            'job_id' => $this->jobId($job, $event),
+            'call_id' => $callId,
             'cdr_id' => $cdr instanceof CallDetailRecords ? (int)$cdr->id : null,
-            'cdr_endtime' => $job instanceof STTJob ? (int)$job->cdr_endtime : null,
+            'cdr_endtime' => $this->cdrEndtime($job, $cdr),
             'call_timestamp' => $callTimestamp,
             'finished_at' => $job instanceof STTJob ? (int)$job->finished_at : null,
             'result_created_at' => (int)$result->created_at,
@@ -202,6 +201,64 @@ class TranscriptIntegrationService
         $job = $result->STTJob;
 
         return $job instanceof STTJob ? $job : null;
+    }
+
+    private function jobId(?STTJob $job, ?STTTranscriptEvent $event): ?int
+    {
+        if ($job instanceof STTJob) {
+            return (int)$job->id;
+        }
+        if ($event instanceof STTTranscriptEvent && (int)($event->job_id ?? 0) > 0) {
+            return (int)$event->job_id;
+        }
+
+        return null;
+    }
+
+    private function event(STTResult $result): ?STTTranscriptEvent
+    {
+        $rows = (new STTTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT id, event_type, event_key, result_id, job_id, call_id, update_type, payload, created_at
+               FROM m_STTTranscriptEvent
+              WHERE CAST(result_id AS INTEGER) = :result_id
+                AND event_type = :event_type
+              ORDER BY CAST(created_at AS INTEGER) DESC, CAST(id AS INTEGER) DESC
+              LIMIT 1',
+            \Phalcon\Db\Enum::FETCH_ASSOC,
+            [
+                'result_id' => (int)$result->id,
+                'event_type' => STTTranscriptEvent::TYPE_TRANSCRIPT_COMPLETED,
+            ]
+        );
+        if ($rows === []) {
+            return null;
+        }
+
+        $row = $rows[0];
+        $event = new STTTranscriptEvent();
+        $event->id = (int)($row['id'] ?? 0);
+        $event->event_type = (string)($row['event_type'] ?? STTTranscriptEvent::TYPE_TRANSCRIPT_COMPLETED);
+        $event->event_key = (string)($row['event_key'] ?? '');
+        $event->result_id = (int)($row['result_id'] ?? 0);
+        $event->job_id = isset($row['job_id']) ? (int)$row['job_id'] : null;
+        $event->call_id = (string)($row['call_id'] ?? '');
+        $event->update_type = (string)($row['update_type'] ?? STTTranscriptEvent::UPDATE_CREATED);
+        $event->payload = (string)($row['payload'] ?? '');
+        $event->created_at = (string)($row['created_at'] ?? '0');
+
+        return $event;
+    }
+
+    private function callId(?STTJob $job, ?STTTranscriptEvent $event): string
+    {
+        if ($job instanceof STTJob && trim((string)$job->call_id) !== '') {
+            return trim((string)$job->call_id);
+        }
+        if ($event instanceof STTTranscriptEvent && trim((string)$event->call_id) !== '') {
+            return trim((string)$event->call_id);
+        }
+
+        return '';
     }
 
     /**
@@ -486,6 +543,25 @@ class TranscriptIntegrationService
             : $this->cdrRecordByRecordingPath($jobFilePath);
     }
 
+    private function cdrRecordForCallId(string $callId): ?CallDetailRecords
+    {
+        $callId = trim($callId);
+        if ($callId === '') {
+            return null;
+        }
+
+        $record = CallDetailRecords::findFirst([
+            'conditions' => '(linkedid = :call_id: OR UNIQUEID = :call_id:) AND recordingfile <> :empty:',
+            'bind' => [
+                'call_id' => $callId,
+                'empty' => '',
+            ],
+            'order' => 'start ASC, id ASC',
+        ]);
+
+        return $record instanceof CallDetailRecords ? $record : null;
+    }
+
     private function cdrRecordByRecordingPath(string $jobFilePath): ?CallDetailRecords
     {
         if ($jobFilePath === '') {
@@ -518,10 +594,12 @@ class TranscriptIntegrationService
     /**
      * @return array<string, mixed>
      */
-    private function recordingInfo(STTJob $job, ?CallDetailRecords $cdr): array
+    private function recordingInfo(?STTJob $job, ?CallDetailRecords $cdr): array
     {
         $safePath = $this->recordingPathForPlayback($job, $cdr);
-        $recordingName = $safePath === '' ? basename((string)$job->file_path) : basename($safePath);
+        $recordingName = $safePath === ''
+            ? ($job instanceof STTJob ? basename((string)$job->file_path) : '')
+            : basename($safePath);
         if ($recordingName === '' && $cdr instanceof CallDetailRecords) {
             $recordingName = basename((string)$cdr->recordingfile);
         }
@@ -534,6 +612,11 @@ class TranscriptIntegrationService
 
     private function recordingPathForPlayback(?STTJob $job, ?CallDetailRecords $cdr): string
     {
+        $prettyPath = $this->prettyRecordingPathForPlayback($job, $cdr);
+        if ($prettyPath !== '') {
+            return $prettyPath;
+        }
+
         if ($job instanceof STTJob) {
             $jobPath = $this->safeMonitorRecordingPath((string)$job->file_path);
             if ($jobPath !== '') {
@@ -543,6 +626,59 @@ class TranscriptIntegrationService
 
         if ($cdr instanceof CallDetailRecords) {
             return $this->cdrRecordingPath((string)$cdr->recordingfile);
+        }
+
+        return '';
+    }
+
+    private function prettyRecordingPathForPlayback(?STTJob $job, ?CallDetailRecords $cdr): string
+    {
+        if (!$job instanceof STTJob) {
+            return '';
+        }
+
+        $rawPath = $this->safeMonitorRecordingPath((string)$job->file_path);
+        if ($rawPath === '') {
+            return '';
+        }
+
+        $prettyBase = $this->prettyMonitorDir();
+        if ($prettyBase === '') {
+            return '';
+        }
+
+        $callId = preg_replace('/^mikopbx-/', '', trim((string)$job->call_id)) ?: '';
+        $matches = [];
+        foreach ($this->prettyMonitorSearchDirs($prettyBase, $job, $cdr, $rawPath) as $dir) {
+            foreach ((glob($dir . '/*') ?: []) as $candidate) {
+                if (!is_file($candidate) || realpath($candidate) !== $rawPath) {
+                    continue;
+                }
+
+                $matches[] = $candidate;
+            }
+        }
+
+        if ($matches === []) {
+            return '';
+        }
+
+        usort(
+            $matches,
+            static fn (string $left, string $right): int => [
+                $callId !== '' && str_contains(basename($left), $callId) ? 0 : 1,
+                basename($left),
+            ] <=> [
+                $callId !== '' && str_contains(basename($right), $callId) ? 0 : 1,
+                basename($right),
+            ]
+        );
+
+        foreach ($matches as $match) {
+            $safePath = $this->safePrettyRecordingPath($match, $rawPath);
+            if ($safePath !== '') {
+                return $safePath;
+            }
         }
 
         return '';
@@ -592,24 +728,96 @@ class TranscriptIntegrationService
         return '';
     }
 
-    private function callTimestamp(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr): int
+    private function prettyMonitorDir(): string
     {
-        if ($job instanceof STTJob && (int)$job->cdr_endtime > 0) {
-            return (int)$job->cdr_endtime;
+        $monitorDir = rtrim(Directories::getDir(Directories::AST_MONITOR_DIR), DIRECTORY_SEPARATOR);
+        if ($monitorDir === '') {
+            return '';
         }
 
-        if ($cdr instanceof CallDetailRecords) {
-            $timestamp = strtotime((string)$cdr->endtime);
-            if ($timestamp !== false && $timestamp > 0) {
-                return $timestamp;
+        return dirname($monitorDir) . DIRECTORY_SEPARATOR . 'pretty-monitor';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function prettyMonitorSearchDirs(string $prettyBase, STTJob $job, ?CallDetailRecords $cdr, string $rawPath): array
+    {
+        $dates = [];
+        foreach ([
+            $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->start) : false,
+            $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->endtime) : false,
+            (int)$job->cdr_endtime,
+            @filemtime($rawPath) ?: 0,
+        ] as $timestamp) {
+            if (is_int($timestamp) && $timestamp > 0) {
+                $dates[date('Y/m/d', $timestamp)] = true;
             }
+        }
+
+        $dirs = [];
+        foreach (array_keys($dates) as $datePath) {
+            $dir = $prettyBase . DIRECTORY_SEPARATOR . $datePath;
+            if (is_dir($dir)) {
+                $dirs[] = $dir;
+            }
+        }
+
+        return array_values(array_unique($dirs));
+    }
+
+    private function safePrettyRecordingPath(string $filePath, string $expectedRawPath): string
+    {
+        $prettyBase = realpath($this->prettyMonitorDir());
+        $prettyDir = realpath(dirname($filePath));
+        $resolvedPath = realpath($filePath);
+        if ($prettyBase === false || $prettyDir === false || $resolvedPath === false) {
+            return '';
+        }
+        if ($resolvedPath !== $expectedRawPath || !is_file($filePath) || !is_readable($filePath)) {
+            return '';
+        }
+
+        $prettyPrefix = rtrim($prettyBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if ($prettyDir !== $prettyBase && strncmp($prettyDir, $prettyPrefix, strlen($prettyPrefix)) !== 0) {
+            return '';
+        }
+
+        return $filePath;
+    }
+
+    private function callTimestamp(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr): int
+    {
+        if ($cdr instanceof CallDetailRecords) {
             $timestamp = strtotime((string)$cdr->start);
             if ($timestamp !== false && $timestamp > 0) {
                 return $timestamp;
             }
+            $timestamp = strtotime((string)$cdr->endtime);
+            if ($timestamp !== false && $timestamp > 0) {
+                return $timestamp;
+            }
+        }
+
+        if ($job instanceof STTJob && (int)$job->cdr_endtime > 0) {
+            return (int)$job->cdr_endtime;
         }
 
         return (int)$result->created_at;
+    }
+
+    private function cdrEndtime(?STTJob $job, ?CallDetailRecords $cdr): ?int
+    {
+        if ($job instanceof STTJob && (int)$job->cdr_endtime > 0) {
+            return (int)$job->cdr_endtime;
+        }
+        if ($cdr instanceof CallDetailRecords) {
+            $timestamp = strtotime((string)$cdr->endtime);
+
+            return $timestamp === false || $timestamp <= 0 ? null : $timestamp;
+        }
+
+        return null;
     }
 
     /**

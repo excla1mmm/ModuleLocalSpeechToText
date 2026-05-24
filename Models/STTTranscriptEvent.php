@@ -113,6 +113,10 @@ class STTTranscriptEvent extends ModulesModelsBase
             ],
         ]);
         if ($event instanceof self) {
+            if ($job instanceof STTJob && self::fillEventJobFields($event, $job) && !$event->save()) {
+                throw new RuntimeException(implode(', ', $event->getMessages()));
+            }
+
             return $event;
         }
 
@@ -130,8 +134,12 @@ class STTTranscriptEvent extends ModulesModelsBase
         $event->event_type = self::TYPE_TRANSCRIPT_COMPLETED;
         $event->event_key = $eventKey;
         $event->result_id = $resultId;
-        $event->job_id = $job instanceof STTJob ? (int)$job->id : null;
-        $event->call_id = $job instanceof STTJob ? (string)$job->call_id : '';
+        if ($job instanceof STTJob) {
+            self::fillEventJobFields($event, $job);
+        } else {
+            $event->job_id = null;
+            $event->call_id = '';
+        }
         $event->update_type = self::UPDATE_CREATED;
         $event->created_at = (string)$createdAt;
         $event->payload = json_encode([
@@ -180,5 +188,22 @@ class STTTranscriptEvent extends ModulesModelsBase
     private static function completedEventKey(int $resultId): string
     {
         return self::TYPE_TRANSCRIPT_COMPLETED . ':' . $resultId;
+    }
+
+    private static function fillEventJobFields(self $event, STTJob $job): bool
+    {
+        $changed = false;
+        $jobId = (int)$job->id;
+        $callId = trim((string)$job->call_id);
+        if ((int)($event->job_id ?? 0) !== $jobId) {
+            $event->job_id = $jobId;
+            $changed = true;
+        }
+        if ($callId !== '' && (string)$event->call_id !== $callId) {
+            $event->call_id = $callId;
+            $changed = true;
+        }
+
+        return $changed;
     }
 }
