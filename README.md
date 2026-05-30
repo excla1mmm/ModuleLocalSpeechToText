@@ -4,7 +4,7 @@ Local speech-to-text module for MikoPBX.
 
 `ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, integration events, and the administrator UI.
 
-Current module version: `1.10`.
+Current module version: `1.12`.
 
 ## What It Does
 

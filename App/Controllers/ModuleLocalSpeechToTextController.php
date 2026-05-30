@@ -15,6 +15,7 @@ use Modules\ModuleLocalSpeechToText\Lib\TranscriptTimeNormalizer;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use RuntimeException;
 use Throwable;
@@ -279,12 +280,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $download = (int)$this->request->getQuery('download', 'int', 0) === 1;
         $result = STTResult::findFirstById($resultId);
         $job = $result instanceof STTResult ? $result->STTJob : null;
-        if (!$job instanceof STTJob) {
+        if (!$result instanceof STTResult) {
             $this->sendRecordingError(404, 'Recording not found');
             return;
         }
+        $job = $job instanceof STTJob ? $job : null;
 
-        $cdr = $this->cdrRecordForJob($job);
+        $cdr = $job instanceof STTJob
+            ? $this->cdrRecordForJob($job)
+            : $this->cdrRecordForResult($result);
         $filePath = $this->recordingPathForPlayback($job, $cdr);
         if ($filePath === '') {
             $this->sendRecordingError(404, 'Recording not found');
@@ -1388,6 +1392,40 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         return $this->cdrRecordByRecordingPath($jobFilePath);
+    }
+
+    private function cdrRecordForResult(STTResult $result): ?CallDetailRecords
+    {
+        $event = STTTranscriptEvent::findFirst([
+            'conditions' => 'result_id = :result_id: AND event_type = :event_type:',
+            'bind' => [
+                'result_id' => (int)$result->id,
+                'event_type' => STTTranscriptEvent::TYPE_TRANSCRIPT_COMPLETED,
+            ],
+            'order' => 'created_at DESC, id DESC',
+        ]);
+        $callId = $event instanceof STTTranscriptEvent ? trim((string)$event->call_id) : '';
+
+        return $this->cdrRecordForCallId($callId);
+    }
+
+    private function cdrRecordForCallId(string $callId): ?CallDetailRecords
+    {
+        $callId = trim($callId);
+        if ($callId === '') {
+            return null;
+        }
+
+        $record = CallDetailRecords::findFirst([
+            'conditions' => '(linkedid = :call_id: OR UNIQUEID = :call_id:) AND recordingfile <> :empty:',
+            'bind' => [
+                'call_id' => $callId,
+                'empty' => '',
+            ],
+            'order' => 'start ASC, id ASC',
+        ]);
+
+        return $record instanceof CallDetailRecords ? $record : null;
     }
 
     private function cdrRecordByRecordingPath(string $jobFilePath): ?CallDetailRecords
