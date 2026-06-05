@@ -97,6 +97,7 @@ class TranscriptIntegrationService
         $turns = $this->turns($result, $segments);
 
         return $summary + [
+            'technical_info' => $this->technicalInfo($result),
             'transcript' => [
                 'segments' => $segments,
                 'segment_count' => count($segments),
@@ -105,6 +106,22 @@ class TranscriptIntegrationService
                 'text' => $this->plainText($turns),
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function technicalInfo(STTResult $result): array
+    {
+        $decoded = json_decode((string)$result->technical_info, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        if ($this->isListPayload($decoded)) {
+            return [];
+        }
+
+        return $decoded;
     }
 
     /**
@@ -201,6 +218,14 @@ class TranscriptIntegrationService
         $job = $result->STTJob;
 
         return $job instanceof STTJob ? $job : null;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function isListPayload(array $value): bool
+    {
+        return $value !== [] && array_keys($value) === range(0, count($value) - 1);
     }
 
     private function jobId(?STTJob $job, ?STTTranscriptEvent $event): ?int
