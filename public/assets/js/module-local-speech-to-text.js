@@ -607,6 +607,37 @@
         initialized = true;
     }
 
+    function initializeModelMarketplace($modelForm) {
+        var $saveButton = $('#module-local-speech-to-text-model-save');
+
+        if (typeof $.fn.accordion === 'function') {
+            $('.module-local-speech-to-text .stt-custom-model-dropdown').accordion();
+        }
+
+        $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').on('click', function (event) {
+            if ($(event.target).closest('a, button, form, input, label').length > 0) {
+                return;
+            }
+
+            $(this).find('.ui.radio.checkbox').checkbox('check');
+        });
+
+        $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]').on('change', function () {
+            var $row = $(this).closest('tr');
+
+            $row.addClass('positive').siblings().removeClass('positive');
+        });
+
+        $modelForm.on('submit', function () {
+            if ($modelForm.find('input[name="selected_model"]:checked').length === 0) {
+                return;
+            }
+            if ($saveButton.length > 0) {
+                $saveButton.addClass('loading disabled active');
+            }
+        });
+    }
+
     $(function () {
         var $tabItems = $('#module-local-speech-to-text-menu .item');
         var $settingsForm = $('#module-local-speech-to-text-form');
@@ -619,13 +650,7 @@
         $('.module-local-speech-to-text .ui.dropdown').dropdown();
         $('.module-local-speech-to-text .ui.checkbox').checkbox();
         $('.module-local-speech-to-text [data-content]').popup();
-        $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').on('click', function (event) {
-            if ($(event.target).closest('a, button, form, input, label').length > 0) {
-                return;
-            }
-
-            $(this).find('.ui.radio.checkbox').checkbox('check');
-        });
+        initializeModelMarketplace($modelForm);
         initializeTranscriptDateFilter();
         initializeTranscriptPlayer();
         initializeModuleLogs();

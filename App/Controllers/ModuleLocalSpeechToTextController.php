@@ -2576,33 +2576,26 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $repo = (string)($model['repo'] ?? '');
             $runtimeModel = (string)($model['model'] ?? $modelId);
             $isCustom = (bool)($model['custom'] ?? false);
-            $tags = [
-                $isCustom ? 'custom' : ($repo === 'argmaxinc/whisperkit-coreml' ? 'default' : 'tuned'),
-                (string)($model['engine'] ?? 'whisperKit'),
-                $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
-            ];
-
-            if (($model['language'] ?? '') !== '') {
-                $tags[] = (string)$model['language'];
-            }
-            if (($model['license'] ?? '') !== '') {
-                $tags[] = (string)$model['license'];
-            }
-            foreach (($model['tags'] ?? []) as $tag) {
-                $tags[] = (string)$tag;
-            }
 
             $rows[] = [
                 'id' => $modelId,
-                'title' => $repo . '/' . $runtimeModel,
+                'title' => $this->modelText((string)$model['label']),
                 'repo' => $repo,
                 'runtime' => $runtimeModel,
                 'label' => $this->modelText((string)$model['label']),
                 'description' => $this->modelText((string)$model['description']),
+                'profile' => $this->modelText((string)($model['profile'] ?? ($isCustom ? 'module_local_speech_to_text_ModelProfileCustom' : ''))),
+                'bestFor' => $this->modelText((string)($model['best_for'] ?? ($isCustom ? 'module_local_speech_to_text_ModelCustomBestFor' : ''))),
+                'tradeoff' => $this->modelText((string)($model['tradeoff'] ?? ($isCustom ? 'module_local_speech_to_text_ModelCustomTradeoff' : ''))),
                 'sourceUrl' => (string)($model['source_url'] ?? ''),
                 'selected' => $modelId === $selectedModel,
                 'custom' => $isCustom,
-                'tags' => array_values(array_filter($tags)),
+                'technical' => implode(' · ', array_values(array_filter([
+                    (string)($model['engine'] ?? 'WhisperKit'),
+                    $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
+                    (string)($model['language'] ?? ''),
+                    (string)($model['license'] ?? ''),
+                ]))),
             ];
         }
 

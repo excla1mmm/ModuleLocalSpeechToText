@@ -86,8 +86,8 @@
             <tr>
                 <th class="collapsing"></th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
-                <th>{{ t._('module_local_speech_to_text_ModelTags') }}</th>
-                <th>{{ t._('module_local_speech_to_text_RuntimeModel') }}</th>
+                <th>{{ t._('module_local_speech_to_text_ModelFit') }}</th>
+                <th>{{ t._('module_local_speech_to_text_ModelTechnicalName') }}</th>
                 <th class="collapsing"></th>
             </tr>
             </thead>
@@ -102,19 +102,30 @@
                     </td>
                     <td>
                         <div class="stt-model-title">{{ row['title']|e }}</div>
-                        <div class="stt-table-muted">{{ row['label']|e }} - {{ row['description']|e }}</div>
+                        <div class="stt-model-summary">{{ row['description']|e }}</div>
                         {% if row['sourceUrl'] !== '' %}
                             <div class="stt-table-muted">
                                 <a href="{{ row['sourceUrl']|e }}" target="_blank" rel="noopener noreferrer">{{ row['repo']|e }}</a>
                             </div>
                         {% endif %}
                     </td>
-                    <td class="stt-model-tags">
-                        {% for tag in row['tags'] %}
-                            <span class="ui tiny label">{{ tag|e }}</span>
-                        {% endfor %}
+                    <td class="stt-model-fit">
+                        {% if row['profile'] !== '' %}
+                            <span class="ui tiny blue label">{{ row['profile']|e }}</span>
+                        {% endif %}
+                        {% if row['bestFor'] !== '' %}
+                            <div class="stt-model-fit-main">{{ row['bestFor']|e }}</div>
+                        {% endif %}
+                        {% if row['tradeoff'] !== '' %}
+                            <div class="stt-table-muted">{{ row['tradeoff']|e }}</div>
+                        {% endif %}
                     </td>
-                    <td><span class="stt-model-runtime">{{ row['runtime']|e }}</span></td>
+                    <td>
+                        <span class="stt-model-runtime">{{ row['runtime']|e }}</span>
+                        {% if row['technical'] !== '' %}
+                            <div class="stt-table-muted">{{ row['technical']|e }}</div>
+                        {% endif %}
+                    </td>
                     <td class="right aligned collapsing">
                         {% if row['custom'] %}
                             <form class="stt-delete-custom-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/deleteCustomModel') }}" data-confirm="{{ t._('module_local_speech_to_text_DeleteCustomModelConfirm') }}">
@@ -130,54 +141,60 @@
             </tbody>
         </table>
         <div class="ui clearing basic segment stt-form-actions">
-            <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" form="module-local-speech-to-text-model-form">
+            <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" form="module-local-speech-to-text-model-form" id="module-local-speech-to-text-model-save">
                 <i class="save icon"></i>{{ t._('module_local_speech_to_text_SaveModel') }}
             </button>
         </div>
-        <form class="ui form stt-custom-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/addCustomModel') }}">
-            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_AddCustomModel') }}</h4>
-            <div class="three fields">
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_ModelRepo') }}</label>
-                    <input type="text" name="model_repo" placeholder="owner/repository">
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_RuntimeModel') }}</label>
-                    <input type="text" name="runtime_model" placeholder="model-folder">
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelTitle') }}</label>
-                    <input type="text" name="model_title" placeholder="Display name">
-                </div>
+        <div class="ui fluid styled accordion stt-custom-model-dropdown">
+            <div class="title">
+                <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AddCustomModel') }}
             </div>
-            <div class="three fields">
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelLanguage') }}</label>
-                    <input type="text" name="model_language" placeholder="ru">
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelLicense') }}</label>
-                    <input type="text" name="model_license" placeholder="Apache-2.0">
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelTags') }}</label>
-                    <input type="text" name="model_tags" placeholder="custom, ru, tuned">
-                </div>
+            <div class="content">
+                <form class="ui form stt-custom-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/addCustomModel') }}">
+                    <div class="three fields">
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_ModelRepo') }}</label>
+                            <input type="text" name="model_repo" placeholder="owner/repository">
+                        </div>
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_RuntimeModel') }}</label>
+                            <input type="text" name="runtime_model" placeholder="model-folder">
+                        </div>
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelTitle') }}</label>
+                            <input type="text" name="model_title" placeholder="Display name">
+                        </div>
+                    </div>
+                    <div class="three fields">
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelLanguage') }}</label>
+                            <input type="text" name="model_language" placeholder="ru">
+                        </div>
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelLicense') }}</label>
+                            <input type="text" name="model_license" placeholder="Apache-2.0">
+                        </div>
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelTags') }}</label>
+                            <input type="text" name="model_tags" placeholder="custom, ru, tuned">
+                        </div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelSourceUrl') }}</label>
+                            <input type="text" name="source_url" placeholder="https://huggingface.co/owner/repository">
+                        </div>
+                        <div class="field">
+                            <label>{{ t._('module_local_speech_to_text_CustomModelDescription') }}</label>
+                            <input type="text" name="model_description" placeholder="WhisperKit Core ML model">
+                        </div>
+                    </div>
+                    <button class="ui left labeled icon blue button" type="submit">
+                        <i class="add circle icon"></i>{{ t._('module_local_speech_to_text_AddCustomModelButton') }}
+                    </button>
+                </form>
             </div>
-            <div class="two fields">
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelSourceUrl') }}</label>
-                    <input type="text" name="source_url" placeholder="https://huggingface.co/owner/repository">
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CustomModelDescription') }}</label>
-                    <input type="text" name="model_description" placeholder="WhisperKit Core ML model">
-                </div>
-            </div>
-            <button class="ui left labeled icon blue button" type="submit">
-                <i class="add circle icon"></i>{{ t._('module_local_speech_to_text_AddCustomModelButton') }}
-            </button>
-        </form>
+        </div>
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">

@@ -64,14 +64,6 @@ class STTSetting extends ModulesModelsBase
     ];
 
     public const array MODEL_PRESETS = [
-        'tiny' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'tiny',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelTiny',
-            'description' => 'module_local_speech_to_text_ModelTinyDesc',
-        ],
         'base' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
             'model' => 'base',
@@ -79,6 +71,22 @@ class STTSetting extends ModulesModelsBase
             'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelBase',
             'description' => 'module_local_speech_to_text_ModelBaseDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-base',
+            'profile' => 'module_local_speech_to_text_ModelProfileBase',
+            'best_for' => 'module_local_speech_to_text_ModelBaseBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelBaseTradeoff',
+        ],
+        'small' => [
+            'repo' => 'argmaxinc/whisperkit-coreml',
+            'model' => 'small',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelSmall',
+            'description' => 'module_local_speech_to_text_ModelSmallDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small',
+            'profile' => 'module_local_speech_to_text_ModelProfileSmall',
+            'best_for' => 'module_local_speech_to_text_ModelSmallBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelSmallTradeoff',
         ],
         'medium' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
@@ -87,6 +95,10 @@ class STTSetting extends ModulesModelsBase
             'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelMedium',
             'description' => 'module_local_speech_to_text_ModelMediumDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-medium',
+            'profile' => 'module_local_speech_to_text_ModelProfileMedium',
+            'best_for' => 'module_local_speech_to_text_ModelMediumBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelMediumTradeoff',
         ],
         'large-v3-turbo' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
@@ -95,57 +107,22 @@ class STTSetting extends ModulesModelsBase
             'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelLargeV3Turbo',
             'description' => 'module_local_speech_to_text_ModelLargeV3TurboDesc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo',
+            'profile' => 'module_local_speech_to_text_ModelProfileLargeV3Turbo',
+            'best_for' => 'module_local_speech_to_text_ModelLargeV3TurboBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelLargeV3TurboTradeoff',
         ],
-        'argmaxinc/whisperkit-coreml:openai_whisper-large-v3-v20240930_turbo_632MB' => [
+        'large-v3' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'openai_whisper-large-v3-v20240930_turbo_632MB',
+            'model' => 'large-v3',
             'engine' => 'whisperKit',
             'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3Turbo632MB',
-            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3Turbo632MBDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo_632MB',
-            'tags' => ['popular', 'compressed', 'OpenAI'],
-        ],
-        'argmaxinc/whisperkit-coreml:openai_whisper-large-v3_947MB' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'openai_whisper-large-v3_947MB',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3947MB',
-            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperLargeV3947MBDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3_947MB',
-            'tags' => ['popular', 'compressed', 'OpenAI'],
-        ],
-        'argmaxinc/whisperkit-coreml:distil-whisper_distil-large-v3_turbo_600MB' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'distil-whisper_distil-large-v3_turbo_600MB',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelDistilWhisperLargeV3Turbo600MB',
-            'description' => 'module_local_speech_to_text_ModelDistilWhisperLargeV3Turbo600MBDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/distil-whisper_distil-large-v3_turbo_600MB',
-            'tags' => ['popular', 'compressed', 'Distil'],
-        ],
-        'argmaxinc/whisperkit-coreml:openai_whisper-small_216MB' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'openai_whisper-small_216MB',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelOpenAIWhisperSmall216MB',
-            'description' => 'module_local_speech_to_text_ModelOpenAIWhisperSmall216MBDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small_216MB',
-            'tags' => ['popular', 'compressed', 'OpenAI'],
-        ],
-        'smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo' => [
-            'repo' => 'smkrv/whisper-podlodka-turbo-coreml',
-            'model' => 'bond005_whisper-podlodka-turbo',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelPodlodkaTurboCoreML',
-            'description' => 'module_local_speech_to_text_ModelPodlodkaTurboCoreMLDesc',
-            'license' => 'Apache-2.0',
-            'source_url' => 'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
-            'language' => 'ru',
+            'label' => 'module_local_speech_to_text_ModelLargeV3',
+            'description' => 'module_local_speech_to_text_ModelLargeV3Desc',
+            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileLargeV3',
+            'best_for' => 'module_local_speech_to_text_ModelLargeV3BestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelLargeV3Tradeoff',
         ],
     ];
 
@@ -629,6 +606,15 @@ class STTSetting extends ModulesModelsBase
     public static function normalizeModelId(string $modelId): string
     {
         $modelId = trim($modelId);
+        $legacyAliases = [
+            'tiny' => 'base',
+            'argmaxinc/whisperkit-coreml:openai_whisper-small_216MB' => 'small',
+            'argmaxinc/whisperkit-coreml:openai_whisper-large-v3-v20240930_turbo_632MB' => 'large-v3-turbo',
+            'argmaxinc/whisperkit-coreml:openai_whisper-large-v3_947MB' => 'large-v3',
+            'argmaxinc/whisperkit-coreml:distil-whisper_distil-large-v3_turbo_600MB' => 'large-v3-turbo',
+            'smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo' => 'large-v3-turbo',
+        ];
+        $modelId = $legacyAliases[$modelId] ?? $modelId;
 
         return array_key_exists($modelId, self::modelPresets()) ? $modelId : self::DEFAULT_MODEL;
     }
