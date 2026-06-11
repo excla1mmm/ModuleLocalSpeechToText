@@ -38,7 +38,9 @@ test:
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev ca-certificates
-    - docker-php-ext-install mbstring pdo_sqlite sqlite3
+    - php -m | grep -qi '^mbstring$' || docker-php-ext-install mbstring
+    - php -m | grep -qi '^pdo_sqlite$' || docker-php-ext-install pdo_sqlite
+    - php -m | grep -qi '^sqlite3$' || docker-php-ext-install sqlite3
     - php -v
   script:
     - |
