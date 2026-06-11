@@ -4,13 +4,13 @@ Local speech-to-text module for MikoPBX.
 
 `ModuleLocalSpeechToText` keeps call recordings inside the PBX, creates a local transcription queue, and delegates recognition to an external Apple Silicon worker. The module provides the PBX-side REST API, queue scanner, worker key management, transcript storage, integration events, and the administrator UI.
 
-Current module version: `1.27`.
+Current module version: `1.33`.
 
 ## What It Does
 
 - Scans completed CDR records and creates transcription jobs for readable recordings in the MikoPBX monitor directory.
 - Serves recording files only to the worker currently assigned to the job.
-- Lets administrators choose the Whisper model, language hint, queue limits, processing timeout, vocabulary dictionaries, and custom vocabulary terms.
+- Lets administrators choose the Whisper model, language hint, queue limits, processing timeout, and custom vocabulary terms.
 - Generates restricted Bearer API keys for external workers.
 - Tracks worker status, IP address, runtime model, API key binding, and last activity.
 - Stores transcript segments, detected language, duration, model used, and worker technical metrics.
@@ -30,7 +30,7 @@ The PBX module does not run Whisper itself. It stores jobs in SQLite and streams
 
 ## PBX Queue Worker
 
-`Modules\ModuleLocalSpeechToText\Lib\WorkerCreateTranscriptionJobs` is registered through `LocalSpeechToTextConf::getModuleWorkers()`.
+`Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs` is registered through `LocalSpeechToTextConf::getModuleWorkers()`.
 
 It periodically scans completed CDR rows with recordings and creates one `m_STTJob` per recording path. Duplicate jobs are prevented by the unique `file_path` index. If a completed CDR row appears before its recording file is readable, the row is kept in a delayed-recording buffer and retried. Oversized or permanently missing recordings are tracked as skipped records so administrators can see why no job was created.
 
@@ -52,7 +52,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 
 The main module page has six tabs:
 
-- `Settings`: language hint, polling interval, maximum recording size, CDR scan limit, processing timeout, predefined vocabulary dictionaries, and custom vocabulary terms.
+- `Settings`: language hint, polling interval, maximum recording size, CDR scan limit, processing timeout, custom vocabulary terms, and TXT term import.
 - `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
@@ -151,6 +151,24 @@ The module stores its state in module tables:
 - `m_STTJob`: transcription queue records.
 - `m_STTResult`: completed transcript JSON and optional technical report.
 - `m_STTTranscriptEvent`: integration event outbox for completed transcripts.
+
+## Build and CI
+
+Build an installable module package locally:
+
+```bash
+./scripts/package-module.sh /tmp/module-build
+```
+
+By default the package version is read from `module.json`. To stamp a CI-style version without changing the working tree, pass it through `VERSION`:
+
+```bash
+VERSION=1.999 ./scripts/package-module.sh /tmp/module-build
+```
+
+The package script writes `ModuleLocalSpeechToText.<version>.zip` and validates that development artifacts such as `.git`, `.gitlab`, `Tests`, and `scripts` are not included in the module archive.
+
+GitLab CI runs standalone `Tests/check-*.php` checks before packaging. On `develop` it runs test and package jobs only. Publishing to WebDAV, release registration, and release notes are limited to `master` through the shared `infrastructure/ci-templates` pipeline. Release note context is stored in `.gitlab/release-context.json`.
 
 ## Notes
 
