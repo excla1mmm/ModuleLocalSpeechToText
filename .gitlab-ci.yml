@@ -1,0 +1,73 @@
+# MikoPBX module pipeline.
+# develop: package only. master: package, upload, release registration and release notes.
+include:
+  - project: infrastructure/ci-templates
+    ref: main
+    file: module-publish.yml
+    inputs:
+      guid: ModuleLocalSpeechToText
+      webdav_dir: /update.miko.ru/MikoPBXPlugins/ModuleLocalSpeechToText
+      minpbxver: "2025.1.1"
+      build_job: package
+  - project: infrastructure/ci-templates
+    ref: main
+    file: release-notes.yml
+    inputs:
+      prompt_variant: "generic"
+      tag_prefix: "v"
+      tag_name: "v$VERSION"
+      build_job: package
+
+stages:
+  - package
+  - publish
+  - release
+
+variables:
+  MODULE_ID: "ModuleLocalSpeechToText"
+
+package:
+  stage: package
+  image: node:22-bookworm
+  tags: [x64_86, Linux]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_TAG'
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends zip php-cli php-zip ca-certificates
+  script:
+    - |
+      set -euo pipefail
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION="1.${CI_PIPELINE_IID:-0}"
+      fi
+      export VERSION
+      ./scripts/package-module.sh "${CI_PROJECT_DIR}"
+      MODULE_FILE="${MODULE_ID}.${VERSION}.zip"
+      test -f "${MODULE_FILE}"
+      echo "VERSION=${VERSION}" >> build.env
+      echo "MODULE_FILE=${MODULE_FILE}" >> build.env
+      cat build.env
+  artifacts:
+    name: "${MODULE_ID}-${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-build${CI_PIPELINE_IID}}"
+    paths:
+      - "*.zip"
+    reports:
+      dotenv: build.env
+    expire_in: 90 days
+
+upload:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+release:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+release-notes:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
