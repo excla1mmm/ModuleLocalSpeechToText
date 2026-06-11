@@ -19,12 +19,48 @@ include:
       build_job: package
 
 stages:
+  - test
   - package
   - publish
   - release
 
 variables:
   MODULE_ID: "ModuleLocalSpeechToText"
+
+test:
+  stage: test
+  image: node:22-bookworm
+  tags: [x64_86, Linux]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_TAG'
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends php-cli php-mbstring php-sqlite3 ca-certificates
+  script:
+    - |
+      set -euo pipefail
+      found=0
+      skipped=0
+      for test in Tests/check-*.php; do
+        [ -e "${test}" ] || continue
+        if grep -Eq '\.\./\.\./|/Users/|Development/|LocalSTTWorkerMac|Core/' "${test}"; then
+          echo "SKIP external dependency: $(basename "${test}")"
+          skipped=$((skipped + 1))
+          continue
+        fi
+        found=1
+        echo "==> $(basename "${test}")"
+        php "${test}"
+      done
+      if [ "${found}" -eq 0 ]; then
+        echo "No standalone Tests/check-*.php found" >&2
+        exit 1
+      fi
+      if [ "${skipped}" -gt 0 ]; then
+        echo "Skipped ${skipped} test(s) with external workspace dependencies"
+      fi
 
 package:
   stage: package
