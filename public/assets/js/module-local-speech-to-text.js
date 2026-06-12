@@ -598,8 +598,11 @@
                 var selected = values[value] || '30';
 
                 $input.val(selected);
-                if (initialized && typeof Form !== 'undefined' && typeof Form.dataChanged === 'function') {
-                    Form.dataChanged();
+                if (initialized) {
+                    $input.trigger('change');
+                    if (typeof Form !== 'undefined' && typeof Form.checkValues === 'function') {
+                        Form.checkValues();
+                    }
                 }
             }
         });
@@ -607,8 +610,183 @@
         initialized = true;
     }
 
+    function vocabularyTemplateTerms() {
+        return [
+            'MikoPBX',
+            'Asterisk',
+            'SIP',
+            'VoIP',
+            'CRM',
+            'API',
+            'Quality control',
+            'Customer profile',
+            'Call queue',
+            'Voice analytics'
+        ];
+    }
+
+    function splitVocabularyTerms(text) {
+        return String(text || '')
+            .replace(/^\uFEFF/, '')
+            .split(/[\r\n,;]+/)
+            .map(function (term) {
+                return term.trim().slice(0, 120);
+            })
+            .filter(function (term) {
+                return term !== '';
+            });
+    }
+
+    function uniqueVocabularyTerms(terms) {
+        var seen = {};
+        var result = [];
+
+        terms.forEach(function (term) {
+            var key = term.toLowerCase();
+
+            if (seen[key]) {
+                return;
+            }
+
+            seen[key] = true;
+            result.push(term);
+        });
+
+        return result.slice(0, 100);
+    }
+
+    function updateVocabularyTermsCount($textarea) {
+        $('#stt-vocabulary-terms-count').text(uniqueVocabularyTerms(splitVocabularyTerms($textarea.val())).length);
+    }
+
+    function refreshSettingsDirtyState() {
+        if (typeof Form === 'undefined') {
+            return;
+        }
+        if (typeof Form.checkValues === 'function') {
+            Form.checkValues();
+            return;
+        }
+        if (typeof Form.dataChanged === 'function') {
+            Form.dataChanged();
+        }
+    }
+
+    function downloadVocabularyTemplate() {
+        var text = vocabularyTemplateTerms().join(', ') + '\n';
+        var fileName = 'stt-terms-template.txt';
+        var link = document.createElement('a');
+        var objectUrl = '';
+
+        if (window.Blob && window.URL && window.URL.createObjectURL) {
+            objectUrl = window.URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+            link.href = objectUrl;
+        } else {
+            link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+        }
+
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        if (objectUrl !== '') {
+            window.setTimeout(function () {
+                window.URL.revokeObjectURL(objectUrl);
+            }, 0);
+        }
+    }
+
+    function initializeVocabularyTermsTools($settingsForm) {
+        var $textarea = $settingsForm.find('textarea[name="custom_vocabulary_terms"]');
+        var $fileInput = $('#stt-vocabulary-terms-file');
+        var $fileName = $('#stt-vocabulary-file-name');
+        var $downloadButton = $('#stt-vocabulary-template-download');
+
+        if ($textarea.length === 0) {
+            return;
+        }
+
+        updateVocabularyTermsCount($textarea);
+
+        $textarea.on('input change', function () {
+            updateVocabularyTermsCount($textarea);
+        });
+
+        $downloadButton.on('click', function () {
+            downloadVocabularyTemplate();
+        });
+
+        $fileInput.on('change', function () {
+            var file = this.files && this.files[0] ? this.files[0] : null;
+            var reader;
+
+            if (!file) {
+                return;
+            }
+
+            if (!/\.txt$/i.test(file.name || '')) {
+                window.alert(translation(
+                    'module_local_speech_to_text_VocabularyTxtInvalid',
+                    'Choose a TXT file with comma-separated terms.'
+                ));
+                $fileInput.val('');
+                return;
+            }
+
+            if (typeof FileReader === 'undefined') {
+                window.alert(translation(
+                    'module_local_speech_to_text_VocabularyTxtReadError',
+                    'Could not read the TXT file.'
+                ));
+                return;
+            }
+
+            reader = new FileReader();
+            reader.onload = function (event) {
+                var importedTerms = splitVocabularyTerms(event.target.result || '');
+                var mergedTerms = uniqueVocabularyTerms(splitVocabularyTerms($textarea.val()).concat(importedTerms));
+
+                if (importedTerms.length === 0) {
+                    window.alert(translation(
+                        'module_local_speech_to_text_VocabularyTxtInvalid',
+                        'Choose a TXT file with comma-separated terms.'
+                    ));
+                    $fileInput.val('');
+                    return;
+                }
+
+                $textarea.val(mergedTerms.join(', ')).trigger('input').trigger('change');
+                $fileName.text(translation('module_local_speech_to_text_VocabularyTxtLoaded', 'TXT file added:') + ' ' + file.name);
+                updateVocabularyTermsCount($textarea);
+                refreshSettingsDirtyState();
+            };
+            reader.onerror = function () {
+                window.alert(translation(
+                    'module_local_speech_to_text_VocabularyTxtReadError',
+                    'Could not read the TXT file.'
+                ));
+            };
+            reader.readAsText(file);
+        });
+    }
+
     function initializeModelMarketplace($modelForm) {
         var $saveButton = $('#module-local-speech-to-text-model-save');
+        var $modelInputs = $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]');
+        var initialSelectedModel = String($modelForm.data('initial-selected-model') || $modelInputs.filter(':checked').val() || '');
+
+        function selectedModel() {
+            return String($modelInputs.filter(':checked').val() || '');
+        }
+
+        function updateSaveButtonState() {
+            var hasChanges = selectedModel() !== '' && selectedModel() !== initialSelectedModel;
+
+            $saveButton.toggleClass('disabled', !hasChanges);
+            $saveButton.prop('disabled', !hasChanges);
+        }
 
         if (typeof $.fn.accordion === 'function') {
             $('.module-local-speech-to-text .stt-custom-model-dropdown').accordion();
@@ -622,19 +800,69 @@
             $(this).find('.ui.radio.checkbox').checkbox('check');
         });
 
-        $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]').on('change', function () {
+        $modelInputs.on('change', function () {
             var $row = $(this).closest('tr');
 
             $row.addClass('positive').siblings().removeClass('positive');
+            updateSaveButtonState();
         });
 
         $modelForm.on('submit', function () {
-            if ($modelForm.find('input[name="selected_model"]:checked').length === 0) {
-                return;
+            if (selectedModel() === '' || selectedModel() === initialSelectedModel) {
+                return false;
             }
             if ($saveButton.length > 0) {
                 $saveButton.addClass('loading disabled active');
+                $saveButton.prop('disabled', true);
             }
+        });
+
+        updateSaveButtonState();
+    }
+
+    function initializeConfirmModal() {
+        var $modal = $('#stt-confirm-modal');
+
+        if ($modal.length === 0 || typeof $modal.modal !== 'function') {
+            return;
+        }
+
+        // Pre-initialize so Semantic UI moves the element to <body> and hides it properly
+        $modal.modal({});
+
+        function showConfirm(message, onConfirm) {
+            $modal.find('.stt-confirm-message').text(message);
+            $modal.modal({
+                closable: true,
+                onApprove: function () {
+                    onConfirm();
+                }
+            }).modal('show');
+        }
+
+        function bindConfirmableForm($form) {
+            $form.on('submit.stt-confirm', function (event) {
+                var message = $(this).data('confirm') || '';
+
+                if (message === '') {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopImmediatePropagation();
+
+                var $self = $(this);
+                showConfirm(message, function () {
+                    $self.off('submit.stt-confirm').trigger('submit');
+                });
+            });
+        }
+
+        $('.module-local-speech-to-text .stt-delete-api-key-form').each(function () {
+            bindConfirmableForm($(this));
+        });
+        $('.module-local-speech-to-text .stt-delete-custom-model-form').each(function () {
+            bindConfirmableForm($(this));
         });
     }
 
@@ -655,16 +883,8 @@
         initializeTranscriptPlayer();
         initializeModuleLogs();
         initializeCdrHistorySlider($settingsForm);
-        $('.module-local-speech-to-text .stt-delete-api-key-form').on('submit', function () {
-            var message = $(this).data('confirm') || '';
-
-            return message === '' || window.confirm(message);
-        });
-        $('.module-local-speech-to-text .stt-delete-custom-model-form').on('submit', function () {
-            var message = $(this).data('confirm') || '';
-
-            return message === '' || window.confirm(message);
-        });
+        initializeVocabularyTermsTools($settingsForm);
+        initializeConfirmModal();
         $('.module-local-speech-to-text .stt-copy-button').on('click', function () {
             var text = $(this).data('clipboard-text') || '';
             var $button = $(this);
@@ -690,7 +910,7 @@
                 },
                 poll_interval_sec: {
                     identifier: 'poll_interval_sec',
-                    rules: [{ type: 'integer[1..3600]' }]
+                    rules: [{ type: 'integer[30..3600]' }]
                 },
                 max_file_size_mb: {
                     identifier: 'max_file_size_mb',
@@ -722,7 +942,7 @@
             $settingsForm.form({
                 fields: {
                     default_language: ['empty'],
-                    poll_interval_sec: ['integer[1..3600]'],
+                    poll_interval_sec: ['integer[30..3600]'],
                     max_file_size_mb: ['integer[1..10240]'],
                     cdr_scan_limit: ['integer[1..1000]'],
                     cdr_history_days: ['integer[0..730]'],

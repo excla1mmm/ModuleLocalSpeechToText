@@ -8,6 +8,7 @@ use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -39,12 +40,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->setDefaultSetting(STTSetting::WORKER_API_KEY_ID, '');
             $this->setDefaultSetting(STTSetting::WORKER_API_KEY_IDS, '[]');
             $this->ensureJobCdrEndtimeColumn();
+            $this->ensureJobUpdatedAtColumn();
             $this->ensureJobLeaseColumns();
             $this->ensureTechnicalInfoColumn();
             $this->ensureTranscriptEventTable();
             STTTranscriptEvent::backfillCompletedEvents();
             $this->ensureWorkerApiKeyPermissions();
+            LocalSpeechToTextLogger::write('setup', 'Database setup completed', LOG_NOTICE);
         } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::write('setup', 'Database setup failed: ' . $exception->getMessage(), LOG_ERR);
             $this->messages[] = $exception->getMessage();
             return false;
         }
@@ -104,6 +108,32 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
         $connection->execute('ALTER TABLE m_STTJob ADD COLUMN cdr_endtime INTEGER');
         $connection->execute('UPDATE m_STTJob SET cdr_endtime = created_at WHERE cdr_endtime IS NULL OR cdr_endtime = 0');
+    }
+
+    private function ensureJobUpdatedAtColumn(): void
+    {
+        $job = new STTJob();
+        $connection = $job->getWriteConnection();
+        $hasUpdatedAtColumn = false;
+        foreach ($connection->describeColumns($job->getSource()) as $column) {
+            if ($column->getName() === 'updated_at') {
+                $hasUpdatedAtColumn = true;
+                break;
+            }
+        }
+
+        if (!$hasUpdatedAtColumn) {
+            $connection->execute('ALTER TABLE m_STTJob ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0');
+        }
+        $connection->execute(
+            'UPDATE m_STTJob
+                SET updated_at = CASE
+                    WHEN finished_at IS NOT NULL AND finished_at <> \'\' AND CAST(finished_at AS INTEGER) > 0 THEN finished_at
+                    WHEN started_at IS NOT NULL AND started_at <> \'\' AND CAST(started_at AS INTEGER) > 0 THEN started_at
+                    ELSE created_at
+                END
+              WHERE updated_at IS NULL OR updated_at = 0'
+        );
     }
 
     private function ensureJobLeaseColumns(): void

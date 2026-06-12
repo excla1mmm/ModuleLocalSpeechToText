@@ -773,7 +773,7 @@ class TranscriptIntegrationService
             $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->start) : false,
             $cdr instanceof CallDetailRecords ? strtotime((string)$cdr->endtime) : false,
             (int)$job->cdr_endtime,
-            @filemtime($rawPath) ?: 0,
+            $this->fileModificationTime($rawPath),
         ] as $timestamp) {
             if (is_int($timestamp) && $timestamp > 0) {
                 $dates[date('Y/m/d', $timestamp)] = true;
@@ -809,6 +809,18 @@ class TranscriptIntegrationService
         }
 
         return $filePath;
+    }
+
+    private function fileModificationTime(string $filePath): int
+    {
+        if (!is_file($filePath) || !is_readable($filePath)) {
+            return 0;
+        }
+
+        clearstatcache(true, $filePath);
+        $timestamp = filemtime($filePath);
+
+        return is_int($timestamp) ? $timestamp : 0;
     }
 
     private function callTimestamp(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr): int

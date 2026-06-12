@@ -9,28 +9,28 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">
-        <form class="ui form large" id="module-local-speech-to-text-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
+        <form class="ui form large" id="module-local-speech-to-text-form" method="post" enctype="multipart/form-data" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
             <div class="three fields">
                 <div class="field">
                     <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }}</label>
                     {{ form.render('default_language') }}
                 </div>
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_PollInterval') }}</label>
+                    <label>{{ t._('module_local_speech_to_text_PollInterval') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_PollIntervalHint') }}" data-variation="wide"></i></label>
                     {{ form.render('poll_interval_sec') }}
                 </div>
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_MaxFileSize') }}</label>
+                    <label>{{ t._('module_local_speech_to_text_MaxFileSize') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxFileSizeHint') }}" data-variation="wide"></i></label>
                     {{ form.render('max_file_size_mb') }}
                 </div>
             </div>
             <div class="two fields">
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }}</label>
+                    <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
                     {{ form.render('cdr_scan_limit') }}
                 </div>
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }}</label>
+                    <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_ProcessingTimeoutHint') }}" data-variation="wide"></i></label>
                     {{ form.render('processing_timeout_sec') }}
                 </div>
             </div>
@@ -42,30 +42,26 @@
                 </div>
                 <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}</div>
             </div>
-            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyDictionaries') }}</h4>
-            <div class="ui info message">
-                {{ t._('module_local_speech_to_text_VocabularyDictionariesHint') }}
-                <strong>{{ selectedVocabularyTermsCount|e }}</strong>
+            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }}</h4>
+            <div class="ui info message stt-vocabulary-summary">
+                <i class="info circle icon"></i>
+                <div class="content">
+                    {{ t._('module_local_speech_to_text_VocabularyTermsHint') }}
+                    <strong id="stt-vocabulary-terms-count">{{ selectedVocabularyTermsCount|e }}</strong>
+                </div>
             </div>
-            <div class="ui stackable two column grid stt-vocabulary-grid">
-                {% for dictionaryId, dictionary in vocabularyDictionaries %}
-                    <div class="column">
-                        <div class="ui segment stt-vocabulary-dictionary">
-                            <div class="ui checkbox">
-                                <input type="checkbox" name="selected_vocabulary_dictionaries[]" value="{{ dictionaryId|e }}" {% if dictionaryId in selectedVocabularyDictionaries %}checked="checked"{% endif %}>
-                                <label>
-                                    <strong>{{ t._(dictionary['label']) }}</strong>
-                                    <span class="ui tiny label">{{ t._(dictionary['category']) }}</span>
-                                </label>
-                            </div>
-                            <div class="stt-table-muted">{{ t._(dictionary['description']) }}</div>
-                            <div class="stt-vocabulary-count">{{ dictionary['terms']|length }} {{ t._('module_local_speech_to_text_VocabularyTerms') }}</div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-            <div class="field">
+            <div class="field stt-vocabulary-terms-field">
                 <label>{{ t._('module_local_speech_to_text_CustomVocabularyTerms') }}</label>
+                <div class="stt-vocabulary-actions">
+                    <label class="ui basic labeled icon button stt-vocabulary-upload-button" for="stt-vocabulary-terms-file">
+                        <i class="file alternate outline icon"></i>{{ t._('module_local_speech_to_text_UploadVocabularyTxt') }}
+                    </label>
+                    <input class="stt-vocabulary-file-input" type="file" id="stt-vocabulary-terms-file" name="vocabulary_terms_file" accept=".txt,text/plain">
+                    <button class="ui basic labeled icon button stt-vocabulary-template-button" type="button" id="stt-vocabulary-template-download">
+                        <i class="download icon"></i>{{ t._('module_local_speech_to_text_DownloadVocabularyTemplate') }}
+                    </button>
+                    <span class="stt-vocabulary-file-name" id="stt-vocabulary-file-name"></span>
+                </div>
                 {{ form.render('custom_vocabulary_terms') }}
                 <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}</div>
             </div>
@@ -78,7 +74,7 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'models' %} active{% endif %}" data-tab="models">
-        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}"></form>
+        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}" data-initial-selected-model="{{ selectedModel|e }}"></form>
         <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_ModelsMarketplaceTab') }}</h4>
         <div class="ui info message">{{ t._('module_local_speech_to_text_ModelsMarketplaceHint') }}</div>
         <table class="ui selectable compact celled striped table stt-model-marketplace-table">
@@ -141,7 +137,7 @@
             </tbody>
         </table>
         <div class="ui clearing basic segment stt-form-actions">
-            <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" form="module-local-speech-to-text-model-form" id="module-local-speech-to-text-model-save">
+            <button class="ui left labeled icon large positive right floated disabled button prevent-word-wrap" type="submit" form="module-local-speech-to-text-model-form" id="module-local-speech-to-text-model-save" disabled="disabled">
                 <i class="save icon"></i>{{ t._('module_local_speech_to_text_SaveModel') }}
             </button>
         </div>
@@ -262,6 +258,9 @@
                         <span class="ui tiny {{ row['labelClass'] }} label stt-queue-status-label">
                             <i class="{{ row['icon'] }} icon"></i>{{ row['statusLabel']|e }}
                         </span>
+                        {% if row['statusDetailLabel'] !== '' %}
+                            <div class="stt-table-muted">{{ row['statusDetailLabel']|e }}</div>
+                        {% endif %}
                     </td>
                     <td>{{ row['sourceLabel']|e }}</td>
                     <td><span class="stt-call-id">{{ row['callId']|e }}</span></td>
@@ -344,6 +343,16 @@
                 </tbody>
             </table>
         </div>
+        {% if workers is empty %}
+        <div class="ui info message stt-workers-onboarding">
+            <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
+            <div class="ui ordered list">
+                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingStep1') }}</div>
+                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingStep2') }}</div>
+                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingStep3') }}</div>
+            </div>
+        </div>
+        {% endif %}
         <table class="ui selectable compact celled striped table stt-workers-table">
             <thead>
             <tr>
@@ -490,5 +499,16 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="ui tiny modal" id="stt-confirm-modal" style="display:none">
+    <div class="header">{{ t._('module_local_speech_to_text_ConfirmTitle') }}</div>
+    <div class="content">
+        <p class="stt-confirm-message"></p>
+    </div>
+    <div class="actions">
+        <div class="ui cancel basic button">{{ t._('module_local_speech_to_text_ConfirmCancel') }}</div>
+        <div class="ui red approve button">{{ t._('module_local_speech_to_text_ConfirmDelete') }}</div>
     </div>
 </div>

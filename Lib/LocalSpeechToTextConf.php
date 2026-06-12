@@ -8,6 +8,7 @@ use MikoPBX\Common\Providers\PBXConfModulesProvider;
 use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
 use MikoPBX\Modules\Config\ConfigClass;
+use Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs;
 
 class LocalSpeechToTextConf extends ConfigClass
 {
@@ -16,7 +17,7 @@ class LocalSpeechToTextConf extends ConfigClass
         return [
             [
                 'type' => WorkerSafeScriptsCore::CHECK_BY_PID_NOT_ALERT,
-                'worker' => WorkerCreateTranscriptionJobs::class,
+                'worker' => WorkerLocalSpeechToTextJobs::class,
             ],
         ];
     }

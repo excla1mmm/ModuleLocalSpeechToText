@@ -17,14 +17,18 @@ final class TranscriptQualityFilter
     private const int REPEATED_SUBSTRING_MINIMUM_COUNT = 10;
     private const int REPEATED_CHARACTER_MINIMUM_RUN = 18;
     private const float PUNCTUATION_FLOOD_RATIO = 0.80;
+    private const float RUSSIAN_SHORT_WRONG_SCRIPT_MAX_SECONDS = 5.0;
+    private const int RUSSIAN_SHORT_WRONG_SCRIPT_MAX_CHARS = 56;
+    private const int RUSSIAN_SHORT_WRONG_SCRIPT_MAX_TOKENS = 7;
 
     /**
      * @param array<int, array<string, mixed>> $segments
      * @return array{segments: array<int, array<string, mixed>>, stats: array<string, mixed>}
      */
-    public static function filterSegments(array $segments): array
+    public static function filterSegments(array $segments, ?string $languageHint = null): array
     {
         $filtered = [];
+        $languageHint = self::normalizeLanguageHint($languageHint);
         $stats = [
             'raw_segments' => count($segments),
             'submitted_segments' => 0,
@@ -36,7 +40,7 @@ final class TranscriptQualityFilter
         foreach ($segments as $segment) {
             $text = trim((string)($segment['text'] ?? ''));
             $duration = self::segmentDuration($segment);
-            $decision = self::cleanedTranscriptText($text, $duration);
+            $decision = self::cleanedTranscriptText($text, $duration, $languageHint);
 
             if ($decision['text'] === null || trim($decision['text']) === '') {
                 $stats['rejected_segments']++;
@@ -79,7 +83,7 @@ final class TranscriptQualityFilter
     /**
      * @return array{text: ?string, reason: ?string}
      */
-    private static function cleanedTranscriptText(string $text, float $duration): array
+    private static function cleanedTranscriptText(string $text, float $duration, string $languageHint): array
     {
         $candidate = trim($text);
         if ($candidate === '') {
@@ -113,7 +117,7 @@ final class TranscriptQualityFilter
             $trimReason = $trim['reason'];
         }
 
-        $reason = self::transcriptRejectionReason($candidate, $duration);
+        $reason = self::transcriptRejectionReason($candidate, $duration, $languageHint);
         if ($reason !== null) {
             return ['text' => null, 'reason' => $reason];
         }
@@ -121,7 +125,7 @@ final class TranscriptQualityFilter
         return ['text' => $candidate, 'reason' => $trimReason];
     }
 
-    private static function transcriptRejectionReason(string $text, float $duration): ?string
+    private static function transcriptRejectionReason(string $text, float $duration, string $languageHint): ?string
     {
         if (self::hasDenseTranscript($text, $duration)) {
             return 'text_density';
@@ -141,6 +145,9 @@ final class TranscriptQualityFilter
         if (self::hasRepeatedSubstringRun($text)) {
             return 'repeated_substring';
         }
+        if (self::hasWrongScriptForRussian($text, $duration, $languageHint)) {
+            return 'wrong_script';
+        }
         if (self::hasRepeatedTokenFlood($text)) {
             return 'repeated_token';
         }
@@ -151,6 +158,16 @@ final class TranscriptQualityFilter
         }
 
         return null;
+    }
+
+    private static function normalizeLanguageHint(?string $languageHint): string
+    {
+        $languageHint = strtolower(trim((string)$languageHint));
+        $isRussian = in_array($languageHint, ['ru', 'rus', 'russian'], true)
+            || str_starts_with($languageHint, 'ru-')
+            || str_starts_with($languageHint, 'ru_');
+
+        return $isRussian ? 'ru' : '';
     }
 
     /**
@@ -372,6 +389,134 @@ final class TranscriptQualityFilter
 
         preg_match_all('/[^\p{L}\p{N}]/u', $compact, $matches);
         return count($matches[0]) / max(1, mb_strlen($compact, 'UTF-8')) >= self::PUNCTUATION_FLOOD_RATIO;
+    }
+
+    private static function hasWrongScriptForRussian(string $text, float $duration, string $languageHint): bool
+    {
+        if ($languageHint !== 'ru') {
+            return false;
+        }
+
+        $profile = self::scriptProfile($text);
+        $foreignLetters = $profile['latin'] + $profile['other'];
+        if ($profile['letters'] === 0 || $foreignLetters === 0) {
+            return false;
+        }
+
+        if (self::isAllowedRussianTechnicalLatin($text, $profile['other'] > 0)) {
+            return false;
+        }
+
+        $tokens = self::transcriptTokens($text);
+        $tokenCount = count($tokens);
+        $shortSegment = ($duration > 0.0 && $duration <= self::RUSSIAN_SHORT_WRONG_SCRIPT_MAX_SECONDS)
+            || (
+                mb_strlen($text, 'UTF-8') <= self::RUSSIAN_SHORT_WRONG_SCRIPT_MAX_CHARS
+                && $tokenCount <= self::RUSSIAN_SHORT_WRONG_SCRIPT_MAX_TOKENS
+            );
+
+        if ($profile['cyrillic'] === 0) {
+            return $shortSegment || $profile['other'] > 0 || $tokenCount <= self::RUSSIAN_SHORT_WRONG_SCRIPT_MAX_TOKENS;
+        }
+
+        $cyrillicRatio = $profile['cyrillic'] / max(1, $profile['letters']);
+        if ($profile['other'] > 0 && $shortSegment) {
+            return true;
+        }
+
+        return $shortSegment && $cyrillicRatio < 0.70;
+    }
+
+    /**
+     * @return array{letters: int, cyrillic: int, latin: int, other: int}
+     */
+    private static function scriptProfile(string $text): array
+    {
+        preg_match_all('/\p{L}/u', $text, $letterMatches);
+        preg_match_all('/\p{Cyrillic}/u', $text, $cyrillicMatches);
+        preg_match_all('/\p{Latin}/u', $text, $latinMatches);
+        $letters = count($letterMatches[0] ?? []);
+        $cyrillic = count($cyrillicMatches[0] ?? []);
+        $latin = count($latinMatches[0] ?? []);
+
+        return [
+            'letters' => $letters,
+            'cyrillic' => $cyrillic,
+            'latin' => $latin,
+            'other' => max(0, $letters - $cyrillic - $latin),
+        ];
+    }
+
+    private static function isAllowedRussianTechnicalLatin(string $text, bool $hasOtherScriptLetters): bool
+    {
+        if ($hasOtherScriptLetters) {
+            return false;
+        }
+
+        $tokens = self::latinTokens($text);
+        if ($tokens === []) {
+            return false;
+        }
+
+        $hasCyrillic = preg_match('/\p{Cyrillic}/u', $text) === 1;
+        foreach ($tokens as $token) {
+            if (self::isAllowedRussianTechnicalLatinToken($token, $hasCyrillic)) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function latinTokens(string $text): array
+    {
+        preg_match_all('/[A-Za-z0-9][A-Za-z0-9_.+-]*/u', $text, $matches);
+
+        return array_values(array_filter($matches[0] ?? [], static fn (string $token): bool => preg_match('/[A-Za-z]/', $token) === 1));
+    }
+
+    private static function isAllowedRussianTechnicalLatinToken(string $token, bool $hasCyrillicContext): bool
+    {
+        $normalized = strtolower(trim($token, " \t\n\r\0\x0B.,:;!?()[]{}\"'«»"));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $compact = str_replace(['_', '+'], '-', $normalized);
+        $known = [
+            '1c', 'anydesk', 'anytask', 'api', 'bitrix', 'bitrix24', 'bittrex', 'bitrex',
+            'bx', 'crm', 'dns', 'docs', 'e-mail', 'email', 'erp', 'fip-bx', 'freepbx',
+            'imessenger', 'ip', 'it', 'live', 'marketplace', 'meco', 'mecopbx', 'mico',
+            'micopbx', 'mikopbx', 'mp3', 'pbx', 'pdf', 'rdp', 'rootoken', 'rudesktop',
+            'rutoken', 'sip', 'sla', 'spot', 'telegram', 'vpn', 'whatsapp', 'xml',
+        ];
+        if (in_array($compact, $known, true)) {
+            return true;
+        }
+
+        if (str_contains($normalized, '.') && preg_match('/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/', $normalized) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^(?:[a-z]+[0-9]+|[0-9]+[a-z]+)[a-z0-9-]*$/', $normalized) === 1) {
+            return true;
+        }
+
+        if (!$hasCyrillicContext) {
+            return false;
+        }
+
+        if (preg_match('/^[A-Z0-9-]{2,8}$/', $token) === 1) {
+            return true;
+        }
+
+        return preg_match('/^[A-Z][A-Za-z0-9]{2,23}$/', $token) === 1
+            && preg_match('/[a-z]/', $token) === 1;
     }
 
     private static function hasSingleLetterTranscript(string $text): bool

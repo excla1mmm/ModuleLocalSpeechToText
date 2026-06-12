@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Modules\ModuleLocalSpeechToText\Lib;
+namespace Modules\ModuleLocalSpeechToText\bin;
 
 require_once 'Globals.php';
 
 use MikoPBX\Common\Models\CallDetailRecords;
 use MikoPBX\Common\Providers\DatabaseProviderBase;
 use MikoPBX\Core\System\Directories;
-use MikoPBX\Core\System\SystemMessages;
 use MikoPBX\Core\Workers\WorkerBase;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
 
-class WorkerCreateTranscriptionJobs extends WorkerBase
+class WorkerLocalSpeechToTextJobs extends WorkerBase
 {
     private const int SCAN_INTERVAL_SECONDS = 15;
     private const int DEFAULT_SCAN_LIMIT = 200;
@@ -34,7 +34,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     {
         DatabaseProviderBase::ensureCdrTables();
 
-        SystemMessages::sysLogMsg(
+        LocalSpeechToTextLogger::syslog(
             __CLASS__,
             sprintf('Worker started (PID:%d)', getmypid()),
             LOG_NOTICE
@@ -47,16 +47,17 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
                 STTWorker::markStaleOffline();
                 $requeued = STTJob::requeueStaleProcessing();
                 if ($requeued > 0) {
-                    SystemMessages::sysLogMsg(
+                    LocalSpeechToTextLogger::syslog(
                         __CLASS__,
                         sprintf('Requeued %d stale processing transcription job(s)', $requeued),
                         LOG_NOTICE
                     );
                 }
                 $this->retryDelayedRecordings();
+                $this->retrySkippedRecordings();
                 $this->createJobsFromCompletedCdr();
             } catch (Throwable $exception) {
-                SystemMessages::sysLogMsg(
+                LocalSpeechToTextLogger::syslog(
                     __CLASS__,
                     'Error while scanning CDR recordings: ' . $exception->getMessage(),
                     LOG_ERR
@@ -66,7 +67,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             sleep(self::SCAN_INTERVAL_SECONDS);
         }
 
-        SystemMessages::sysLogMsg(
+        LocalSpeechToTextLogger::syslog(
             __CLASS__,
             sprintf('Worker stopped (PID:%d)', getmypid()),
             LOG_NOTICE
@@ -145,10 +146,24 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
      */
     private function createBackfillJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): void
     {
+        // Backfill is a one-shot scan inside the current retention window.
+        // Once the tail is drained, we keep the flag set and stop hammering the CDR
+        // table every SCAN_INTERVAL_SECONDS until the retention window is widened.
+        if ($this->backfillCompletedFor($historyStart)) {
+            return;
+        }
+
         [$cursorEndtime, $cursorId] = $this->backfillCursor();
         if ($cursorEndtime === '') {
             $cursorEndtime = date('Y-m-d H:i:s');
             $cursorId = PHP_INT_MAX;
+        }
+
+        // The retention window slides forward each day; if the cursor has already
+        // slid past it, every subsequent scan is guaranteed to be empty. Mark done.
+        if ($historyStart !== '' && $cursorEndtime < $historyStart) {
+            $this->markBackfillCompleted($historyStart);
+            return;
         }
 
         $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
@@ -164,17 +179,21 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             $bind['history_start'] = $historyStart;
         }
 
+        $scanLimit = $this->scanLimit();
         $records = CallDetailRecords::find([
             'conditions' => $conditions,
             'bind' => $bind,
             'order' => 'endtime DESC, id DESC',
-            'limit' => $this->scanLimit(),
+            'limit' => $scanLimit,
         ]);
+
+        $rows = $records->toArray();
+        $rowCount = count($rows);
 
         $lastEndtime = '';
         $lastId = 0;
 
-        foreach ($records->toArray() as $record) {
+        foreach ($rows as $record) {
             if ($this->needRestart) {
                 if ($lastEndtime !== '') {
                     $this->saveBackfillCursor($lastEndtime, $lastId);
@@ -190,6 +209,36 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         if ($lastEndtime !== '') {
             $this->saveBackfillCursor($lastEndtime, $lastId);
         }
+
+        // A short page is the only reliable signal that the tail has been drained:
+        // empty result is the special case where $rowCount === 0 < $scanLimit.
+        if ($rowCount < $scanLimit) {
+            $this->markBackfillCompleted($historyStart);
+        }
+    }
+
+    private function backfillCompletedFor(string $historyStart): bool
+    {
+        if (STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE, '0') !== '1') {
+            return false;
+        }
+
+        // Auto-reset the flag if the operator widens the retention window
+        // (history_start moved earlier than the snapshot we stored when we finished).
+        $doneFor = trim(STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, ''));
+        if ($historyStart !== '' && $doneFor !== '' && $historyStart < $doneFor) {
+            STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '0');
+            STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, '');
+            return false;
+        }
+
+        return true;
+    }
+
+    private function markBackfillCompleted(string $historyStart): void
+    {
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '1');
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, $historyStart);
     }
 
     /**
@@ -232,7 +281,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             $this->recordEndtimeTimestamp($record)
         );
 
-        SystemMessages::sysLogMsg(
+        LocalSpeechToTextLogger::syslog(
             __CLASS__,
             sprintf('Created transcription job for recording %s', $recordingPath),
             LOG_INFO
@@ -292,7 +341,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
                     (int)($record['priority'] ?? 5),
                     (int)($record['cdr_endtime'] ?? 0) ?: null
                 );
-                SystemMessages::sysLogMsg(
+                LocalSpeechToTextLogger::syslog(
                     __CLASS__,
                     sprintf('Created delayed transcription job for recording %s', $recordingPath),
                     LOG_INFO
@@ -305,6 +354,64 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
         if ($changed) {
             $this->saveDelayedRecordings($delayedRecordings);
+        }
+    }
+
+    private function retrySkippedRecordings(): void
+    {
+        $skippedRecordings = $this->skippedRecordings();
+        if ($skippedRecordings === []) {
+            return;
+        }
+
+        $changed = false;
+        $historyStart = STTSetting::cdrHistoryStartDateTime();
+
+        foreach ($skippedRecordings as $recordId => $record) {
+            if ($this->needRestart) {
+                if ($changed) {
+                    $this->saveSkippedRecordings($skippedRecordings);
+                }
+                return;
+            }
+
+            if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
+                continue;
+            }
+
+            $recordingFile = trim((string)($record['recordingfile'] ?? ''));
+            if ($recordingFile === '') {
+                $recordingFile = (string)($record['recording_path'] ?? '');
+            }
+            $recordingPath = $this->recordingPath($recordingFile);
+            if ($recordingPath === null) {
+                continue;
+            }
+
+            if (!$this->recordingWithinSizeLimit($recordingPath)) {
+                continue;
+            }
+
+            if (!STTJob::existsForFilePath($recordingPath)) {
+                STTJob::createPending(
+                    (string)($record['call_id'] ?? ''),
+                    $recordingPath,
+                    (int)($record['priority'] ?? 5),
+                    (int)($record['cdr_endtime'] ?? 0) ?: null
+                );
+                LocalSpeechToTextLogger::syslog(
+                    __CLASS__,
+                    sprintf('Recovered skipped transcription job for recording %s', $recordingPath),
+                    LOG_INFO
+                );
+            }
+
+            unset($skippedRecordings[$recordId]);
+            $changed = true;
+        }
+
+        if ($changed) {
+            $this->saveSkippedRecordings($skippedRecordings);
         }
     }
 
@@ -377,11 +484,24 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             return;
         }
 
+        $recordingFile = trim((string)($record['recordingfile'] ?? ''));
+        if ($recordingFile === '') {
+            $recordingFile = $recordingPath;
+        }
+
+        $cdrEndtime = (int)($record['cdr_endtime'] ?? 0);
+        if ($cdrEndtime <= 0) {
+            $cdrEndtime = (int)($this->recordEndtimeTimestamp($record) ?? 0);
+        }
+
         $skippedRecordings = $this->skippedRecordings();
         $skippedRecordings[$recordId] = [
-            'recordingfile' => (string)($record['recordingfile'] ?? $recordingPath),
+            'recordingfile' => $recordingFile,
             'recording_path' => $recordingPath,
             'call_id' => (string)($record['call_id'] ?? $this->callId($record)),
+            'priority' => (int)($record['priority'] ?? $this->priority($record)),
+            'endtime' => $this->endtime($record),
+            'cdr_endtime' => $cdrEndtime,
             'reason' => $reason,
             'created_at' => time(),
         ];
@@ -394,10 +514,7 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
             $skippedRecordings = array_slice($skippedRecordings, -self::MAX_SKIPPED_RECORDINGS, null, true);
         }
 
-        STTSetting::setValue(
-            STTSetting::SKIPPED_RECORDINGS,
-            json_encode($skippedRecordings, JSON_THROW_ON_ERROR)
-        );
+        $this->saveSkippedRecordings($skippedRecordings);
     }
 
     /**
@@ -426,6 +543,17 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
         }
 
         return $skippedRecordings;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $skippedRecordings
+     */
+    private function saveSkippedRecordings(array $skippedRecordings): void
+    {
+        STTSetting::setValue(
+            STTSetting::SKIPPED_RECORDINGS,
+            json_encode($skippedRecordings, JSON_THROW_ON_ERROR)
+        );
     }
 
     /**
@@ -600,14 +728,19 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
 
     private function recordingWithinSizeLimit(string $recordingPath): bool
     {
-        $fileSize = @filesize($recordingPath);
+        if (!is_file($recordingPath) || !is_readable($recordingPath)) {
+            return false;
+        }
+
+        clearstatcache(true, $recordingPath);
+        $fileSize = filesize($recordingPath);
 
         return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
     }
 
     private function logSkippedLargeRecording(string $recordingPath): void
     {
-        SystemMessages::sysLogMsg(
+        LocalSpeechToTextLogger::syslog(
             __CLASS__,
             sprintf('Skipped transcription job for %s: file exceeds configured maximum size', $recordingPath),
             LOG_WARNING
@@ -615,4 +748,4 @@ class WorkerCreateTranscriptionJobs extends WorkerBase
     }
 }
 
-WorkerCreateTranscriptionJobs::startWorker($argv ?? []);
+WorkerLocalSpeechToTextJobs::startWorker($argv ?? []);

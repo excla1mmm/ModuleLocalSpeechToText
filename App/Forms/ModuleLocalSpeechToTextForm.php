@@ -57,8 +57,8 @@ class ModuleLocalSpeechToTextForm extends BaseForm
         ]));
         $this->add(new TextArea('custom_vocabulary_terms', [
             'value' => $entity->custom_vocabulary_terms ?? '',
-            'rows' => 5,
-            'placeholder' => 'MikoPBX, Asterisk, CRM, product names',
+            'rows' => 6,
+            'placeholder' => 'MikoPBX, Asterisk, SIP, VoIP, CRM',
         ]));
     }
 

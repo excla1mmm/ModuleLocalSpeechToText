@@ -7,8 +7,8 @@ namespace Modules\ModuleLocalSpeechToText\Lib;
 use JsonException;
 use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
-use MikoPBX\Core\System\SystemMessages;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -54,6 +54,18 @@ class LocalSpeechToTextMain
                 self::clientIp($data),
                 self::requestApiKeyId($data)
             );
+            LocalSpeechToTextLogger::write(
+                'api',
+                sprintf(
+                    'Worker registered: uid=%s name=%s worker_id=%d api_key_id=%d ip=%s',
+                    $workerUid,
+                    (string)$worker->name,
+                    (int)$worker->id,
+                    (int)$worker->api_key_id,
+                    (string)$worker->ip
+                ),
+                LOG_NOTICE
+            );
 
             return self::success([
                 'worker_id' => (int)$worker->id,
@@ -93,6 +105,11 @@ class LocalSpeechToTextMain
             if ($job === null) {
                 return self::success(['job' => null]);
             }
+            LocalSpeechToTextLogger::write(
+                'api',
+                sprintf('Assigned job #%d to worker %s', (int)$job->id, $workerUid),
+                LOG_INFO
+            );
 
             return self::success(['job' => self::formatJob($job, $workerUid)]);
         } catch (Throwable $exception) {
@@ -138,9 +155,35 @@ class LocalSpeechToTextMain
 
             $filePath = self::safeRecordingPath((string)$job->file_path);
             if ($filePath === null || !is_readable($filePath)) {
+                if (!$job->markTerminalErrorForWorker(
+                    (int)$worker->id,
+                    $leaseToken,
+                    'Recording file is not available'
+                )) {
+                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                }
+                LocalSpeechToTextLogger::write(
+                    'api',
+                    sprintf('Job #%d failed permanently: recording file is not available', $jobId),
+                    LOG_WARNING
+                );
+
                 return self::error('file_not_found', 'Recording file is not available', 404);
             }
             if (!self::fileWithinSizeLimit($filePath)) {
+                if (!$job->markTerminalErrorForWorker(
+                    (int)$worker->id,
+                    $leaseToken,
+                    'Recording file exceeds configured maximum size'
+                )) {
+                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                }
+                LocalSpeechToTextLogger::write(
+                    'api',
+                    sprintf('Job #%d failed permanently: recording file exceeds configured maximum size', $jobId),
+                    LOG_WARNING
+                );
+
                 return self::error('file_too_large', 'Recording file exceeds configured maximum size', 413);
             }
 
@@ -193,13 +236,17 @@ class LocalSpeechToTextMain
                 $technicalInfo = is_array($data['technical_info'] ?? null) ? $data['technical_info'] : null;
                 $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                 $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
-                $filterResult = TranscriptQualityFilter::filterSegments($transcript);
+                $language = self::nullableStringField($data, 'language');
+                $filterLanguage = $language
+                    ?? self::nullableStringField($data, 'language_hint')
+                    ?? self::languageHintFromTechnicalInfo($technicalInfo);
+                $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
                 $transcript = $filterResult['segments'];
                 $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
                 $result = STTResult::saveForJob(
                     $job,
                     self::encodeTranscript($transcript),
-                    self::nullableStringField($data, 'language'),
+                    $language,
                     $duration,
                     self::nullableStringField($data, 'model_used'),
                     self::encodeTechnicalInfo($technicalInfo)
@@ -214,6 +261,11 @@ class LocalSpeechToTextMain
                 $connection->rollback();
                 throw $exception;
             }
+            LocalSpeechToTextLogger::write(
+                'api',
+                sprintf('Job #%d completed by worker %s', $jobId, $workerUid),
+                LOG_INFO
+            );
 
             return self::success();
         } catch (InvalidArgumentException | JsonException $exception) {
@@ -266,6 +318,17 @@ class LocalSpeechToTextMain
             )) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
+            LocalSpeechToTextLogger::write(
+                'api',
+                sprintf(
+                    'Worker %s reported error for job #%d: status=%s attempts=%d',
+                    $workerUid,
+                    $jobId,
+                    (string)$job->status,
+                    (int)$job->attempts
+                ),
+                LOG_WARNING
+            );
 
             return self::success([
                 'status' => (string)$job->status,
@@ -364,6 +427,11 @@ class LocalSpeechToTextMain
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
+            LocalSpeechToTextLogger::write(
+                'api',
+                sprintf('Worker %s released job #%d', $workerUid, $jobId),
+                LOG_NOTICE
+            );
 
             return self::success([
                 'status' => (string)$job->status,
@@ -563,7 +631,12 @@ class LocalSpeechToTextMain
 
     private static function fileWithinSizeLimit(string $filePath): bool
     {
-        $fileSize = @filesize($filePath);
+        if (!is_file($filePath) || !is_readable($filePath)) {
+            return false;
+        }
+
+        clearstatcache(true, $filePath);
+        $fileSize = filesize($filePath);
 
         return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
     }
@@ -618,6 +691,28 @@ class LocalSpeechToTextMain
         $value = self::stringField($data, $field);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param array<string, mixed>|null $technicalInfo
+     */
+    private static function languageHintFromTechnicalInfo(?array $technicalInfo): ?string
+    {
+        if (!is_array($technicalInfo)) {
+            return null;
+        }
+
+        $model = is_array($technicalInfo['model'] ?? null) ? $technicalInfo['model'] : [];
+        foreach ([$model['language_hint'] ?? null, $model['language'] ?? null] as $value) {
+            if (is_scalar($value)) {
+                $language = trim((string)$value);
+                if ($language !== '') {
+                    return $language;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -705,10 +800,6 @@ class LocalSpeechToTextMain
 
     private static function logException(string $context, Throwable $exception): void
     {
-        SystemMessages::sysLogMsg(
-            __CLASS__,
-            sprintf('%s failed: %s', $context, $exception->getMessage()),
-            LOG_ERR
-        );
+        LocalSpeechToTextLogger::exception($context, $exception);
     }
 }

@@ -8,6 +8,7 @@ use MikoPBX\AdminCabinet\Controllers\BaseController;
 use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use stdClass;
@@ -78,12 +79,21 @@ class LocalSpeechToTextBaseController extends BaseController
                 STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255))
             );
         }
-        $selectedDictionaries = $this->request->getPost(STTSetting::SELECTED_VOCABULARY_DICTIONARIES);
-        STTSetting::setSelectedVocabularyDictionaryIds(is_array($selectedDictionaries) ? $selectedDictionaries : []);
-        $customTerms = trim((string)($this->request->getPost(STTSetting::CUSTOM_VOCABULARY_TERMS) ?? ''));
+        $customTerms = $this->vocabularyTermsTextFromRequest();
         STTSetting::setValue(
             STTSetting::CUSTOM_VOCABULARY_TERMS,
             function_exists('mb_substr') ? mb_substr($customTerms, 0, 8000) : substr($customTerms, 0, 8000)
+        );
+        LocalSpeechToTextLogger::write(
+            'web-ui',
+            sprintf(
+                'Settings saved: language=%s model=%s history_days=%d vocabulary_terms=%d',
+                STTSetting::selectedLanguageId(),
+                STTSetting::selectedModelId(),
+                $nextHistoryDays,
+                count(STTSetting::selectedVocabularyTerms())
+            ),
+            LOG_NOTICE
         );
     }
 
@@ -110,6 +120,71 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();
 
         return $settings;
+    }
+
+    private function vocabularyTermsTextFromRequest(): string
+    {
+        $termsText = trim((string)($this->request->getPost(STTSetting::CUSTOM_VOCABULARY_TERMS) ?? ''));
+        $uploadedTermsText = $this->uploadedVocabularyTermsText();
+        if ($uploadedTermsText === '') {
+            return $termsText;
+        }
+
+        $terms = array_merge(
+            STTSetting::splitVocabularyTerms($termsText),
+            STTSetting::splitVocabularyTerms($uploadedTermsText)
+        );
+
+        $deduped = [];
+        $seen = [];
+        foreach ($terms as $term) {
+            $term = trim((string)$term);
+            if ($term === '') {
+                continue;
+            }
+
+            $key = function_exists('mb_strtolower') ? mb_strtolower($term) : strtolower($term);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $deduped[] = $term;
+        }
+
+        return implode(', ', array_slice($deduped, 0, 100));
+    }
+
+    private function uploadedVocabularyTermsText(): string
+    {
+        if ((int)$this->request->hasFiles() <= 0) {
+            return '';
+        }
+
+        foreach ($this->request->getUploadedFiles() as $file) {
+            if ((int)$file->getError() !== UPLOAD_ERR_OK) {
+                continue;
+            }
+
+            $fileName = strtolower((string)$file->getName());
+            if (!str_ends_with($fileName, '.txt')) {
+                continue;
+            }
+
+            $filePath = (string)$file->getTempName();
+            if ($filePath === '' || !is_readable($filePath)) {
+                continue;
+            }
+
+            $contents = file_get_contents($filePath, false, null, 0, 8000);
+            if ($contents === false) {
+                continue;
+            }
+
+            return trim(preg_replace('/^\xEF\xBB\xBF/', '', $contents) ?? $contents);
+        }
+
+        return '';
     }
 
     private function postString(string $name, string $default, int $maxLength): string
