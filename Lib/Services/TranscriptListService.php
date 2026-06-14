@@ -36,7 +36,9 @@ class TranscriptListService
 
             $job = $result->STTJob;
             $job = $job instanceof STTJob ? $job : null;
-            $cdr = $job instanceof STTJob ? $this->recordings->cdrRecordForJob($job) : null;
+            $cdr = $job instanceof STTJob
+                ? ($this->recordings->cdrRecordForJob($job) ?? $this->recordings->cdrRecordForResult($result))
+                : $this->recordings->cdrRecordForResult($result);
             $callTimestamp = $this->recordings->callTimestamp($result, $job, $cdr);
             if (!$this->transcriptMatchesDateFilter($callTimestamp, $dateFilter)) {
                 continue;

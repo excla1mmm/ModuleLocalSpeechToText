@@ -218,7 +218,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $job = $result->STTJob;
         $job = $job instanceof STTJob ? $job : null;
         $recordings = $this->callRecordingService();
-        $cdr = $job instanceof STTJob ? $recordings->cdrRecordForJob($job) : null;
+        $cdr = $job instanceof STTJob
+            ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
+            : $recordings->cdrRecordForResult($result);
 
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->result = $result;
@@ -241,7 +243,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $job = $result->STTJob;
         $job = $job instanceof STTJob ? $job : null;
-        $cdr = $job instanceof STTJob ? $recordings->cdrRecordForJob($job) : $recordings->cdrRecordForResult($result);
+        $cdr = $job instanceof STTJob
+            ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
+            : $recordings->cdrRecordForResult($result);
         $filePath = $recordings->recordingPathForPlayback($job, $cdr);
         if ($filePath === '') {
             $recordings->sendRecordingError(404, 'Recording not found');

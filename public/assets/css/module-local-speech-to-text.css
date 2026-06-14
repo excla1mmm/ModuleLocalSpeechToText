@@ -176,8 +176,65 @@
     overflow-wrap: anywhere;
 }
 
+.module-local-speech-to-text .stt-transcripts-table-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.module-local-speech-to-text .stt-transcripts-table {
+    margin-bottom: 0 !important;
+    min-width: 0;
+    table-layout: fixed;
+    width: 100% !important;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th,
 .module-local-speech-to-text .stt-transcripts-table td {
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
     vertical-align: top;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(1),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(1) {
+    width: 10%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(2),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(2) {
+    width: 14%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(3),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(3) {
+    width: 32%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(4),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(4) {
+    width: 5%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(5),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(5) {
+    width: 9%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(6),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(6) {
+    width: 11%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(7),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(7) {
+    width: 12%;
+}
+
+.module-local-speech-to-text .stt-transcripts-table th:nth-child(8),
+.module-local-speech-to-text .stt-transcripts-table td:nth-child(8) {
+    width: 7%;
 }
 
 .module-local-speech-to-text .stt-date-group-row td {
@@ -208,10 +265,20 @@
 
 .module-local-speech-to-text .stt-recording-file {
     display: block;
-    max-width: 24em;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-transcripts-table .stt-model-text {
+    display: -webkit-box;
+    line-height: 1.22;
+    max-height: 4.88em;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
 }
 
 .module-local-speech-to-text .stt-transcripts-filter-form {

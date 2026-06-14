@@ -113,6 +113,18 @@ class STTSetting extends ModulesModelsBase
             'best_for' => 'module_local_speech_to_text_ModelLargeV3TurboBestFor',
             'tradeoff' => 'module_local_speech_to_text_ModelLargeV3TurboTradeoff',
         ],
+        'podlodka' => [
+            'repo' => 'smkrv/whisper-podlodka-turbo-coreml',
+            'model' => 'bond005_whisper-podlodka-turbo',
+            'engine' => 'whisperKit',
+            'artifact_type' => 'whisperkit-coreml',
+            'label' => 'module_local_speech_to_text_ModelPodlodka',
+            'description' => 'module_local_speech_to_text_ModelPodlodkaDesc',
+            'source_url' => 'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml/tree/main/bond005_whisper-podlodka-turbo',
+            'profile' => 'module_local_speech_to_text_ModelProfilePodlodka',
+            'best_for' => 'module_local_speech_to_text_ModelPodlodkaBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelPodlodkaTradeoff',
+        ],
         'large-v3' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
             'model' => 'large-v3',
@@ -489,7 +501,8 @@ class STTSetting extends ModulesModelsBase
             'argmaxinc/whisperkit-coreml:openai_whisper-large-v3-v20240930_turbo_632MB' => 'large-v3-turbo',
             'argmaxinc/whisperkit-coreml:openai_whisper-large-v3_947MB' => 'large-v3',
             'argmaxinc/whisperkit-coreml:distil-whisper_distil-large-v3_turbo_600MB' => 'large-v3-turbo',
-            'smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo' => 'large-v3-turbo',
+            'smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo' => 'podlodka',
+            'custom:c60f298fe61e0020d1932b4341e62fc30c6a9eac' => 'podlodka',
         ];
         $modelId = $legacyAliases[$modelId] ?? $modelId;
 
