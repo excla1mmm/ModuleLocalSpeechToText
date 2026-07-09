@@ -50,9 +50,11 @@ namespace MikoPBX\Modules\Models {
 
 namespace {
     use MikoPBX\Modules\Models\ModulesModelsBase;
+    use Modules\ModuleLocalSpeechToText\Lib\Services\ModelMarketplaceService;
     use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 
     require_once __DIR__ . '/../Models/STTSetting.php';
+    require_once __DIR__ . '/../Lib/Services/ModelMarketplaceService.php';
 
     function expectSameSettingsNormalization(mixed $expected, mixed $actual, string $message): void
     {
@@ -106,6 +108,33 @@ namespace {
     expectSameSettingsNormalization(STTSetting::DEFAULT_MODEL, STTSetting::normalizeModelId('unknown-model'), 'Unknown model ids must fall back to the default model');
     $podlodkaPreset = STTSetting::modelPresets()['podlodka'] ?? [];
     expectSameSettingsNormalization('module_local_speech_to_text_ModelPodlodkaDesc', $podlodkaPreset['description'] ?? null, 'Podlodka preset description must use a translation key');
+    expectSameSettingsNormalization(
+        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
+        $podlodkaPreset['source_url'] ?? null,
+        'Podlodka preset source URL must point at the WhisperKit/Core ML Hugging Face repository'
+    );
+    expectTrueSettingsNormalization(
+        !str_contains(json_encode(STTSetting::MODEL_PRESETS, JSON_UNESCAPED_SLASHES) ?: '', 'https://huggingface.co/bond005/whisper-podlodka-turbo'),
+        'Podlodka UI/config must not point at the upstream Transformers Hugging Face repository'
+    );
+
+    $translationStub = new class {
+        public function _(string $key): string
+        {
+            return $key;
+        }
+    };
+    $marketplaceRows = (new ModelMarketplaceService($translationStub))->modelMarketplaceRows();
+    $podlodkaRows = array_values(array_filter(
+        $marketplaceRows,
+        static fn (array $row): bool => ($row['id'] ?? '') === 'podlodka'
+    ));
+    expectSameSettingsNormalization(1, count($podlodkaRows), 'Podlodka must be exposed as exactly one marketplace row');
+    expectSameSettingsNormalization(
+        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
+        $podlodkaRows[0]['sourceUrl'] ?? null,
+        'Podlodka marketplace row must expose the WhisperKit/Core ML Hugging Face repository link'
+    );
 
     ModulesModelsBase::$values = [
         STTSetting::MAX_FILE_SIZE_MB => '0',

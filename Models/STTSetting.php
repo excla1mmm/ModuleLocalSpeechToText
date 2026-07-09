@@ -120,7 +120,7 @@ class STTSetting extends ModulesModelsBase
             'artifact_type' => 'whisperkit-coreml',
             'label' => 'module_local_speech_to_text_ModelPodlodka',
             'description' => 'module_local_speech_to_text_ModelPodlodkaDesc',
-            'source_url' => 'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml/tree/main/bond005_whisper-podlodka-turbo',
+            'source_url' => 'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
             'profile' => 'module_local_speech_to_text_ModelProfilePodlodka',
             'best_for' => 'module_local_speech_to_text_ModelPodlodkaBestFor',
             'tradeoff' => 'module_local_speech_to_text_ModelPodlodkaTradeoff',
