@@ -11,6 +11,7 @@ use MikoPBX\Common\Providers\DatabaseProviderBase;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
@@ -56,6 +57,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 $this->retryDelayedRecordings();
                 $this->retrySkippedRecordings();
                 $this->createJobsFromCompletedCdr();
+                (new CallTranscriptRevisionService())->publishReady();
             } catch (Throwable $exception) {
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -278,7 +280,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $this->callId($record),
             $recordingPath,
             $this->priority($record),
-            $this->recordEndtimeTimestamp($record)
+            $this->recordEndtimeTimestamp($record),
+            $this->recordingIdentity($record, $recordingPath)
         );
 
         LocalSpeechToTextLogger::syslog(
@@ -339,7 +342,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
-                    (int)($record['cdr_endtime'] ?? 0) ?: null
+                    (int)($record['cdr_endtime'] ?? 0) ?: null,
+                    $this->recordingIdentity($record, $recordingPath)
                 );
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -397,7 +401,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
-                    (int)($record['cdr_endtime'] ?? 0) ?: null
+                    (int)($record['cdr_endtime'] ?? 0) ?: null,
+                    $this->recordingIdentity($record, $recordingPath)
                 );
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -461,6 +466,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'priority' => $this->priority($record),
             'endtime' => $this->endtime($record),
             'cdr_endtime' => $this->recordEndtimeTimestamp($record),
+            'cdr_id' => $this->recordId($record),
+            'cdr_uniqueid' => trim((string)($record['UNIQUEID'] ?? '')),
+            'cdr_start_ms' => $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
+            'cdr_end_ms' => $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
             'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
             'last_seen' => $now,
         ];
@@ -502,6 +511,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'priority' => (int)($record['priority'] ?? $this->priority($record)),
             'endtime' => $this->endtime($record),
             'cdr_endtime' => $cdrEndtime,
+            'cdr_id' => (int)($record['cdr_id'] ?? $record['id'] ?? $recordId),
+            'cdr_uniqueid' => trim((string)($record['cdr_uniqueid'] ?? $record['UNIQUEID'] ?? '')),
+            'cdr_start_ms' => (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
+            'cdr_end_ms' => (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
             'reason' => $reason,
             'created_at' => time(),
         ];
@@ -685,6 +698,50 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         return trim((string)($record['UNIQUEID'] ?? ''));
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     * @return array{cdr_id: int|null, cdr_uniqueid: string, cdr_start_ms: int|null, cdr_end_ms: int|null, recording_fingerprint: string}
+     */
+    private function recordingIdentity(array $record, string $recordingPath): array
+    {
+        $cdrId = (int)($record['cdr_id'] ?? $record['id'] ?? 0);
+        $uniqueId = trim((string)($record['cdr_uniqueid'] ?? $record['UNIQUEID'] ?? ''));
+        $startMs = (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? ''));
+        $endMs = (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? ''));
+        $size = is_file($recordingPath) ? (int)filesize($recordingPath) : 0;
+        $modifiedAt = is_file($recordingPath) ? (int)filemtime($recordingPath) : 0;
+        $fingerprintMaterial = implode('|', [
+            (string)$cdrId,
+            $uniqueId,
+            (string)($startMs ?? 0),
+            (string)($endMs ?? 0),
+            (string)$size,
+            (string)$modifiedAt,
+        ]);
+
+        return [
+            'cdr_id' => $cdrId > 0 ? $cdrId : null,
+            'cdr_uniqueid' => $uniqueId,
+            'cdr_start_ms' => $startMs,
+            'cdr_end_ms' => $endMs,
+            'recording_fingerprint' => hash('sha256', $fingerprintMaterial),
+        ];
+    }
+
+    private function dateTimeMilliseconds(string $value): ?int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s.u', $value)
+            ?: \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value);
+
+        return $date instanceof \DateTimeImmutable
+            ? ((int)$date->format('U') * 1000) + (int)substr($date->format('u'), 0, 3)
+            : null;
     }
 
     /**

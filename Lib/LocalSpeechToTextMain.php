@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -256,6 +257,7 @@ class LocalSpeechToTextMain
                     $connection->rollback();
                     return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
+                (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
                 $connection->commit();
             } catch (Throwable $exception) {
                 $connection->rollback();

@@ -20,6 +20,7 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
     public const string CDR_HISTORY_DAYS = 'cdr_history_days';
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
+    public const string CALL_TRANSCRIPT_STABILITY_SEC = 'call_transcript_stability_sec';
     public const string SELECTED_MODEL = 'selected_model';
     public const string CUSTOM_VOCABULARY_TERMS = 'custom_vocabulary_terms';
     public const string DELAYED_RECORDINGS = 'delayed_recordings';

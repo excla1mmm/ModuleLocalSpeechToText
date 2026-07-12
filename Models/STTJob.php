@@ -74,6 +74,21 @@ class STTJob extends ModulesModelsBase
      */
     public ?string $cdr_endtime = null;
 
+    /** @Column(type="integer", nullable=true) */
+    public ?int $cdr_id = null;
+
+    /** @Column(type="string", nullable=true) */
+    public ?string $cdr_uniqueid = '';
+
+    /** @Column(type="integer", nullable=true) */
+    public ?string $cdr_start_ms = null;
+
+    /** @Column(type="integer", nullable=true) */
+    public ?string $cdr_end_ms = null;
+
+    /** @Column(type="string", nullable=true) */
+    public ?string $recording_fingerprint = '';
+
     /**
      * @Column(type="integer", nullable=true)
      */
@@ -130,7 +145,16 @@ class STTJob extends ModulesModelsBase
         );
     }
 
-    public static function createPending(string $callId, string $filePath, int $priority = 5, ?int $cdrEndtime = null): self
+    /**
+     * @param array{cdr_id?: int|null, cdr_uniqueid?: string, cdr_start_ms?: int|null, cdr_end_ms?: int|null, recording_fingerprint?: string} $recordingIdentity
+     */
+    public static function createPending(
+        string $callId,
+        string $filePath,
+        int $priority = 5,
+        ?int $cdrEndtime = null,
+        array $recordingIdentity = []
+    ): self
     {
         $createdAt = time();
         $job = new self();
@@ -142,6 +166,17 @@ class STTJob extends ModulesModelsBase
         $job->created_at = (string)$createdAt;
         $job->updated_at = (string)$createdAt;
         $job->cdr_endtime = (string)($cdrEndtime !== null && $cdrEndtime > 0 ? $cdrEndtime : $createdAt);
+        $job->cdr_id = isset($recordingIdentity['cdr_id']) && (int)$recordingIdentity['cdr_id'] > 0
+            ? (int)$recordingIdentity['cdr_id']
+            : null;
+        $job->cdr_uniqueid = trim((string)($recordingIdentity['cdr_uniqueid'] ?? ''));
+        $job->cdr_start_ms = isset($recordingIdentity['cdr_start_ms']) && (int)$recordingIdentity['cdr_start_ms'] > 0
+            ? (string)(int)$recordingIdentity['cdr_start_ms']
+            : null;
+        $job->cdr_end_ms = isset($recordingIdentity['cdr_end_ms']) && (int)$recordingIdentity['cdr_end_ms'] > 0
+            ? (string)(int)$recordingIdentity['cdr_end_ms']
+            : null;
+        $job->recording_fingerprint = trim((string)($recordingIdentity['recording_fingerprint'] ?? ''));
 
         if (!$job->save()) {
             throw new RuntimeException(implode(', ', $job->getMessages()));
