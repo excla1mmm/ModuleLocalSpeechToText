@@ -4,7 +4,7 @@
 
 **Goal:** Repair call-transcript ORM persistence and migrate malformed SQLite schemas without losing aggregate history.
 
-**Architecture:** Correct the four models' Phalcon annotations so MikoPBX Core's existing annotation updater performs the data-preserving rebuild. Keep module setup responsible for canonical and partial indexes. Protect the behavior with a CI-safe annotation contract and a MikoPBX-runtime Phalcon+SQLite integration test.
+**Architecture:** Correct the four models' Phalcon annotations so MikoPBX Core's existing annotation updater performs the data-preserving rebuild. Move the existing fallback DDL and canonical/partial index restoration into a focused schema service called by module setup. Protect the behavior with a CI-safe annotation contract and a MikoPBX-runtime Phalcon+SQLite integration test.
 
 **Tech Stack:** PHP 8.3+, Phalcon 5.9.3, MikoPBX `UpdateDatabase`, SQLite, standalone PHP contract tests.
 
@@ -33,7 +33,7 @@ Require `type="text"` for mapped text properties; require `allow_empty_string=tr
 
 - [ ] **Step 2: Add the real Phalcon+SQLite integration test**
 
-The test must create the exact malformed `VARCHAR(0)` schema, insert a sentinel row, run `UpdateDatabase::createUpdateDbTableByAnnotations()` for a test subclass of the production model, verify `TEXT`/defaults/data preservation/idempotency, and save/clear a real ORM aggregate.
+The test must create the exact malformed `VARCHAR(0)` schema for all four tables, insert a linked sentinel graph, run `UpdateDatabase::createUpdateDbTableByAnnotations()` for test subclasses of all four production models, call the production schema service, verify `TEXT`/defaults/PK/relationship/cursor/index preservation and idempotency, and save/clear a real ORM aggregate.
 
 - [ ] **Step 3: Verify RED**
 
@@ -56,6 +56,7 @@ Expected: the static contract rejects incomplete metadata; the runtime test repo
 - Modify: `Models/STTCallTranscriptRevision.php`
 - Modify: `Models/STTCallTranscriptEvent.php`
 - Modify: `Setup/PbxExtensionSetup.php`
+- Create: `Lib/Services/CallTranscriptSchemaService.php`
 
 **Interfaces:**
 - Consumes: Phalcon annotation strategy and Core `UpdateDatabase` behavior.
@@ -67,7 +68,7 @@ Use `type="text"` for unbounded strings. Add `allow_empty_string=true, default="
 
 - [ ] **Step 2: Align fallback DDL**
 
-Keep `ensureCallTranscriptTables()` definitions consistent with annotations. Retain manual index creation because the current-part partial unique index cannot be represented by Phalcon annotations.
+Move the existing fallback table definitions and exact index SQL into `CallTranscriptSchemaService::ensure()`. Call it from setup after `parent::installDB()` because the current-part partial unique index cannot be represented by Phalcon annotations and Core removes non-annotated indexes during rebuild.
 
 - [ ] **Step 3: Verify GREEN for focused tests**
 
@@ -93,7 +94,7 @@ Expected: `All module contract tests passed`.
 - [ ] **Step 2: Run syntax checks**
 
 ```bash
-find Models Setup Tests -name '*.php' -print0 | xargs -0 -n1 php -l
+find Models Lib Setup Tests -name '*.php' -print0 | xargs -0 -n1 php -l
 ```
 
 Expected: every file reports no syntax errors.
@@ -109,4 +110,3 @@ Expected: package validation succeeds and a module ZIP is produced outside the r
 - [ ] **Step 4: Review the final diff**
 
 Confirm there are no worker/API/queue changes, no data-destructive SQL, and no unrelated edits. Do not deploy or release leases without a separate explicit instruction.
-

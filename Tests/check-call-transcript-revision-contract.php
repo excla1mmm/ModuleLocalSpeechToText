@@ -56,9 +56,11 @@ foreach ($requiredModels as $model) {
 }
 
 $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php') ?: '';
+$schemaService = file_get_contents(__DIR__ . '/../Lib/Services/CallTranscriptSchemaService.php') ?: '';
 foreach (['m_STTCallTranscript', 'm_STTCallTranscriptPart', 'm_STTCallTranscriptRevision', 'm_STTCallTranscriptEvent'] as $table) {
-    expectCallRevision(str_contains($setup, $table), "setup must create {$table}");
+    expectCallRevision(str_contains($schemaService, $table), "schema service must create {$table}");
 }
+expectCallRevision(str_contains($setup, 'CallTranscriptSchemaService'), 'setup must invoke call transcript schema service');
 expectCallRevision(str_contains($setup, "STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30'"), 'setup must default stability to 30 seconds');
 
 $job = file_get_contents(__DIR__ . '/../Models/STTJob.php') ?: '';

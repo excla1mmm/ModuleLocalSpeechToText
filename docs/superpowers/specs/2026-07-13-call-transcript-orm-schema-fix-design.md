@@ -25,7 +25,7 @@ The user explicitly approved the remediation direction on 2026-07-13: align ORM 
 
 ### 1. Correct annotations and use the Core updater — selected
 
-Declare unbounded strings as `type="text"`, declare schema defaults explicitly, and use `allow_empty_string=true` for the five aggregate fields that are valid when empty. `parent::installDB()` will detect the current `VARCHAR(0)`/missing-default mismatch and run Core's transactional full-copy migration. The module's existing `ensureCallTranscriptTables()` then recreates its canonical indexes, including the partial current-part index that Phalcon `@Indexes` cannot express.
+Declare unbounded strings as `type="text"`, declare schema defaults explicitly, and use `allow_empty_string=true` for the five aggregate fields that are valid when empty. `parent::installDB()` will detect the current `VARCHAR(0)`/missing-default mismatch and run Core's transactional full-copy migration. A focused `CallTranscriptSchemaService`, called immediately afterward by module setup, owns fallback DDL and recreates the canonical indexes, including the partial current-part index that Phalcon `@Indexes` cannot express.
 
 This is the smallest fix, uses the framework's existing data-preserving migration path, and avoids a second schema engine.
 
@@ -47,9 +47,9 @@ This can fix new installations, but it does not by itself repair already deploye
 
 ## Migration and Data Safety
 
-On module installation/update, the base setup examines every model before the module-specific setup runs. Corrected metadata makes the Core updater see type/default differences and perform a transaction-scoped table copy. The updater copies all same-named columns, including primary keys, so aggregate/part/revision/event relationships and event cursor IDs remain stable. It then removes non-annotated indexes; `ensureCallTranscriptTables()` immediately recreates the module's canonical unique, cursor, and partial indexes.
+On module installation/update, the base setup examines every model before the module-specific setup runs. Corrected metadata makes the Core updater see type/default differences and perform a transaction-scoped table copy. The updater copies all same-named columns, including primary keys, so aggregate/part/revision/event relationships and event cursor IDs remain stable. It then removes non-annotated indexes; `CallTranscriptSchemaService::ensure()` immediately recreates the module's canonical unique, cursor, and partial indexes.
 
-The integration test creates the exact malformed live schema in `:memory:` SQLite, inserts a sentinel row, runs the real Core `UpdateDatabase::createUpdateDbTableByAnnotations()`, and verifies the row/PK survived with corrected types/defaults. Running the migration a second time must leave schema and data unchanged.
+The integration test creates the exact malformed live schema for all four tables in `:memory:` SQLite, inserts a linked sentinel graph, runs the real Core `UpdateDatabase::createUpdateDbTableByAnnotations()` followed by `CallTranscriptSchemaService::ensure()`, and verifies rows, primary keys, supersession links, event cursors, corrected types/defaults, and exact indexes. Running the production sequence a second time must leave schema and data unchanged.
 
 ## Runtime Regression Test
 
@@ -64,4 +64,3 @@ Host CI lacks `ext-phalcon`, so the fast static contract remains part of `Tests/
 - The real integration test passes after the fix on PHP 8.4 / Phalcon 5.9.3 / SQLite.
 - The malformed schema migrates to `TEXT` with required defaults, preserves the sentinel row and primary key, and is idempotent.
 - `php Tests/run-all.php`, PHP syntax checks, and module packaging complete successfully.
-
