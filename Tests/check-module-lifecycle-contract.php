@@ -111,8 +111,8 @@ expectLifecycleContract(
 );
 expectLifecycleContract(
     str_contains((string)$baseController, 'withModuleWriteLease')
-        && substr_count((string)$controller, 'withModuleWriteLease') >= 7,
-    'All administrative module-database writes must use the lifecycle lease'
+        && substr_count((string)$controller, 'withModuleWriteLease') === 3,
+    'Queue retry and worker credential writes must keep the lifecycle lease while settings edits remain independent'
 );
 expectLifecycleContract(
     !str_contains((string)$controller, 'STTWorker::markStaleOffline();')

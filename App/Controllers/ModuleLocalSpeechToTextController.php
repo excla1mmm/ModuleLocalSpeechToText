@@ -38,9 +38,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function saveAction(): void
     {
         try {
-            $this->withModuleWriteLease(function (): void {
-                $this->saveSettingsFromPost();
-            });
+            $this->saveSettingsFromPost();
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
             $this->view->success = true;
             $this->view->reload = MenuProvider::DASHBOARD_PATH;
@@ -57,19 +55,17 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function saveModelAction(): void
     {
         try {
-            $this->withModuleWriteLease(function (): void {
-                $modelId = trim((string)$this->request->getPost(
-                    STTSetting::SELECTED_MODEL,
-                    'string',
-                    STTSetting::selectedModelId()
-                ));
-                STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
-                LocalSpeechToTextLogger::write(
-                    'web-ui',
-                    sprintf('Recognition model selected: %s', STTSetting::selectedModelId()),
-                    LOG_NOTICE
-                );
-            });
+            $modelId = trim((string)$this->request->getPost(
+                STTSetting::SELECTED_MODEL,
+                'string',
+                STTSetting::selectedModelId()
+            ));
+            STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
+            LocalSpeechToTextLogger::write(
+                'web-ui',
+                sprintf('Recognition model selected: %s', STTSetting::selectedModelId()),
+                LOG_NOTICE
+            );
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to save recognition model: ' . $exception->getMessage(), LOG_ERR);
@@ -82,23 +78,21 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function addCustomModelAction(): void
     {
         try {
-            $this->withModuleWriteLease(function (): void {
-                STTSetting::addCustomModel([
-                    'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
-                    'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
-                    'label' => (string)$this->request->getPost('model_title', 'string', ''),
-                    'description' => (string)$this->request->getPost('model_description', 'string', ''),
-                    'language' => (string)$this->request->getPost('model_language', 'string', ''),
-                    'license' => (string)$this->request->getPost('model_license', 'string', ''),
-                    'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
-                    'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
-                ]);
-                LocalSpeechToTextLogger::write(
-                    'web-ui',
-                    sprintf('Custom recognition model added: %s', (string)$this->request->getPost('model_repo', 'string', '')),
-                    LOG_NOTICE
-                );
-            });
+            STTSetting::addCustomModel([
+                'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
+                'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
+                'label' => (string)$this->request->getPost('model_title', 'string', ''),
+                'description' => (string)$this->request->getPost('model_description', 'string', ''),
+                'language' => (string)$this->request->getPost('model_language', 'string', ''),
+                'license' => (string)$this->request->getPost('model_license', 'string', ''),
+                'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
+                'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
+            ]);
+            LocalSpeechToTextLogger::write(
+                'web-ui',
+                sprintf('Custom recognition model added: %s', (string)$this->request->getPost('model_repo', 'string', '')),
+                LOG_NOTICE
+            );
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelAdded'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to add custom recognition model: ' . $exception->getMessage(), LOG_ERR);
@@ -111,11 +105,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function deleteCustomModelAction(): void
     {
         try {
-            $this->withModuleWriteLease(function (): void {
-                $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
-                STTSetting::removeCustomModel($modelId);
-                LocalSpeechToTextLogger::write('web-ui', sprintf('Custom recognition model deleted: %s', $modelId), LOG_NOTICE);
-            });
+            $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
+            STTSetting::removeCustomModel($modelId);
+            LocalSpeechToTextLogger::write('web-ui', sprintf('Custom recognition model deleted: %s', $modelId), LOG_NOTICE);
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelDeleted'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to delete custom recognition model: ' . $exception->getMessage(), LOG_ERR);
