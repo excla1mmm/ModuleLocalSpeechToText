@@ -95,11 +95,12 @@ expectLifecycleContract(
 
 foreach ([$jobsProcessor, $workersProcessor] as $processor) {
     expectLifecycleContract(
-        str_contains((string)$processor, 'acquireWriteLease')
-            && str_contains((string)$processor, 'releaseWriteLease')
-            && str_contains((string)$processor, 'module_unavailable')
-            && str_contains((string)$processor, '503'),
-        'Every mutating worker REST processor must hold a lifecycle lease and reject writes with HTTP 503'
+        !str_contains((string)$processor, 'ModuleLifecycleGuard')
+            && !str_contains((string)$processor, 'acquireWriteLease')
+            && !str_contains((string)$processor, 'moduleUnavailable')
+            && !str_contains((string)$processor, 'module_unavailable')
+            && !str_contains((string)$processor, '503'),
+        'Worker REST processors must remain available without lifecycle HTTP 503 gating'
     );
 }
 

@@ -172,17 +172,10 @@ namespace {
     );
 
     foreach ([JobsProcessor::class, WorkersProcessor::class] as $processorClass) {
-        $unavailableMethod = new ReflectionMethod($processorClass, 'moduleUnavailable');
-        $unavailable = $unavailableMethod->invoke(null, 'lifecycleAction');
-        expectTrueRestApiContract($unavailable instanceof \MikoPBX\PBXCoreREST\Lib\PBXApiResult, 'Lifecycle rejection must return PBXApiResult');
-        expectSameRestApiContract(false, $unavailable->success, 'Lifecycle rejection must fail the request');
-        expectSameRestApiContract(503, $unavailable->httpCode, 'Lifecycle rejection must use HTTP 503');
-        expectSameRestApiContract(
-            'module_unavailable',
-            $unavailable->data['error'] ?? null,
-            'Lifecycle rejection must use the worker reconnect contract error code'
+        expectTrueRestApiContract(
+            !(new ReflectionClass($processorClass))->hasMethod('moduleUnavailable'),
+            $processorClass . ' must not synthesize lifecycle HTTP 503 responses'
         );
-        expectSameRestApiContract('lifecycleAction', $unavailable->function, 'Lifecycle rejection must preserve action name');
     }
 
     echo "REST API contract OK\n";

@@ -6,9 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\RegisterAction;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
 use Phalcon\Di\Injectable;
-use Throwable;
 
 enum WorkerAction: string
 {
@@ -31,41 +29,12 @@ class Processor extends Injectable
         }
 
         $data = self::requestData($request);
-        $guard = null;
-        $writeLease = null;
-        try {
-            $guard = new ModuleLifecycleGuard();
-            $writeLease = $guard->acquireWriteLease();
-        } catch (Throwable) {
-            return self::moduleUnavailable($actionString);
-        }
-        if ($writeLease === null) {
-            return self::moduleUnavailable($actionString);
-        }
-
-        try {
-            $result = match ($action) {
-                WorkerAction::REGISTER => RegisterAction::main($data),
-            };
-        } finally {
-            $guard->releaseWriteLease($writeLease);
-        }
+        $result = match ($action) {
+            WorkerAction::REGISTER => RegisterAction::main($data),
+        };
 
         $result->processor = __METHOD__;
         $result->function = $actionString;
-
-        return $result;
-    }
-
-    private static function moduleUnavailable(string $action): PBXApiResult
-    {
-        $result = new PBXApiResult();
-        $result->success = false;
-        $result->data = ['error' => 'module_unavailable'];
-        $result->messages['error'][] = 'Local speech-to-text module is changing state';
-        $result->httpCode = 503;
-        $result->processor = self::class . '::callBack';
-        $result->function = $action;
 
         return $result;
     }
