@@ -2,7 +2,7 @@
   "developer": "MIKO",
   "moduleUniqueID": "ModuleLocalSpeechToText",
   "support_email": "help@miko.ru",
-  "version": "1.42",
+  "version": "1.44",
   "min_pbx_version": "2025.1.1",
   "module_type": "ai"
 }
