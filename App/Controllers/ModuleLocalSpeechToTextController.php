@@ -120,7 +120,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function retryErrorsAction(): void
     {
         try {
-            $count = $this->withModuleWriteLease(static fn (): int => STTJob::requeueErrors());
+            $count = STTJob::requeueErrors();
             LocalSpeechToTextLogger::write(
                 'web-ui',
                 sprintf('Retry failed recordings requested: %d job(s) returned to queue', $count),
@@ -146,28 +146,24 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $service = $this->workerApiKeyService();
             $service->beginCoreApiKeyTransaction();
             try {
-                // Acquire the Core DB writer before the module lease. This is
-                // the same global lock order used by Core lifecycle changes.
                 $apiKey = $service->createCoreWorkerApiKey($plainApiKey);
-                $this->withModuleWriteLease(function () use ($service, $apiKey): void {
+                try {
+                    $service->bindWorkerApiKey((int)$apiKey->id);
+                    $service->commitCoreApiKeyTransaction();
+                } catch (Throwable $exception) {
+                    // The Core transaction can still roll back. Remove any
+                    // module binding before propagating the failure.
                     try {
-                        $service->bindWorkerApiKey((int)$apiKey->id);
-                        $service->commitCoreApiKeyTransaction();
-                    } catch (Throwable $exception) {
-                        // The Core transaction can still roll back. Remove any
-                        // module binding while this lease is still held.
-                        try {
-                            $service->removeWorkerApiKeyBinding((int)$apiKey->id);
-                        } catch (Throwable $cleanupException) {
-                            LocalSpeechToTextLogger::write(
-                                'web-ui',
-                                'Failed to compensate worker API key binding: ' . $cleanupException->getMessage(),
-                                LOG_ERR
-                            );
-                        }
-                        throw $exception;
+                        $service->removeWorkerApiKeyBinding((int)$apiKey->id);
+                    } catch (Throwable $cleanupException) {
+                        LocalSpeechToTextLogger::write(
+                            'web-ui',
+                            'Failed to compensate worker API key binding: ' . $cleanupException->getMessage(),
+                            LOG_ERR
+                        );
                     }
-                });
+                    throw $exception;
+                }
             } catch (Throwable $exception) {
                 try {
                     $service->rollBackCoreApiKeyTransaction();
@@ -223,35 +219,31 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $service = $this->workerApiKeyService();
             $service->beginCoreApiKeyTransaction();
             try {
-                // Stage the credential revocation before taking the module
-                // lease, preserving the global Core-DB -> module-lock order.
                 $service->deleteCoreWorkerApiKey($apiKeyId);
-                $this->withModuleWriteLease(function () use ($service, $apiKeyId): void {
-                    // Commit revocation first, then remove module authorization.
-                    // Cache invalidation is attempted even if module cleanup
-                    // fails, so a deleted token cannot retain both gates.
-                    $service->commitCoreApiKeyTransaction();
+                // Commit revocation first, then remove module authorization.
+                // Cache invalidation is attempted even if module cleanup
+                // fails, so a deleted token cannot retain both gates.
+                $service->commitCoreApiKeyTransaction();
+                try {
+                    $service->unbindWorkersFromApiKey($apiKeyId);
+                } finally {
                     try {
-                        $service->unbindWorkersFromApiKey($apiKeyId);
+                        // Removing the allowed ID is the module-level
+                        // authorization boundary and must be attempted even
+                        // when a stale worker row cannot be updated.
+                        $service->removeWorkerApiKeyBinding($apiKeyId);
                     } finally {
                         try {
-                            // Removing the allowed ID is the module-level
-                            // authorization boundary and must be attempted even
-                            // when a stale worker row cannot be updated.
-                            $service->removeWorkerApiKeyBinding($apiKeyId);
-                        } finally {
-                            try {
-                                $service->clearCoreApiKeyCache();
-                            } catch (Throwable $cacheException) {
-                                LocalSpeechToTextLogger::write(
-                                    'web-ui',
-                                    'Failed to refresh API key cache after delete: ' . $cacheException->getMessage(),
-                                    LOG_WARNING
-                                );
-                            }
+                            $service->clearCoreApiKeyCache();
+                        } catch (Throwable $cacheException) {
+                            LocalSpeechToTextLogger::write(
+                                'web-ui',
+                                'Failed to refresh API key cache after delete: ' . $cacheException->getMessage(),
+                                LOG_WARNING
+                            );
                         }
                     }
-                });
+                }
             } catch (Throwable $exception) {
                 try {
                     $service->rollBackCoreApiKeyTransaction();

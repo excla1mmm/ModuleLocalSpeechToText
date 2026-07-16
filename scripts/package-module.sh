@@ -51,11 +51,11 @@ for item in "${COPY_ITEMS[@]}"; do
   fi
 done
 
-# An installed module keeps live SQLite data and lifecycle coordination files
-# under db/. They belong to one PBX instance and must never enter a release ZIP.
+# An installed module keeps live SQLite data under db/. It belongs to one PBX
+# instance and must never enter a release ZIP.
 if [[ -d "${TMP_MODULE_DIR}/db" ]]; then
   find "${TMP_MODULE_DIR}/db" -maxdepth 1 -type f \
-    \( -name 'module.db' -o -name 'module.db-*' -o -name '.module-lifecycle*' \) \
+    \( -name 'module.db' -o -name 'module.db-*' \) \
     -delete
 fi
 
@@ -147,7 +147,7 @@ php -r '
           fwrite(STDERR, "Invalid module package: dev artifact included: {$name}\n");
           exit(1);
       }
-      if (preg_match("#^db/(?:module\\.db(?:-|$)|\\.module-lifecycle)#", $normalized) === 1) {
+      if (preg_match("#^db/module\\.db(?:-|$)#", $normalized) === 1) {
           $zip->close();
           fwrite(STDERR, "Invalid module package: runtime database artifact included: {$name}\n");
           exit(1);

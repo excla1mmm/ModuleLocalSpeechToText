@@ -9,10 +9,8 @@ use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
-use RuntimeException;
 use stdClass;
 
 class LocalSpeechToTextBaseController extends BaseController
@@ -34,26 +32,6 @@ class LocalSpeechToTextBaseController extends BaseController
         AssetProvider::addCss($this->assets);
         if ($includeJs) {
             AssetProvider::addJs($this->assets);
-        }
-    }
-
-    /**
-     * @template T
-     * @param callable(): T $operation
-     * @return T
-     */
-    protected function withModuleWriteLease(callable $operation): mixed
-    {
-        $guard = new ModuleLifecycleGuard($this->moduleDir . '/db');
-        $writeLease = $guard->acquireWriteLease();
-        if ($writeLease === null) {
-            throw new RuntimeException('Local speech-to-text module is changing state');
-        }
-
-        try {
-            return $operation();
-        } finally {
-            $guard->releaseWriteLease($writeLease);
         }
     }
 

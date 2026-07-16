@@ -15,4 +15,3 @@ node_modules/
 
 db/module.db
 db/module.db-*
-db/.module-lifecycle*

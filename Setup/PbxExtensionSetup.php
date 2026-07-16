@@ -11,7 +11,6 @@ use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -24,15 +23,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 {
     public function installDB(): bool
     {
-        // Publish the fail-closed lifecycle marker before any schema migration.
-        // Cached routes from the replaced module cannot race the installer.
-        new ModuleLifecycleGuard($this->moduleDir . '/db', bootstrap: true);
-
         if (!parent::installDB()) {
             return false;
         }
 
         try {
+            $this->cleanupLegacyLifecycleFiles();
             $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE);
             $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '30');
             $this->setDefaultSetting(STTSetting::MAX_FILE_SIZE_MB, '500');
@@ -69,6 +65,28 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         }
 
         return true;
+    }
+
+    private function cleanupLegacyLifecycleFiles(): void
+    {
+        $databaseDirectory = $this->moduleDir . '/db';
+        foreach ([
+            '.module-lifecycle-state.json',
+            '.module-lifecycle.lock',
+            '.module-lifecycle-transition.lock',
+        ] as $fileName) {
+            $path = $databaseDirectory . '/' . $fileName;
+            if (!is_file($path) && !is_link($path)) {
+                continue;
+            }
+            if (!@unlink($path)) {
+                LocalSpeechToTextLogger::write(
+                    'setup',
+                    'Unable to remove obsolete runtime file: ' . $fileName,
+                    LOG_WARNING
+                );
+            }
+        }
     }
 
     public function addToSidebar(): bool

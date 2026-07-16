@@ -45,13 +45,18 @@ foreach ($settingsActions as $action => [$nextAction, $expectedWrite]) {
 }
 
 foreach ([
-    'retryErrorsAction' => 'generateWorkerApiKeyAction',
-    'generateWorkerApiKeyAction' => 'deleteWorkerApiKeyAction',
-    'deleteWorkerApiKeyAction' => 'transcriptsAction',
-] as $action => $nextAction) {
+    'retryErrorsAction' => ['generateWorkerApiKeyAction', 'STTJob::requeueErrors'],
+    'generateWorkerApiKeyAction' => ['deleteWorkerApiKeyAction', 'createCoreWorkerApiKey'],
+    'deleteWorkerApiKeyAction' => ['transcriptsAction', 'deleteCoreWorkerApiKey'],
+] as $action => [$nextAction, $expectedWrite]) {
+    $body = adminActionBody($controller, $action, $nextAction);
     expectAdminSettingsWrite(
-        str_contains(adminActionBody($controller, $action, $nextAction), 'withModuleWriteLease'),
-        "{$action} must retain lifecycle protection because it is not a settings edit"
+        !str_contains($body, 'withModuleWriteLease'),
+        "{$action} must remain writable without lifecycle gating"
+    );
+    expectAdminSettingsWrite(
+        str_contains($body, $expectedWrite),
+        "{$action} must retain its administrative write"
     );
 }
 

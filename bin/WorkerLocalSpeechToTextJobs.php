@@ -12,7 +12,6 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -45,39 +44,9 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             LOG_NOTICE
         );
 
-        try {
-            $lifecycleGuard = new ModuleLifecycleGuard();
-        } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::syslog(
-                __CLASS__,
-                'Worker cannot initialize module lifecycle guard: ' . $exception->getMessage(),
-                LOG_ERR
-            );
-            return;
-        }
-
         $cdrTablesInitialized = false;
         while ($this->needRestart === false) {
             pcntl_signal_dispatch();
-
-            try {
-                $writeLease = $lifecycleGuard->acquireWriteLease();
-            } catch (Throwable $exception) {
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    'Worker cannot acquire module lifecycle lease: ' . $exception->getMessage(),
-                    LOG_ERR
-                );
-                break;
-            }
-            if ($writeLease === null) {
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    'Worker stopped accepting database work because the module is changing state',
-                    LOG_NOTICE
-                );
-                break;
-            }
 
             try {
                 if (!$cdrTablesInitialized) {
@@ -103,8 +72,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     'Error while scanning CDR recordings: ' . $exception->getMessage(),
                     LOG_ERR
                 );
-            } finally {
-                $lifecycleGuard->releaseWriteLease($writeLease);
             }
 
             sleep(self::SCAN_INTERVAL_SECONDS);
