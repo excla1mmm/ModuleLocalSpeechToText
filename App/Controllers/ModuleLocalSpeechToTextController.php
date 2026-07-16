@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\Common\Models\ApiKeys;
-use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
@@ -20,7 +19,6 @@ use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
-use RuntimeException;
 use Throwable;
 
 class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
@@ -40,7 +38,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function saveAction(): void
     {
         try {
-            $this->saveSettingsFromPost();
+            $this->withModuleWriteLease(function (): void {
+                $this->saveSettingsFromPost();
+            });
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
             $this->view->success = true;
             $this->view->reload = MenuProvider::DASHBOARD_PATH;
@@ -57,17 +57,19 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function saveModelAction(): void
     {
         try {
-            $modelId = trim((string)$this->request->getPost(
-                STTSetting::SELECTED_MODEL,
-                'string',
-                STTSetting::selectedModelId()
-            ));
-            STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Recognition model selected: %s', STTSetting::selectedModelId()),
-                LOG_NOTICE
-            );
+            $this->withModuleWriteLease(function (): void {
+                $modelId = trim((string)$this->request->getPost(
+                    STTSetting::SELECTED_MODEL,
+                    'string',
+                    STTSetting::selectedModelId()
+                ));
+                STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
+                LocalSpeechToTextLogger::write(
+                    'web-ui',
+                    sprintf('Recognition model selected: %s', STTSetting::selectedModelId()),
+                    LOG_NOTICE
+                );
+            });
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to save recognition model: ' . $exception->getMessage(), LOG_ERR);
@@ -80,21 +82,23 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function addCustomModelAction(): void
     {
         try {
-            STTSetting::addCustomModel([
-                'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
-                'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
-                'label' => (string)$this->request->getPost('model_title', 'string', ''),
-                'description' => (string)$this->request->getPost('model_description', 'string', ''),
-                'language' => (string)$this->request->getPost('model_language', 'string', ''),
-                'license' => (string)$this->request->getPost('model_license', 'string', ''),
-                'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
-                'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
-            ]);
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Custom recognition model added: %s', (string)$this->request->getPost('model_repo', 'string', '')),
-                LOG_NOTICE
-            );
+            $this->withModuleWriteLease(function (): void {
+                STTSetting::addCustomModel([
+                    'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
+                    'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
+                    'label' => (string)$this->request->getPost('model_title', 'string', ''),
+                    'description' => (string)$this->request->getPost('model_description', 'string', ''),
+                    'language' => (string)$this->request->getPost('model_language', 'string', ''),
+                    'license' => (string)$this->request->getPost('model_license', 'string', ''),
+                    'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
+                    'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
+                ]);
+                LocalSpeechToTextLogger::write(
+                    'web-ui',
+                    sprintf('Custom recognition model added: %s', (string)$this->request->getPost('model_repo', 'string', '')),
+                    LOG_NOTICE
+                );
+            });
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelAdded'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to add custom recognition model: ' . $exception->getMessage(), LOG_ERR);
@@ -107,9 +111,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function deleteCustomModelAction(): void
     {
         try {
-            $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
-            STTSetting::removeCustomModel($modelId);
-            LocalSpeechToTextLogger::write('web-ui', sprintf('Custom recognition model deleted: %s', $modelId), LOG_NOTICE);
+            $this->withModuleWriteLease(function (): void {
+                $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
+                STTSetting::removeCustomModel($modelId);
+                LocalSpeechToTextLogger::write('web-ui', sprintf('Custom recognition model deleted: %s', $modelId), LOG_NOTICE);
+            });
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelDeleted'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to delete custom recognition model: ' . $exception->getMessage(), LOG_ERR);
@@ -122,7 +128,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function retryErrorsAction(): void
     {
         try {
-            $count = STTJob::requeueErrors();
+            $count = $this->withModuleWriteLease(static fn (): int => STTJob::requeueErrors());
             LocalSpeechToTextLogger::write(
                 'web-ui',
                 sprintf('Retry failed recordings requested: %d job(s) returned to queue', $count),
@@ -145,12 +151,64 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     {
         try {
             $plainApiKey = ApiKeys::generateApiKey();
-            $apiKey = $this->workerApiKeyService()->createWorkerApiKey($plainApiKey);
+            $service = $this->workerApiKeyService();
+            $service->beginCoreApiKeyTransaction();
+            try {
+                // Acquire the Core DB writer before the module lease. This is
+                // the same global lock order used by Core lifecycle changes.
+                $apiKey = $service->createCoreWorkerApiKey($plainApiKey);
+                $this->withModuleWriteLease(function () use ($service, $apiKey): void {
+                    try {
+                        $service->bindWorkerApiKey((int)$apiKey->id);
+                        $service->commitCoreApiKeyTransaction();
+                    } catch (Throwable $exception) {
+                        // The Core transaction can still roll back. Remove any
+                        // module binding while this lease is still held.
+                        try {
+                            $service->removeWorkerApiKeyBinding((int)$apiKey->id);
+                        } catch (Throwable $cleanupException) {
+                            LocalSpeechToTextLogger::write(
+                                'web-ui',
+                                'Failed to compensate worker API key binding: ' . $cleanupException->getMessage(),
+                                LOG_ERR
+                            );
+                        }
+                        throw $exception;
+                    }
+                });
+            } catch (Throwable $exception) {
+                try {
+                    $service->rollBackCoreApiKeyTransaction();
+                } catch (Throwable $rollbackException) {
+                    LocalSpeechToTextLogger::write(
+                        'web-ui',
+                        'Failed to roll back worker API key transaction: ' . $rollbackException->getMessage(),
+                        LOG_ERR
+                    );
+                }
+                throw $exception;
+            }
+
+            // A newly-created token cannot have a stale validation-cache hit;
+            // cache refresh is therefore best-effort after the atomic write.
+            try {
+                $service->clearCoreApiKeyCache();
+            } catch (Throwable $cacheException) {
+                LocalSpeechToTextLogger::write(
+                    'web-ui',
+                    'Failed to refresh API key cache after create: ' . $cacheException->getMessage(),
+                    LOG_WARNING
+                );
+            }
             $this->session->set(self::SESSION_GENERATED_API_KEY, [
                 'apiKey' => $plainApiKey,
                 'apiKeyId' => (int)$apiKey->id,
             ]);
-            LocalSpeechToTextLogger::write('web-ui', sprintf('Worker API key created: id=%d', (int)$apiKey->id), LOG_NOTICE);
+            LocalSpeechToTextLogger::write(
+                'web-ui',
+                sprintf('Worker API key created: id=%d', (int)$apiKey->id),
+                LOG_NOTICE
+            );
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyCreated'));
         } catch (Throwable $exception) {
             LocalSpeechToTextLogger::write('web-ui', 'Failed to create worker API key: ' . $exception->getMessage(), LOG_ERR);
@@ -170,14 +228,50 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 return;
             }
 
-            $apiKey = ApiKeys::findFirstById($apiKeyId);
-            if ($apiKey instanceof ApiKeys && !$apiKey->delete()) {
-                throw new RuntimeException(implode(', ', $apiKey->getMessages()));
+            $service = $this->workerApiKeyService();
+            $service->beginCoreApiKeyTransaction();
+            try {
+                // Stage the credential revocation before taking the module
+                // lease, preserving the global Core-DB -> module-lock order.
+                $service->deleteCoreWorkerApiKey($apiKeyId);
+                $this->withModuleWriteLease(function () use ($service, $apiKeyId): void {
+                    // Commit revocation first, then remove module authorization.
+                    // Cache invalidation is attempted even if module cleanup
+                    // fails, so a deleted token cannot retain both gates.
+                    $service->commitCoreApiKeyTransaction();
+                    try {
+                        $service->unbindWorkersFromApiKey($apiKeyId);
+                    } finally {
+                        try {
+                            // Removing the allowed ID is the module-level
+                            // authorization boundary and must be attempted even
+                            // when a stale worker row cannot be updated.
+                            $service->removeWorkerApiKeyBinding($apiKeyId);
+                        } finally {
+                            try {
+                                $service->clearCoreApiKeyCache();
+                            } catch (Throwable $cacheException) {
+                                LocalSpeechToTextLogger::write(
+                                    'web-ui',
+                                    'Failed to refresh API key cache after delete: ' . $cacheException->getMessage(),
+                                    LOG_WARNING
+                                );
+                            }
+                        }
+                    }
+                });
+            } catch (Throwable $exception) {
+                try {
+                    $service->rollBackCoreApiKeyTransaction();
+                } catch (Throwable $rollbackException) {
+                    LocalSpeechToTextLogger::write(
+                        'web-ui',
+                        'Failed to roll back worker API key deletion: ' . $rollbackException->getMessage(),
+                        LOG_ERR
+                    );
+                }
+                throw $exception;
             }
-
-            STTSetting::removeWorkerApiKeyId($apiKeyId);
-            $this->workerApiKeyService()->unbindWorkersFromApiKey($apiKeyId);
-            TokenValidationService::clearCache();
             LocalSpeechToTextLogger::write('web-ui', sprintf('Worker API key deleted: id=%d', $apiKeyId), LOG_NOTICE);
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyDeleted'));
         } catch (Throwable $exception) {
@@ -292,7 +386,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         ]);
         $errorCount = $this->countJobsByStatus(STTJob::STATUS_ERROR);
 
-        STTWorker::markStaleOffline();
         $this->view->activeTab = $activeTab;
         $this->view->form = $this->buildSettingsForm();
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;

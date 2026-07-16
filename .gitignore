@@ -12,3 +12,7 @@ node_modules/
 *.tar
 *.tar.gz
 *.log
+
+db/module.db
+db/module.db-*
+db/.module-lifecycle*

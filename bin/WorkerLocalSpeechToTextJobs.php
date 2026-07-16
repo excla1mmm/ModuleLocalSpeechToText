@@ -12,6 +12,8 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
@@ -25,6 +27,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
     private const int MAX_DELAYED_RECORDINGS = 500;
     private const int MAX_SKIPPED_RECORDINGS = 100;
+    private const int MAX_SKIPPED_RETRY_SECONDS = 3600;
+    private const int MAX_SKIPPED_RETRY_AGE_SECONDS = 2592000;
+
+    private ?RetryStateStore $retryStateStore = null;
 
     public static function getCheckInterval(): int
     {
@@ -33,18 +39,51 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     public function start(array $argv): void
     {
-        DatabaseProviderBase::ensureCdrTables();
-
         LocalSpeechToTextLogger::syslog(
             __CLASS__,
             sprintf('Worker started (PID:%d)', getmypid()),
             LOG_NOTICE
         );
 
+        try {
+            $lifecycleGuard = new ModuleLifecycleGuard();
+        } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::syslog(
+                __CLASS__,
+                'Worker cannot initialize module lifecycle guard: ' . $exception->getMessage(),
+                LOG_ERR
+            );
+            return;
+        }
+
+        $cdrTablesInitialized = false;
         while ($this->needRestart === false) {
             pcntl_signal_dispatch();
 
             try {
+                $writeLease = $lifecycleGuard->acquireWriteLease();
+            } catch (Throwable $exception) {
+                LocalSpeechToTextLogger::syslog(
+                    __CLASS__,
+                    'Worker cannot acquire module lifecycle lease: ' . $exception->getMessage(),
+                    LOG_ERR
+                );
+                break;
+            }
+            if ($writeLease === null) {
+                LocalSpeechToTextLogger::syslog(
+                    __CLASS__,
+                    'Worker stopped accepting database work because the module is changing state',
+                    LOG_NOTICE
+                );
+                break;
+            }
+
+            try {
+                if (!$cdrTablesInitialized) {
+                    DatabaseProviderBase::ensureCdrTables();
+                    $cdrTablesInitialized = true;
+                }
                 STTWorker::markStaleOffline();
                 $requeued = STTJob::requeueStaleProcessing();
                 if ($requeued > 0) {
@@ -64,6 +103,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     'Error while scanning CDR recordings: ' . $exception->getMessage(),
                     LOG_ERR
                 );
+            } finally {
+                $lifecycleGuard->releaseWriteLease($writeLease);
             }
 
             sleep(self::SCAN_INTERVAL_SECONDS);
@@ -293,16 +334,23 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function retryDelayedRecordings(): void
     {
-        $delayedRecordings = $this->delayedRecordings();
-        if ($delayedRecordings === []) {
+        $retryRecords = $this->retryStateStore()->due(
+            RetryStateStore::TYPE_DELAYED,
+            $this->scanLimit()
+        );
+        if ($retryRecords === []) {
             return;
         }
 
+        $delayedRecordings = $this->delayedRecordings();
         $changed = false;
         $now = time();
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
-        foreach ($delayedRecordings as $recordId => $record) {
+        foreach ($retryRecords as $retryRecord) {
+            $recordId = (int)$retryRecord['cdr_id'];
+            $record = $retryRecord['payload'];
+            $record['first_seen'] = (int)$retryRecord['first_seen'];
             if ($this->needRestart) {
                 if ($changed) {
                     $this->saveDelayedRecordings($delayedRecordings);
@@ -326,6 +374,11 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
             $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
             if ($recordingPath === null) {
+                $this->retryStateStore()->defer(
+                    $recordId,
+                    RetryStateStore::TYPE_DELAYED,
+                    self::SCAN_INTERVAL_SECONDS
+                );
                 continue;
             }
 
@@ -353,6 +406,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             unset($delayedRecordings[$recordId]);
+            $this->retryStateStore()->remove($recordId);
             $changed = true;
         }
 
@@ -363,15 +417,21 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function retrySkippedRecordings(): void
     {
-        $skippedRecordings = $this->skippedRecordings();
-        if ($skippedRecordings === []) {
+        $retryRecords = $this->retryStateStore()->due(
+            RetryStateStore::TYPE_SKIPPED,
+            $this->scanLimit()
+        );
+        if ($retryRecords === []) {
             return;
         }
 
+        $skippedRecordings = $this->skippedRecordings();
         $changed = false;
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
-        foreach ($skippedRecordings as $recordId => $record) {
+        foreach ($retryRecords as $retryRecord) {
+            $recordId = (int)$retryRecord['cdr_id'];
+            $record = $retryRecord['payload'];
             if ($this->needRestart) {
                 if ($changed) {
                     $this->saveSkippedRecordings($skippedRecordings);
@@ -380,6 +440,14 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
+                unset($skippedRecordings[$recordId]);
+                $this->retryStateStore()->remove($recordId);
+                $changed = true;
+                LocalSpeechToTextLogger::syslog(
+                    __CLASS__,
+                    sprintf('Removed retry state for CDR #%d after it left the configured history window', $recordId),
+                    LOG_INFO
+                );
                 continue;
             }
 
@@ -389,10 +457,30 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
             $recordingPath = $this->recordingPath($recordingFile);
             if ($recordingPath === null) {
+                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
+                    $changed = true;
+                    continue;
+                }
+                $this->retryStateStore()->deferWithBackoff(
+                    $recordId,
+                    RetryStateStore::TYPE_SKIPPED,
+                    self::SCAN_INTERVAL_SECONDS,
+                    self::MAX_SKIPPED_RETRY_SECONDS
+                );
                 continue;
             }
 
             if (!$this->recordingWithinSizeLimit($recordingPath)) {
+                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
+                    $changed = true;
+                    continue;
+                }
+                $this->retryStateStore()->deferWithBackoff(
+                    $recordId,
+                    RetryStateStore::TYPE_SKIPPED,
+                    self::SCAN_INTERVAL_SECONDS,
+                    self::MAX_SKIPPED_RETRY_SECONDS
+                );
                 continue;
             }
 
@@ -412,6 +500,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             unset($skippedRecordings[$recordId]);
+            $this->retryStateStore()->remove($recordId);
             $changed = true;
         }
 
@@ -460,7 +549,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         $now = time();
-        $delayedRecordings[$recordId] = [
+        $retryRecord = [
             'recordingfile' => (string)($record['recordingfile'] ?? ''),
             'call_id' => $this->callId($record),
             'priority' => $this->priority($record),
@@ -473,6 +562,14 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
             'last_seen' => $now,
         ];
+        $delayedRecordings[$recordId] = $retryRecord;
+        $this->retryStateStore()->remember(
+            $recordId,
+            RetryStateStore::TYPE_DELAYED,
+            $retryRecord,
+            'recording_missing',
+            $now
+        );
 
         if (count($delayedRecordings) > self::MAX_DELAYED_RECORDINGS) {
             uasort(
@@ -480,6 +577,11 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 static fn (array $left, array $right): int => ((int)($left['first_seen'] ?? 0)) <=> ((int)($right['first_seen'] ?? 0))
             );
             $delayedRecordings = array_slice($delayedRecordings, -self::MAX_DELAYED_RECORDINGS, null, true);
+            LocalSpeechToTextLogger::syslog(
+                __CLASS__,
+                'Delayed recording display cache overflowed; evicted entries remain in durable retry state',
+                LOG_WARNING
+            );
         }
     }
 
@@ -504,7 +606,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         $skippedRecordings = $this->skippedRecordings();
-        $skippedRecordings[$recordId] = [
+        $retryRecord = [
             'recordingfile' => $recordingFile,
             'recording_path' => $recordingPath,
             'call_id' => (string)($record['call_id'] ?? $this->callId($record)),
@@ -518,6 +620,13 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'reason' => $reason,
             'created_at' => time(),
         ];
+        $skippedRecordings[$recordId] = $retryRecord;
+        $this->retryStateStore()->remember(
+            $recordId,
+            RetryStateStore::TYPE_SKIPPED,
+            $retryRecord,
+            $reason
+        );
 
         if (count($skippedRecordings) > self::MAX_SKIPPED_RECORDINGS) {
             uasort(
@@ -525,6 +634,11 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 static fn (array $left, array $right): int => ((int)($left['created_at'] ?? 0)) <=> ((int)($right['created_at'] ?? 0))
             );
             $skippedRecordings = array_slice($skippedRecordings, -self::MAX_SKIPPED_RECORDINGS, null, true);
+            LocalSpeechToTextLogger::syslog(
+                __CLASS__,
+                'Skipped recording display cache overflowed; evicted entries remain in durable retry state',
+                LOG_WARNING
+            );
         }
 
         $this->saveSkippedRecordings($skippedRecordings);
@@ -575,6 +689,39 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private function forgetDelayedRecording(array &$delayedRecordings, int $recordId): void
     {
         unset($delayedRecordings[$recordId]);
+        $this->retryStateStore()->remove($recordId);
+    }
+
+    private function retryStateStore(): RetryStateStore
+    {
+        if (!$this->retryStateStore instanceof RetryStateStore) {
+            $this->retryStateStore = new RetryStateStore((new STTJob())->getWriteConnection());
+        }
+
+        return $this->retryStateStore;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $skippedRecordings
+     * @param array{cdr_id: int, first_seen: int} $retryRecord
+     */
+    private function expireSkippedRetry(array &$skippedRecordings, array $retryRecord): bool
+    {
+        $firstSeen = (int)$retryRecord['first_seen'];
+        if ($firstSeen <= 0 || time() - $firstSeen < self::MAX_SKIPPED_RETRY_AGE_SECONDS) {
+            return false;
+        }
+
+        $recordId = (int)$retryRecord['cdr_id'];
+        unset($skippedRecordings[$recordId]);
+        $this->retryStateStore()->remove($recordId);
+        LocalSpeechToTextLogger::syslog(
+            __CLASS__,
+            sprintf('Expired retry state for CDR #%d after the finite skipped-recording retry lifetime', $recordId),
+            LOG_WARNING
+        );
+
+        return true;
     }
 
     /**

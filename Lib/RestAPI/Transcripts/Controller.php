@@ -38,7 +38,7 @@ class Controller extends BaseRestController
     /**
      * @route GET /pbxcore/api/v3/module-local-speech-to-text/transcripts
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list')]
+    #[ApiDataSchema(schemaClass: ListDataStructure::class, type: 'custom', schemaName: 'LocalSTTTranscriptListResponse')]
     #[ApiOperation(
         summary: 'List completed transcripts',
         description: 'Returns completed transcript summaries for module integration.',

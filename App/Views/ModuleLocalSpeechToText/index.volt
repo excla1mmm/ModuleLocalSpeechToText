@@ -321,7 +321,11 @@
                 {% for row in workerApiKeyRows %}
                     <tr>
                         <td>
-                            <span class="ui small label">{{ row['keyDisplay']|e }}</span>
+                            {% if row['missing'] %}
+                                <span class="ui small warning label">{{ t._('module_local_speech_to_text_WorkerApiKeyNotFound') }} #{{ row['id']|e }}</span>
+                            {% else %}
+                                <span class="ui small label">{{ row['keyDisplay']|e }}</span>
+                            {% endif %}
                         </td>
                         <td>{{ row['createdAtLabel']|e }}</td>
                         <td>{{ row['lastUsedAtLabel']|e }}</td>

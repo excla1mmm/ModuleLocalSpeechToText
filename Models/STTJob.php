@@ -21,6 +21,7 @@ class STTJob extends ModulesModelsBase
     public const string STATUS_DONE = 'done';
     public const string STATUS_ERROR = 'error';
     private const int DEFAULT_PROCESSING_TIMEOUT_SECONDS = 1800;
+    private const int MAX_ATTEMPTS = 3;
 
     /**
      * @Primary
@@ -270,14 +271,31 @@ class STTJob extends ModulesModelsBase
         $now = time();
         $connection->execute(
             'UPDATE m_STTJob
-                SET status = :pending,
+                SET attempts = CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1,
+                    status = CASE
+                        WHEN CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1 >= CAST(:max_attempts AS INTEGER)
+                        THEN :error
+                        ELSE :pending
+                    END,
                     worker_id = NULL,
                     started_at = NULL,
                     updated_at = :updated_at,
                     lease_token = NULL,
                     lease_expires_at = NULL,
-                    finished_at = NULL,
-                    error_msg = :error_msg
+                    finished_at = CASE
+                        WHEN CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1 >= CAST(:max_attempts AS INTEGER)
+                        THEN :updated_at
+                        ELSE NULL
+                    END,
+                    error_msg = CASE
+                        WHEN CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1 >= CAST(:max_attempts AS INTEGER)
+                        THEN \'Processing lease timeout exhausted retry budget after \'
+                            || (CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1)
+                            || \' attempts\'
+                        ELSE \'Requeued after processing lease timeout (attempt \'
+                            || (CAST(COALESCE(NULLIF(attempts, \'\'), \'0\') AS INTEGER) + 1)
+                            || \' of \' || :max_attempts || \')\'
+                    END
               WHERE status = :processing
                 AND (
                     (
@@ -296,11 +314,12 @@ class STTJob extends ModulesModelsBase
                 )',
             [
                 'pending' => self::STATUS_PENDING,
+                'error' => self::STATUS_ERROR,
                 'processing' => self::STATUS_PROCESSING,
+                'max_attempts' => self::MAX_ATTEMPTS,
                 'now' => (string)$now,
                 'threshold' => (string)($now - $timeout),
                 'updated_at' => (string)$now,
-                'error_msg' => 'Requeued after processing timeout',
             ]
         );
 
@@ -472,7 +491,7 @@ class STTJob extends ModulesModelsBase
     {
         $currentAttempts = (int)$this->attempts;
         $nextAttempts = $currentAttempts + 1;
-        $finalFailure = $nextAttempts >= 3;
+        $finalFailure = $nextAttempts >= self::MAX_ATTEMPTS;
         $finishedAt = (string)time();
         $connection = $this->getWriteConnection();
         $bind = [

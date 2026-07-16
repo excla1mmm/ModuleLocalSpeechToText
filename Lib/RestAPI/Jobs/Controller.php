@@ -34,6 +34,25 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 )]
 class Controller extends BaseRestController
 {
+    private const array DOWNLOAD_BINARY_CONTENT = [
+        'audio/ogg' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+        'audio/webm' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+        'audio/wav' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+        'audio/mpeg' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+        'application/octet-stream' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+    ];
+
+    private const array PARTIAL_CONTENT_HEADERS = [
+        'Accept-Ranges' => [
+            'description' => 'Supported byte range unit.',
+            'schema' => ['type' => 'string', 'example' => 'bytes'],
+        ],
+        'Content-Range' => [
+            'description' => 'Byte range included in this response.',
+            'schema' => ['type' => 'string', 'example' => 'bytes 0-1023/4096'],
+        ],
+    ];
+
     protected string $processorClass = Processor::class;
 
     /**
@@ -57,7 +76,6 @@ class Controller extends BaseRestController
     /**
      * @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:download
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_DownloadJobFile',
         description: 'module_local_speech_to_text_DownloadJobFileDesc',
@@ -66,8 +84,10 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'rest_response_200_ok', content: self::DOWNLOAD_BINARY_CONTENT)]
+    #[ApiResponse(206, 'Partial Content', content: self::DOWNLOAD_BINARY_CONTENT, headers: self::PARTIAL_CONTENT_HEADERS)]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(413, 'Payload Too Large', 'PBXApiResult')]
     public function download(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -76,7 +96,7 @@ class Controller extends BaseRestController
     /**
      * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitResult
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: SubmitResultResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTSubmitResultResponse')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_SubmitResult',
         description: 'module_local_speech_to_text_SubmitResultDesc',
@@ -89,6 +109,7 @@ class Controller extends BaseRestController
     #[ApiParameterRef('language')]
     #[ApiParameterRef('duration_ms')]
     #[ApiParameterRef('model_used')]
+    #[ApiParameterRef('technical_info')]
     #[ApiResponse(200, 'rest_response_200_ok')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
@@ -101,7 +122,7 @@ class Controller extends BaseRestController
     /**
      * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitError
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: SubmitErrorResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTSubmitErrorResponse')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_SubmitError',
         description: 'module_local_speech_to_text_SubmitErrorDesc',
@@ -123,7 +144,7 @@ class Controller extends BaseRestController
     /**
      * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:heartbeat
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: HeartbeatResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTHeartbeatResponse')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_HeartbeatJob',
         description: 'module_local_speech_to_text_HeartbeatJobDesc',
@@ -144,7 +165,7 @@ class Controller extends BaseRestController
     /**
      * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:release
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: ReleaseResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTReleaseResponse')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_ReleaseJob',
         description: 'module_local_speech_to_text_ReleaseJobDesc',

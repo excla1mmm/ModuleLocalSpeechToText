@@ -28,7 +28,7 @@ class Controller extends BaseRestController
 {
     protected string $processorClass = Processor::class;
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'custom', schemaName: 'LocalSTTCallTranscriptEventListResponse')]
     #[ApiOperation(summary: 'List call transcript revision events', description: 'Returns idempotent call-level events.', operationId: 'listLocalSpeechToTextCallTranscriptEvents')]
     #[ApiParameterRef('cursor')]
     #[ApiParameterRef('limit')]

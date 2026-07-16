@@ -11,6 +11,9 @@ use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGuard;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -21,6 +24,10 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 {
     public function installDB(): bool
     {
+        // Publish the fail-closed lifecycle marker before any schema migration.
+        // Cached routes from the replaced module cannot race the installer.
+        new ModuleLifecycleGuard($this->moduleDir . '/db', bootstrap: true);
+
         if (!parent::installDB()) {
             return false;
         }
@@ -46,6 +53,8 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->ensureJobUpdatedAtColumn();
             $this->ensureJobLeaseColumns();
             $this->ensureJobCallIdentityColumns();
+            $this->ensureRetryStateSchema();
+            $this->importLegacyRetryState();
             $this->ensureTechnicalInfoColumn();
             $this->ensureTranscriptEventTable();
             (new CallTranscriptSchemaService())->ensure((new STTResult())->getWriteConnection());
@@ -100,6 +109,36 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         }
 
         $connection->execute('ALTER TABLE m_STTResult ADD COLUMN technical_info TEXT');
+    }
+
+    private function ensureRetryStateSchema(): void
+    {
+        (new RetryStateStore((new STTJob())->getWriteConnection()))->ensureSchema();
+    }
+
+    private function importLegacyRetryState(): void
+    {
+        $store = new RetryStateStore((new STTJob())->getWriteConnection());
+        $store->importLegacy(
+            $this->storedRetryRecords(STTSetting::DELAYED_RECORDINGS),
+            RetryStateStore::TYPE_DELAYED,
+            'recording_missing'
+        );
+        $store->importLegacy(
+            $this->storedRetryRecords(STTSetting::SKIPPED_RECORDINGS),
+            RetryStateStore::TYPE_SKIPPED,
+            'legacy_skipped'
+        );
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function storedRetryRecords(string $settingKey): array
+    {
+        $records = json_decode(STTSetting::getValue($settingKey, '[]'), true);
+
+        return is_array($records) ? $records : [];
     }
 
     private function ensureJobCdrEndtimeColumn(): void
@@ -234,18 +273,10 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     private function ensureWorkerApiKeyPermissions(): void
     {
         $changed = false;
-        $requiredPaths = [
-            '/api/v3/module-local-speech-to-text/workers' => 'write',
-            '/api/v3/module-local-speech-to-text/jobs' => 'write',
-            '/api/v3/module-local-speech-to-text/transcripts' => 'read',
-            '/api/v3/module-local-speech-to-text/transcripts/events' => 'read',
-            '/api/v3/module-local-speech-to-text/call-transcripts' => 'read',
-            '/api/v3/module-local-speech-to-text/call-transcripts/events' => 'read',
-        ];
 
         foreach (STTSetting::workerApiKeyIds() as $apiKeyId) {
             $apiKey = ApiKeys::findFirstById($apiKeyId);
-            if (!$apiKey instanceof ApiKeys || (string)$apiKey->full_permissions === '1') {
+            if (!$apiKey instanceof ApiKeys) {
                 continue;
             }
 
@@ -254,16 +285,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 $allowedPaths = [];
             }
 
-            $apiKeyChanged = false;
-            foreach ($requiredPaths as $path => $permission) {
-                if (($allowedPaths[$path] ?? null) !== $permission) {
-                    $allowedPaths[$path] = $permission;
-                    $apiKeyChanged = true;
-                }
-            }
+            $apiKeyChanged = $allowedPaths !== WorkerApiKeyService::WORKER_ALLOWED_PATHS
+                || (string)$apiKey->full_permissions !== '0';
 
             if ($apiKeyChanged) {
-                $apiKey->allowed_paths = json_encode($allowedPaths) ?: '{}';
+                $apiKey->full_permissions = '0';
+                $apiKey->allowed_paths = json_encode(
+                    WorkerApiKeyService::WORKER_ALLOWED_PATHS,
+                    JSON_THROW_ON_ERROR
+                );
                 if (!$apiKey->save()) {
                     throw new \RuntimeException(implode(', ', $apiKey->getMessages()));
                 }

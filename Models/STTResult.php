@@ -70,7 +70,7 @@ class STTResult extends ModulesModelsBase
                 'alias' => 'STTJob',
                 'foreignKey' => [
                     'allowNulls' => false,
-                    'action' => Relation::ACTION_CASCADE,
+                    'action' => Relation::NO_ACTION,
                 ],
             ]
         );
