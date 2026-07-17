@@ -111,4 +111,48 @@ expectDurationContract(
     'Queue view must label duration skips'
 );
 
+$requiredMessageKeys = [
+    'module_local_speech_to_text_MaxRecordingDuration',
+    'module_local_speech_to_text_MaxRecordingDurationHint',
+    'module_local_speech_to_text_QueueSkipReasonDurationTooLong',
+];
+$messageFiles = glob(__DIR__ . '/../Messages/*.php') ?: [];
+expectDurationContract($messageFiles !== [], 'No translation catalogs found');
+$sourceKeys = array_keys(include __DIR__ . '/../Messages/ru.php');
+sort($sourceKeys);
+foreach ($messageFiles as $messageFile) {
+    $messages = include $messageFile;
+    expectDurationContract(is_array($messages), 'Invalid translation catalog: ' . basename($messageFile));
+    foreach ($requiredMessageKeys as $requiredMessageKey) {
+        expectDurationContract(
+            array_key_exists($requiredMessageKey, $messages),
+            basename($messageFile) . ' is missing ' . $requiredMessageKey
+        );
+    }
+    expectDurationContract(
+        !array_key_exists('module_local_speech_to_text_MaxFileSize', $messages)
+            && !array_key_exists('module_local_speech_to_text_MaxFileSizeHint', $messages),
+        basename($messageFile) . ' still exposes legacy configurable size keys'
+    );
+    $messageKeys = array_keys($messages);
+    sort($messageKeys);
+    expectDurationContract($messageKeys === $sourceKeys, basename($messageFile) . ' translation keys differ from ru.php');
+}
+
+$readmeEn = file_get_contents(__DIR__ . '/../README.md');
+$readmeRu = file_get_contents(__DIR__ . '/../readme.ru.md');
+expectDurationContract($readmeEn !== false && $readmeRu !== false, 'Cannot read module documentation');
+expectDurationContract(
+    str_contains($readmeEn, '60 minutes')
+        && str_contains($readmeEn, '1–1440 minutes')
+        && str_contains($readmeEn, '500 MiB'),
+    'English README must document duration defaults, range, and fixed file guard'
+);
+expectDurationContract(
+    str_contains($readmeRu, '60 минут')
+        && str_contains($readmeRu, '1–1440 минут')
+        && str_contains($readmeRu, '500 МБ'),
+    'Russian README must document duration defaults, range, and fixed file guard'
+);
+
 echo "Recording duration limit contract OK\n";

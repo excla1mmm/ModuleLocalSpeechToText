@@ -52,7 +52,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 
 The main module page has six tabs:
 
-- `Settings`: language hint, polling interval, maximum recording size, CDR scan limit, processing timeout, custom vocabulary terms, and TXT term import.
+- `Settings`: language hint, polling interval, maximum recognizable recording duration, CDR scan limit, processing timeout, custom vocabulary terms, and TXT term import.
 - `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
@@ -60,6 +60,8 @@ The main module page has six tabs:
 - `Logging`: aggregated recent module logs with quick time filters.
 
 The conversation view includes source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker. For playback display the module can resolve both raw monitor paths and matching `pretty-monitor` files after `realpath` validation.
+
+The maximum recognizable recording duration defaults to 60 minutes and accepts values from 1–1440 minutes. A recording exactly at the limit is allowed. A missing, invalid, or zero CDR duration is treated as unknown and does not block processing. Longer known recordings are retained under skipped recordings and can enter the queue after the operator increases the limit. Known duration is persisted with the job and exposed to the worker as `duration_hint` in seconds.
 
 ## Worker Setup Flow
 
@@ -173,6 +175,7 @@ GitLab CI runs standalone `Tests/check-*.php` checks before packaging. On `devel
 ## Notes
 
 - Recordings are served only from the MikoPBX monitor directory after `realpath` validation.
-- The configured maximum recording size is enforced both when creating jobs and when a worker downloads a job file.
+- Known recording duration is checked before queue insertion and again before a worker downloads an assigned file, so a reduced setting also applies to existing jobs.
+- Recording files have a fixed, non-configurable 500 MiB safety guard that is enforced both when creating jobs and when a worker downloads a job file.
 - The module supports multiple worker API keys, but one API key cannot be bound to multiple worker UIDs.
 - The macOS worker app is released separately from this PBX module.
