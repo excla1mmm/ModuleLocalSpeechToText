@@ -122,8 +122,28 @@ class STTWorker extends ModulesModelsBase
         $worker->status = self::STATUS_ONLINE;
         $worker->last_seen = (string)time();
 
-        if (!$worker->save()) {
-            throw new RuntimeException(implode(', ', $worker->getMessages()));
+        if ($worker->id === null) {
+            self::saveNewWorker($worker);
+            return $worker;
+        }
+
+        $connection = $worker->getWriteConnection();
+        if (!$connection->execute(
+            'UPDATE m_STTWorker
+             SET name = :name, model = :model, ip = :ip, api_key_id = :api_key_id,
+                 status = :status, last_seen = :last_seen
+             WHERE id = :id',
+            [
+                'name' => $worker->name,
+                'model' => $worker->model,
+                'ip' => $worker->ip,
+                'api_key_id' => $worker->api_key_id,
+                'status' => $worker->status,
+                'last_seen' => $worker->last_seen,
+                'id' => (int)$worker->id,
+            ]
+        )) {
+            throw new RuntimeException('Unable to update worker registration');
         }
 
         return $worker;
@@ -154,27 +174,55 @@ class STTWorker extends ModulesModelsBase
         $this->status = self::STATUS_ONLINE;
         $this->last_seen = (string)$now;
 
-        if (!$this->save()) {
-            throw new RuntimeException(implode(', ', $this->getMessages()));
+        if (!$this->getWriteConnection()->execute(
+            'UPDATE m_STTWorker SET ip = :ip, status = :status, last_seen = :last_seen WHERE id = :id',
+            [
+                'ip' => $this->ip,
+                'status' => $this->status,
+                'last_seen' => $this->last_seen,
+                'id' => (int)$this->id,
+            ]
+        )) {
+            throw new RuntimeException('Unable to update worker heartbeat');
         }
+    }
+
+    public function updateModel(string $modelName): void
+    {
+        if ((string)$this->model === $modelName) {
+            return;
+        }
+
+        if (!$this->getWriteConnection()->execute(
+            'UPDATE m_STTWorker SET model = :model WHERE id = :id',
+            ['model' => $modelName, 'id' => (int)$this->id]
+        )) {
+            throw new RuntimeException('Unable to update worker model');
+        }
+        $this->model = $modelName;
     }
 
     public static function markStaleOffline(): void
     {
         $threshold = time() - self::offlineTimeoutSeconds();
-        $workers = self::find([
-            'conditions' => 'status = :status: AND (last_seen IS NULL OR last_seen < :threshold:)',
-            'bind' => [
-                'status' => self::STATUS_ONLINE,
+        $model = new self();
+        if (!$model->getWriteConnection()->execute(
+            'UPDATE m_STTWorker SET status = :offline
+             WHERE status = :online AND (last_seen IS NULL OR last_seen < :threshold)',
+            [
+                'offline' => self::STATUS_OFFLINE,
+                'online' => self::STATUS_ONLINE,
                 'threshold' => (string)$threshold,
-            ],
-        ]);
+            ]
+        )) {
+            throw new RuntimeException('Unable to mark stale workers offline');
+        }
+    }
 
-        foreach ($workers as $worker) {
-            $worker->status = self::STATUS_OFFLINE;
-            if (!$worker->save()) {
-                throw new RuntimeException(implode(', ', $worker->getMessages()));
-            }
+    private static function saveNewWorker(self $worker): void
+    {
+        if (!$worker->save()) {
+            throw new RuntimeException(implode(', ', $worker->getMessages()));
         }
     }
 

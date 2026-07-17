@@ -43,6 +43,26 @@ class LocalSpeechToTextBaseController extends BaseController
 
     protected function saveSettingsFromPost(): void
     {
+        $processingInput = [
+            STTSetting::TEMPERATURE => $this->request->getPost(STTSetting::TEMPERATURE),
+            STTSetting::TEMPERATURE_FALLBACK_STEP => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_STEP),
+            STTSetting::TEMPERATURE_FALLBACK_COUNT => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_COUNT),
+            STTSetting::TOP_K => $this->request->getPost(STTSetting::TOP_K),
+            STTSetting::COMPRESSION_RATIO_THRESHOLD => $this->request->getPost(STTSetting::COMPRESSION_RATIO_THRESHOLD),
+            STTSetting::LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::LOG_PROBABILITY_THRESHOLD),
+            STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD),
+            STTSetting::NO_SPEECH_THRESHOLD => $this->request->getPost(STTSetting::NO_SPEECH_THRESHOLD),
+            STTSetting::AUDIO_NORMALIZATION => $this->request->hasPost(STTSetting::AUDIO_NORMALIZATION) ? '1' : '0',
+            STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->hasPost(STTSetting::VOICE_ACTIVITY_DETECTION) ? '1' : '0',
+            STTSetting::MAX_SEGMENT_DURATION_MS => (int)round(
+                (float)$this->request->getPost('max_segment_duration_sec') * 1000
+            ),
+            STTSetting::SEGMENT_OVERLAP_MS => (int)round(
+                (float)$this->request->getPost('segment_overlap_sec') * 1000
+            ),
+        ];
+        $normalizedProcessing = WorkerProcessingSettingsService::normalize($processingInput);
+
         STTSetting::setValue(
             STTSetting::DEFAULT_LANGUAGE,
             STTSetting::normalizeLanguageId($this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16))
@@ -87,25 +107,7 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CUSTOM_VOCABULARY_TERMS,
             function_exists('mb_substr') ? mb_substr($customTerms, 0, 8000) : substr($customTerms, 0, 8000)
         );
-        $processingInput = [
-            STTSetting::TEMPERATURE => $this->request->getPost(STTSetting::TEMPERATURE),
-            STTSetting::TEMPERATURE_FALLBACK_STEP => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_STEP),
-            STTSetting::TEMPERATURE_FALLBACK_COUNT => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_COUNT),
-            STTSetting::TOP_K => $this->request->getPost(STTSetting::TOP_K),
-            STTSetting::COMPRESSION_RATIO_THRESHOLD => $this->request->getPost(STTSetting::COMPRESSION_RATIO_THRESHOLD),
-            STTSetting::LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::LOG_PROBABILITY_THRESHOLD),
-            STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD),
-            STTSetting::NO_SPEECH_THRESHOLD => $this->request->getPost(STTSetting::NO_SPEECH_THRESHOLD),
-            STTSetting::AUDIO_NORMALIZATION => $this->request->hasPost(STTSetting::AUDIO_NORMALIZATION) ? '1' : '0',
-            STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->hasPost(STTSetting::VOICE_ACTIVITY_DETECTION) ? '1' : '0',
-            STTSetting::MAX_SEGMENT_DURATION_MS => (int)round(
-                (float)$this->request->getPost('max_segment_duration_sec') * 1000
-            ),
-            STTSetting::SEGMENT_OVERLAP_MS => (int)round(
-                (float)$this->request->getPost('segment_overlap_sec') * 1000
-            ),
-        ];
-        $processingChanged = (new WorkerProcessingSettingsService())->save($processingInput);
+        $processingChanged = (new WorkerProcessingSettingsService())->save($normalizedProcessing);
         LocalSpeechToTextLogger::write(
             'web-ui',
             sprintf(

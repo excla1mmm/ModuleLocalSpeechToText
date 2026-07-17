@@ -536,15 +536,7 @@ class LocalSpeechToTextMain
 
     private static function syncWorkerModel(STTWorker $worker): void
     {
-        $currentModel = self::currentWorkerModelName();
-        if ((string)$worker->model === $currentModel) {
-            return;
-        }
-
-        $worker->model = $currentModel;
-        if (!$worker->save()) {
-            throw new RuntimeException(implode(', ', $worker->getMessages()));
-        }
+        $worker->updateModel(self::currentWorkerModelName());
     }
 
     private static function findWorker(string $workerUid): ?STTWorker

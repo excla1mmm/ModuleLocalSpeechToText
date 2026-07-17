@@ -43,4 +43,30 @@ expectWorkerSettingsFlag(
     'Only newly registered workers may have their dirty flag initialized explicitly'
 );
 
+foreach (['registerWorker', 'touchOnline', 'updateModel', 'markStaleOffline'] as $method) {
+    $methodStart = strpos($workerModel, 'function ' . $method . '(');
+    expectWorkerSettingsFlag($methodStart !== false, "Cannot inspect {$method}");
+    $nextPublicMethod = strpos($workerModel, "\n    public ", $methodStart + 1);
+    $nextPrivateMethod = strpos($workerModel, "\n    private ", $methodStart + 1);
+    $nextCandidates = array_filter(
+        [$nextPublicMethod, $nextPrivateMethod],
+        static fn (int|false $offset): bool => $offset !== false
+    );
+    $nextMethod = $nextCandidates === [] ? false : min($nextCandidates);
+    $methodBody = substr(
+        $workerModel,
+        $methodStart,
+        ($nextMethod === false ? strlen($workerModel) : $nextMethod) - $methodStart
+    );
+    expectWorkerSettingsFlag(
+        !str_contains($methodBody, '->save()'),
+        "{$method} must update only its own columns and preserve has_settings_changed"
+    );
+}
+
+expectWorkerSettingsFlag(
+    substr_count($workerModel, 'UPDATE m_STTWorker') >= 4,
+    'Existing registration, heartbeat, model sync and offline updates must use partial SQL updates'
+);
+
 echo "Worker processing settings flag contract OK\n";

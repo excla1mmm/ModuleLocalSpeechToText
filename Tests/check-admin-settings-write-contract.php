@@ -60,4 +60,23 @@ foreach ([
     );
 }
 
+$baseController = file_get_contents(__DIR__ . '/../App/Controllers/LocalSpeechToTextBaseController.php');
+expectAdminSettingsWrite($baseController !== false, 'Cannot read base settings controller');
+$saveStart = strpos($baseController, 'protected function saveSettingsFromPost(): void');
+$saveEnd = strpos($baseController, 'protected function countJobsByStatus', $saveStart ?: 0);
+$saveBody = $saveStart === false || $saveEnd === false
+    ? ''
+    : substr($baseController, $saveStart, $saveEnd - $saveStart);
+$profileBuild = strpos($saveBody, '$processingInput = [');
+$profileValidation = strpos($saveBody, 'WorkerProcessingSettingsService::normalize($processingInput)');
+$firstWrite = strpos($saveBody, 'STTSetting::setValue(');
+expectAdminSettingsWrite(
+    $profileBuild !== false
+        && $profileValidation !== false
+        && $firstWrite !== false
+        && $profileBuild < $profileValidation
+        && $profileValidation < $firstWrite,
+    'The complete processing profile must be validated before any setting is written'
+);
+
 echo "Administrative settings write contract OK\n";
