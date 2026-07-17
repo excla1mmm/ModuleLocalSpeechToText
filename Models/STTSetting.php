@@ -34,6 +34,18 @@ class STTSetting extends ModulesModelsBase
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
     public const string CUSTOM_MODELS = 'custom_models';
+    public const string TEMPERATURE = 'temperature';
+    public const string TEMPERATURE_FALLBACK_STEP = 'temperature_fallback_step';
+    public const string TEMPERATURE_FALLBACK_COUNT = 'temperature_fallback_count';
+    public const string TOP_K = 'top_k';
+    public const string COMPRESSION_RATIO_THRESHOLD = 'compression_ratio_threshold';
+    public const string LOG_PROBABILITY_THRESHOLD = 'log_probability_threshold';
+    public const string FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD = 'first_token_log_probability_threshold';
+    public const string NO_SPEECH_THRESHOLD = 'no_speech_threshold';
+    public const string AUDIO_NORMALIZATION = 'audio_normalization';
+    public const string VOICE_ACTIVITY_DETECTION = 'voice_activity_detection';
+    public const string MAX_SEGMENT_DURATION_MS = 'max_segment_duration_ms';
+    public const string SEGMENT_OVERLAP_MS = 'segment_overlap_ms';
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';

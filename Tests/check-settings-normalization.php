@@ -51,10 +51,12 @@ namespace MikoPBX\Modules\Models {
 namespace {
     use MikoPBX\Modules\Models\ModulesModelsBase;
     use Modules\ModuleLocalSpeechToText\Lib\Services\ModelMarketplaceService;
+    use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
     use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 
     require_once __DIR__ . '/../Models/STTSetting.php';
     require_once __DIR__ . '/../Lib/Services/ModelMarketplaceService.php';
+    require_once __DIR__ . '/../Lib/Services/WorkerProcessingSettingsService.php';
 
     function expectSameSettingsNormalization(mixed $expected, mixed $actual, string $message): void
     {
@@ -73,6 +75,42 @@ namespace {
     }
 
     ModulesModelsBase::$values = [];
+
+    $defaults = WorkerProcessingSettingsService::defaults();
+    expectSameSettingsNormalization(0.0, $defaults['temperature'], 'Temperature default must be 0.0');
+    expectSameSettingsNormalization(0.2, $defaults['temperature_fallback_step'], 'Fallback step default must be 0.2');
+    expectSameSettingsNormalization(5, $defaults['temperature_fallback_count'], 'Fallback count default must be 5');
+    expectSameSettingsNormalization(5, $defaults['top_k'], 'Top K default must be 5');
+    expectSameSettingsNormalization(2.4, $defaults['compression_ratio_threshold'], 'Compression ratio default must be 2.4');
+    expectSameSettingsNormalization(-1.0, $defaults['log_probability_threshold'], 'Log probability default must be -1.0');
+    expectSameSettingsNormalization(-1.5, $defaults['first_token_log_probability_threshold'], 'First-token default must be -1.5');
+    expectSameSettingsNormalization(0.6, $defaults['no_speech_threshold'], 'No-speech default must be 0.6');
+    expectSameSettingsNormalization(true, $defaults['audio_normalization'], 'Normalization must default on');
+    expectSameSettingsNormalization(true, $defaults['voice_activity_detection'], 'VAD must default on');
+    expectSameSettingsNormalization(15000, $defaults['max_segment_duration_ms'], 'Segment duration default must be 15 seconds');
+    expectSameSettingsNormalization(300, $defaults['segment_overlap_ms'], 'Overlap default must be 300 ms');
+
+    $normalized = WorkerProcessingSettingsService::normalize(array_merge($defaults, [
+        'temperature' => '0.4',
+        'temperature_fallback_count' => '3',
+        'audio_normalization' => '0',
+    ]));
+    expectSameSettingsNormalization(0.4, $normalized['temperature'], 'Numeric strings must normalize to floats');
+    expectSameSettingsNormalization(3, $normalized['temperature_fallback_count'], 'Integer strings must normalize to integers');
+    expectSameSettingsNormalization(false, $normalized['audio_normalization'], 'Boolean form values must normalize');
+
+    foreach ([
+        ['temperature' => 1.1],
+        ['top_k' => 0],
+        ['max_segment_duration_ms' => 999],
+        ['segment_overlap_ms' => 15000],
+    ] as $invalidPatch) {
+        try {
+            WorkerProcessingSettingsService::normalize(array_merge($defaults, $invalidPatch));
+            throw new RuntimeException('Invalid processing profile was accepted');
+        } catch (InvalidArgumentException) {
+        }
+    }
 
     expectSameSettingsNormalization(
         ['Alpha', 'Beta', 'Gamma', 'Delta'],
