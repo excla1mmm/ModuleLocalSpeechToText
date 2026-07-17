@@ -42,6 +42,7 @@ $checker = new ApiKeyPermissionChecker();
 
 foreach ([
     ['POST', '/pbxcore/api/v3/module-local-speech-to-text/workers:register'],
+    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/workers:getProcessingSettings?worker_uid=worker-a'],
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/jobs:getNext?worker_uid=worker-a'],
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download'],
     ['POST', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:submitResult'],

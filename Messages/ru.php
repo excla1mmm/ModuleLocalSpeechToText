@@ -263,6 +263,8 @@ return [
     'module_local_speech_to_text_JobsApiDescription' => 'Очередь заданий локальной расшифровки',
     'module_local_speech_to_text_RegisterWorker' => 'Регистрация обработчика',
     'module_local_speech_to_text_RegisterWorkerDesc' => 'Создаёт или обновляет запись локального обработчика речи',
+    'module_local_speech_to_text_GetProcessingSettings' => 'Получить настройки обработки',
+    'module_local_speech_to_text_GetProcessingSettingsDesc' => 'Возвращает полный глобальный профиль обработки и сбрасывает флаг изменений только для запросившего обработчика',
     'module_local_speech_to_text_GetNextJob' => 'Получить следующее задание',
     'module_local_speech_to_text_GetNextJobDesc' => 'Закрепляет следующее ожидающее задание за обработчиком',
     'module_local_speech_to_text_DownloadJobFile' => 'Скачать аудиофайл задания',

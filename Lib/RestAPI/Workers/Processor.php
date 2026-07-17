@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\GetProcessingSettingsAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\RegisterAction;
 use Phalcon\Di\Injectable;
 
 enum WorkerAction: string
 {
     case REGISTER = 'register';
+    case GET_PROCESSING_SETTINGS = 'getProcessingSettings';
 }
 
 class Processor extends Injectable
@@ -31,6 +33,7 @@ class Processor extends Injectable
         $data = self::requestData($request);
         $result = match ($action) {
             WorkerAction::REGISTER => RegisterAction::main($data),
+            WorkerAction::GET_PROCESSING_SETTINGS => GetProcessingSettingsAction::main($data),
         };
 
         $result->processor = __METHOD__;

@@ -101,6 +101,7 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Controller as JobsController;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\Controller as TranscriptEventsController;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\Controller as TranscriptsController;
+    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Controller as WorkersController;
 
     $coreAttributes = dirname(__DIR__, 3) . '/Core/src/PBXCoreREST/Attributes';
     require_once $coreAttributes . '/ApiDataSchema.php';
@@ -112,6 +113,9 @@ namespace {
         '../Lib/RestAPI/Jobs/SubmitErrorResponseDataStructure.php',
         '../Lib/RestAPI/Jobs/HeartbeatResponseDataStructure.php',
         '../Lib/RestAPI/Jobs/ReleaseResponseDataStructure.php',
+        '../Lib/RestAPI/Workers/DataStructure.php',
+        '../Lib/RestAPI/Workers/ProcessingSettingsResponseDataStructure.php',
+        '../Lib/RestAPI/Workers/Controller.php',
         '../Lib/RestAPI/Transcripts/DataStructure.php',
         '../Lib/RestAPI/Transcripts/ListDataStructure.php',
         '../Lib/RestAPI/TranscriptEvents/DataStructure.php',
@@ -178,6 +182,30 @@ namespace {
     expectOpenApi(
         in_array('technical_info', array_map(static fn(object $parameter): string => $parameter->name, $submitParameters), true),
         'submitResult must document technical_info'
+    );
+
+    $settingsParameters = methodAttributes(WorkersController::class, 'getProcessingSettings', ApiParameterRef::class);
+    expectOpenApi(
+        count($settingsParameters) === 1
+            && $settingsParameters[0]->name === 'worker_uid'
+            && $settingsParameters[0]->required === true,
+        'Processing-settings endpoint must require worker_uid'
+    );
+    $settingsResponses = array_map(
+        static fn(object $response): int => $response->statusCode,
+        methodAttributes(WorkersController::class, 'getProcessingSettings', ApiResponse::class)
+    );
+    sort($settingsResponses);
+    expectOpenApi(
+        $settingsResponses === [200, 401, 403, 404, 422],
+        'Processing-settings endpoint must document 200/401/403/404/422 responses'
+    );
+    $settingsSchemas = methodAttributes(WorkersController::class, 'getProcessingSettings', ApiDataSchema::class);
+    expectOpenApi(
+        count($settingsSchemas) === 1
+            && $settingsSchemas[0]->schemaName === 'LocalSTTWorkerProcessingSettingsResponse'
+            && $settingsSchemas[0]->type === 'custom',
+        'Processing-settings endpoint must expose its exact response schema'
     );
 
     $mutationContracts = [

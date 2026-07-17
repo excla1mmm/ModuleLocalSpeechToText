@@ -10,6 +10,7 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -120,6 +121,40 @@ class LocalSpeechToTextMain
                 'job' => self::formatJob($job, $workerUid),
                 'has_settings_changed' => $hasSettingsChanged,
             ]);
+        } catch (Throwable $exception) {
+            self::logException(__METHOD__, $exception);
+            return self::error('internal_error', 'Internal server error', 500);
+        }
+    }
+
+    public static function getWorkerProcessingSettings(array $data): PBXApiResult
+    {
+        $workerUid = self::stringField($data, 'worker_uid');
+        if ($workerUid === '') {
+            return self::error('validation_error', 'worker_uid is required', 422);
+        }
+
+        $apiKeyError = self::validateWorkerApiKey($data);
+        if ($apiKeyError !== null) {
+            return $apiKeyError;
+        }
+
+        try {
+            $worker = self::findWorker($workerUid);
+            if ($worker === null) {
+                return self::error('worker_not_registered', 'Worker is not registered', 404);
+            }
+            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            if ($bindingError !== null) {
+                return $bindingError;
+            }
+
+            $worker->touchOnline(self::clientIp($data));
+            $payload = (new WorkerProcessingSettingsService())->fetchForWorker($worker);
+
+            return self::success($payload);
+        } catch (InvalidArgumentException $exception) {
+            return self::error('validation_error', $exception->getMessage(), 422);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);

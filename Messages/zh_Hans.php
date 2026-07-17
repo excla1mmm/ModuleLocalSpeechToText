@@ -263,6 +263,8 @@ return [
     'module_local_speech_to_text_JobsApiDescription' => 'Local transcription job queue',
     'module_local_speech_to_text_RegisterWorker' => 'Register worker',
     'module_local_speech_to_text_RegisterWorkerDesc' => 'Creates or updates a local speech-to-text worker record',
+    'module_local_speech_to_text_GetProcessingSettings' => 'Get processing settings',
+    'module_local_speech_to_text_GetProcessingSettingsDesc' => 'Returns the complete global processing profile and clears the change flag only for the requesting worker',
     'module_local_speech_to_text_GetNextJob' => 'Get next job',
     'module_local_speech_to_text_GetNextJobDesc' => 'Claims the next pending job for a worker',
     'module_local_speech_to_text_DownloadJobFile' => 'Download job audio file',

@@ -38,10 +38,12 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\DataStructure as TranscriptsDataStructure;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\Processor as TranscriptsProcessor;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\DataStructure as WorkersDataStructure;
+    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\ProcessingSettingsResponseDataStructure;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Processor as WorkersProcessor;
 
     require_once __DIR__ . '/../Lib/RestAPI/Jobs/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Workers/DataStructure.php';
+    require_once __DIR__ . '/../Lib/RestAPI/Workers/ProcessingSettingsResponseDataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Transcripts/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/TranscriptEvents/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Jobs/Processor.php';
@@ -121,6 +123,32 @@ namespace {
     $workerParameters = WorkersDataStructure::getParameterDefinitions();
     expectSameRestApiContract(true, $workerParameters['request']['worker_uid']['required'] ?? null, 'Worker registration must require worker_uid');
     expectSameRestApiContract('integer', $workerParameters['response']['poll_interval']['type'] ?? null, 'Worker registration must return poll_interval');
+
+    $processingSchema = ProcessingSettingsResponseDataStructure::getDetailSchema();
+    expectSameRestApiContract('integer', $processingSchema['properties']['schema_version']['type'] ?? null, 'Processing settings schema version must be an integer');
+    expectSameRestApiContract('object', $processingSchema['properties']['processing_settings']['type'] ?? null, 'Processing settings must be an object');
+    $processingProperties = $processingSchema['properties']['processing_settings']['properties'] ?? [];
+    foreach ([
+        'temperature',
+        'temperature_fallback_step',
+        'compression_ratio_threshold',
+        'log_probability_threshold',
+        'first_token_log_probability_threshold',
+        'no_speech_threshold',
+    ] as $property) {
+        expectSameRestApiContract('number', $processingProperties[$property]['type'] ?? null, "{$property} must be a number");
+    }
+    foreach (['temperature_fallback_count', 'top_k', 'max_segment_duration_ms', 'segment_overlap_ms'] as $property) {
+        expectSameRestApiContract('integer', $processingProperties[$property]['type'] ?? null, "{$property} must be an integer");
+    }
+    foreach (['audio_normalization', 'voice_activity_detection'] as $property) {
+        expectSameRestApiContract('boolean', $processingProperties[$property]['type'] ?? null, "{$property} must be a boolean");
+    }
+    expectSameRestApiContract(
+        array_keys($processingProperties),
+        $processingSchema['properties']['processing_settings']['required'] ?? [],
+        'The complete processing profile must be required'
+    );
 
     $transcriptDetail = TranscriptsDataStructure::getDetailSchema();
     $technicalInfo = $transcriptDetail['properties']['technical_info'] ?? [];
