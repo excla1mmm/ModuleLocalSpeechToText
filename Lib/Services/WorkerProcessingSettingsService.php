@@ -6,6 +6,9 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use InvalidArgumentException;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Modules\ModuleLocalSpeechToText\Models\STTWorker;
+use PDO;
+use Throwable;
 
 final class WorkerProcessingSettingsService
 {
@@ -46,6 +49,10 @@ final class WorkerProcessingSettingsService
         STTSetting::AUDIO_NORMALIZATION,
         STTSetting::VOICE_ACTIVITY_DETECTION,
     ];
+
+    public function __construct(private readonly mixed $connection = null)
+    {
+    }
 
     /**
      * @return list<string>
@@ -106,12 +113,9 @@ final class WorkerProcessingSettingsService
      */
     public static function current(): array
     {
-        $stored = [];
-        foreach (self::DEFAULTS as $key => $default) {
-            $stored[$key] = STTSetting::getValue($key, self::storageDefault($default));
-        }
+        $service = new self();
 
-        return self::normalize($stored);
+        return $service->readCurrent($service->database());
     }
 
     /**
@@ -124,6 +128,47 @@ final class WorkerProcessingSettingsService
             'schema_version' => self::SCHEMA_VERSION,
             'processing_settings' => self::normalize($profile),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    public function save(array $input): bool
+    {
+        $next = self::normalize($input);
+
+        return $this->withImmediateTransaction(function (mixed $database) use ($next): bool {
+            $current = $this->readCurrent($database);
+            if ($current === $next) {
+                return false;
+            }
+
+            foreach ($next as $key => $value) {
+                $database->execute(
+                    'INSERT INTO m_STTSetting (key, value) VALUES (:key, :value)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+                    ['key' => $key, 'value' => self::storageValue($value)]
+                );
+            }
+            $database->execute('UPDATE m_STTWorker SET has_settings_changed = 1');
+
+            return true;
+        });
+    }
+
+    /**
+     * @return array{schema_version: int, processing_settings: array<string, float|int|bool>}
+     */
+    public function fetchForWorker(STTWorker $worker): array
+    {
+        return $this->withImmediateTransaction(function (mixed $database) use ($worker): array {
+            $database->execute(
+                'UPDATE m_STTWorker SET has_settings_changed = 0 WHERE id = :id',
+                ['id' => (int)$worker->id]
+            );
+
+            return self::apiPayload($this->readCurrent($database));
+        });
     }
 
     private static function normalizeBoolean(string $field, mixed $value): bool
@@ -178,7 +223,51 @@ final class WorkerProcessingSettingsService
         return $normalized;
     }
 
-    private static function storageDefault(float|int|bool $value): string
+    private function database(): mixed
+    {
+        return $this->connection ?? (new STTSetting())->getWriteConnection();
+    }
+
+    /**
+     * @return array<string, float|int|bool>
+     */
+    private function readCurrent(mixed $database): array
+    {
+        $stored = [];
+        foreach (self::DEFAULTS as $key => $default) {
+            $stored[$key] = self::storageValue($default);
+        }
+
+        $rows = $database->fetchAll('SELECT key, value FROM m_STTSetting', PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $key = (string)($row['key'] ?? '');
+            if (array_key_exists($key, self::DEFAULTS)) {
+                $stored[$key] = (string)($row['value'] ?? '');
+            }
+        }
+
+        return self::normalize($stored);
+    }
+
+    private function withImmediateTransaction(callable $operation): mixed
+    {
+        $database = $this->database();
+        $database->execute('BEGIN IMMEDIATE');
+        try {
+            $result = $operation($database);
+            $database->execute('COMMIT');
+
+            return $result;
+        } catch (Throwable $exception) {
+            try {
+                $database->execute('ROLLBACK');
+            } catch (Throwable) {
+            }
+            throw $exception;
+        }
+    }
+
+    private static function storageValue(float|int|bool $value): string
     {
         if (is_bool($value)) {
             return $value ? '1' : '0';
