@@ -9,6 +9,7 @@ use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use stdClass;
@@ -86,15 +87,35 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CUSTOM_VOCABULARY_TERMS,
             function_exists('mb_substr') ? mb_substr($customTerms, 0, 8000) : substr($customTerms, 0, 8000)
         );
+        $processingInput = [
+            STTSetting::TEMPERATURE => $this->request->getPost(STTSetting::TEMPERATURE),
+            STTSetting::TEMPERATURE_FALLBACK_STEP => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_STEP),
+            STTSetting::TEMPERATURE_FALLBACK_COUNT => $this->request->getPost(STTSetting::TEMPERATURE_FALLBACK_COUNT),
+            STTSetting::TOP_K => $this->request->getPost(STTSetting::TOP_K),
+            STTSetting::COMPRESSION_RATIO_THRESHOLD => $this->request->getPost(STTSetting::COMPRESSION_RATIO_THRESHOLD),
+            STTSetting::LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::LOG_PROBABILITY_THRESHOLD),
+            STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD),
+            STTSetting::NO_SPEECH_THRESHOLD => $this->request->getPost(STTSetting::NO_SPEECH_THRESHOLD),
+            STTSetting::AUDIO_NORMALIZATION => $this->request->hasPost(STTSetting::AUDIO_NORMALIZATION) ? '1' : '0',
+            STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->hasPost(STTSetting::VOICE_ACTIVITY_DETECTION) ? '1' : '0',
+            STTSetting::MAX_SEGMENT_DURATION_MS => (int)round(
+                (float)$this->request->getPost('max_segment_duration_sec') * 1000
+            ),
+            STTSetting::SEGMENT_OVERLAP_MS => (int)round(
+                (float)$this->request->getPost('segment_overlap_sec') * 1000
+            ),
+        ];
+        $processingChanged = (new WorkerProcessingSettingsService())->save($processingInput);
         LocalSpeechToTextLogger::write(
             'web-ui',
             sprintf(
-                'Settings saved: language=%s model=%s history_days=%d max_duration_min=%d vocabulary_terms=%d',
+                'Settings saved: language=%s model=%s history_days=%d max_duration_min=%d vocabulary_terms=%d processing_changed=%s',
                 STTSetting::selectedLanguageId(),
                 STTSetting::selectedModelId(),
                 $nextHistoryDays,
                 STTSetting::maxRecordingDurationMinutes(),
-                count(STTSetting::selectedVocabularyTerms())
+                count(STTSetting::selectedVocabularyTerms()),
+                $processingChanged ? 'yes' : 'no'
             ),
             LOG_NOTICE
         );
@@ -121,6 +142,12 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
         $settings->selected_model = STTSetting::selectedModelId();
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();
+        $processing = WorkerProcessingSettingsService::current();
+        foreach ($processing as $key => $value) {
+            $settings->{$key} = $value;
+        }
+        $settings->max_segment_duration_sec = $processing[STTSetting::MAX_SEGMENT_DURATION_MS] / 1000;
+        $settings->segment_overlap_sec = $processing[STTSetting::SEGMENT_OVERLAP_MS] / 1000;
 
         return $settings;
     }

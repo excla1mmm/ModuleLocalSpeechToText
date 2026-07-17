@@ -91,6 +91,19 @@
     margin: 1.2em 0;
 }
 
+.module-local-speech-to-text .stt-advanced-settings-dropdown .content {
+    padding: 1.25em !important;
+}
+
+.module-local-speech-to-text .stt-processing-settings-hint {
+    margin-top: 0;
+}
+
+.module-local-speech-to-text .stt-vad-dependent.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .module-local-speech-to-text .stt-vocabulary-summary {
     align-items: center;
     display: flex;

@@ -47,6 +47,50 @@
                     <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AdvancedSettings') }}
                 </div>
                 <div class="content">
+                    <div class="ui warning message stt-processing-settings-hint">
+                        <i class="exclamation triangle icon"></i>
+                        <div class="content">{{ t._('module_local_speech_to_text_ProcessingSettingsHint') }}</div>
+                    </div>
+                    <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_DecodingSettings') }}</h4>
+                    <div class="three fields">
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_Temperature') }}</label>{{ form.render('temperature') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackStep') }}</label>{{ form.render('temperature_fallback_step') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackCount') }}</label>{{ form.render('temperature_fallback_count') }}</div>
+                    </div>
+                    <div class="three fields">
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TopK') }}</label>{{ form.render('top_k') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_CompressionRatioThreshold') }}</label>{{ form.render('compression_ratio_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_LogProbabilityThreshold') }}</label>{{ form.render('log_probability_threshold') }}</div>
+                    </div>
+                    <div class="two fields">
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_FirstTokenLogProbabilityThreshold') }}</label>{{ form.render('first_token_log_probability_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_NoSpeechThreshold') }}</label>{{ form.render('no_speech_threshold') }}</div>
+                    </div>
+                    <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_AudioProcessingSettings') }}</h4>
+                    <div class="two fields">
+                        <div class="field">
+                            <div class="ui toggle checkbox">
+                                {{ form.render('audio_normalization') }}
+                                <label>{{ t._('module_local_speech_to_text_AudioNormalization') }}</label>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="ui toggle checkbox">
+                                {{ form.render('voice_activity_detection') }}
+                                <label>{{ t._('module_local_speech_to_text_VoiceActivityDetection') }}</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="two fields stt-vad-dependent-fields">
+                        <div class="field stt-vad-dependent" data-profile-field="max_segment_duration_ms">
+                            <label>{{ t._('module_local_speech_to_text_MaxSegmentDuration') }}</label>
+                            {{ form.render('max_segment_duration_sec') }}
+                        </div>
+                        <div class="field stt-vad-dependent" data-profile-field="segment_overlap_ms">
+                            <label>{{ t._('module_local_speech_to_text_SegmentOverlap') }}</label>
+                            {{ form.render('segment_overlap_sec') }}
+                        </div>
+                    </div>
                 </div>
             </div>
             <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }}</h4>

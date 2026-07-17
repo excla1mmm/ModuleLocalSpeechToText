@@ -886,6 +886,84 @@
         initializeCdrHistorySlider($settingsForm);
         initializeVocabularyTermsTools($settingsForm);
         initializeConfirmModal();
+
+        if ($.fn.form && $.fn.form.settings && $.fn.form.settings.rules) {
+            $.fn.form.settings.rules.sttProcessingRange = function (value, range) {
+                var limits = String(range || '').split(',').map(Number);
+                var number = Number(value);
+
+                return limits.length === 2
+                    && Number.isFinite(number)
+                    && number >= limits[0]
+                    && number <= limits[1];
+            };
+            $.fn.form.settings.rules.sttProcessingOverlap = function (value) {
+                var overlapMS = Math.round(Number(value) * 1000);
+                var durationMS = Math.round(Number($settingsForm.find('[name="max_segment_duration_sec"]').val()) * 1000);
+
+                return Number.isFinite(overlapMS)
+                    && Number.isFinite(durationMS)
+                    && overlapMS >= 0
+                    && overlapMS < durationMS;
+            };
+        }
+
+        var processingValidationFields = {
+            temperature: {
+                identifier: 'temperature',
+                rules: [{ type: 'sttProcessingRange[0,1]' }]
+            },
+            temperature_fallback_step: {
+                identifier: 'temperature_fallback_step',
+                rules: [{ type: 'sttProcessingRange[0,1]' }]
+            },
+            temperature_fallback_count: {
+                identifier: 'temperature_fallback_count',
+                rules: [{ type: 'integer[0..10]' }]
+            },
+            top_k: {
+                identifier: 'top_k',
+                rules: [{ type: 'integer[1..100]' }]
+            },
+            compression_ratio_threshold: {
+                identifier: 'compression_ratio_threshold',
+                rules: [{ type: 'sttProcessingRange[0,10]' }]
+            },
+            log_probability_threshold: {
+                identifier: 'log_probability_threshold',
+                rules: [{ type: 'sttProcessingRange[-10,0]' }]
+            },
+            first_token_log_probability_threshold: {
+                identifier: 'first_token_log_probability_threshold',
+                rules: [{ type: 'sttProcessingRange[-10,0]' }]
+            },
+            no_speech_threshold: {
+                identifier: 'no_speech_threshold',
+                rules: [{ type: 'sttProcessingRange[0,1]' }]
+            },
+            max_segment_duration_sec: {
+                identifier: 'max_segment_duration_sec',
+                rules: [{ type: 'sttProcessingRange[1,120]' }]
+            },
+            segment_overlap_sec: {
+                identifier: 'segment_overlap_sec',
+                rules: [
+                    { type: 'sttProcessingRange[0,10]' },
+                    { type: 'sttProcessingOverlap' }
+                ]
+            }
+        };
+
+        function updateVadDependentFields() {
+            var enabled = $settingsForm.find('[name="voice_activity_detection"]').is(':checked');
+
+            $settingsForm.find('.stt-vad-dependent')
+                .toggleClass('disabled', !enabled)
+                .attr('aria-disabled', enabled ? 'false' : 'true');
+        }
+
+        $settingsForm.find('[name="voice_activity_detection"]').on('change', updateVadDependentFields);
+        updateVadDependentFields();
         $('.module-local-speech-to-text .stt-copy-button').on('click', function () {
             var text = $(this).data('clipboard-text') || '';
             var $button = $(this);
@@ -904,7 +982,7 @@
             Form.$formObj = $settingsForm;
             Form.url = $settingsForm.attr('action');
             Form.method = 'POST';
-            Form.validateRules = {
+            Form.validateRules = Object.assign({
                 default_language: {
                     identifier: 'default_language',
                     rules: [{ type: 'empty' }]
@@ -913,9 +991,9 @@
                     identifier: 'poll_interval_sec',
                     rules: [{ type: 'integer[30..3600]' }]
                 },
-                max_file_size_mb: {
-                    identifier: 'max_file_size_mb',
-                    rules: [{ type: 'integer[1..10240]' }]
+                max_recording_duration_min: {
+                    identifier: 'max_recording_duration_min',
+                    rules: [{ type: 'integer[1..1440]' }]
                 },
                 cdr_scan_limit: {
                     identifier: 'cdr_scan_limit',
@@ -929,7 +1007,7 @@
                     identifier: 'processing_timeout_sec',
                     rules: [{ type: 'integer[60..86400]' }]
                 }
-            };
+            }, processingValidationFields);
             Form.cbBeforeSendForm = function (settings) {
                 return settings;
             };
@@ -941,14 +1019,14 @@
             Form.initialize();
         } else {
             $settingsForm.form({
-                fields: {
+                fields: Object.assign({
                     default_language: ['empty'],
                     poll_interval_sec: ['integer[30..3600]'],
-                    max_file_size_mb: ['integer[1..10240]'],
+                    max_recording_duration_min: ['integer[1..1440]'],
                     cdr_scan_limit: ['integer[1..1000]'],
                     cdr_history_days: ['integer[0..730]'],
                     processing_timeout_sec: ['integer[60..86400]']
-                }
+                }, processingValidationFields)
             });
         }
 

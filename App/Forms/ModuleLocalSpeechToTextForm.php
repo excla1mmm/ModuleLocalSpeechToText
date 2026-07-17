@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\App\Forms;
 
 use MikoPBX\AdminCabinet\Forms\BaseForm;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Phalcon\Forms\Element\Check;
 use Phalcon\Forms\Element\Hidden;
 use Phalcon\Forms\Element\Numeric;
 use Phalcon\Forms\Element\Select;
@@ -60,6 +61,31 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'rows' => 6,
             'placeholder' => 'MikoPBX, Asterisk, SIP, VoIP, CRM',
         ]));
+
+        $processingNumericFields = [
+            'temperature' => ['min' => 0, 'max' => 1, 'step' => 0.1],
+            'temperature_fallback_step' => ['min' => 0, 'max' => 1, 'step' => 0.1],
+            'temperature_fallback_count' => ['min' => 0, 'max' => 10, 'step' => 1],
+            'top_k' => ['min' => 1, 'max' => 100, 'step' => 1],
+            'compression_ratio_threshold' => ['min' => 0, 'max' => 10, 'step' => 0.1],
+            'log_probability_threshold' => ['min' => -10, 'max' => 0, 'step' => 0.1],
+            'first_token_log_probability_threshold' => ['min' => -10, 'max' => 0, 'step' => 0.1],
+            'no_speech_threshold' => ['min' => 0, 'max' => 1, 'step' => 0.05],
+            'max_segment_duration_sec' => ['min' => 1, 'max' => 120, 'step' => 1],
+            'segment_overlap_sec' => ['min' => 0, 'max' => 10, 'step' => 0.1],
+        ];
+        foreach ($processingNumericFields as $field => $attributes) {
+            $attributes['value'] = $entity->{$field} ?? '';
+            $this->add(new Numeric($field, $attributes));
+        }
+
+        foreach (['audio_normalization', 'voice_activity_detection'] as $field) {
+            $attributes = ['value' => '1'];
+            if ((bool)($entity->{$field} ?? false)) {
+                $attributes['checked'] = 'checked';
+            }
+            $this->add(new Check($field, $attributes));
+        }
     }
 
     private function languageOptions(): array

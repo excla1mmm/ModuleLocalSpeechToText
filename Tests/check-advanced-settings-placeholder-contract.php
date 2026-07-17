@@ -34,11 +34,15 @@ preg_match(
     '/<div class="ui fluid styled accordion stt-advanced-settings-dropdown">\s*'
         . '<div class="title">\s*<i class="dropdown icon"><\/i>'
         . "\{\{ t\._\('module_local_speech_to_text_AdvancedSettings'\) \}\}\s*<\/div>\s*"
-        . '<div class="content">\s*<\/div>\s*<\/div>/s',
+        . '<div class="content">\s*(.+?)\s*<\/div>\s*<\/div>/s',
     $view,
     $accordionMatch
 );
-expectAdvancedSettings(($accordionMatch[0] ?? '') !== '', 'Advanced settings accordion must be collapsed and empty');
+expectAdvancedSettings(
+    ($accordionMatch[0] ?? '') !== ''
+        && preg_match('/stt-advanced-settings-dropdown.*?<div class="content">\s*<\/div>/s', $view) !== 1,
+    'Advanced settings accordion must remain collapsed and contain expert controls'
+);
 expectAdvancedSettings(
     str_contains($sourceJs, '.stt-advanced-settings-dropdown')
         && str_contains($bundledJs, '.stt-advanced-settings-dropdown'),
@@ -69,4 +73,4 @@ foreach ($messageFiles as $messageFile) {
     expectAdvancedSettings($messageKeys === $sourceKeys, basename($messageFile) . ' translation keys differ from ru.php');
 }
 
-echo "Advanced settings placeholder contract OK\n";
+echo "Advanced settings contract OK\n";
