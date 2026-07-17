@@ -51,7 +51,6 @@
                 </div>
             </div>
             <div class="field stt-vocabulary-terms-field">
-                <label>{{ t._('module_local_speech_to_text_CustomVocabularyTerms') }}</label>
                 <div class="stt-vocabulary-actions">
                     <label class="ui basic labeled icon button stt-vocabulary-upload-button" for="stt-vocabulary-terms-file">
                         <i class="file alternate outline icon"></i>{{ t._('module_local_speech_to_text_UploadVocabularyTxt') }}
