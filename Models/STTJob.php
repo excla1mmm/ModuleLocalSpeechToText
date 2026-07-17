@@ -90,6 +90,9 @@ class STTJob extends ModulesModelsBase
     /** @Column(type="string", nullable=true) */
     public ?string $recording_fingerprint = '';
 
+    /** @Column(type="integer", nullable=true) */
+    public ?string $recording_duration_sec = null;
+
     /**
      * @Column(type="integer", nullable=true)
      */
@@ -154,7 +157,8 @@ class STTJob extends ModulesModelsBase
         string $filePath,
         int $priority = 5,
         ?int $cdrEndtime = null,
-        array $recordingIdentity = []
+        array $recordingIdentity = [],
+        ?int $recordingDurationSec = null
     ): self
     {
         $createdAt = time();
@@ -178,6 +182,9 @@ class STTJob extends ModulesModelsBase
             ? (string)(int)$recordingIdentity['cdr_end_ms']
             : null;
         $job->recording_fingerprint = trim((string)($recordingIdentity['recording_fingerprint'] ?? ''));
+        $job->recording_duration_sec = $recordingDurationSec !== null && $recordingDurationSec > 0
+            ? (string)$recordingDurationSec
+            : null;
 
         if (!$job->save()) {
             throw new RuntimeException(implode(', ', $job->getMessages()));

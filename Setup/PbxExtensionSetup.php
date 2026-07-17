@@ -49,6 +49,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->ensureJobUpdatedAtColumn();
             $this->ensureJobLeaseColumns();
             $this->ensureJobCallIdentityColumns();
+            $this->ensureJobRecordingDurationColumn();
             $this->ensureRetryStateSchema();
             $this->importLegacyRetryState();
             $this->ensureTechnicalInfoColumn();
@@ -255,6 +256,19 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute(
             'CREATE INDEX IF NOT EXISTS m_STTJob_cdr_id ON m_STTJob (cdr_id)'
         );
+    }
+
+    private function ensureJobRecordingDurationColumn(): void
+    {
+        $job = new STTJob();
+        $connection = $job->getWriteConnection();
+        foreach ($connection->describeColumns($job->getSource()) as $column) {
+            if ($column->getName() === 'recording_duration_sec') {
+                return;
+            }
+        }
+
+        $connection->execute('ALTER TABLE m_STTJob ADD COLUMN recording_duration_sec INTEGER');
     }
 
     private function ensureTranscriptEventTable(): void

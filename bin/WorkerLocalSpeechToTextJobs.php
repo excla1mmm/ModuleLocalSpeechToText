@@ -262,6 +262,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             return;
         }
 
+        if (!$this->recordingWithinDurationLimit($record)) {
+            $this->logSkippedLongRecording($record);
+            $this->rememberSkippedRecording($record, 'duration_too_long');
+            return;
+        }
+
         $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
         if ($recordingPath === null) {
             $this->rememberDelayedRecording($delayedRecordings, $record);
@@ -289,7 +295,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $recordingPath,
             $this->priority($record),
             $this->recordEndtimeTimestamp($record),
-            $this->recordingIdentity($record, $recordingPath)
+            $this->recordingIdentity($record, $recordingPath),
+            $this->recordingDurationSeconds($record)
         );
 
         LocalSpeechToTextLogger::syslog(
@@ -332,6 +339,14 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
+            if (!$this->recordingWithinDurationLimit($record)) {
+                $this->logSkippedLongRecording($record);
+                $this->rememberSkippedRecording($record, 'duration_too_long', '', (int)$recordId);
+                unset($delayedRecordings[$recordId]);
+                $changed = true;
+                continue;
+            }
+
             if ($now - (int)($record['first_seen'] ?? $now) > self::DELAYED_RECORDING_TTL_SECONDS) {
                 $this->rememberSkippedRecording($record, 'recording_missing_timeout', '', (int)$recordId);
                 unset($delayedRecordings[$recordId]);
@@ -363,7 +378,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
                     (int)($record['cdr_endtime'] ?? 0) ?: null,
-                    $this->recordingIdentity($record, $recordingPath)
+                    $this->recordingIdentity($record, $recordingPath),
+                    $this->recordingDurationSeconds($record)
                 );
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -418,6 +434,20 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
+            if (!$this->recordingWithinDurationLimit($record)) {
+                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
+                    $changed = true;
+                    continue;
+                }
+                $this->retryStateStore()->deferWithBackoff(
+                    $recordId,
+                    RetryStateStore::TYPE_SKIPPED,
+                    self::SCAN_INTERVAL_SECONDS,
+                    self::MAX_SKIPPED_RETRY_SECONDS
+                );
+                continue;
+            }
+
             $recordingFile = trim((string)($record['recordingfile'] ?? ''));
             if ($recordingFile === '') {
                 $recordingFile = (string)($record['recording_path'] ?? '');
@@ -457,7 +487,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
                     (int)($record['cdr_endtime'] ?? 0) ?: null,
-                    $this->recordingIdentity($record, $recordingPath)
+                    $this->recordingIdentity($record, $recordingPath),
+                    $this->recordingDurationSeconds($record)
                 );
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -526,6 +557,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'cdr_uniqueid' => trim((string)($record['UNIQUEID'] ?? '')),
             'cdr_start_ms' => $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
             'cdr_end_ms' => $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
+            'recording_duration_sec' => $this->recordingDurationSeconds($record),
             'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
             'last_seen' => $now,
         ];
@@ -584,6 +616,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'cdr_uniqueid' => trim((string)($record['cdr_uniqueid'] ?? $record['UNIQUEID'] ?? '')),
             'cdr_start_ms' => (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
             'cdr_end_ms' => (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
+            'recording_duration_sec' => $this->recordingDurationSeconds($record),
             'reason' => $reason,
             'created_at' => time(),
         ];
@@ -907,6 +940,40 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $fileSize = filesize($recordingPath);
 
         return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function recordingDurationSeconds(array $record): ?int
+    {
+        return STTSetting::normalizeRecordingDurationSeconds(
+            $record['recording_duration_sec'] ?? $record['duration'] ?? null
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function recordingWithinDurationLimit(array $record): bool
+    {
+        return STTSetting::recordingDurationAllowed($this->recordingDurationSeconds($record));
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    private function logSkippedLongRecording(array $record): void
+    {
+        LocalSpeechToTextLogger::syslog(
+            __CLASS__,
+            sprintf(
+                'Skipped transcription job: recording duration %d seconds exceeds configured limit of %d minutes',
+                $this->recordingDurationSeconds($record) ?? 0,
+                STTSetting::maxRecordingDurationMinutes()
+            ),
+            LOG_WARNING
+        );
     }
 
     private function logSkippedLargeRecording(string $recordingPath): void

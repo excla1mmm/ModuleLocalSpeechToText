@@ -14,12 +14,16 @@ $form = file_get_contents(__DIR__ . '/../App/Forms/ModuleLocalSpeechToTextForm.p
 $controller = file_get_contents(__DIR__ . '/../App/Controllers/LocalSpeechToTextBaseController.php');
 $view = file_get_contents(__DIR__ . '/../App/Views/ModuleLocalSpeechToText/index.volt');
 $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
+$job = file_get_contents(__DIR__ . '/../Models/STTJob.php');
+$worker = file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
 
 expectDurationContract($settings !== false, 'Cannot read STTSetting.php');
 expectDurationContract($form !== false, 'Cannot read settings form');
 expectDurationContract($controller !== false, 'Cannot read settings controller');
 expectDurationContract($view !== false, 'Cannot read settings view');
 expectDurationContract($setup !== false, 'Cannot read setup');
+expectDurationContract($job !== false, 'Cannot read STTJob.php');
+expectDurationContract($worker !== false, 'Cannot read queue worker');
 
 expectDurationContract(
     str_contains($settings, "MAX_RECORDING_DURATION_MIN = 'max_recording_duration_min'"),
@@ -49,6 +53,30 @@ expectDurationContract(
 expectDurationContract(
     !str_contains($setup, 'setDefaultSetting(STTSetting::MAX_FILE_SIZE_MB'),
     'Fresh installs must not create the legacy setting'
+);
+expectDurationContract(
+    str_contains($job, 'public ?string $recording_duration_sec = null'),
+    'Job duration field is missing'
+);
+expectDurationContract(
+    str_contains($setup, 'ensureJobRecordingDurationColumn'),
+    'Job duration migration is missing'
+);
+expectDurationContract(
+    str_contains($setup, 'ALTER TABLE m_STTJob ADD COLUMN recording_duration_sec INTEGER'),
+    'Job duration column SQL is missing'
+);
+expectDurationContract(
+    str_contains($worker, "'duration_too_long'"),
+    'Queue must retain an over-duration skip reason'
+);
+expectDurationContract(
+    str_contains($worker, 'STTSetting::recordingDurationAllowed'),
+    'Queue must use shared duration validation'
+);
+expectDurationContract(
+    str_contains($worker, "'recording_duration_sec'"),
+    'Retry payload must retain known duration'
 );
 
 echo "Recording duration limit contract OK\n";

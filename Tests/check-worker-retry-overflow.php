@@ -115,7 +115,8 @@ namespace Modules\ModuleLocalSpeechToText\Models {
             string $filePath,
             int $priority,
             ?int $cdrEndtime = null,
-            array $identity = []
+            array $identity = [],
+            ?int $recordingDurationSec = null
         ): self {
             if (isset(self::$jobs[$filePath])) {
                 throw new \RuntimeException('Duplicate retry job for ' . $filePath);
@@ -125,6 +126,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
                 'priority' => $priority,
                 'cdr_endtime' => $cdrEndtime,
                 'identity' => $identity,
+                'recording_duration_sec' => $recordingDurationSec,
             ];
 
             return new self();
@@ -154,6 +156,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
             self::CDR_SCAN_LIMIT => '37',
         ];
         public static string $historyStart = '';
+        public static int $maxRecordingDurationMinutes = 60;
 
         public static function getValue(string $key, string $default = ''): string
         {
@@ -173,6 +176,27 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public static function maxFileSizeBytes(): int
         {
             return 1024 * 1024;
+        }
+
+        public static function normalizeRecordingDurationSeconds(mixed $value): ?int
+        {
+            if (!is_numeric($value) || (float)$value <= 0) {
+                return null;
+            }
+
+            return (int)ceil((float)$value);
+        }
+
+        public static function recordingDurationAllowed(mixed $value): bool
+        {
+            $seconds = self::normalizeRecordingDurationSeconds($value);
+
+            return $seconds === null || $seconds <= self::$maxRecordingDurationMinutes * 60;
+        }
+
+        public static function maxRecordingDurationMinutes(): int
+        {
+            return self::$maxRecordingDurationMinutes;
         }
     }
 
@@ -230,6 +254,7 @@ namespace {
     $saveDelayed = new ReflectionMethod($worker, 'saveDelayedRecordings');
     $retryDelayed = new ReflectionMethod($worker, 'retryDelayedRecordings');
     $retrySkipped = new ReflectionMethod($worker, 'retrySkippedRecordings');
+    $processCompleted = new ReflectionMethod($worker, 'processCompletedRecord');
 
     $delayedCache = [];
     for ($id = 1; $id <= 501; $id++) {
@@ -285,6 +310,55 @@ namespace {
         STTJob::$jobs
     );
     expectWorkerRetry(count(array_unique($cdrIds)) === 602, 'Recovered jobs must preserve CDR deduplication identity');
+
+    $durationCases = [
+        8001 => ['file' => 'duration-boundary.wav', 'duration' => 3600],
+        8002 => ['file' => 'duration-too-long.wav', 'duration' => 3601],
+        8003 => ['file' => 'duration-unknown.wav', 'duration' => 0],
+    ];
+    $durationDelayedCache = [];
+    foreach ($durationCases as $id => $case) {
+        file_put_contents($monitorDirectory . '/' . $case['file'], 'audio');
+        $record = [
+            'id' => $id,
+            'recordingfile' => $case['file'],
+            'UNIQUEID' => 'duration-call-' . $id,
+            'endtime' => '2026-07-17 12:00:00',
+            'duration' => $case['duration'],
+        ];
+        $arguments = [&$durationDelayedCache, $record, ''];
+        $processCompleted->invokeArgs($worker, $arguments);
+    }
+
+    $resolvedMonitorDirectory = realpath($monitorDirectory) ?: $monitorDirectory;
+    $boundaryJob = STTJob::$jobs[$resolvedMonitorDirectory . '/duration-boundary.wav'] ?? null;
+    expectWorkerRetry(
+        is_array($boundaryJob) && $boundaryJob['recording_duration_sec'] === 3600,
+        'Duration exactly at the limit must create a job and persist its duration'
+    );
+    expectWorkerRetry(
+        !isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-too-long.wav']),
+        'Duration above the limit must not create a job'
+    );
+    $durationSkipped = json_decode(STTSetting::$values[STTSetting::SKIPPED_RECORDINGS], true, 32, JSON_THROW_ON_ERROR);
+    expectWorkerRetry(
+        ($durationSkipped[8002]['reason'] ?? '') === 'duration_too_long'
+            && ($durationSkipped[8002]['recording_duration_sec'] ?? null) === 3601,
+        'Over-duration recordings must retain a dedicated reason and normalized duration'
+    );
+    expectWorkerRetry(
+        isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav'])
+            && STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav']['recording_duration_sec'] === null,
+        'Unknown zero duration must remain eligible and persist as null'
+    );
+
+    STTSetting::$maxRecordingDurationMinutes = 120;
+    $retrySkipped->invoke($worker);
+    expectWorkerRetry(
+        isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-too-long.wav']) && $store->count() === 0,
+        'Increasing the duration limit must allow skipped recordings to recover'
+    );
+    STTSetting::$maxRecordingDurationMinutes = 60;
 
     STTSetting::$historyStart = '2026-07-17 00:00:00';
     $rememberSkipped->invoke($worker, [
