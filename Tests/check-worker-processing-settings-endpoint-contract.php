@@ -21,6 +21,16 @@ expectProcessingEndpoint(str_contains($processor, "case GET_PROCESSING_SETTINGS 
 expectProcessingEndpoint(is_file($actionPath), 'Processing-settings action is missing');
 expectProcessingEndpoint(is_file($schemaPath), 'Processing-settings response schema is missing');
 expectProcessingEndpoint(str_contains($main, 'public static function getWorkerProcessingSettings(array $data): PBXApiResult'), 'Worker settings handler is missing');
+preg_match(
+    '/public static function getWorkerProcessingSettings\(array \$data\): PBXApiResult(?<body>.*?)public static function downloadJobFile/s',
+    $main,
+    $handlerMatch
+);
+$handlerBody = (string)($handlerMatch['body'] ?? '');
+expectProcessingEndpoint(
+    str_contains($handlerBody, 'requireBearerWorkerApiKey($data)'),
+    'Processing settings must require Bearer worker authentication even from localhost'
+);
 expectProcessingEndpoint(str_contains($main, 'validateWorkerApiKeyBinding($worker, $data)'), 'Worker binding check is missing');
 expectProcessingEndpoint(str_contains($main, 'fetchForWorker($worker)'), 'Atomic profile fetch is missing');
 expectProcessingEndpoint(!str_contains($main, 'settings_revision'), 'Settings revisions are forbidden');

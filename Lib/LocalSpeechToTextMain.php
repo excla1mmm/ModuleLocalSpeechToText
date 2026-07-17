@@ -134,7 +134,7 @@ class LocalSpeechToTextMain
             return self::error('validation_error', 'worker_uid is required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = self::requireBearerWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -572,6 +572,15 @@ class LocalSpeechToTextMain
         }
 
         return null;
+    }
+
+    private static function requireBearerWorkerApiKey(array $data): ?PBXApiResult
+    {
+        if (!self::isBearerAuthenticatedRequest($data)) {
+            return self::error('worker_api_key_required', 'Worker REST API key is required', 403);
+        }
+
+        return self::validateWorkerApiKey($data);
     }
 
     private static function validateWorkerRegistrationBinding(string $workerUid, array $data): ?PBXApiResult
