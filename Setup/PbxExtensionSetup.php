@@ -13,10 +13,12 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
+use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
 
 class PbxExtensionSetup extends PbxExtensionSetupBase
@@ -45,6 +47,13 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->setDefaultSetting(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
             $this->setDefaultSetting(STTSetting::WORKER_API_KEY_ID, '');
             $this->setDefaultSetting(STTSetting::WORKER_API_KEY_IDS, '[]');
+            foreach (WorkerProcessingSettingsService::defaults() as $key => $value) {
+                $encoded = is_bool($value)
+                    ? ($value ? '1' : '0')
+                    : (json_encode($value, JSON_PRESERVE_ZERO_FRACTION) ?: (string)$value);
+                $this->setDefaultSetting($key, $encoded);
+            }
+            $this->ensureWorkerProcessingSettingsFlag();
             $this->ensureJobCdrEndtimeColumn();
             $this->ensureJobUpdatedAtColumn();
             $this->ensureJobLeaseColumns();
@@ -115,6 +124,22 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         if (STTSetting::getValue($key, '') === '') {
             STTSetting::setValue($key, $value);
         }
+    }
+
+    private function ensureWorkerProcessingSettingsFlag(): void
+    {
+        $worker = new STTWorker();
+        $connection = $worker->getWriteConnection();
+        foreach ($connection->describeColumns($worker->getSource()) as $column) {
+            if ($column->getName() === 'has_settings_changed') {
+                return;
+            }
+        }
+
+        $connection->execute(
+            'ALTER TABLE m_STTWorker ADD COLUMN has_settings_changed INTEGER NOT NULL DEFAULT 1'
+        );
+        $connection->execute('UPDATE m_STTWorker SET has_settings_changed = 1');
     }
 
     private function ensureTechnicalInfoColumn(): void

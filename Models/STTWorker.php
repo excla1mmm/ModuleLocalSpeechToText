@@ -59,6 +59,11 @@ class STTWorker extends ModulesModelsBase
     public ?int $api_key_id = null;
 
     /**
+     * @Column(type="integer", default="1", nullable=false)
+     */
+    public ?int $has_settings_changed = 1;
+
+    /**
      * @Column(type="integer", nullable=true)
      */
     public ?string $last_seen = null;
@@ -105,6 +110,7 @@ class STTWorker extends ModulesModelsBase
             $worker = new self();
             $worker->worker_uid = $workerUid;
             $worker->created_at = (string)time();
+            $worker->has_settings_changed = 1;
         }
 
         $worker->name = $name;
@@ -121,6 +127,11 @@ class STTWorker extends ModulesModelsBase
         }
 
         return $worker;
+    }
+
+    public function hasProcessingSettingsChanged(): bool
+    {
+        return (int)$this->has_settings_changed === 1;
     }
 
     public function touchOnline(?string $ip = null): void
