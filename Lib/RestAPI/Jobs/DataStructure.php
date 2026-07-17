@@ -76,6 +76,10 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'type' => 'object',
                     'description' => 'Claimed job or null when queue is empty.',
                 ],
+                'has_settings_changed' => [
+                    'type' => 'boolean',
+                    'description' => 'Whether this worker should fetch the complete processing profile.',
+                ],
             ],
         ];
     }
@@ -121,6 +125,10 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                         ],
                         ['type' => 'null'],
                     ],
+                ],
+                'has_settings_changed' => [
+                    'type' => 'boolean',
+                    'description' => 'Whether this worker should fetch the complete processing profile.',
                 ],
             ],
         ];

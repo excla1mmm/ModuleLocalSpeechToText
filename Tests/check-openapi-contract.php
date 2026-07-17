@@ -207,6 +207,10 @@ namespace {
     );
 
     $jobSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::getDetailSchema();
+    expectOpenApi(
+        ($jobSchema['properties']['has_settings_changed']['type'] ?? null) === 'boolean',
+        'Next-job OpenAPI schema must expose has_settings_changed as a boolean'
+    );
     $durationHint = $jobSchema['properties']['job']['oneOf'][0]['properties']['duration_hint'] ?? [];
     expectOpenApi(
         ($durationHint['type'] ?? null) === 'number'

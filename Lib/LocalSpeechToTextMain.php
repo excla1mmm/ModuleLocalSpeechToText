@@ -100,11 +100,15 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
+            $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
             self::syncWorkerModel($worker);
             $job = STTJob::claimNextForWorker($worker);
             if ($job === null) {
-                return self::success(['job' => null]);
+                return self::success([
+                    'job' => null,
+                    'has_settings_changed' => $hasSettingsChanged,
+                ]);
             }
             LocalSpeechToTextLogger::write(
                 'api',
@@ -112,7 +116,10 @@ class LocalSpeechToTextMain
                 LOG_INFO
             );
 
-            return self::success(['job' => self::formatJob($job, $workerUid)]);
+            return self::success([
+                'job' => self::formatJob($job, $workerUid),
+                'has_settings_changed' => $hasSettingsChanged,
+            ]);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);

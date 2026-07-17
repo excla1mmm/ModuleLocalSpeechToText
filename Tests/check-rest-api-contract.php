@@ -93,6 +93,11 @@ namespace {
     expectSameRestApiContract('object', $jobParameters['request']['technical_info']['type'] ?? null, 'Jobs API must accept worker technical_info objects');
 
     $jobSchema = JobsDataStructure::getDetailSchema();
+    expectSameRestApiContract(
+        'boolean',
+        $jobSchema['properties']['has_settings_changed']['type'] ?? null,
+        'Next-job responses must expose has_settings_changed'
+    );
     $jobProperties = $jobSchema['properties']['job']['oneOf'][0]['properties'] ?? [];
     foreach ([
         'id',
