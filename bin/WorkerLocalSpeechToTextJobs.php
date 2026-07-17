@@ -980,7 +980,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     {
         LocalSpeechToTextLogger::syslog(
             __CLASS__,
-            sprintf('Skipped transcription job for %s: file exceeds configured maximum size', $recordingPath),
+            sprintf('Skipped transcription job for %s: file exceeds fixed maximum size', $recordingPath),
             LOG_WARNING
         );
     }
