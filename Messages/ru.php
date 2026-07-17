@@ -199,6 +199,7 @@ return [
     'module_local_speech_to_text_TranscriptNotFound' => 'Расшифровка не найдена',
     'module_local_speech_to_text_TechnicalInformation' => 'Диагностика',
     'module_local_speech_to_text_TechnicalRawJson' => 'Показать исходные данные JSON',
+    'module_local_speech_to_text_TranscriptJson' => 'Показать JSON',
     'module_local_speech_to_text_TechnicalGroupPipeline' => 'Этапы обработки',
     'module_local_speech_to_text_TechnicalGroupVad' => 'Поиск речи и аудио',
     'module_local_speech_to_text_TechnicalGroupPerformance' => 'Производительность',

@@ -199,6 +199,7 @@ return [
     'module_local_speech_to_text_TranscriptNotFound' => 'Transcript not found',
     'module_local_speech_to_text_TechnicalInformation' => 'Technical information',
     'module_local_speech_to_text_TechnicalRawJson' => 'Show raw JSON',
+    'module_local_speech_to_text_TranscriptJson' => 'Afișează JSON',
     'module_local_speech_to_text_TechnicalGroupPipeline' => 'Pipeline',
     'module_local_speech_to_text_TechnicalGroupVad' => 'VAD and audio',
     'module_local_speech_to_text_TechnicalGroupPerformance' => 'Performance',

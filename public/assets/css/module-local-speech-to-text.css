@@ -729,65 +729,17 @@
     white-space: pre-wrap;
 }
 
-.module-local-speech-to-text .stt-technical-info {
+.module-local-speech-to-text .stt-transcript-json {
     margin-top: 2em;
 }
 
-.module-local-speech-to-text .stt-technical-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1em;
-}
-
-.module-local-speech-to-text .stt-technical-group {
-    min-width: 0;
-    border: 1px solid rgba(34, 36, 38, 0.12);
-    border-radius: 0.28571429rem;
-    background: #fff;
-}
-
-.module-local-speech-to-text .stt-technical-group-title {
-    padding: 0.75em 1em;
-    border-bottom: 1px solid rgba(34, 36, 38, 0.08);
-    background: #f7f7f8;
-    color: rgba(0, 0, 0, 0.74);
-    font-weight: 700;
-}
-
-.module-local-speech-to-text .stt-technical-row {
-    display: grid;
-    grid-template-columns: minmax(8em, 0.8fr) minmax(0, 1.2fr);
-    gap: 0.75em;
-    padding: 0.7em 1em;
-    border-bottom: 1px solid rgba(34, 36, 38, 0.06);
-}
-
-.module-local-speech-to-text .stt-technical-row:last-child {
-    border-bottom: 0;
-}
-
-.module-local-speech-to-text .stt-technical-label {
-    color: rgba(0, 0, 0, 0.5);
-    font-size: 0.92em;
-    font-weight: 700;
-}
-
-.module-local-speech-to-text .stt-technical-value {
-    color: rgba(0, 0, 0, 0.87);
-    overflow-wrap: anywhere;
-}
-
-.module-local-speech-to-text .stt-technical-raw {
-    margin-top: 1em;
-}
-
-.module-local-speech-to-text .stt-technical-raw summary {
+.module-local-speech-to-text .stt-transcript-json summary {
     cursor: pointer;
     color: rgba(0, 0, 0, 0.62);
     font-weight: 700;
 }
 
-.module-local-speech-to-text .stt-technical-raw pre {
+.module-local-speech-to-text .stt-transcript-json pre {
     max-height: 24em;
     margin-top: 0.75em;
     padding: 1em;
@@ -851,12 +803,7 @@
     }
 
     .module-local-speech-to-text .stt-dialogue-headers,
-    .module-local-speech-to-text .stt-dialogue-row,
-    .module-local-speech-to-text .stt-technical-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .module-local-speech-to-text .stt-technical-row {
+    .module-local-speech-to-text .stt-dialogue-row {
         grid-template-columns: minmax(0, 1fr);
     }
 

@@ -13,7 +13,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
 use Modules\ModuleLocalSpeechToText\Lib\Services\QueueViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptTechnicalInfoService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -304,7 +304,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->result = $result;
         $this->view->conversation = $this->conversationService()->conversationFromTranscript((string)$result->transcript);
         $this->view->recording = $recordings->recordingCard($result, $job, $cdr);
-        $this->view->technicalInfo = $this->technicalInfoService()->technicalInfoCard((string)($result->technical_info ?? ''));
+        $this->view->transcriptJson = $this->transcriptUserJsonService()->transcriptJson([
+            'id' => $job instanceof STTJob ? (string)$job->call_id : null,
+            'started_at' => $cdr?->start,
+            'ended_at' => $cdr?->endtime,
+            'duration_seconds' => $result->duration === null ? null : (float)$result->duration,
+            'source_number' => $cdr?->src_num,
+            'destination_number' => $cdr?->dst_num,
+            'language' => $result->language,
+            'model' => $result->model_used,
+        ], (string)$result->transcript);
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcript');
     }
 
@@ -439,9 +448,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return new TranscriptConversationService($this->translation);
     }
 
-    private function technicalInfoService(): TranscriptTechnicalInfoService
+    private function transcriptUserJsonService(): TranscriptUserJsonService
     {
-        return new TranscriptTechnicalInfoService($this->translation);
+        return new TranscriptUserJsonService($this->translation);
     }
 
     private function callRecordingService(): CallRecordingService
