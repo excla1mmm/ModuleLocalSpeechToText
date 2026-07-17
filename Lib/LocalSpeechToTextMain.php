@@ -154,6 +154,20 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
 
+            if (!STTSetting::recordingDurationAllowed(self::jobDurationSeconds($job))) {
+                $message = 'Recording duration exceeds configured maximum';
+                if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $message)) {
+                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                }
+                LocalSpeechToTextLogger::write(
+                    'api',
+                    sprintf('Job #%d failed permanently: %s', $jobId, $message),
+                    LOG_WARNING
+                );
+
+                return self::error('duration_too_long', $message, 413);
+            }
+
             $filePath = self::safeRecordingPath((string)$job->file_path);
             if ($filePath === null || !is_readable($filePath)) {
                 if (!$job->markTerminalErrorForWorker(
@@ -175,17 +189,17 @@ class LocalSpeechToTextMain
                 if (!$job->markTerminalErrorForWorker(
                     (int)$worker->id,
                     $leaseToken,
-                    'Recording file exceeds configured maximum size'
+                    'Recording file exceeds fixed maximum size'
                 )) {
                     return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
                 LocalSpeechToTextLogger::write(
                     'api',
-                    sprintf('Job #%d failed permanently: recording file exceeds configured maximum size', $jobId),
+                    sprintf('Job #%d failed permanently: recording file exceeds fixed maximum size', $jobId),
                     LOG_WARNING
                 );
 
-                return self::error('file_too_large', 'Recording file exceeds configured maximum size', 413);
+                return self::error('file_too_large', 'Recording file exceeds fixed maximum size', 413);
             }
 
             return self::fileResponse($filePath);
@@ -453,7 +467,7 @@ class LocalSpeechToTextMain
                 . '&lease_token=' . rawurlencode((string)$job->lease_token),
             'lease_token' => (string)$job->lease_token,
             'lease_expires_at' => (int)$job->lease_expires_at,
-            'duration_hint' => null,
+            'duration_hint' => self::jobDurationSeconds($job),
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelRuntimeId(),
             'model_repo' => STTSetting::selectedModelRepo(),
@@ -464,6 +478,13 @@ class LocalSpeechToTextMain
             'model_source_url' => STTSetting::selectedModelSourceUrl(),
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
+    }
+
+    private static function jobDurationSeconds(STTJob $job): ?int
+    {
+        $duration = (int)$job->recording_duration_sec;
+
+        return $duration > 0 ? $duration : null;
     }
 
     private static function currentWorkerModelName(): string

@@ -34,7 +34,8 @@ expectTrueQueueLifecycle(
 expectTrueQueueLifecycle(
     str_contains($job, 'markTerminalErrorForWorker')
         && str_contains($main, 'Recording file is not available')
-        && str_contains($main, 'Recording file exceeds configured maximum size'),
+        && str_contains($main, 'Recording file exceeds fixed maximum size')
+        && str_contains($main, 'Recording duration exceeds configured maximum'),
     'Unavailable or oversized assigned files must become terminal job errors'
 );
 expectTrueQueueLifecycle(

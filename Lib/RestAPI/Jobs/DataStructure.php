@@ -100,7 +100,11 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                                 'file_url' => ['type' => 'string'],
                                 'lease_token' => ['type' => 'string'],
                                 'lease_expires_at' => ['type' => 'integer'],
-                                'duration_hint' => ['type' => 'number', 'nullable' => true],
+                                'duration_hint' => [
+                                    'type' => 'number',
+                                    'nullable' => true,
+                                    'description' => 'Known recording duration from CDR in seconds, or null when unavailable.',
+                                ],
                                 'language_hint' => ['type' => 'string'],
                                 'model_id' => ['type' => 'string'],
                                 'model_repo' => ['type' => 'string'],

@@ -206,6 +206,15 @@ namespace {
         'Each job mutation must have a distinct response schema class'
     );
 
+    $jobSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::getDetailSchema();
+    $durationHint = $jobSchema['properties']['job']['oneOf'][0]['properties']['duration_hint'] ?? [];
+    expectOpenApi(
+        ($durationHint['type'] ?? null) === 'number'
+            && ($durationHint['nullable'] ?? null) === true
+            && str_contains((string)($durationHint['description'] ?? ''), 'seconds'),
+        'Claimed job duration_hint must document nullable CDR seconds'
+    );
+
     $listContracts = [
         [TranscriptsController::class, ['items', 'pagination']],
         [TranscriptEventsController::class, ['events', 'next_cursor', 'limit']],
