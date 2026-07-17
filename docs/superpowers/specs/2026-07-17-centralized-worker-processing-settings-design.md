@@ -104,7 +104,7 @@ The success response is:
 }
 ```
 
-Profile retrieval and flag clearing are serialized with profile saves. The endpoint acquires the module's write guard and database transaction before clearing the requesting worker's flag and reading the complete canonical profile. Therefore either a fetch completes before a concurrent save, after which the save marks the worker dirty again, or the save completes first and the fetch returns the new profile before clearing the flag. A failed transaction leaves the flag unchanged.
+Profile retrieval and flag clearing are serialized with profile saves. The endpoint begins a database transaction and acquires the SQLite write lock before clearing the requesting worker's flag and reading the complete canonical profile. Therefore either a fetch completes before a concurrent save, after which the save marks the worker dirty again, or the save completes first and the fetch returns the new profile before clearing the flag. A failed transaction leaves the flag unchanged. No custom module-lifecycle guard is introduced.
 
 The server cannot know whether an HTTP response was delivered and applied after committing the transaction. Startup refreshes, local retry state, and the mandatory three-hour refresh repair that inherent limitation without adding an acknowledgement protocol.
 
