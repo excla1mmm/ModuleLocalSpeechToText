@@ -11,6 +11,7 @@ return [
     'module_local_speech_to_text_Transcripts' => 'Transcripts',
     'module_local_speech_to_text_TranscriptsSubHeader' => 'Processed call transcripts',
     'module_local_speech_to_text_SettingsTab' => 'Settings',
+    'module_local_speech_to_text_AdvancedSettings' => 'Advanced settings',
     'module_local_speech_to_text_ModelsMarketplaceTab' => 'Model marketplace',
     'module_local_speech_to_text_QueueTab' => 'Queue',
     'module_local_speech_to_text_WorkersTab' => 'Workers',

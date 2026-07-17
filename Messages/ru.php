@@ -11,6 +11,7 @@ return [
     'module_local_speech_to_text_Transcripts' => 'Расшифровки',
     'module_local_speech_to_text_TranscriptsSubHeader' => 'Готовые расшифровки разговоров',
     'module_local_speech_to_text_SettingsTab' => 'Настройки',
+    'module_local_speech_to_text_AdvancedSettings' => 'Расширенные настройки',
     'module_local_speech_to_text_ModelsMarketplaceTab' => 'Каталог моделей',
     'module_local_speech_to_text_QueueTab' => 'Очередь',
     'module_local_speech_to_text_WorkersTab' => 'Обработчики',

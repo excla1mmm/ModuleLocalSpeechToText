@@ -42,6 +42,13 @@
                 </div>
                 <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}</div>
             </div>
+            <div class="ui fluid styled accordion stt-advanced-settings-dropdown">
+                <div class="title">
+                    <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AdvancedSettings') }}
+                </div>
+                <div class="content">
+                </div>
+            </div>
             <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }}</h4>
             <div class="ui info message stt-vocabulary-summary">
                 <i class="info circle icon"></i>

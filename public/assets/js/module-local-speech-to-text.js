@@ -789,7 +789,8 @@
         }
 
         if (typeof $.fn.accordion === 'function') {
-            $('.module-local-speech-to-text .stt-custom-model-dropdown').accordion();
+            $('.module-local-speech-to-text .stt-custom-model-dropdown, '
+                + '.module-local-speech-to-text .stt-advanced-settings-dropdown').accordion();
         }
 
         $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').on('click', function (event) {
