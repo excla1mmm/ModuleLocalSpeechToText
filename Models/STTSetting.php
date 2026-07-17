@@ -16,7 +16,7 @@ class STTSetting extends ModulesModelsBase
 {
     public const string DEFAULT_LANGUAGE = 'default_language';
     public const string POLL_INTERVAL_SEC = 'poll_interval_sec';
-    public const string MAX_FILE_SIZE_MB = 'max_file_size_mb';
+    public const string MAX_RECORDING_DURATION_MIN = 'max_recording_duration_min';
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
     public const string CDR_HISTORY_DAYS = 'cdr_history_days';
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
@@ -37,7 +37,9 @@ class STTSetting extends ModulesModelsBase
 
     public const string DEFAULT_MODEL = 'large-v3-turbo';
     public const string AUTO_LANGUAGE = 'auto';
-    private const int DEFAULT_MAX_FILE_SIZE_MB = 500;
+    private const int DEFAULT_MAX_RECORDING_DURATION_MIN = 60;
+    private const int MAX_RECORDING_DURATION_MINUTES = 1440;
+    private const int FIXED_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     private const int DEFAULT_CDR_HISTORY_DAYS = 30;
     private const int MAX_CDR_HISTORY_DAYS = 730;
 
@@ -394,12 +396,45 @@ class STTSetting extends ModulesModelsBase
         return $terms;
     }
 
+    public static function normalizeRecordingDurationMinutes(string|int $value): int
+    {
+        return max(1, min(self::MAX_RECORDING_DURATION_MINUTES, (int)$value));
+    }
+
+    public static function maxRecordingDurationMinutes(): int
+    {
+        return self::normalizeRecordingDurationMinutes(
+            self::getValue(
+                self::MAX_RECORDING_DURATION_MIN,
+                (string)self::DEFAULT_MAX_RECORDING_DURATION_MIN
+            )
+        );
+    }
+
+    public static function maxRecordingDurationSeconds(): int
+    {
+        return self::maxRecordingDurationMinutes() * 60;
+    }
+
+    public static function normalizeRecordingDurationSeconds(mixed $value): ?int
+    {
+        if (!is_numeric($value) || (float)$value <= 0) {
+            return null;
+        }
+
+        return (int)ceil((float)$value);
+    }
+
+    public static function recordingDurationAllowed(mixed $value): bool
+    {
+        $seconds = self::normalizeRecordingDurationSeconds($value);
+
+        return $seconds === null || $seconds <= self::maxRecordingDurationSeconds();
+    }
+
     public static function maxFileSizeBytes(): int
     {
-        $megabytes = (int)self::getValue(self::MAX_FILE_SIZE_MB, (string)self::DEFAULT_MAX_FILE_SIZE_MB);
-        $megabytes = max(1, min(10240, $megabytes));
-
-        return $megabytes * 1024 * 1024;
+        return self::FIXED_MAX_FILE_SIZE_BYTES;
     }
 
     public static function cdrHistoryDays(): int

@@ -51,8 +51,10 @@ class LocalSpeechToTextBaseController extends BaseController
             (string)$this->postInt(STTSetting::POLL_INTERVAL_SEC, 30, 30, 3600)
         );
         STTSetting::setValue(
-            STTSetting::MAX_FILE_SIZE_MB,
-            (string)$this->postInt(STTSetting::MAX_FILE_SIZE_MB, 500, 1, 10240)
+            STTSetting::MAX_RECORDING_DURATION_MIN,
+            (string)STTSetting::normalizeRecordingDurationMinutes(
+                $this->postInt(STTSetting::MAX_RECORDING_DURATION_MIN, 60, 1, 1440)
+            )
         );
         STTSetting::setValue(
             STTSetting::CDR_SCAN_LIMIT,
@@ -87,10 +89,11 @@ class LocalSpeechToTextBaseController extends BaseController
         LocalSpeechToTextLogger::write(
             'web-ui',
             sprintf(
-                'Settings saved: language=%s model=%s history_days=%d vocabulary_terms=%d',
+                'Settings saved: language=%s model=%s history_days=%d max_duration_min=%d vocabulary_terms=%d',
                 STTSetting::selectedLanguageId(),
                 STTSetting::selectedModelId(),
                 $nextHistoryDays,
+                STTSetting::maxRecordingDurationMinutes(),
                 count(STTSetting::selectedVocabularyTerms())
             ),
             LOG_NOTICE
@@ -112,7 +115,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings = new stdClass();
         $settings->default_language = STTSetting::selectedLanguageId();
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
-        $settings->max_file_size_mb = STTSetting::getValue(STTSetting::MAX_FILE_SIZE_MB, '500');
+        $settings->max_recording_duration_min = (string)STTSetting::maxRecordingDurationMinutes();
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
         $settings->cdr_history_days = (string)STTSetting::cdrHistoryDays();
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');

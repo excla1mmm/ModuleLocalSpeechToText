@@ -37,10 +37,10 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'min' => 30,
             'max' => 3600,
         ]));
-        $this->add(new Numeric('max_file_size_mb', [
-            'value' => $entity->max_file_size_mb ?? '500',
+        $this->add(new Numeric('max_recording_duration_min', [
+            'value' => $entity->max_recording_duration_min ?? '60',
             'min' => 1,
-            'max' => 10240,
+            'max' => 1440,
         ]));
         $this->add(new Numeric('cdr_scan_limit', [
             'value' => $entity->cdr_scan_limit ?? '200',

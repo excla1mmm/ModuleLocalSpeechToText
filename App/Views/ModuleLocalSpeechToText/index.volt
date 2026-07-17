@@ -20,8 +20,8 @@
                     {{ form.render('poll_interval_sec') }}
                 </div>
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_MaxFileSize') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxFileSizeHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('max_file_size_mb') }}
+                    <label>{{ t._('module_local_speech_to_text_MaxRecordingDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxRecordingDurationHint') }}" data-variation="wide"></i></label>
+                    {{ form.render('max_recording_duration_min') }}
                 </div>
             </div>
             <div class="two fields">

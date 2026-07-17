@@ -31,7 +31,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $this->cleanupLegacyLifecycleFiles();
             $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE);
             $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '30');
-            $this->setDefaultSetting(STTSetting::MAX_FILE_SIZE_MB, '500');
+            $this->setDefaultSetting(STTSetting::MAX_RECORDING_DURATION_MIN, '60');
             $this->setDefaultSetting(STTSetting::CDR_SCAN_LIMIT, '200');
             $this->setDefaultSetting(STTSetting::CDR_HISTORY_DAYS, '30');
             $this->setDefaultSetting(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');

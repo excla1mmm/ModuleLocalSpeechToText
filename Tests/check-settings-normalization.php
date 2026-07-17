@@ -136,14 +136,24 @@ namespace {
         'Podlodka marketplace row must expose the WhisperKit/Core ML Hugging Face repository link'
     );
 
-    ModulesModelsBase::$values = [
-        STTSetting::MAX_FILE_SIZE_MB => '0',
-    ];
-    expectSameSettingsNormalization(1024 * 1024, STTSetting::maxFileSizeBytes(), 'Max file size must be at least 1 MiB');
-    ModulesModelsBase::$values = [
-        STTSetting::MAX_FILE_SIZE_MB => '12000',
-    ];
-    expectSameSettingsNormalization(10240 * 1024 * 1024, STTSetting::maxFileSizeBytes(), 'Max file size must be capped at 10240 MiB');
+    ModulesModelsBase::$values = [];
+    expectTrueSettingsNormalization(
+        method_exists(STTSetting::class, 'maxRecordingDurationMinutes'),
+        'Recording duration setting helpers must exist'
+    );
+    expectSameSettingsNormalization(60, STTSetting::maxRecordingDurationMinutes(), 'Recording duration must default to 60 minutes');
+    expectSameSettingsNormalization(1, STTSetting::normalizeRecordingDurationMinutes(0), 'Recording duration must be at least one minute');
+    expectSameSettingsNormalization(1440, STTSetting::normalizeRecordingDurationMinutes(2000), 'Recording duration must be capped at 1440 minutes');
+
+    ModulesModelsBase::$values = [STTSetting::MAX_RECORDING_DURATION_MIN => '60'];
+    expectSameSettingsNormalization(3600, STTSetting::maxRecordingDurationSeconds(), 'Duration minutes must convert to seconds');
+    expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(3600), 'Boundary duration must be allowed');
+    expectTrueSettingsNormalization(!STTSetting::recordingDurationAllowed(3601), 'Duration above the boundary must be rejected');
+    expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(0), 'Unknown zero duration must be allowed');
+    expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(null), 'Missing duration must be allowed');
+
+    ModulesModelsBase::$values = ['max_file_size_mb' => '1'];
+    expectSameSettingsNormalization(500 * 1024 * 1024, STTSetting::maxFileSizeBytes(), 'File guard must remain fixed at 500 MiB');
 
     ModulesModelsBase::$values = [
         STTSetting::WORKER_API_KEY_IDS => json_encode([2, '3', -1, 'bad', 2]) ?: '[]',
