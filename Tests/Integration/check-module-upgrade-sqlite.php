@@ -262,7 +262,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9], 'legacy database did not apply migrations 1-9');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'legacy database did not apply migrations 1-10');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -280,14 +280,35 @@ expectSttUpgrade($after['integrity'] === 'ok', 'upgraded database failed integri
 expectSttUpgrade($after['journal_mode'] === 'wal', 'upgraded database is not in WAL mode');
 expectSttUpgrade($after['event_keys_unique'], 'event keys lost uniqueness');
 foreach ($before['counts'] as $table => $count) {
-    expectSttUpgrade($after['counts'][$table] === $count, "row count changed for {$table}");
+    $expectedCount = $table === 'm_STTSetting' ? $count + 2 : $count;
+    expectSttUpgrade($after['counts'][$table] === $expectedCount, "unexpected row count for {$table}");
 }
 foreach ($before['hashes'] as $name => $hash) {
+    if ($name === 'settings') {
+        continue;
+    }
     expectSttUpgrade($after['hashes'][$name] === $hash, "existing {$name} data changed");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     'migration ledger is incomplete'
+);
+expectSttUpgrade(
+    sqliteRows(
+        new SQLite3($resolvedDatabase, SQLITE3_OPEN_READONLY),
+        "SELECT key, value FROM m_STTSetting
+          WHERE key IN ('cdr_history_days', 'transcript_retention_days', 'transcript_retention_last_cleanup_at')
+          ORDER BY key"
+    ) === [
+        ['key' => 'cdr_history_days', 'value' => '365'],
+        ['key' => 'transcript_retention_days', 'value' => '365'],
+        ['key' => 'transcript_retention_last_cleanup_at', 'value' => '0'],
+    ],
+    'transcript retention settings were not installed and normalized'
+);
+expectSttUpgrade(
+    in_array('m_STTResult_created_at', $after['indexes'], true),
+    'result processing timestamp index is missing after upgrade'
 );
 foreach ([
     'i_m_STTJob_file_path',

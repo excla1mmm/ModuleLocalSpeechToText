@@ -145,6 +145,7 @@ CREATE TABLE m_STTCallTranscriptEvent (
 
 INSERT INTO m_STTSetting(key, value) VALUES
     ('poll_interval_sec', '17'),
+    ('cdr_history_days', '730'),
     ('processing_timeout_sec', '1800'),
     ('call_transcript_stability_sec', '30');
 INSERT INTO m_STTJob(id, call_id, file_path, status, created_at, updated_at)

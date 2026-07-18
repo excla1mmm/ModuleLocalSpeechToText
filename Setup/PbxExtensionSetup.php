@@ -291,6 +291,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyCallTranscriptCompletionMigration($connection),
                 'stt-schema-009-complete-call-transcripts'
             ),
+            new ModuleSchemaMigration(
+                10,
+                'transcript retention policy',
+                fn (mixed $connection): null => $this->applyTranscriptRetentionMigration($connection),
+                'stt-schema-010-transcript-retention'
+            ),
         ];
     }
 
@@ -408,6 +414,29 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             static fn (): int => (int)$migration->run(10000)['source_results']
         );
         $migration->publishAllReady();
+
+        return null;
+    }
+
+    private function applyTranscriptRetentionMigration(mixed $connection): null
+    {
+        $this->setDefaultSetting($connection, STTSetting::TRANSCRIPT_RETENTION_DAYS, '365');
+        $this->setDefaultSetting($connection, STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT, '0');
+
+        $historyDays = STTSetting::normalizeCdrHistoryDays(
+            $this->settingValue($connection, STTSetting::CDR_HISTORY_DAYS, '30')
+        );
+        if ($historyDays === 0) {
+            $historyDays = 365;
+        }
+        $connection->execute(
+            'UPDATE m_STTSetting SET value = :value WHERE key = :key',
+            [
+                'value' => (string)$historyDays,
+                'key' => STTSetting::CDR_HISTORY_DAYS,
+            ]
+        );
+        (new ModuleDatabaseIndexService())->ensure($connection);
 
         return null;
     }

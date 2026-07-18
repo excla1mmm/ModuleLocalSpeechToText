@@ -19,6 +19,8 @@ class STTSetting extends ModulesModelsBase
     public const string MAX_RECORDING_DURATION_MIN = 'max_recording_duration_min';
     public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
     public const string CDR_HISTORY_DAYS = 'cdr_history_days';
+    public const string TRANSCRIPT_RETENTION_DAYS = 'transcript_retention_days';
+    public const string TRANSCRIPT_RETENTION_LAST_CLEANUP_AT = 'transcript_retention_last_cleanup_at';
     public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string CALL_TRANSCRIPT_STABILITY_SEC = 'call_transcript_stability_sec';
     public const string SELECTED_MODEL = 'selected_model';
@@ -53,7 +55,11 @@ class STTSetting extends ModulesModelsBase
     private const int MAX_RECORDING_DURATION_MINUTES = 1440;
     private const int FIXED_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     private const int DEFAULT_CDR_HISTORY_DAYS = 30;
-    private const int MAX_CDR_HISTORY_DAYS = 730;
+    private const int MAX_CDR_HISTORY_DAYS = 365;
+    private const int DEFAULT_TRANSCRIPT_RETENTION_DAYS = 365;
+
+    public const array CDR_HISTORY_PRESETS = [1, 7, 30, 90, 180, 365, 0];
+    public const array TRANSCRIPT_RETENTION_PRESETS = [30, 90, 180, 365, 0];
 
     public const array LANGUAGE_PRESETS = [
         'auto' => 'module_local_speech_to_text_LanguageAuto',
@@ -472,6 +478,31 @@ class STTSetting extends ModulesModelsBase
         }
 
         return max(1, min(self::MAX_CDR_HISTORY_DAYS, $days));
+    }
+
+    public static function transcriptRetentionDays(): int
+    {
+        return self::normalizeTranscriptRetentionDays(
+            self::getValue(
+                self::TRANSCRIPT_RETENTION_DAYS,
+                (string)self::DEFAULT_TRANSCRIPT_RETENTION_DAYS
+            )
+        );
+    }
+
+    public static function normalizeTranscriptRetentionDays(string|int $value): int
+    {
+        $days = (int)$value;
+
+        return in_array($days, self::TRANSCRIPT_RETENTION_PRESETS, true)
+            ? $days
+            : self::DEFAULT_TRANSCRIPT_RETENTION_DAYS;
+    }
+
+    public static function retentionAllowsProcessing(int $processingDays, int $retentionDays): bool
+    {
+        return $retentionDays === 0
+            || ($processingDays > 0 && $processingDays <= $retentionDays);
     }
 
     /**

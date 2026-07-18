@@ -92,6 +92,10 @@ expectModuleIndexes(
     (int)$pdo->query('SELECT COUNT(*) FROM m_STTResult')->fetchColumn() === 1,
     'Index normalization must preserve module rows'
 );
+expectModuleIndexes(
+    in_array('m_STTResult_created_at', moduleIndexNames($connection, 'm_STTResult'), true),
+    'Result processing timestamp index must be created'
+);
 $schemaAfterFirstRun = (string)$pdo->query(
     "SELECT group_concat(name || ':' || COALESCE(sql, ''), '|')
        FROM (SELECT name, sql FROM sqlite_master WHERE type='index' ORDER BY name)"

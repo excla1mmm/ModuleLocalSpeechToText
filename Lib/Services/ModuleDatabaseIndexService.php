@@ -83,6 +83,16 @@ final class ModuleDatabaseIndexService
         // Transcript service performs its own full preflight. It sees the
         // surrounding transaction and therefore cannot partially publish.
         (new TranscriptEventIndexService())->ensure($connection);
+        if ($connection->execute(
+            'CREATE INDEX IF NOT EXISTS m_STTResult_created_at ON m_STTResult (created_at)'
+        ) !== true) {
+            throw new RuntimeException('Unable to create result processing timestamp index');
+        }
+        $resultIndexes = $this->indexes($connection, 'm_STTResult');
+        if (!isset($resultIndexes['m_STTResult_created_at'])
+            || !$this->matches($resultIndexes['m_STTResult_created_at'], ['created_at'], false)) {
+            throw new RuntimeException('Result processing timestamp index has an unexpected definition');
+        }
 
         foreach ($drops as $definition) {
             if ($connection->execute('DROP INDEX ' . $this->quoteIdentifier($definition['index'])) !== true) {
