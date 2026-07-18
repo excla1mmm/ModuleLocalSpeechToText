@@ -21,6 +21,8 @@ namespace {
 
     require_once __DIR__ . '/../Models/STTSetting.php';
     require_once __DIR__ . '/../Models/STTWorker.php';
+    require_once __DIR__ . '/../Lib/Services/TransactionRecoveryException.php';
+    require_once __DIR__ . '/../Lib/Services/ModuleTransaction.php';
     require_once __DIR__ . '/../Lib/Services/WorkerProcessingSettingsService.php';
 
     final class ProcessingSettingsSqliteConnection
@@ -42,6 +44,26 @@ namespace {
             $statement->execute($bind);
 
             return $statement->fetchAll($fetchMode);
+        }
+
+        public function begin(): bool
+        {
+            return $this->pdo->beginTransaction();
+        }
+
+        public function commit(): bool
+        {
+            return $this->pdo->commit();
+        }
+
+        public function rollback(): bool
+        {
+            return $this->pdo->rollBack();
+        }
+
+        public function isUnderTransaction(): bool
+        {
+            return $this->pdo->inTransaction();
         }
     }
 

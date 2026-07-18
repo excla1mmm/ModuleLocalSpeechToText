@@ -8,8 +8,10 @@ use JsonException;
 use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\AssignedJobConflictException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -288,36 +290,39 @@ class LocalSpeechToTextMain
             }
 
             $connection = $job->getWriteConnection();
-            $connection->begin();
             try {
-                $technicalInfo = is_array($data['technical_info'] ?? null) ? $data['technical_info'] : null;
-                $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
-                $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
-                $language = self::nullableStringField($data, 'language');
-                $filterLanguage = $language
-                    ?? self::nullableStringField($data, 'language_hint')
-                    ?? self::languageHintFromTechnicalInfo($technicalInfo);
-                $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
-                $transcript = $filterResult['segments'];
-                $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
-                $result = STTResult::saveForJob(
-                    $job,
-                    self::encodeTranscript($transcript),
-                    $language,
-                    $duration,
-                    self::nullableStringField($data, 'model_used'),
-                    self::encodeTechnicalInfo($technicalInfo)
+                (new ModuleTransaction())->run(
+                    $connection,
+                    static function () use ($data, $job, $worker, $leaseToken): void {
+                        $technicalInfo = is_array($data['technical_info'] ?? null)
+                            ? $data['technical_info']
+                            : null;
+                        $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
+                        $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
+                        $language = self::nullableStringField($data, 'language');
+                        $filterLanguage = $language
+                            ?? self::nullableStringField($data, 'language_hint')
+                            ?? self::languageHintFromTechnicalInfo($technicalInfo);
+                        $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
+                        $transcript = $filterResult['segments'];
+                        $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
+                        $result = STTResult::saveForJob(
+                            $job,
+                            self::encodeTranscript($transcript),
+                            $language,
+                            $duration,
+                            self::nullableStringField($data, 'model_used'),
+                            self::encodeTechnicalInfo($technicalInfo)
+                        );
+                        STTTranscriptEvent::ensureCompletedForResult($result, $job);
+                        if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
+                            throw new AssignedJobConflictException('Assigned STT job changed during result submission');
+                        }
+                        (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
+                    }
                 );
-                STTTranscriptEvent::ensureCompletedForResult($result, $job);
-                if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
-                    $connection->rollback();
-                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
-                }
-                (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
-                $connection->commit();
-            } catch (Throwable $exception) {
-                $connection->rollback();
-                throw $exception;
+            } catch (AssignedJobConflictException) {
+                return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             LocalSpeechToTextLogger::write(
                 'api',

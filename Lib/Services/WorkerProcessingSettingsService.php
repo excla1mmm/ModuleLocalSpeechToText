@@ -8,7 +8,6 @@ use InvalidArgumentException;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use PDO;
-use Throwable;
 
 final class WorkerProcessingSettingsService
 {
@@ -137,7 +136,7 @@ final class WorkerProcessingSettingsService
     {
         $next = self::normalize($input);
 
-        return $this->withImmediateTransaction(function (mixed $database) use ($next): bool {
+        return $this->withTransaction(function (mixed $database) use ($next): bool {
             $current = $this->readCurrent($database);
             if ($current === $next) {
                 return false;
@@ -161,7 +160,7 @@ final class WorkerProcessingSettingsService
      */
     public function fetchForWorker(STTWorker $worker): array
     {
-        return $this->withImmediateTransaction(function (mixed $database) use ($worker): array {
+        return $this->withTransaction(function (mixed $database) use ($worker): array {
             $database->execute(
                 'UPDATE m_STTWorker SET has_settings_changed = 0 WHERE id = :id',
                 ['id' => (int)$worker->id]
@@ -249,22 +248,11 @@ final class WorkerProcessingSettingsService
         return self::normalize($stored);
     }
 
-    private function withImmediateTransaction(callable $operation): mixed
+    private function withTransaction(callable $operation): mixed
     {
         $database = $this->database();
-        $database->execute('BEGIN IMMEDIATE');
-        try {
-            $result = $operation($database);
-            $database->execute('COMMIT');
 
-            return $result;
-        } catch (Throwable $exception) {
-            try {
-                $database->execute('ROLLBACK');
-            } catch (Throwable) {
-            }
-            throw $exception;
-        }
+        return (new ModuleTransaction())->run($database, $operation);
     }
 
     private static function storageValue(float|int|bool $value): string
