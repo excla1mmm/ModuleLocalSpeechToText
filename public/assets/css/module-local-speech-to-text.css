@@ -95,8 +95,8 @@
     margin: 1.2em 0;
 }
 
-.module-local-speech-to-text .stt-advanced-settings-dropdown .content {
-    padding: 1.25em !important;
+.module-local-speech-to-text .stt-advanced-settings-dropdown > .content {
+    padding: 0.75em 1em 1em !important;
 }
 
 .module-local-speech-to-text .stt-settings-fields > .field {
@@ -105,7 +105,24 @@
 }
 
 .module-local-speech-to-text .stt-processing-settings-hint {
-    margin-top: 0;
+    align-items: flex-start;
+    display: flex;
+    gap: 0.75em;
+    margin: 0 0 1em !important;
+    padding: 0.75em 1em !important;
+}
+
+.module-local-speech-to-text .stt-processing-settings-hint > .icon {
+    flex: 0 0 auto;
+    font-size: 1.2em;
+    line-height: 1.2;
+    margin: 0.05em 0 0 !important;
+}
+
+.module-local-speech-to-text .stt-processing-settings-hint > .content {
+    flex: 1 1 auto;
+    line-height: 1.45;
+    padding: 0 !important;
 }
 
 .module-local-speech-to-text .stt-vad-dependent.disabled {

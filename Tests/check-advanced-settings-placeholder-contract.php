@@ -52,6 +52,16 @@ expectAdvancedSettings(
     str_contains($css, '.stt-advanced-settings-dropdown'),
     'Advanced settings placeholder spacing is missing'
 );
+expectAdvancedSettings(
+    str_contains($css, '.stt-advanced-settings-dropdown > .content')
+        && !str_contains($css, '.stt-advanced-settings-dropdown .content {'),
+    'Accordion padding must not leak into nested message content'
+);
+expectAdvancedSettings(
+    str_contains($css, '.stt-processing-settings-hint > .content')
+        && str_contains($css, 'padding: 0 !important;'),
+    'Processing settings hint content must remain compact'
+);
 
 $messageFiles = glob(__DIR__ . '/../Messages/*.php') ?: [];
 expectAdvancedSettings($messageFiles !== [], 'No translation catalogs found');
