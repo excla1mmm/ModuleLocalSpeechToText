@@ -29,6 +29,35 @@ $apiFields = [
     'max_segment_duration_ms',
     'segment_overlap_ms',
 ];
+
+$fieldHintKeys = [
+    'Temperature' => 'TemperatureHint',
+    'TemperatureFallbackStep' => 'TemperatureFallbackStepHint',
+    'TemperatureFallbackCount' => 'TemperatureFallbackCountHint',
+    'TopK' => 'TopKHint',
+    'CompressionRatioThreshold' => 'CompressionRatioThresholdHint',
+    'LogProbabilityThreshold' => 'LogProbabilityThresholdHint',
+    'FirstTokenLogProbabilityThreshold' => 'FirstTokenLogProbabilityThresholdHint',
+    'NoSpeechThreshold' => 'NoSpeechThresholdHint',
+    'AudioNormalization' => 'AudioNormalizationHint',
+    'VoiceActivityDetection' => 'VoiceActivityDetectionHint',
+    'MaxSegmentDuration' => 'MaxSegmentDurationHint',
+    'SegmentOverlap' => 'SegmentOverlapHint',
+];
+foreach ($fieldHintKeys as $labelKey => $hintKey) {
+    $labelTranslation = "module_local_speech_to_text_{$labelKey}";
+    $hintTranslation = "module_local_speech_to_text_{$hintKey}";
+    expectProcessingSettingsUi(
+        preg_match(
+            '/<label>\s*\{\{\s*t\._\(\'' . preg_quote($labelTranslation, '/') . '\'\)\s*\}\}\s*'
+            . '<i class="small info circle icon field-info-icon" data-content="\{\{\s*t\._\(\''
+            . preg_quote($hintTranslation, '/')
+            . '\'\)\s*\}\}" data-variation="wide"><\/i>\s*<\/label>/s',
+            $view
+        ) === 1,
+        "Advanced setting {$labelKey} is missing its info hint"
+    );
+}
 foreach (array_merge($apiFields, ['max_segment_duration_sec', 'segment_overlap_sec']) as $field) {
     expectProcessingSettingsUi(
         str_contains($view, $field),
@@ -88,6 +117,13 @@ $requiredKeys = [
     'module_local_speech_to_text_MaxSegmentDuration',
     'module_local_speech_to_text_SegmentOverlap',
 ];
+$requiredKeys = array_merge(
+    $requiredKeys,
+    array_map(
+        static fn (string $key): string => 'module_local_speech_to_text_' . $key,
+        array_values($fieldHintKeys)
+    )
+);
 $messageFiles = glob($root . '/Messages/*.php') ?: [];
 expectProcessingSettingsUi($messageFiles !== [], 'No translation catalogs found');
 $sourceMessages = include $root . '/Messages/ru.php';

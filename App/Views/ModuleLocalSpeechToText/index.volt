@@ -64,41 +64,41 @@
                     </div>
                     <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_DecodingSettings') }}</h4>
                     <div class="three fields">
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_Temperature') }}</label>{{ form.render('temperature') }}</div>
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackStep') }}</label>{{ form.render('temperature_fallback_step') }}</div>
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackCount') }}</label>{{ form.render('temperature_fallback_count') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_Temperature') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_TemperatureHint') }}" data-variation="wide"></i></label>{{ form.render('temperature') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackStep') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_TemperatureFallbackStepHint') }}" data-variation="wide"></i></label>{{ form.render('temperature_fallback_step') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TemperatureFallbackCount') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_TemperatureFallbackCountHint') }}" data-variation="wide"></i></label>{{ form.render('temperature_fallback_count') }}</div>
                     </div>
                     <div class="three fields">
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_TopK') }}</label>{{ form.render('top_k') }}</div>
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_CompressionRatioThreshold') }}</label>{{ form.render('compression_ratio_threshold') }}</div>
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_LogProbabilityThreshold') }}</label>{{ form.render('log_probability_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_TopK') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_TopKHint') }}" data-variation="wide"></i></label>{{ form.render('top_k') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_CompressionRatioThreshold') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CompressionRatioThresholdHint') }}" data-variation="wide"></i></label>{{ form.render('compression_ratio_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_LogProbabilityThreshold') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_LogProbabilityThresholdHint') }}" data-variation="wide"></i></label>{{ form.render('log_probability_threshold') }}</div>
                     </div>
                     <div class="two fields">
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_FirstTokenLogProbabilityThreshold') }}</label>{{ form.render('first_token_log_probability_threshold') }}</div>
-                        <div class="field"><label>{{ t._('module_local_speech_to_text_NoSpeechThreshold') }}</label>{{ form.render('no_speech_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_FirstTokenLogProbabilityThreshold') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_FirstTokenLogProbabilityThresholdHint') }}" data-variation="wide"></i></label>{{ form.render('first_token_log_probability_threshold') }}</div>
+                        <div class="field"><label>{{ t._('module_local_speech_to_text_NoSpeechThreshold') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_NoSpeechThresholdHint') }}" data-variation="wide"></i></label>{{ form.render('no_speech_threshold') }}</div>
                     </div>
                     <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_AudioProcessingSettings') }}</h4>
                     <div class="two fields">
                         <div class="field">
                             <div class="ui toggle checkbox">
                                 {{ form.render('audio_normalization') }}
-                                <label>{{ t._('module_local_speech_to_text_AudioNormalization') }}</label>
+                                <label>{{ t._('module_local_speech_to_text_AudioNormalization') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_AudioNormalizationHint') }}" data-variation="wide"></i></label>
                             </div>
                         </div>
                         <div class="field">
                             <div class="ui toggle checkbox">
                                 {{ form.render('voice_activity_detection') }}
-                                <label>{{ t._('module_local_speech_to_text_VoiceActivityDetection') }}</label>
+                                <label>{{ t._('module_local_speech_to_text_VoiceActivityDetection') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_VoiceActivityDetectionHint') }}" data-variation="wide"></i></label>
                             </div>
                         </div>
                     </div>
                     <div class="two fields stt-vad-dependent-fields">
                         <div class="field stt-vad-dependent" data-profile-field="max_segment_duration_ms">
-                            <label>{{ t._('module_local_speech_to_text_MaxSegmentDuration') }}</label>
+                            <label>{{ t._('module_local_speech_to_text_MaxSegmentDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxSegmentDurationHint') }}" data-variation="wide"></i></label>
                             {{ form.render('max_segment_duration_sec') }}
                         </div>
                         <div class="field stt-vad-dependent" data-profile-field="segment_overlap_ms">
-                            <label>{{ t._('module_local_speech_to_text_SegmentOverlap') }}</label>
+                            <label>{{ t._('module_local_speech_to_text_SegmentOverlap') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_SegmentOverlapHint') }}" data-variation="wide"></i></label>
                             {{ form.render('segment_overlap_sec') }}
                         </div>
                     </div>
