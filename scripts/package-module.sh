@@ -55,9 +55,17 @@ done
 # instance and must never enter a release ZIP.
 if [[ -d "${TMP_MODULE_DIR}/db" ]]; then
   find "${TMP_MODULE_DIR}/db" -maxdepth 1 -type f \
-    \( -name 'module.db' -o -name 'module.db-*' \) \
+    \( -name 'module.db' -o -name 'module.db-*' \
+       -o -name '*-wal' -o -name '*-shm' -o -name '*-journal' \
+       -o -name '.module-lifecycle-*' -o -name '.setup-database-snapshot-*' \) \
     -delete
 fi
+
+# Setup snapshots live at module root while an upgrade is in progress. They
+# must never be published even if packaging is run from an installed tree.
+find "${TMP_MODULE_DIR}" -maxdepth 1 \
+  \( -name '.setup-database-snapshot-*' -o -name '.module-lifecycle-*' \) \
+  -exec rm -rf {} +
 
 php -r '
   $path = $argv[1];

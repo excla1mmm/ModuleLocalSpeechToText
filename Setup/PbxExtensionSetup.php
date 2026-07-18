@@ -6,11 +6,14 @@ namespace Modules\ModuleLocalSpeechToText\Setup;
 
 use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\PbxSettings;
+use MikoPBX\Common\Providers\ModulesDBConnectionsProvider;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
@@ -24,6 +27,56 @@ use Throwable;
 
 class PbxExtensionSetup extends PbxExtensionSetupBase
 {
+    public function unInstallFiles(bool $keepSettings = false): bool
+    {
+        if (!$keepSettings) {
+            return parent::unInstallFiles(false);
+        }
+
+        $backup = new ModuleDatabaseBackup();
+        $modulesDirectory = rtrim((string)$this->config->path('core.modulesDir'), '/');
+        $coreBackupDirectory = $modulesDirectory . '/Backup/' . $this->moduleUniqueID;
+        $verifiedSnapshot = $modulesDirectory . '/Backup/.' . $this->moduleUniqueID
+            . '.verified-' . getmypid() . '-' . bin2hex(random_bytes(6));
+
+        try {
+            $backup->snapshot($this->moduleDir . '/db', $verifiedSnapshot);
+        } catch (Throwable $exception) {
+            $message = 'Unable to create verified STT database backup: ' . $exception->getMessage();
+            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            $this->messages[] = $message;
+            return false;
+        }
+
+        try {
+            if (!parent::unInstallFiles(true)) {
+                $this->messages[] = 'Core file cleanup failed; verified STT backup retained at ' . $verifiedSnapshot;
+                return false;
+            }
+
+            $backup->restore($verifiedSnapshot, $coreBackupDirectory . '/db');
+        } catch (Throwable $exception) {
+            $message = 'Unable to publish verified STT database backup; snapshot retained at '
+                . $verifiedSnapshot . ': ' . $exception->getMessage();
+            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            $this->messages[] = $message;
+            return false;
+        }
+
+        try {
+            $backup->discard($verifiedSnapshot);
+        } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::write(
+                'setup',
+                'Verified STT backup was published but temporary snapshot cleanup failed: '
+                    . $exception->getMessage(),
+                LOG_WARNING
+            );
+        }
+
+        return true;
+    }
+
     public function installDB(): bool
     {
         $lifecycleGate = new ModuleLifecycleGate($this->moduleDir . '/db', bootstrap: true);
@@ -33,11 +86,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         }
         $lifecycleGate->completeDisable();
 
-        if (!parent::installDB()) {
-            return false;
-        }
+        $databaseBackup = new ModuleDatabaseBackup();
+        $setupSnapshot = null;
 
         try {
+            $setupSnapshot = $this->createSetupDatabaseSnapshot($databaseBackup);
+            if (!parent::installDB()) {
+                throw new \RuntimeException('Core database setup returned failure');
+            }
+
             $this->cleanupLegacyLifecycleFiles();
             $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE);
             $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '30');
@@ -75,14 +132,92 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             STTTranscriptEvent::backfillCompletedEvents();
             (new CallTranscriptMigration())->run();
             $this->ensureWorkerApiKeyPermissions();
+            try {
+                $databaseBackup->discard($setupSnapshot);
+            } catch (Throwable $exception) {
+                LocalSpeechToTextLogger::write(
+                    'setup',
+                    'Database setup succeeded but temporary snapshot cleanup failed: '
+                        . $exception->getMessage(),
+                    LOG_WARNING
+                );
+            }
             LocalSpeechToTextLogger::write('setup', 'Database setup completed', LOG_NOTICE);
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('setup', 'Database setup failed: ' . $exception->getMessage(), LOG_ERR);
-            $this->messages[] = $exception->getMessage();
+            $recoveryFailure = null;
+            try {
+                $this->recoverSetupDatabaseConnection();
+            } catch (Throwable $recoveryException) {
+                $recoveryFailure = $recoveryException;
+            }
+
+            $restoreFailure = null;
+            if ($setupSnapshot !== null) {
+                try {
+                    $this->restoreSetupDatabaseSnapshot($databaseBackup, $setupSnapshot);
+                } catch (Throwable $restoreException) {
+                    $restoreFailure = $restoreException;
+                }
+            }
+
+            $message = 'Database setup failed: ' . $exception->getMessage();
+            if ($recoveryFailure !== null) {
+                $message .= '; connection recovery failed: ' . $recoveryFailure->getMessage();
+            }
+            if ($restoreFailure !== null) {
+                $message .= '; snapshot restore failed: ' . $restoreFailure->getMessage();
+            }
+            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            $this->messages[] = $message;
             return false;
         }
 
         return true;
+    }
+
+    private function createSetupDatabaseSnapshot(ModuleDatabaseBackup $backup): string
+    {
+        $snapshot = $this->moduleDir . '/.setup-database-snapshot-'
+            . getmypid() . '-' . bin2hex(random_bytes(6));
+        $backup->snapshot($this->moduleDir . '/db', $snapshot);
+
+        return $snapshot;
+    }
+
+    private function restoreSetupDatabaseSnapshot(ModuleDatabaseBackup $backup, string $snapshot): void
+    {
+        $backup->restore($snapshot, $this->moduleDir . '/db');
+        try {
+            $backup->discard($snapshot);
+        } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::write(
+                'setup',
+                'Database snapshot restored but temporary snapshot cleanup failed: '
+                    . $exception->getMessage(),
+                LOG_WARNING
+            );
+        }
+        ModulesDBConnectionsProvider::recreateModulesDBConnections();
+    }
+
+    private function recoverSetupDatabaseConnection(): void
+    {
+        $connection = (new STTJob())->getWriteConnection();
+        $recoveryFailure = null;
+        try {
+            (new ModuleTransaction())->recover($connection);
+        } catch (Throwable $exception) {
+            $recoveryFailure = $exception;
+        }
+
+        if (!method_exists($connection, 'close')) {
+            $recoveryFailure ??= new \RuntimeException('Module database connection cannot be closed safely');
+        } elseif ($connection->close() !== true && $recoveryFailure === null) {
+            $recoveryFailure = new \RuntimeException('Unable to close module database connection');
+        }
+        if ($recoveryFailure !== null) {
+            throw $recoveryFailure;
+        }
     }
 
     private function cleanupLegacyLifecycleFiles(): void
