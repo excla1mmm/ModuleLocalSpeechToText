@@ -61,7 +61,7 @@ foreach (['m_STTCallTranscript', 'm_STTCallTranscriptPart', 'm_STTCallTranscript
     expectCallRevision(str_contains($schemaService, $table), "schema service must create {$table}");
 }
 expectCallRevision(str_contains($setup, 'CallTranscriptSchemaService'), 'setup must invoke call transcript schema service');
-expectCallRevision(str_contains($setup, "STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30'"), 'setup must default stability to 30 seconds');
+expectCallRevision(str_contains($setup, "STTSetting::CALL_TRANSCRIPT_STABILITY_SEC => '30'"), 'setup must default stability to 30 seconds');
 
 $job = file_get_contents(__DIR__ . '/../Models/STTJob.php') ?: '';
 foreach (['cdr_id', 'cdr_uniqueid', 'cdr_start_ms', 'cdr_end_ms', 'recording_fingerprint'] as $field) {

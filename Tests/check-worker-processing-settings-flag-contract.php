@@ -21,7 +21,7 @@ expectWorkerSettingsFlag(
     'Workers must expose a boolean dirty-state helper'
 );
 expectWorkerSettingsFlag(
-    str_contains($setup, 'ensureWorkerProcessingSettingsFlag();')
+    str_contains($setup, 'ensureWorkerProcessingSettingsFlag($connection);')
         && str_contains($setup, 'ALTER TABLE m_STTWorker ADD COLUMN has_settings_changed INTEGER NOT NULL DEFAULT 1'),
     'Setup must add the dirty flag for existing installations'
 );

@@ -129,10 +129,13 @@ if (!is_file($schemaServicePath)) {
 }
 $schemaService = file_get_contents($schemaServicePath) ?: '';
 $setup = file_get_contents($root . '/Setup/PbxExtensionSetup.php') ?: '';
-$parentPosition = strpos($setup, 'parent::installDB()');
+$migrationPosition = strpos($setup, 'new ModuleSchemaMigrator(');
 $ensurePosition = strpos($setup, 'CallTranscriptSchemaService())->ensure(');
-if ($parentPosition === false || $ensurePosition === false || $parentPosition >= $ensurePosition) {
-    failModelAnnotations('Core annotation migration must run before call-transcript index restoration');
+if ($migrationPosition === false || $ensurePosition === false || $migrationPosition >= $ensurePosition) {
+    failModelAnnotations('Versioned module migration must own call-transcript index restoration');
+}
+if (str_contains($setup, 'parent::installDB()')) {
+    failModelAnnotations('Existing databases must not use generic Core annotation migration');
 }
 
 foreach ([

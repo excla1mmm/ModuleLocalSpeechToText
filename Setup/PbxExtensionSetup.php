@@ -13,6 +13,8 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigration;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigrator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
@@ -91,46 +93,33 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
         try {
             $setupSnapshot = $this->createSetupDatabaseSnapshot($databaseBackup);
-            if (!parent::installDB()) {
-                throw new \RuntimeException('Core database setup returned failure');
+            $this->cleanupLegacyLifecycleFiles();
+
+            ModulesDBConnectionsProvider::recreateModulesDBConnections();
+            $connection = (new STTJob())->getWriteConnection();
+            if ($this->isFreshModuleDatabase($connection)) {
+                if (!method_exists($connection, 'close') || $connection->close() !== true) {
+                    throw new \RuntimeException('Unable to close fresh STT database before bootstrap');
+                }
+                if (!$this->createSettingsTableByModelsAnnotations()) {
+                    throw new \RuntimeException('Fresh STT database bootstrap failed');
+                }
+                $connection = (new STTJob())->getWriteConnection();
             }
 
-            $this->cleanupLegacyLifecycleFiles();
-            $this->setDefaultSetting(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE);
-            $this->setDefaultSetting(STTSetting::POLL_INTERVAL_SEC, '30');
-            $this->setDefaultSetting(STTSetting::MAX_RECORDING_DURATION_MIN, '60');
-            $this->setDefaultSetting(STTSetting::CDR_SCAN_LIMIT, '200');
-            $this->setDefaultSetting(STTSetting::CDR_HISTORY_DAYS, '30');
-            $this->setDefaultSetting(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
-            $this->setDefaultSetting(STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30');
-            $this->setDefaultSetting(STTSetting::SELECTED_MODEL, STTSetting::DEFAULT_MODEL);
-            $this->setDefaultSetting(STTSetting::DELAYED_RECORDINGS, '[]');
-            $this->setDefaultSetting(STTSetting::SKIPPED_RECORDINGS, '[]');
-            $this->setDefaultSetting(STTSetting::CDR_SCAN_CURSOR_ENDTIME, '');
-            $this->setDefaultSetting(STTSetting::CDR_SCAN_CURSOR_ID, '0');
-            $this->setDefaultSetting(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '');
-            $this->setDefaultSetting(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
-            $this->setDefaultSetting(STTSetting::WORKER_API_KEY_ID, '');
-            $this->setDefaultSetting(STTSetting::WORKER_API_KEY_IDS, '[]');
-            foreach (WorkerProcessingSettingsService::defaults() as $key => $value) {
-                $encoded = is_bool($value)
-                    ? ($value ? '1' : '0')
-                    : (json_encode($value, JSON_PRESERVE_ZERO_FRACTION) ?: (string)$value);
-                $this->setDefaultSetting($key, $encoded);
+            $migrator = new ModuleSchemaMigrator($this->moduleSchemaMigrations());
+            $migrator->migrate(
+                $connection,
+                static function (): never {
+                    throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
+                }
+            );
+            if (!$this->registerNewModule()) {
+                throw new \RuntimeException('Unable to register STT module');
             }
-            $this->ensureWorkerProcessingSettingsFlag();
-            $this->ensureJobCdrEndtimeColumn();
-            $this->ensureJobUpdatedAtColumn();
-            $this->ensureJobLeaseColumns();
-            $this->ensureJobCallIdentityColumns();
-            $this->ensureJobRecordingDurationColumn();
-            $this->ensureRetryStateSchema();
-            $this->importLegacyRetryState();
-            $this->ensureTechnicalInfoColumn();
-            $this->ensureTranscriptEventTable();
-            (new CallTranscriptSchemaService())->ensure((new STTResult())->getWriteConnection());
-            STTTranscriptEvent::backfillCompletedEvents();
-            (new CallTranscriptMigration())->run();
+            if (!$this->addToSidebar()) {
+                throw new \RuntimeException('Unable to register STT sidebar item');
+            }
             $this->ensureWorkerApiKeyPermissions();
             try {
                 $databaseBackup->discard($setupSnapshot);
@@ -220,6 +209,139 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         }
     }
 
+    /**
+     * @return array<int, ModuleSchemaMigration>
+     */
+    private function moduleSchemaMigrations(): array
+    {
+        return [
+            new ModuleSchemaMigration(
+                1,
+                'base settings',
+                fn (mixed $connection): null => $this->applyBaseSettingsMigration($connection),
+                'stt-schema-001-base-settings'
+            ),
+            new ModuleSchemaMigration(
+                2,
+                'worker and job schema',
+                fn (mixed $connection): null => $this->applyWorkerAndJobMigration($connection),
+                'stt-schema-002-worker-job'
+            ),
+            new ModuleSchemaMigration(
+                3,
+                'durable retry state',
+                fn (mixed $connection): null => $this->applyRetryStateMigration($connection),
+                'stt-schema-003-retry-state'
+            ),
+            new ModuleSchemaMigration(
+                4,
+                'transcript result events',
+                fn (mixed $connection): null => $this->applyTranscriptEventMigration($connection),
+                'stt-schema-004-transcript-events'
+            ),
+            new ModuleSchemaMigration(
+                5,
+                'call transcript revisions',
+                fn (mixed $connection): null => $this->applyCallTranscriptMigration($connection),
+                'stt-schema-005-call-transcripts'
+            ),
+            new ModuleSchemaMigration(
+                6,
+                'worker processing defaults',
+                fn (mixed $connection): null => $this->applyWorkerProcessingMigration($connection),
+                'stt-schema-006-worker-processing'
+            ),
+        ];
+    }
+
+    private function isFreshModuleDatabase(mixed $connection): bool
+    {
+        return $connection->fetchAll(
+            "SELECT name
+               FROM sqlite_master
+              WHERE type = 'table'
+                AND name NOT LIKE 'sqlite_%'
+                AND name <> 'm_STTSchemaMigration'
+              LIMIT 1",
+            \PDO::FETCH_ASSOC
+        ) === [];
+    }
+
+    private function applyBaseSettingsMigration(mixed $connection): null
+    {
+        foreach ([
+            STTSetting::DEFAULT_LANGUAGE => STTSetting::AUTO_LANGUAGE,
+            STTSetting::POLL_INTERVAL_SEC => '30',
+            STTSetting::MAX_RECORDING_DURATION_MIN => '60',
+            STTSetting::CDR_SCAN_LIMIT => '200',
+            STTSetting::CDR_HISTORY_DAYS => '30',
+            STTSetting::PROCESSING_TIMEOUT_SEC => '1800',
+            STTSetting::CALL_TRANSCRIPT_STABILITY_SEC => '30',
+            STTSetting::SELECTED_MODEL => STTSetting::DEFAULT_MODEL,
+            STTSetting::DELAYED_RECORDINGS => '[]',
+            STTSetting::SKIPPED_RECORDINGS => '[]',
+            STTSetting::CDR_SCAN_CURSOR_ENDTIME => '',
+            STTSetting::CDR_SCAN_CURSOR_ID => '0',
+            STTSetting::CDR_BACKFILL_CURSOR_ENDTIME => '',
+            STTSetting::CDR_BACKFILL_CURSOR_ID => '0',
+            STTSetting::WORKER_API_KEY_ID => '',
+            STTSetting::WORKER_API_KEY_IDS => '[]',
+        ] as $key => $value) {
+            $this->setDefaultSetting($connection, $key, $value);
+        }
+
+        return null;
+    }
+
+    private function applyWorkerAndJobMigration(mixed $connection): null
+    {
+        $this->ensureWorkerProcessingSettingsFlag($connection);
+        $this->ensureJobCdrEndtimeColumn($connection);
+        $this->ensureJobUpdatedAtColumn($connection);
+        $this->ensureJobLeaseColumns($connection);
+        $this->ensureJobCallIdentityColumns($connection);
+        $this->ensureJobRecordingDurationColumn($connection);
+
+        return null;
+    }
+
+    private function applyRetryStateMigration(mixed $connection): null
+    {
+        $this->ensureRetryStateSchema($connection);
+        $this->importLegacyRetryState($connection);
+
+        return null;
+    }
+
+    private function applyTranscriptEventMigration(mixed $connection): null
+    {
+        $this->ensureTechnicalInfoColumn($connection);
+        $this->ensureTranscriptEventTable($connection);
+        STTTranscriptEvent::backfillCompletedEvents();
+
+        return null;
+    }
+
+    private function applyCallTranscriptMigration(mixed $connection): null
+    {
+        (new CallTranscriptSchemaService())->ensure($connection);
+        (new CallTranscriptMigration())->run();
+
+        return null;
+    }
+
+    private function applyWorkerProcessingMigration(mixed $connection): null
+    {
+        foreach (WorkerProcessingSettingsService::defaults() as $key => $value) {
+            $encoded = is_bool($value)
+                ? ($value ? '1' : '0')
+                : (json_encode($value, JSON_PRESERVE_ZERO_FRACTION) ?: (string)$value);
+            $this->setDefaultSetting($connection, $key, $encoded);
+        }
+
+        return null;
+    }
+
     private function cleanupLegacyLifecycleFiles(): void
     {
         $databaseDirectory = $this->moduleDir . '/db';
@@ -262,17 +384,19 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         return $menuSettings->save();
     }
 
-    private function setDefaultSetting(string $key, string $value): void
+    private function setDefaultSetting(mixed $connection, string $key, string $value): void
     {
-        if (STTSetting::getValue($key, '') === '') {
-            STTSetting::setValue($key, $value);
-        }
+        $connection->execute(
+            'INSERT INTO m_STTSetting (key, value) VALUES (:key, :value)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value
+              WHERE m_STTSetting.value IS NULL OR m_STTSetting.value = \'\'',
+            ['key' => $key, 'value' => $value]
+        );
     }
 
-    private function ensureWorkerProcessingSettingsFlag(): void
+    private function ensureWorkerProcessingSettingsFlag(mixed $connection): void
     {
         $worker = new STTWorker();
-        $connection = $worker->getWriteConnection();
         foreach ($connection->describeColumns($worker->getSource()) as $column) {
             if ($column->getName() === 'has_settings_changed') {
                 return;
@@ -285,10 +409,9 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute('UPDATE m_STTWorker SET has_settings_changed = 1');
     }
 
-    private function ensureTechnicalInfoColumn(): void
+    private function ensureTechnicalInfoColumn(mixed $connection): void
     {
         $result = new STTResult();
-        $connection = $result->getWriteConnection();
         foreach ($connection->describeColumns($result->getSource()) as $column) {
             if ($column->getName() === 'technical_info') {
                 return;
@@ -298,21 +421,21 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute('ALTER TABLE m_STTResult ADD COLUMN technical_info TEXT');
     }
 
-    private function ensureRetryStateSchema(): void
+    private function ensureRetryStateSchema(mixed $connection): void
     {
-        (new RetryStateStore((new STTJob())->getWriteConnection()))->ensureSchema();
+        (new RetryStateStore($connection))->ensureSchema();
     }
 
-    private function importLegacyRetryState(): void
+    private function importLegacyRetryState(mixed $connection): void
     {
-        $store = new RetryStateStore((new STTJob())->getWriteConnection());
+        $store = new RetryStateStore($connection);
         $store->importLegacy(
-            $this->storedRetryRecords(STTSetting::DELAYED_RECORDINGS),
+            $this->storedRetryRecords($connection, STTSetting::DELAYED_RECORDINGS),
             RetryStateStore::TYPE_DELAYED,
             'recording_missing'
         );
         $store->importLegacy(
-            $this->storedRetryRecords(STTSetting::SKIPPED_RECORDINGS),
+            $this->storedRetryRecords($connection, STTSetting::SKIPPED_RECORDINGS),
             RetryStateStore::TYPE_SKIPPED,
             'legacy_skipped'
         );
@@ -321,17 +444,33 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     /**
      * @return array<int|string, mixed>
      */
-    private function storedRetryRecords(string $settingKey): array
+    private function storedRetryRecords(mixed $connection, string $settingKey): array
     {
-        $records = json_decode(STTSetting::getValue($settingKey, '[]'), true);
+        $rows = $connection->fetchAll(
+            'SELECT value FROM m_STTSetting WHERE key = :key LIMIT 1',
+            \PDO::FETCH_ASSOC,
+            ['key' => $settingKey]
+        );
+        $records = json_decode((string)($rows[0]['value'] ?? '[]'), true);
 
         return is_array($records) ? $records : [];
     }
 
-    private function ensureJobCdrEndtimeColumn(): void
+    private function settingValue(mixed $connection, string $key, string $default): string
+    {
+        $rows = $connection->fetchAll(
+            'SELECT value FROM m_STTSetting WHERE key = :key LIMIT 1',
+            \PDO::FETCH_ASSOC,
+            ['key' => $key]
+        );
+        $value = (string)($rows[0]['value'] ?? '');
+
+        return $value === '' ? $default : $value;
+    }
+
+    private function ensureJobCdrEndtimeColumn(mixed $connection): void
     {
         $job = new STTJob();
-        $connection = $job->getWriteConnection();
         foreach ($connection->describeColumns($job->getSource()) as $column) {
             if ($column->getName() === 'cdr_endtime') {
                 return;
@@ -342,10 +481,9 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute('UPDATE m_STTJob SET cdr_endtime = created_at WHERE cdr_endtime IS NULL OR cdr_endtime = 0');
     }
 
-    private function ensureJobUpdatedAtColumn(): void
+    private function ensureJobUpdatedAtColumn(mixed $connection): void
     {
         $job = new STTJob();
-        $connection = $job->getWriteConnection();
         $hasUpdatedAtColumn = false;
         foreach ($connection->describeColumns($job->getSource()) as $column) {
             if ($column->getName() === 'updated_at') {
@@ -368,10 +506,9 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         );
     }
 
-    private function ensureJobLeaseColumns(): void
+    private function ensureJobLeaseColumns(mixed $connection): void
     {
         $job = new STTJob();
-        $connection = $job->getWriteConnection();
         $existingColumns = [];
         foreach ($connection->describeColumns($job->getSource()) as $column) {
             $existingColumns[$column->getName()] = true;
@@ -390,17 +527,20 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     AND started_at <> \'\'
                     AND lease_expires_at IS NULL',
                 [
-                    'timeout' => (int)STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800'),
+                    'timeout' => (int)$this->settingValue(
+                        $connection,
+                        STTSetting::PROCESSING_TIMEOUT_SEC,
+                        '1800'
+                    ),
                     'processing' => STTJob::STATUS_PROCESSING,
                 ]
             );
         }
     }
 
-    private function ensureJobCallIdentityColumns(): void
+    private function ensureJobCallIdentityColumns(mixed $connection): void
     {
         $job = new STTJob();
-        $connection = $job->getWriteConnection();
         $existingColumns = [];
         foreach ($connection->describeColumns($job->getSource()) as $column) {
             $existingColumns[$column->getName()] = true;
@@ -426,10 +566,9 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         );
     }
 
-    private function ensureJobRecordingDurationColumn(): void
+    private function ensureJobRecordingDurationColumn(mixed $connection): void
     {
         $job = new STTJob();
-        $connection = $job->getWriteConnection();
         foreach ($connection->describeColumns($job->getSource()) as $column) {
             if ($column->getName() === 'recording_duration_sec') {
                 return;
@@ -439,10 +578,8 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute('ALTER TABLE m_STTJob ADD COLUMN recording_duration_sec INTEGER');
     }
 
-    private function ensureTranscriptEventTable(): void
+    private function ensureTranscriptEventTable(mixed $connection): void
     {
-        $result = new STTResult();
-        $connection = $result->getWriteConnection();
         $connection->execute(
             'CREATE TABLE IF NOT EXISTS m_STTTranscriptEvent (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
