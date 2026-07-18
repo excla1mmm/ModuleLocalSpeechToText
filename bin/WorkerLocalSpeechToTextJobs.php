@@ -12,6 +12,7 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerTransactionRecovery;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
@@ -46,9 +47,21 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             LOG_NOTICE
         );
 
+        $lifecycleGate = new ModuleLifecycleGate();
         $cdrTablesInitialized = false;
         while ($this->needRestart === false) {
             pcntl_signal_dispatch();
+
+            $writeLease = $lifecycleGate->acquireWriteLease();
+            if ($writeLease === null) {
+                LocalSpeechToTextLogger::syslog(
+                    __CLASS__,
+                    'Module lifecycle gate is closed; scanner iteration paused',
+                    LOG_NOTICE
+                );
+                sleep(self::SCAN_INTERVAL_SECONDS);
+                continue;
+            }
 
             try {
                 if (!$cdrTablesInitialized) {
@@ -84,6 +97,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     );
                     throw $recoveryException;
                 }
+            } finally {
+                $lifecycleGate->releaseWriteLease($writeLease);
             }
 
             sleep(self::SCAN_INTERVAL_SECONDS);

@@ -10,6 +10,7 @@ use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
@@ -25,6 +26,13 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 {
     public function installDB(): bool
     {
+        $lifecycleGate = new ModuleLifecycleGate($this->moduleDir . '/db', bootstrap: true);
+        if (!$lifecycleGate->beginDrain(30000)) {
+            $this->messages[] = 'STT database writers did not drain before setup';
+            return false;
+        }
+        $lifecycleGate->completeDisable();
+
         if (!parent::installDB()) {
             return false;
         }

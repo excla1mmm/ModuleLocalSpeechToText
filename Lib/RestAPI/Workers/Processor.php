@@ -7,6 +7,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\GetProcessingSettingsAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\RegisterAction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Phalcon\Di\Injectable;
 
 enum WorkerAction: string
@@ -30,11 +31,26 @@ class Processor extends Injectable
             return $result;
         }
 
-        $data = self::requestData($request);
-        $result = match ($action) {
-            WorkerAction::REGISTER => RegisterAction::main($data),
-            WorkerAction::GET_PROCESSING_SETTINGS => GetProcessingSettingsAction::main($data),
-        };
+        $gate = new ModuleLifecycleGate();
+        $writeLease = $gate->acquireWriteLease();
+        if ($writeLease === null) {
+            $result->success = false;
+            $result->httpCode = 503;
+            $result->function = $actionString;
+            $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
+            $result->data['retry_after'] = 5;
+            return $result;
+        }
+
+        try {
+            $data = self::requestData($request);
+            $result = match ($action) {
+                WorkerAction::REGISTER => RegisterAction::main($data),
+                WorkerAction::GET_PROCESSING_SETTINGS => GetProcessingSettingsAction::main($data),
+            };
+        } finally {
+            $gate->releaseWriteLease($writeLease);
+        }
 
         $result->processor = __METHOD__;
         $result->function = $actionString;

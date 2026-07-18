@@ -9,6 +9,7 @@ use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -20,12 +21,25 @@ class LocalSpeechToTextBaseController extends BaseController
 
     protected string $moduleDir;
 
+    private ?ModuleLifecycleGate $lifecycleGate = null;
+    private mixed $moduleWriteLease = null;
+
     public function initialize(): void
     {
         $this->moduleDir = PbxExtensionUtils::getModuleDir(self::MODULE_UNIQUE_ID);
+        $this->lifecycleGate = new ModuleLifecycleGate($this->moduleDir . '/db');
+        $this->moduleWriteLease = $this->lifecycleGate->acquireWriteLease();
+        if ($this->moduleWriteLease === null) {
+            throw new \RuntimeException('ModuleLocalSpeechToText is temporarily unavailable during maintenance');
+        }
         $this->view->logoImagePath = $this->url->get() . 'assets/img/cache/' . self::MODULE_UNIQUE_ID . '/logo.svg';
         $this->view->submitMode = null;
         parent::initialize();
+    }
+
+    public function __destruct()
+    {
+        $this->lifecycleGate?->releaseWriteLease($this->moduleWriteLease);
     }
 
     protected function addModuleAssets(bool $includeJs = true): void

@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\DownloadAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\GetNextAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\SubmitErrorAction;
@@ -37,15 +38,30 @@ class Processor extends Injectable
             return $result;
         }
 
-        $data = self::requestData($request);
-        $result = match ($action) {
-            JobAction::GET_NEXT => GetNextAction::main($data),
-            JobAction::DOWNLOAD => DownloadAction::main($data),
-            JobAction::SUBMIT_RESULT => SubmitResultAction::main($data),
-            JobAction::SUBMIT_ERROR => SubmitErrorAction::main($data),
-            JobAction::HEARTBEAT => LocalSpeechToTextMain::heartbeatJob($data),
-            JobAction::RELEASE => LocalSpeechToTextMain::releaseJob($data),
-        };
+        $gate = new ModuleLifecycleGate();
+        $writeLease = $gate->acquireWriteLease();
+        if ($writeLease === null) {
+            $result->success = false;
+            $result->httpCode = 503;
+            $result->function = $actionString;
+            $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
+            $result->data['retry_after'] = 5;
+            return $result;
+        }
+
+        try {
+            $data = self::requestData($request);
+            $result = match ($action) {
+                JobAction::GET_NEXT => GetNextAction::main($data),
+                JobAction::DOWNLOAD => DownloadAction::main($data),
+                JobAction::SUBMIT_RESULT => SubmitResultAction::main($data),
+                JobAction::SUBMIT_ERROR => SubmitErrorAction::main($data),
+                JobAction::HEARTBEAT => LocalSpeechToTextMain::heartbeatJob($data),
+                JobAction::RELEASE => LocalSpeechToTextMain::releaseJob($data),
+            };
+        } finally {
+            $gate->releaseWriteLease($writeLease);
+        }
 
         $result->processor = __METHOD__;
         $result->function = $actionString;
