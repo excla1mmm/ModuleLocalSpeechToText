@@ -13,6 +13,8 @@ use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerTransactionRecovery;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
@@ -72,6 +74,16 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     'Error while scanning CDR recordings: ' . $exception->getMessage(),
                     LOG_ERR
                 );
+                try {
+                    (new ScannerTransactionRecovery())->recover($this->scannerConnections());
+                } catch (TransactionRecoveryException $recoveryException) {
+                    LocalSpeechToTextLogger::syslog(
+                        __CLASS__,
+                        'Scanner database recovery failed: ' . $recoveryException->getMessage(),
+                        LOG_CRIT
+                    );
+                    throw $recoveryException;
+                }
             }
 
             sleep(self::SCAN_INTERVAL_SECONDS);
@@ -82,6 +94,25 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             sprintf('Worker stopped (PID:%d)', getmypid()),
             LOG_NOTICE
         );
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private function scannerConnections(): array
+    {
+        try {
+            return [
+                (new STTJob())->getWriteConnection(),
+                (new CallDetailRecords())->getReadConnection(),
+            ];
+        } catch (Throwable $exception) {
+            throw new TransactionRecoveryException(
+                'Unable to resolve scanner database connections for recovery',
+                0,
+                $exception
+            );
+        }
     }
 
     private function createJobsFromCompletedCdr(): void
