@@ -12,6 +12,7 @@ require_once __DIR__ . '/../Lib/Services/TranscriptRetentionService.php';
 final class RetentionSqliteConnection
 {
     public ?string $failOnSqlContaining = null;
+    public ?string $returnFalseOnSqlContaining = null;
 
     public function __construct(private readonly PDO $pdo)
     {
@@ -21,6 +22,9 @@ final class RetentionSqliteConnection
     {
         if ($this->failOnSqlContaining !== null && str_contains($sql, $this->failOnSqlContaining)) {
             throw new RuntimeException('injected retention delete failure');
+        }
+        if ($this->returnFalseOnSqlContaining !== null && str_contains($sql, $this->returnFalseOnSqlContaining)) {
+            return false;
         }
         $statement = $this->pdo->prepare($sql);
 
@@ -169,5 +173,19 @@ try {
 expectRetentionSqlite($rollbackFailed, 'injected deletion failure must escape the service');
 expectRetentionSqlite(retentionCount($rollbackPdo, 'm_STTResult') === 5, 'failed purge must roll back results');
 expectRetentionSqlite(retentionCount($rollbackPdo, 'm_STTCallTranscript') === 3, 'failed purge must roll back aggregates');
+
+$falsePdo = retentionDatabase();
+seedRetentionGraph($falsePdo, $now);
+$falseConnection = new RetentionSqliteConnection($falsePdo);
+$falseConnection->returnFalseOnSqlContaining = 'DELETE FROM m_STTResult';
+$falseRejected = false;
+try {
+    (new TranscriptRetentionService($falseConnection))->purgeExpired(365, $now);
+} catch (RuntimeException $exception) {
+    $falseRejected = str_contains($exception->getMessage(), 'm_STTResult');
+}
+expectRetentionSqlite($falseRejected, 'false deletion result must abort the retention transaction');
+expectRetentionSqlite(retentionCount($falsePdo, 'm_STTResult') === 5, 'false deletion result must roll back results');
+expectRetentionSqlite(retentionCount($falsePdo, 'm_STTCallTranscript') === 3, 'false deletion result must roll back aggregates');
 
 echo "Transcript retention SQLite behavior OK\n";

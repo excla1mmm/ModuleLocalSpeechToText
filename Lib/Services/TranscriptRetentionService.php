@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use PDO;
+use RuntimeException;
 
 final class TranscriptRetentionService
 {
@@ -136,7 +137,9 @@ final class TranscriptRetentionService
             return;
         }
         [$placeholders, $bind] = $this->boundList($bindPrefix, $ids);
-        $connection->execute("DELETE FROM {$table} WHERE {$column} IN ({$placeholders})", $bind);
+        if ($connection->execute("DELETE FROM {$table} WHERE {$column} IN ({$placeholders})", $bind) !== true) {
+            throw new RuntimeException('Unable to delete expired transcript rows from ' . $table);
+        }
     }
 
     /**
