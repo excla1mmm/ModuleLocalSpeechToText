@@ -135,7 +135,7 @@ namespace {
     expectSameSettingsNormalization(0, STTSetting::normalizeCdrHistoryDays(-5), 'Negative CDR history must disable backfill');
     expectSameSettingsNormalization(0, STTSetting::normalizeCdrHistoryDays(0), 'Zero CDR history must disable backfill');
     expectSameSettingsNormalization(1, STTSetting::normalizeCdrHistoryDays(1), 'Positive CDR history must be preserved');
-    expectSameSettingsNormalization(730, STTSetting::normalizeCdrHistoryDays(999), 'CDR history must be capped at two years');
+    expectSameSettingsNormalization(365, STTSetting::normalizeCdrHistoryDays(999), 'CDR history must be capped at one year');
 
     expectSameSettingsNormalization('en', STTSetting::normalizeLanguageId(' EN '), 'Known language ids must normalize to lowercase');
     expectSameSettingsNormalization(STTSetting::AUTO_LANGUAGE, STTSetting::normalizeLanguageId('xx'), 'Unknown languages must fall back to auto');

@@ -42,6 +42,17 @@
                 </div>
                 <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}</div>
             </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_TranscriptRetentionDays') }}</label>
+                <div class="ui segment stt-cdr-history-slider stt-transcript-retention-slider">
+                    <div class="ui bottom aligned ticked labeled slider" id="stt-transcript-retention-days-slider"></div>
+                    {{ form.render('transcript_retention_days') }}
+                </div>
+                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_TranscriptRetentionDaysHint') }}</div>
+                <div class="ui negative hidden message stt-retention-conflict-message" role="alert" aria-hidden="true">
+                    {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
+                </div>
+            </div>
             <div class="ui fluid styled accordion stt-advanced-settings-dropdown">
                 <div class="title">
                     <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AdvancedSettings') }}

@@ -565,7 +565,7 @@
             return;
         }
 
-        var values = ['1', '7', '30', '90', '180', '365', '730', '0'];
+        var values = ['1', '7', '30', '90', '180', '365', '0'];
         var labels = {
             0: translation('module_local_speech_to_text_CdrHistory1Day', '1 day'),
             1: translation('module_local_speech_to_text_CdrHistory7Days', '7 days'),
@@ -573,8 +573,7 @@
             3: translation('module_local_speech_to_text_CdrHistory90Days', '90 days'),
             4: translation('module_local_speech_to_text_CdrHistory180Days', '6 months'),
             5: translation('module_local_speech_to_text_CdrHistory365Days', '1 year'),
-            6: translation('module_local_speech_to_text_CdrHistory730Days', '2 years'),
-            7: translation('module_local_speech_to_text_CdrHistoryAll', 'All')
+            6: translation('module_local_speech_to_text_CdrHistoryAll', 'All')
         };
         var currentValue = String($input.val() || '30');
         var initialIndex = values.indexOf(currentValue);
@@ -600,6 +599,7 @@
                 $input.val(selected);
                 if (initialized) {
                     $input.trigger('change');
+                    updateRetentionConflict($settingsForm);
                     if (typeof Form !== 'undefined' && typeof Form.checkValues === 'function') {
                         Form.checkValues();
                     }
@@ -608,6 +608,74 @@
         });
         $slider.slider('set value', initialIndex, false);
         initialized = true;
+    }
+
+    function initializeTranscriptRetentionSlider($settingsForm) {
+        var $slider = $('#stt-transcript-retention-days-slider');
+        var $input = $settingsForm.find('input[name="transcript_retention_days"]');
+
+        if ($slider.length === 0 || $input.length === 0 || typeof $slider.slider !== 'function') {
+            return;
+        }
+
+        var values = ['30', '90', '180', '365', '0'];
+        var labels = {
+            0: translation('module_local_speech_to_text_TranscriptRetention30Days', '30 days'),
+            1: translation('module_local_speech_to_text_TranscriptRetention90Days', '90 days'),
+            2: translation('module_local_speech_to_text_TranscriptRetention180Days', '180 days'),
+            3: translation('module_local_speech_to_text_TranscriptRetention365Days', '1 year'),
+            4: translation('module_local_speech_to_text_TranscriptRetentionUnlimited', 'Unlimited')
+        };
+        var currentValue = String($input.val() || '365');
+        var initialIndex = values.indexOf(currentValue);
+        var initialized = false;
+
+        if (initialIndex < 0) {
+            initialIndex = values.indexOf('365');
+            $input.val('365');
+        }
+
+        $slider.slider({
+            min: 0,
+            max: values.length - 1,
+            step: 1,
+            smooth: true,
+            autoAdjustLabels: false,
+            interpretLabel: function (value) {
+                return labels[value] || '';
+            },
+            onChange: function (value) {
+                var selected = values[value] || '365';
+
+                $input.val(selected);
+                if (initialized) {
+                    $input.trigger('change');
+                    updateRetentionConflict($settingsForm);
+                    if (typeof Form !== 'undefined' && typeof Form.checkValues === 'function') {
+                        Form.checkValues();
+                    }
+                }
+            }
+        });
+        $slider.slider('set value', initialIndex, false);
+        initialized = true;
+    }
+
+    function retentionAllowsProcessing(processingDays, retentionDays) {
+        return retentionDays === 0 || (processingDays > 0 && processingDays <= retentionDays);
+    }
+
+    function updateRetentionConflict($settingsForm) {
+        var processingDays = Number($settingsForm.find('input[name="cdr_history_days"]').val());
+        var retentionDays = Number($settingsForm.find('input[name="transcript_retention_days"]').val());
+        var compatible = Number.isFinite(processingDays)
+            && Number.isFinite(retentionDays)
+            && retentionAllowsProcessing(processingDays, retentionDays);
+        var $message = $settingsForm.find('.stt-retention-conflict-message');
+
+        $message.toggleClass('hidden', compatible).attr('aria-hidden', compatible ? 'true' : 'false');
+
+        return compatible;
     }
 
     function vocabularyTemplateTerms() {
@@ -884,6 +952,8 @@
         initializeTranscriptPlayer();
         initializeModuleLogs();
         initializeCdrHistorySlider($settingsForm);
+        initializeTranscriptRetentionSlider($settingsForm);
+        updateRetentionConflict($settingsForm);
         initializeVocabularyTermsTools($settingsForm);
         initializeConfirmModal();
 
@@ -905,6 +975,9 @@
                     && Number.isFinite(durationMS)
                     && overlapMS >= 0
                     && overlapMS < durationMS;
+            };
+            $.fn.form.settings.rules.sttRetentionCompatibility = function () {
+                return updateRetentionConflict($settingsForm);
             };
         }
 
@@ -1001,7 +1074,20 @@
                 },
                 cdr_history_days: {
                     identifier: 'cdr_history_days',
-                    rules: [{ type: 'integer[0..730]' }]
+                    rules: [{ type: 'integer[0..365]' }]
+                },
+                transcript_retention_days: {
+                    identifier: 'transcript_retention_days',
+                    rules: [
+                        { type: 'integer[0..365]' },
+                        {
+                            type: 'sttRetentionCompatibility',
+                            prompt: translation(
+                                'module_local_speech_to_text_TranscriptRetentionConflict',
+                                'The recording processing window cannot exceed transcript retention. Increase retention or reduce the processing window.'
+                            )
+                        }
+                    ]
                 },
                 processing_timeout_sec: {
                     identifier: 'processing_timeout_sec',
@@ -1024,7 +1110,17 @@
                     poll_interval_sec: ['integer[30..3600]'],
                     max_recording_duration_min: ['integer[1..1440]'],
                     cdr_scan_limit: ['integer[1..1000]'],
-                    cdr_history_days: ['integer[0..730]'],
+                    cdr_history_days: ['integer[0..365]'],
+                    transcript_retention_days: [
+                        'integer[0..365]',
+                        {
+                            type: 'sttRetentionCompatibility',
+                            prompt: translation(
+                                'module_local_speech_to_text_TranscriptRetentionConflict',
+                                'The recording processing window cannot exceed transcript retention. Increase retention or reduce the processing window.'
+                            )
+                        }
+                    ],
                     processing_timeout_sec: ['integer[60..86400]']
                 }, processingValidationFields)
             });

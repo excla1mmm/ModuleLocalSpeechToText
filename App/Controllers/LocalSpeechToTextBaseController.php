@@ -14,6 +14,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use InvalidArgumentException;
 use stdClass;
 
 class LocalSpeechToTextBaseController extends BaseController
@@ -78,6 +79,19 @@ class LocalSpeechToTextBaseController extends BaseController
             ),
         ];
         $normalizedProcessing = WorkerProcessingSettingsService::normalize($processingInput);
+        $previousHistoryDays = STTSetting::cdrHistoryDays();
+        $previousRetentionDays = STTSetting::transcriptRetentionDays();
+        $nextHistoryDays = STTSetting::normalizeCdrHistoryDays(
+            (int)$this->request->getPost(STTSetting::CDR_HISTORY_DAYS, 'int', 30)
+        );
+        $nextRetentionDays = STTSetting::normalizeTranscriptRetentionDays(
+            (int)$this->request->getPost(STTSetting::TRANSCRIPT_RETENTION_DAYS, 'int', 365)
+        );
+        if (!STTSetting::retentionAllowsProcessing($nextHistoryDays, $nextRetentionDays)) {
+            throw new InvalidArgumentException(
+                $this->translation->_('module_local_speech_to_text_TranscriptRetentionConflict')
+            );
+        }
 
         STTSetting::setValue(
             STTSetting::DEFAULT_LANGUAGE,
@@ -97,16 +111,16 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CDR_SCAN_LIMIT,
             (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000)
         );
-        $previousHistoryDays = STTSetting::cdrHistoryDays();
-        $nextHistoryDays = STTSetting::normalizeCdrHistoryDays(
-            (int)$this->request->getPost(STTSetting::CDR_HISTORY_DAYS, 'int', 30)
-        );
         STTSetting::setValue(STTSetting::CDR_HISTORY_DAYS, (string)$nextHistoryDays);
         if ($previousHistoryDays !== $nextHistoryDays) {
             STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
             STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
             STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '');
             STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
+        }
+        STTSetting::setValue(STTSetting::TRANSCRIPT_RETENTION_DAYS, (string)$nextRetentionDays);
+        if ($previousRetentionDays !== $nextRetentionDays) {
+            STTSetting::setValue(STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT, '0');
         }
         STTSetting::setValue(
             STTSetting::PROCESSING_TIMEOUT_SEC,
@@ -127,10 +141,11 @@ class LocalSpeechToTextBaseController extends BaseController
         LocalSpeechToTextLogger::write(
             'web-ui',
             sprintf(
-                'Settings saved: language=%s model=%s history_days=%d max_duration_min=%d vocabulary_terms=%d processing_changed=%s',
+                'Settings saved: language=%s model=%s history_days=%d retention_days=%d max_duration_min=%d vocabulary_terms=%d processing_changed=%s',
                 STTSetting::selectedLanguageId(),
                 STTSetting::selectedModelId(),
                 $nextHistoryDays,
+                $nextRetentionDays,
                 STTSetting::maxRecordingDurationMinutes(),
                 count(STTSetting::selectedVocabularyTerms()),
                 $processingChanged ? 'yes' : 'no'
@@ -157,6 +172,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->max_recording_duration_min = (string)STTSetting::maxRecordingDurationMinutes();
         $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
         $settings->cdr_history_days = (string)STTSetting::cdrHistoryDays();
+        $settings->transcript_retention_days = (string)STTSetting::transcriptRetentionDays();
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
         $settings->selected_model = STTSetting::selectedModelId();
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();

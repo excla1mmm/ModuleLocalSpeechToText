@@ -87,6 +87,10 @@
     padding: 1.4em 1.2em 2.1em;
 }
 
+.module-local-speech-to-text .stt-retention-conflict-message {
+    margin-top: 0.75em;
+}
+
 .module-local-speech-to-text .stt-advanced-settings-dropdown {
     margin: 1.2em 0;
 }

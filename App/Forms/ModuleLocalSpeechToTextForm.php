@@ -51,6 +51,9 @@ class ModuleLocalSpeechToTextForm extends BaseForm
         $this->add(new Hidden('cdr_history_days', [
             'value' => $entity->cdr_history_days ?? '30',
         ]));
+        $this->add(new Hidden('transcript_retention_days', [
+            'value' => $entity->transcript_retention_days ?? '365',
+        ]));
         $this->add(new Numeric('processing_timeout_sec', [
             'value' => $entity->processing_timeout_sec ?? '1800',
             'min' => 60,
