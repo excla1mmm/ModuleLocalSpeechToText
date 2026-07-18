@@ -101,7 +101,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             (new ModuleMetadataCache())->invalidate();
             $connection = (new STTJob())->getWriteConnection();
             if ($this->isFreshModuleDatabase($connection)) {
-                if (!method_exists($connection, 'close') || $connection->close() !== true) {
+                if (!method_exists($connection, 'close') || $connection->close() === false) {
                     throw new \RuntimeException('Unable to close fresh STT database before bootstrap');
                 }
                 if (!$this->createSettingsTableByModelsAnnotations()) {
@@ -117,7 +117,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
                 }
             );
-            if (!method_exists($connection, 'close') || $connection->close() !== true) {
+            if (!method_exists($connection, 'close') || $connection->close() === false) {
                 throw new \RuntimeException('Unable to close STT database after migrations');
             }
             $connection = null;
@@ -138,7 +138,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 throw new \RuntimeException('Unable to register STT sidebar item');
             }
             $this->ensureWorkerApiKeyPermissions();
-            if (!method_exists($connection, 'close') || $connection->close() !== true) {
+            if (!method_exists($connection, 'close') || $connection->close() === false) {
                 throw new \RuntimeException('Unable to close STT database after runtime configuration');
             }
             $connection = null;
@@ -222,7 +222,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
         if (!method_exists($connection, 'close')) {
             $recoveryFailure ??= new \RuntimeException('Module database connection cannot be closed safely');
-        } elseif ($connection->close() !== true && $recoveryFailure === null) {
+        } elseif ($connection->close() === false && $recoveryFailure === null) {
             $recoveryFailure = new \RuntimeException('Unable to close module database connection');
         }
         if ($recoveryFailure !== null) {
