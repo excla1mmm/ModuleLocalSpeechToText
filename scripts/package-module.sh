@@ -45,11 +45,33 @@ COPY_ITEMS=(
   vendor
 )
 
+reject_symlinks() {
+  local root_path="$1"
+  local label="$2"
+  local symlink_path=""
+
+  if [[ -L "${root_path}" ]]; then
+    echo "Package rejected: symlink found in ${label}: ${root_path}" >&2
+    exit 1
+  fi
+  if [[ -d "${root_path}" ]]; then
+    symlink_path="$(find "${root_path}" -type l -print -quit)"
+    if [[ -n "${symlink_path}" ]]; then
+      echo "Package rejected: symlink found in ${label}: ${symlink_path}" >&2
+      exit 1
+    fi
+  fi
+}
+
 for item in "${COPY_ITEMS[@]}"; do
-  if [[ -e "${MODULE_DIR}/${item}" ]]; then
-    cp -R "${MODULE_DIR}/${item}" "${TMP_MODULE_DIR}/"
+  source_path="${MODULE_DIR}/${item}"
+  if [[ -e "${source_path}" || -L "${source_path}" ]]; then
+    reject_symlinks "${source_path}" "module source"
+    cp -R "${source_path}" "${TMP_MODULE_DIR}/"
   fi
 done
+
+reject_symlinks "${TMP_MODULE_DIR}" "staging tree"
 
 # An installed module keeps live SQLite data under db/. It belongs to one PBX
 # instance and must never enter a release ZIP.
@@ -151,6 +173,19 @@ php -r '
       }
       $normalized = preg_replace("#^\\./#", "", $name) ?? $name;
       $normalized = rtrim($normalized, "/");
+      $operatingSystem = 0;
+      $externalAttributes = 0;
+      if (!$zip->getExternalAttributesIndex($i, $operatingSystem, $externalAttributes)) {
+          $zip->close();
+          fwrite(STDERR, "Invalid module package: unable to validate entry type: {$name}\n");
+          exit(1);
+      }
+      $unixMode = ($externalAttributes >> 16) & 0xffff;
+      if (($unixMode & 0170000) === 0120000) {
+          $zip->close();
+          fwrite(STDERR, "Invalid module package: symlink entry included: {$name}\n");
+          exit(1);
+      }
       if (in_array($normalized, $forbiddenNames, true)) {
           $zip->close();
           fwrite(STDERR, "Invalid module package: dev artifact included: {$name}\n");

@@ -91,7 +91,11 @@ class STTTranscriptEvent extends ModulesModelsBase
         );
     }
 
-    public static function ensureCompletedForResult(STTResult $result, ?STTJob $job = null): self
+    public static function ensureCompletedForResult(
+        STTResult $result,
+        ?STTJob $job = null,
+        ?int $createdAtOverride = null
+    ): self
     {
         $resultId = (int)$result->id;
         if ($resultId <= 0) {
@@ -118,10 +122,11 @@ class STTTranscriptEvent extends ModulesModelsBase
             $job = $relatedJob instanceof STTJob ? $relatedJob : null;
         }
 
-        $createdAt = (int)$result->created_at;
+        $createdAt = $createdAtOverride ?? (int)$result->created_at;
         if ($createdAt <= 0) {
             $createdAt = time();
         }
+        $createdAt = self::cursorSafeCreatedAt($createdAt);
 
         $event = new self();
         $event->event_type = self::TYPE_TRANSCRIPT_COMPLETED;
@@ -150,9 +155,22 @@ class STTTranscriptEvent extends ModulesModelsBase
         return $event;
     }
 
-    public static function backfillCompletedEvents(int $limit = 1000): int
+    public static function backfillCompletedEvents(
+        int $limit = 1000,
+        bool $preserveCursorVisibility = false
+    ): int
     {
         $connection = (new STTResult())->getReadConnection();
+        $backfillCreatedAt = null;
+        if ($preserveCursorVisibility) {
+            $frontierRows = $connection->fetchAll(
+                'SELECT COALESCE(MAX(CAST(created_at AS INTEGER)), 0) AS cursor_frontier
+                   FROM m_STTTranscriptEvent',
+                \Phalcon\Db\Enum::FETCH_ASSOC
+            );
+            $cursorFrontier = (int)($frontierRows[0]['cursor_frontier'] ?? 0);
+            $backfillCreatedAt = max(time(), $cursorFrontier);
+        }
         $rows = $connection->fetchAll(
             "SELECT r.id AS result_id
                FROM m_STTResult r
@@ -171,7 +189,7 @@ class STTTranscriptEvent extends ModulesModelsBase
                 continue;
             }
 
-            self::ensureCompletedForResult($result);
+            self::ensureCompletedForResult($result, createdAtOverride: $backfillCreatedAt);
             $created++;
         }
 
@@ -181,6 +199,18 @@ class STTTranscriptEvent extends ModulesModelsBase
     private static function completedEventKey(int $resultId): string
     {
         return self::TYPE_TRANSCRIPT_COMPLETED . ':' . $resultId;
+    }
+
+    private static function cursorSafeCreatedAt(int $createdAt): int
+    {
+        $rows = (new self())->getReadConnection()->fetchAll(
+            'SELECT COALESCE(MAX(CAST(created_at AS INTEGER)), 0) AS cursor_frontier
+               FROM m_STTTranscriptEvent',
+            \Phalcon\Db\Enum::FETCH_ASSOC
+        );
+        $cursorFrontier = (int)($rows[0]['cursor_frontier'] ?? 0);
+
+        return max($createdAt, $cursorFrontier);
     }
 
     private static function fillEventJobFields(self $event, STTJob $job): bool

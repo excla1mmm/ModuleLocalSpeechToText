@@ -129,16 +129,25 @@ final class CallTranscriptRevisionService
     }
 
     /** @return array{scanned: int, published: int, blocked_jobs: int} */
-    public function publishReady(?int $now = null, int $limit = 100): array
+    public function publishReady(
+        ?int $eligibleAt = null,
+        int $limit = 100,
+        ?int $publishedAt = null,
+        bool $terminalOnly = false
+    ): array
     {
-        $now ??= time();
+        $eligibleAt ??= time();
+        $publishedAt = $this->cursorSafePublishedAt($publishedAt ?? time());
         $summary = ['scanned' => 0, 'published' => 0, 'blocked_jobs' => 0];
-        $calls = STTCallTranscript::find([
-            'conditions' => 'pending_content_hash <> :empty: AND CAST(stable_after AS INTEGER) <= :now:',
-            'bind' => ['empty' => '', 'now' => $now],
-            'order' => 'CAST(stable_after AS INTEGER) ASC, id ASC',
-            'limit' => max(1, min(1000, $limit)),
-        ]);
+        $limit = max(1, min(1000, $limit));
+        $calls = $terminalOnly
+            ? $this->terminalReadyCalls($eligibleAt, $limit)
+            : STTCallTranscript::find([
+                'conditions' => 'pending_content_hash <> :empty: AND CAST(stable_after AS INTEGER) <= :now:',
+                'bind' => ['empty' => '', 'now' => $eligibleAt],
+                'order' => 'CAST(stable_after AS INTEGER) ASC, id ASC',
+                'limit' => $limit,
+            ]);
 
         foreach ($calls as $call) {
             if (!$call instanceof STTCallTranscript) {
@@ -153,7 +162,7 @@ final class CallTranscriptRevisionService
                     'processing' => STTJob::STATUS_PROCESSING,
                 ],
             ]) === 0;
-            $publication = $this->policy->publication($this->callState($call), $now, $allTerminal);
+            $publication = $this->policy->publication($this->callState($call), $eligibleAt, $allTerminal);
             if ($publication === null) {
                 if (!$allTerminal) {
                     $summary['blocked_jobs']++;
@@ -173,7 +182,7 @@ final class CallTranscriptRevisionService
                 $revision->parts_hash = (string)$publication['parts_hash'];
                 $revision->completeness_status = (string)$publication['completeness_status'];
                 $revision->payload = (string)$publication['payload'];
-                $revision->created_at = (string)$now;
+                $revision->created_at = (string)$publishedAt;
                 $this->save($revision, 'call transcript revision');
             }
 
@@ -198,16 +207,68 @@ final class CallTranscriptRevisionService
                 $event->content_hash = (string)$publication['content_hash'];
                 $event->parts_hash = (string)$publication['parts_hash'];
                 $event->completeness_status = (string)$publication['completeness_status'];
-                $event->created_at = (string)$now;
+                $event->created_at = (string)$publishedAt;
                 $this->save($event, 'call transcript event');
             }
 
-            $this->applyCallState($call, $this->policy->applyPublication($this->callState($call), $publication, $now));
+            $this->applyCallState(
+                $call,
+                $this->policy->applyPublication($this->callState($call), $publication, $publishedAt)
+            );
             $this->save($call, 'published call transcript');
             $summary['published']++;
         }
 
         return $summary;
+    }
+
+    private function cursorSafePublishedAt(int $publishedAt): int
+    {
+        $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT COALESCE(MAX(CAST(created_at AS INTEGER)), 0) AS cursor_frontier
+               FROM m_STTCallTranscriptEvent',
+            \Phalcon\Db\Enum::FETCH_ASSOC
+        );
+        $cursorFrontier = (int)($rows[0]['cursor_frontier'] ?? 0);
+
+        return max($publishedAt, $cursorFrontier);
+    }
+
+    /** @return array<int, STTCallTranscript> */
+    private function terminalReadyCalls(int $eligibleAt, int $limit): array
+    {
+        $rows = (new STTCallTranscript())->getReadConnection()->fetchAll(
+            'SELECT c.id
+               FROM m_STTCallTranscript c
+              WHERE c.pending_content_hash <> :empty
+                AND CAST(c.stable_after AS INTEGER) <= :eligible_at
+                AND NOT EXISTS (
+                    SELECT 1
+                      FROM m_STTJob j
+                     WHERE j.call_id = c.call_id
+                       AND (j.status = :pending OR j.status = :processing)
+                )
+              ORDER BY CAST(c.stable_after AS INTEGER) ASC, CAST(c.id AS INTEGER) ASC
+              LIMIT ' . $limit,
+            \Phalcon\Db\Enum::FETCH_ASSOC,
+            [
+                'empty' => '',
+                'eligible_at' => $eligibleAt,
+                'pending' => STTJob::STATUS_PENDING,
+                'processing' => STTJob::STATUS_PROCESSING,
+            ]
+        );
+
+        $calls = [];
+        foreach ($rows as $row) {
+            $call = STTCallTranscript::findFirstById((int)($row['id'] ?? 0));
+            if (!$call instanceof STTCallTranscript) {
+                throw new RuntimeException('Unable to load terminal call transcript publication candidate');
+            }
+            $calls[] = $call;
+        }
+
+        return $calls;
     }
 
     /** @return array<int, array<string, mixed>> */

@@ -11,6 +11,7 @@ use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
@@ -278,6 +279,18 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyModuleIndexMigration($connection),
                 'stt-schema-007-module-indexes'
             ),
+            new ModuleSchemaMigration(
+                8,
+                'complete transcript result event backfill',
+                fn (mixed $connection): null => $this->applyTranscriptEventCompletionMigration($connection),
+                'stt-schema-008-complete-transcript-events'
+            ),
+            new ModuleSchemaMigration(
+                9,
+                'complete call transcript backfill',
+                fn (mixed $connection): null => $this->applyCallTranscriptCompletionMigration($connection),
+                'stt-schema-009-complete-call-transcripts'
+            ),
         ];
     }
 
@@ -372,6 +385,29 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     private function applyModuleIndexMigration(mixed $connection): null
     {
         (new ModuleDatabaseIndexService())->ensure($connection);
+
+        return null;
+    }
+
+    private function applyTranscriptEventCompletionMigration(mixed $connection): null
+    {
+        (new ModuleBatchMigrationRunner())->run(
+            static fn (): int => STTTranscriptEvent::backfillCompletedEvents(
+                1000,
+                preserveCursorVisibility: true
+            )
+        );
+
+        return null;
+    }
+
+    private function applyCallTranscriptCompletionMigration(mixed $connection): null
+    {
+        $migration = new CallTranscriptMigration();
+        (new ModuleBatchMigrationRunner())->run(
+            static fn (): int => (int)$migration->run(10000)['source_results']
+        );
+        $migration->publishAllReady();
 
         return null;
     }

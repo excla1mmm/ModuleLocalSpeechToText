@@ -33,6 +33,7 @@ function removeLifecycleDirectory(string $directory): void
 }
 
 $temporaryDirectory = sys_get_temp_dir() . '/local-stt-lifecycle-' . bin2hex(random_bytes(8));
+$drainProcessId = null;
 try {
     $gate = new ModuleLifecycleGate($temporaryDirectory, bootstrap: true);
     expectLifecycleGate($gate->currentState() === ModuleLifecycleGate::STATE_OPEN, 'new gate must be open');
@@ -49,6 +50,74 @@ try {
     expectLifecycleGate($drain->currentState() === ModuleLifecycleGate::STATE_OPEN, 'timed-out drain must reopen gate');
 
     $writer->releaseWriteLease($lease);
+
+    if (function_exists('pcntl_fork') && function_exists('posix_kill')) {
+        $goPath = $temporaryDirectory . '/start-child-drain';
+        $acquiredPath = $temporaryDirectory . '/child-drain-acquired';
+        $drainProcessId = pcntl_fork();
+        expectLifecycleGate($drainProcessId >= 0, 'unable to fork lifecycle drain test');
+        if ($drainProcessId === 0) {
+            while (!file_exists($goPath)) {
+                usleep(10_000);
+            }
+            $childDrain = new ModuleLifecycleGate($temporaryDirectory);
+            if (!$childDrain->beginDrain(5000, 1000)) {
+                exit(2);
+            }
+            file_put_contents($acquiredPath, 'ready');
+            sleep(30);
+            exit(0);
+        }
+
+        file_put_contents($goPath, 'go');
+        $drainingDeadline = microtime(true) + 2;
+        while ($writer->currentState() !== ModuleLifecycleGate::STATE_DRAINING && microtime(true) < $drainingDeadline) {
+            usleep(10_000);
+        }
+        expectLifecycleGate(
+            $writer->currentState() === ModuleLifecycleGate::STATE_DRAINING,
+            'child must publish draining state before waiting for writers'
+        );
+        expectLifecycleGate(
+            $writer->acquireWriteLease() === null,
+            'drain must reject new queue claims'
+        );
+        $completionLease = $writer->acquireWriteLease(allowDuringDrain: true);
+        expectLifecycleGate(
+            is_resource($completionLease),
+            'drain grace period must accept completion traffic for an existing lease'
+        );
+        $writer->releaseWriteLease($completionLease);
+
+        $acquiredDeadline = microtime(true) + 2;
+        while (!file_exists($acquiredPath) && microtime(true) < $acquiredDeadline) {
+            usleep(10_000);
+        }
+        expectLifecycleGate(file_exists($acquiredPath), 'child drain did not acquire its exclusive lease');
+        posix_kill($drainProcessId, SIGKILL);
+        pcntl_waitpid($drainProcessId, $childStatus);
+        $drainProcessId = null;
+        sleep(2);
+        expectLifecycleGate(
+            (new ModuleLifecycleGate($temporaryDirectory))->currentState() === ModuleLifecycleGate::STATE_OPEN,
+            'dead drain owner must be recovered after its exclusive lock disappears'
+        );
+
+        file_put_contents(
+            $temporaryDirectory . '/.module-lifecycle-state-v2.json',
+            json_encode([
+                'state' => ModuleLifecycleGate::STATE_DRAINING,
+                'owner_pid' => getmypid(),
+                'owner_token' => bin2hex(random_bytes(16)),
+                'updated_at' => time() - 600,
+            ], JSON_THROW_ON_ERROR)
+        );
+        expectLifecycleGate(
+            (new ModuleLifecycleGate($temporaryDirectory))->currentState() === ModuleLifecycleGate::STATE_OPEN,
+            'an old unlocked drain must recover even when its PID has been reused'
+        );
+    }
+
     expectLifecycleGate($drain->beginDrain(250), 'drain must succeed after writer completes');
     expectLifecycleGate($drain->beginDrain(250), 'duplicate Core drain hook must be idempotent');
     expectLifecycleGate(
@@ -73,6 +142,10 @@ try {
     $unavailable = new ModuleLifecycleGate($temporaryDirectory . '/missing');
     expectLifecycleGate($unavailable->acquireWriteLease() === null, 'uninitialized gate must fail closed');
 } finally {
+    if (is_int($drainProcessId) && $drainProcessId > 0 && function_exists('posix_kill')) {
+        posix_kill($drainProcessId, SIGKILL);
+        pcntl_waitpid($drainProcessId, $childStatus);
+    }
     removeLifecycleDirectory($temporaryDirectory);
 }
 
@@ -94,6 +167,10 @@ expectLifecycleGate(
         && str_contains($jobsProcessor, "['retry_after'] = 5")
         && str_contains($workersProcessor, "['retry_after'] = 5"),
     'worker REST processors must return a retryable maintenance response'
+);
+expectLifecycleGate(
+    str_contains($jobsProcessor, 'allowDuringDrain: $action !== JobAction::GET_NEXT'),
+    'getNext must stop during drain while existing lease completion actions retain a bounded grace period'
 );
 expectLifecycleGate(
     str_contains($config, 'onBeforeModuleDisable')

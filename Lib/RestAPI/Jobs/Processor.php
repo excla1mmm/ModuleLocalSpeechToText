@@ -41,7 +41,9 @@ class Processor extends Injectable
         }
 
         $gate = new ModuleLifecycleGate();
-        $writeLease = $gate->acquireWriteLease();
+        $writeLease = $gate->acquireWriteLease(
+            allowDuringDrain: $action !== JobAction::GET_NEXT
+        );
         if ($writeLease === null) {
             $result->success = false;
             $result->httpCode = 503;

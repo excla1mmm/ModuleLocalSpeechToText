@@ -17,6 +17,9 @@ final class ModuleLifecycleGate
     private const string MARKER_FILE = '.module-lifecycle-state-v2.json';
     private const string LOCK_FILE = '.module-lifecycle-v2.lock';
     private const int RETRY_MICROSECONDS = 10_000;
+    private const int STALE_DRAIN_MINIMUM_AGE_SECONDS = 1;
+    private const int STALE_DRAIN_MAXIMUM_AGE_SECONDS = 120;
+    private const int COMPLETION_GRACE_MILLISECONDS = 5000;
 
     private string $markerPath;
     private string $lockPath;
@@ -72,6 +75,11 @@ final class ModuleLifecycleGate
             return $this->available ? self::STATE_OPEN : self::STATE_DISABLED;
         }
 
+        $this->recoverStaleDrain();
+        if (!file_exists($this->markerPath)) {
+            return self::STATE_OPEN;
+        }
+
         $marker = $this->readMarker();
         $state = (string)($marker['state'] ?? '');
 
@@ -83,9 +91,9 @@ final class ModuleLifecycleGate
     /**
      * @return resource|null
      */
-    public function acquireWriteLease(): mixed
+    public function acquireWriteLease(bool $allowDuringDrain = false): mixed
     {
-        if (!$this->available || $this->currentState() !== self::STATE_OPEN) {
+        if (!$this->available || !$this->stateAllowsLease($this->currentState(), $allowDuringDrain)) {
             return null;
         }
 
@@ -94,7 +102,7 @@ final class ModuleLifecycleGate
             fclose($lease);
             return null;
         }
-        if ($this->currentState() !== self::STATE_OPEN) {
+        if (!$this->stateAllowsLease($this->currentState(), $allowDuringDrain)) {
             flock($lease, LOCK_UN);
             fclose($lease);
             return null;
@@ -112,7 +120,10 @@ final class ModuleLifecycleGate
         fclose($lease);
     }
 
-    public function beginDrain(int $timeoutMilliseconds): bool
+    public function beginDrain(
+        int $timeoutMilliseconds,
+        int $completionGraceMilliseconds = self::COMPLETION_GRACE_MILLISECONDS
+    ): bool
     {
         if (is_resource($this->exclusiveLease)) {
             return true;
@@ -130,7 +141,16 @@ final class ModuleLifecycleGate
 
         $lease = $this->openLock();
         $timeoutMilliseconds = max(0, $timeoutMilliseconds);
-        $deadline = hrtime(true) + ($timeoutMilliseconds * 1_000_000);
+        $startedAt = hrtime(true);
+        $deadline = $startedAt + ($timeoutMilliseconds * 1_000_000);
+        $graceDeadline = min(
+            $deadline,
+            $startedAt + (max(0, $completionGraceMilliseconds) * 1_000_000)
+        );
+        while (hrtime(true) < $graceDeadline) {
+            $remainingMicroseconds = max(1, (int)(($graceDeadline - hrtime(true)) / 1000));
+            usleep(min(self::RETRY_MICROSECONDS, $remainingMicroseconds));
+        }
         do {
             if (flock($lease, LOCK_EX | LOCK_NB)) {
                 $this->exclusiveLease = $lease;
@@ -231,6 +251,94 @@ final class ModuleLifecycleGate
                 throw new RuntimeException('Unable to clear owned module lifecycle marker');
             }
         }
+    }
+
+    private function recoverStaleDrain(): void
+    {
+        if (!$this->regularFileExists($this->markerPath)) {
+            return;
+        }
+        $candidate = $this->readMarker();
+        if (!$this->isStaleDrainMarker($candidate)) {
+            return;
+        }
+
+        $lease = $this->openLock();
+        if (!flock($lease, LOCK_EX | LOCK_NB)) {
+            fclose($lease);
+            return;
+        }
+
+        try {
+            if (!$this->regularFileExists($this->markerPath)) {
+                return;
+            }
+            $current = $this->readMarker();
+            if (!$this->sameDrainOwner($candidate, $current) || !$this->isStaleDrainMarker($current)) {
+                return;
+            }
+            if (!unlink($this->markerPath)) {
+                throw new RuntimeException('Unable to recover stale module lifecycle drain');
+            }
+        } finally {
+            flock($lease, LOCK_UN);
+            fclose($lease);
+        }
+    }
+
+    /** @param array<string, mixed> $marker */
+    private function isStaleDrainMarker(array $marker): bool
+    {
+        if (($marker['state'] ?? null) !== self::STATE_DRAINING) {
+            return false;
+        }
+        $ownerPid = (int)($marker['owner_pid'] ?? 0);
+        $updatedAt = (int)($marker['updated_at'] ?? 0);
+        if ($ownerPid <= 0 || $updatedAt <= 0) {
+            return false;
+        }
+        if ((time() - $updatedAt) < self::STALE_DRAIN_MINIMUM_AGE_SECONDS) {
+            return false;
+        }
+
+        $age = time() - $updatedAt;
+        if ($age >= self::STALE_DRAIN_MAXIMUM_AGE_SECONDS) {
+            return true;
+        }
+
+        return !$this->processIsAlive($ownerPid);
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array<string, mixed> $current
+     */
+    private function sameDrainOwner(array $candidate, array $current): bool
+    {
+        $candidateToken = (string)($candidate['owner_token'] ?? '');
+        $currentToken = (string)($current['owner_token'] ?? '');
+
+        return $candidateToken !== ''
+            && (int)($candidate['owner_pid'] ?? 0) === (int)($current['owner_pid'] ?? 0)
+            && hash_equals($candidateToken, $currentToken);
+    }
+
+    private function processIsAlive(int $processId): bool
+    {
+        if (!function_exists('posix_kill')) {
+            return true;
+        }
+        if (posix_kill($processId, 0)) {
+            return true;
+        }
+
+        return function_exists('posix_get_last_error') && posix_get_last_error() !== 3;
+    }
+
+    private function stateAllowsLease(string $state, bool $allowDuringDrain): bool
+    {
+        return $state === self::STATE_OPEN
+            || ($allowDuringDrain && $state === self::STATE_DRAINING);
     }
 
     /** @return resource */

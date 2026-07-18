@@ -60,11 +60,14 @@ spl_autoload_register(
 );
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigrator;
 use Modules\ModuleLocalSpeechToText\Setup\PbxExtensionSetup;
+use Modules\ModuleLocalSpeechToText\Models\STTResult;
+use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
 use Phalcon\Annotations\Adapter\Memory as AnnotationMemory;
 use Phalcon\Config\Config;
 use Phalcon\Db\Adapter\Pdo\Sqlite;
@@ -259,7 +262,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7], 'legacy database did not apply migrations 1-7');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9], 'legacy database did not apply migrations 1-9');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -283,7 +286,7 @@ foreach ($before['hashes'] as $name => $hash) {
     expectSttUpgrade($after['hashes'][$name] === $hash, "existing {$name} data changed");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9],
     'migration ledger is incomplete'
 );
 foreach ([
@@ -298,6 +301,120 @@ foreach ([
     expectSttUpgrade(!in_array($redundantIndex, $after['indexes'], true), "redundant index remains: {$redundantIndex}");
 }
 
+$publicationCandidates = $moduleDatabase->fetchAll(
+    'SELECT c.id
+       FROM m_STTCallTranscript c
+      WHERE NOT EXISTS (
+          SELECT 1 FROM m_STTJob j
+           WHERE j.call_id = c.call_id
+             AND (j.status = :pending OR j.status = :processing)
+      )
+      ORDER BY c.id
+      LIMIT 1',
+    PDO::FETCH_ASSOC,
+    ['pending' => 'pending', 'processing' => 'processing']
+);
+expectSttUpgrade($publicationCandidates !== [], 'no terminal call transcript is available for cursor rehearsal');
+$publicationCallId = (int)$publicationCandidates[0]['id'];
+$publicationHash = hash('sha256', 'stt-upgrade-cursor-rehearsal-' . $publicationCallId);
+$callEventFrontier = time() + 3600;
+expectSttUpgrade($moduleDatabase->begin(), 'unable to start call event cursor rehearsal');
+try {
+    expectSttUpgrade(
+        $moduleDatabase->execute(
+            "UPDATE m_STTCallTranscript
+                SET pending_content_hash = '', pending_parts_hash = '', pending_payload = '', stable_after = 0"
+        ),
+        'unable to isolate runtime publication candidate'
+    );
+    expectSttUpgrade(
+        $moduleDatabase->execute(
+            'UPDATE m_STTCallTranscriptEvent
+                SET created_at = :frontier
+              WHERE id = (
+                  SELECT id FROM m_STTCallTranscriptEvent
+                   ORDER BY CAST(created_at AS INTEGER) DESC, CAST(id AS INTEGER) DESC LIMIT 1
+              )',
+            ['frontier' => $callEventFrontier]
+        ),
+        'unable to create future call event cursor frontier'
+    );
+    expectSttUpgrade(
+        $moduleDatabase->execute(
+            'UPDATE m_STTCallTranscript
+                SET pending_content_hash = :content_hash,
+                    pending_parts_hash = :parts_hash,
+                    pending_payload = :payload,
+                    completeness_status = :status,
+                    stable_after = 0
+              WHERE id = :id',
+            [
+                'content_hash' => $publicationHash,
+                'parts_hash' => hash('sha256', 'parts-' . $publicationCallId),
+                'payload' => '{}',
+                'status' => 'complete',
+                'id' => $publicationCallId,
+            ]
+        ),
+        'unable to stage call event cursor rehearsal'
+    );
+    $publicationSummary = (new CallTranscriptRevisionService())->publishReady();
+    expectSttUpgrade($publicationSummary['published'] >= 1, 'eligible call publications were not drained');
+    $cursorRows = $moduleDatabase->fetchAll(
+        'SELECT created_at FROM m_STTCallTranscriptEvent WHERE content_hash = :content_hash',
+        PDO::FETCH_ASSOC,
+        ['content_hash' => $publicationHash]
+    );
+    expectSttUpgrade($cursorRows !== [], 'cursor rehearsal event was not published');
+    expectSttUpgrade(
+        (int)$cursorRows[0]['created_at'] >= $callEventFrontier,
+        'new call event was published behind the existing cursor frontier'
+    );
+} finally {
+    expectSttUpgrade($moduleDatabase->rollback(), 'unable to roll back call event cursor rehearsal');
+}
+$metadata->reset();
+expectSttUpgrade(sttUpgradeState($resolvedDatabase) === $after, 'call event cursor rehearsal did not roll back');
+
+$resultEventCandidate = (int)$moduleDatabase->fetchColumn(
+    'SELECT MIN(result_id) FROM m_STTTranscriptEvent WHERE result_id IS NOT NULL'
+);
+expectSttUpgrade($resultEventCandidate > 0, 'no result event is available for cursor rehearsal');
+$resultEventFrontier = time() + 3600;
+expectSttUpgrade($moduleDatabase->begin(), 'unable to start result event cursor rehearsal');
+try {
+    expectSttUpgrade(
+        $moduleDatabase->execute(
+            'DELETE FROM m_STTTranscriptEvent WHERE result_id = :result_id',
+            ['result_id' => $resultEventCandidate]
+        ),
+        'unable to remove result event cursor rehearsal candidate'
+    );
+    expectSttUpgrade(
+        $moduleDatabase->execute(
+            'UPDATE m_STTTranscriptEvent
+                SET created_at = :frontier
+              WHERE id = (
+                  SELECT id FROM m_STTTranscriptEvent
+                   ORDER BY CAST(created_at AS INTEGER) DESC, CAST(id AS INTEGER) DESC LIMIT 1
+              )',
+            ['frontier' => $resultEventFrontier]
+        ),
+        'unable to create future result event cursor frontier'
+    );
+    $result = STTResult::findFirstById($resultEventCandidate);
+    expectSttUpgrade($result instanceof STTResult, 'unable to load result event cursor rehearsal candidate');
+    $event = STTTranscriptEvent::ensureCompletedForResult($result);
+    expectSttUpgrade(
+        (int)$event->created_at >= $resultEventFrontier,
+        'new result event was published behind the existing cursor frontier'
+    );
+} finally {
+    expectSttUpgrade($moduleDatabase->rollback(), 'unable to roll back result event cursor rehearsal');
+}
+$metadata->reset();
+expectSttUpgrade(sttUpgradeState($resolvedDatabase) === $after, 'result event cursor rehearsal did not roll back');
+
 expectSttUpgrade(applyProductionSttMigrations($moduleDatabase) === [], 'same-version migration was not a no-op');
 $pragmas->checkpoint($moduleDatabase);
 $afterSecondRun = sttUpgradeState($resolvedDatabase);
@@ -305,7 +422,7 @@ expectSttUpgrade($afterSecondRun === $after, 'same-version reinstall changed sch
 
 $failingMigrations = productionSttMigrations();
 $failingMigrations[] = new ModuleSchemaMigration(
-    8,
+    10,
     'injected rehearsal failure',
     static function (mixed $connection): void {
         $connection->execute('CREATE TABLE injected_partial_schema(id INTEGER PRIMARY KEY)');

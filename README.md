@@ -159,9 +159,9 @@ The module stores its state in module tables:
 
 ## Database Upgrades and Maintenance
 
-Module updates briefly drain STT database writers before files or schema are changed. During this maintenance window the scanner pauses and worker/admin API writes can return HTTP 503 with `retry_after=5`. Telephony and call recording continue normally; queued jobs, active lease fields, results, transcript event cursors, settings, and worker identities remain in the module database. No coordinated macOS worker update is required.
+Module updates briefly drain STT database writers before files or schema are changed. During the bounded drain grace period, `getNext` stops assigning new work while a worker may still download, heartbeat, submit, or release an already leased job. After the exclusive maintenance barrier is acquired, worker/admin API writes return HTTP 503 with `retry_after=5`, and the scanner pauses. A process killed while acquiring the drain is recovered after its advisory lock disappears and either its process is confirmed dead or the marker exceeds the conservative stale-age limit. Telephony and call recording continue normally; queued jobs, active lease fields, results, transcript event cursors, settings, and worker identities remain in the module database. No coordinated macOS worker update is required.
 
-The module uses ordered, idempotent SQLite migrations. Before migration it creates a verified SQLite backup snapshot; an error rolls back open module transactions, closes the adapter, restores the snapshot, and verifies database integrity. Reinstalling the same module version does not reapply completed migrations.
+The module uses ordered, idempotent SQLite migrations. Large event and call-transcript backfills run in deterministic batches until no source rows remain, and corrective migration versions complete databases produced by an earlier bounded backfill. Before migration the module creates a verified SQLite backup snapshot; an error rolls back open module transactions, closes the adapter, restores the snapshot, and verifies database integrity. Reinstalling the same module version does not reapply completed migrations.
 
 After the first successful bridge installation, subsequent updates use the module-owned SQLite backup path during uninstall/reinstall. The first update from an older package is the one limitation: Core removes the old package before the new lifecycle override can run, so the new setup can automatically restore the legacy database but cannot restore the removed old code without reinstalling that old package. The live database is kept in DELETE journal mode until the verified-backup capability has been installed.
 
@@ -181,7 +181,7 @@ By default the package version is read from `module.json`. To stamp a CI-style v
 VERSION=1.999 ./scripts/package-module.sh /tmp/module-build
 ```
 
-The package script writes `ModuleLocalSpeechToText.<version>.zip` and validates that development artifacts such as `.git`, `.gitlab`, `Tests`, and `scripts` are not included in the module archive. Live databases, WAL/SHM/journal files, lifecycle markers, setup snapshots, and safe-backup capability markers are also excluded.
+The package script writes `ModuleLocalSpeechToText.<version>.zip` and validates that development artifacts such as `.git`, `.gitlab`, `Tests`, and `scripts` are not included in the module archive. Live databases, WAL/SHM/journal files, lifecycle markers, setup snapshots, and safe-backup capability markers are also excluded. Packaging fails closed if an allowlisted source or staging tree contains a symbolic link, and the completed ZIP is checked for symlink entries before publication.
 
 GitLab CI runs standalone `Tests/check-*.php` checks before packaging. On `develop` it runs test and package jobs only. Publishing to WebDAV, release registration, and release notes are limited to `master` through the shared `infrastructure/ci-templates` pipeline. Release note context is stored in `.gitlab/release-context.json`.
 

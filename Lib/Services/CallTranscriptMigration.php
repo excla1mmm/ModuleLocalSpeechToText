@@ -12,6 +12,7 @@ use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Phalcon\Db\Enum;
+use RuntimeException;
 
 final class CallTranscriptMigration
 {
@@ -23,9 +24,13 @@ final class CallTranscriptMigration
             'SELECT e.result_id, e.job_id, e.call_id
                FROM m_STTTranscriptEvent e
                JOIN m_STTResult r ON r.id = e.result_id
+          LEFT JOIN m_STTCallTranscriptPart p
+                 ON p.result_id = e.result_id
+                AND p.is_current = 1
               WHERE e.event_type = :event_type
                 AND e.call_id IS NOT NULL
                 AND TRIM(e.call_id) <> \'\'
+                AND p.id IS NULL
               ORDER BY CAST(e.result_id AS INTEGER) ASC
               LIMIT ' . max(1, min(100000, $limit)),
             Enum::FETCH_ASSOC,
@@ -38,7 +43,9 @@ final class CallTranscriptMigration
         foreach ($rows as $row) {
             $result = STTResult::findFirstById((int)($row['result_id'] ?? 0));
             if (!$result instanceof STTResult) {
-                continue;
+                throw new RuntimeException(
+                    'Call transcript migration could not load result ' . (int)($row['result_id'] ?? 0)
+                );
             }
             $job = STTJob::findFirstById((int)($row['job_id'] ?? 0));
             if (!$job instanceof STTJob) {
@@ -50,9 +57,17 @@ final class CallTranscriptMigration
                 $job->cdr_end_ms = null;
                 $job->recording_fingerprint = '';
             } else {
+                if (trim((string)$job->call_id) === '') {
+                    $job->call_id = (string)($row['call_id'] ?? '');
+                }
                 $this->enrichExactCdrIdentity($job);
             }
             $state = $service->recordCompletedPart($result, $job);
+            if ((int)($state['call_transcript_id'] ?? 0) <= 0) {
+                throw new RuntimeException(
+                    'Call transcript migration could not materialize result ' . (int)$result->id
+                );
+            }
             if (($state['state'] ?? '') === 'staged') {
                 $changed++;
             } else {
@@ -61,7 +76,12 @@ final class CallTranscriptMigration
         }
 
         $stability = max(0, (int)STTSetting::getValue(STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30'));
-        $published = $service->publishReady(time() + $stability + 1, 10000);
+        $published = $service->publishReady(
+            eligibleAt: time() + $stability + 1,
+            limit: 1000,
+            publishedAt: time(),
+            terminalOnly: true
+        );
 
         return [
             'source_results' => count($rows),
@@ -74,6 +94,34 @@ final class CallTranscriptMigration
                 'bind' => ['status' => 'legacy_unresolved'],
             ]),
         ];
+    }
+
+    /** @return array{published: int, batches: int} */
+    public function publishAllReady(int $limit = 1000): array
+    {
+        $service = new CallTranscriptRevisionService();
+        $stability = max(0, (int)STTSetting::getValue(STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30'));
+        $eligibleAt = time() + $stability + 1;
+        $publishedAt = time();
+        $total = 0;
+        $batches = 0;
+
+        do {
+            $summary = $service->publishReady(
+                eligibleAt: $eligibleAt,
+                limit: $limit,
+                publishedAt: $publishedAt,
+                terminalOnly: true
+            );
+            if ((int)$summary['scanned'] !== (int)$summary['published']) {
+                throw new RuntimeException('Call transcript migration publication batch made no progress');
+            }
+            $published = (int)$summary['published'];
+            $total += $published;
+            $batches++;
+        } while ($published > 0);
+
+        return ['published' => $total, 'batches' => $batches];
     }
 
     private function enrichExactCdrIdentity(STTJob $job): bool
