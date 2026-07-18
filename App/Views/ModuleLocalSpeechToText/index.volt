@@ -10,7 +10,7 @@
 
     <div class="ui bottom attached tab segment{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">
         <form class="ui form large" id="module-local-speech-to-text-form" method="post" enctype="multipart/form-data" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
-            <div class="three fields">
+            <div class="three fields stt-settings-fields">
                 <div class="field">
                     <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }}</label>
                     {{ form.render('default_language') }}
@@ -24,7 +24,7 @@
                     {{ form.render('max_recording_duration_min') }}
                 </div>
             </div>
-            <div class="two fields">
+            <div class="two fields stt-settings-fields">
                 <div class="field">
                     <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
                     {{ form.render('cdr_scan_limit') }}

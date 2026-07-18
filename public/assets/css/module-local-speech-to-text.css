@@ -95,6 +95,11 @@
     padding: 1.25em !important;
 }
 
+.module-local-speech-to-text .stt-settings-fields > .field {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
 .module-local-speech-to-text .stt-processing-settings-hint {
     margin-top: 0;
 }
