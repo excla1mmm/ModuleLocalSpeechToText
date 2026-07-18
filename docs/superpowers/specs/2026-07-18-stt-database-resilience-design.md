@@ -4,7 +4,9 @@
 
 Eliminate leaked SQLite transactions, stale schema metadata, duplicate indexes, and reinstall races in `ModuleLocalSpeechToText`, while preserving all STT jobs, transcript results, worker ownership contracts, and existing settings during upgrade.
 
-This design depends on the Core safe module-upgrade state machine. The module must remain compatible with an older Core, but it must not enable WAL on a Core that still uses raw filesystem copies for module database backups.
+Core is an immutable dependency for this work. The module therefore provides its own lifecycle gate, SQLite backup override, setup snapshot, metadata invalidation, and migration rollback without changing MikoPBX Core.
+
+The first upgrade from an older module cannot execute lifecycle code that does not yet exist in that installed version. That bridge upgrade starts from the legacy `DELETE` journal mode, creates a verified setup snapshot before changing schema, and restores the database on setup failure. After the bridge version installs successfully, its lifecycle and uninstall overrides protect every subsequent update, and WAL may be enabled. Returning the previous package's code after a failure of the first bridge upgrade remains outside module control; preserving the database and making the installation safely retryable are mandatory.
 
 ## Required Invariants
 
@@ -16,7 +18,7 @@ This design depends on the Core safe module-upgrade state machine. The module mu
 - A failed rollback in the scanner terminates the process so the supervisor creates a clean connection.
 - Schema migrations are ordered, idempotent, restartable, and recorded only after commit.
 - Fresh install and upgraded install converge on equivalent schema constraints and index coverage.
-- WAL is enabled only on a safe local filesystem and only when Core advertises safe SQLite module backups.
+- WAL is enabled only on a safe local filesystem and only after the installed module has created the module-owned safe-backup capability marker.
 
 ## Architecture
 
@@ -87,11 +89,11 @@ Schema creation and annotations are changed first so a reinstall cannot recreate
 `ModuleDatabasePragmas` configures each new connection:
 
 - Always set a bounded `busy_timeout`.
-- Enable WAL only when the database is on Core-approved local storage and Core exposes the safe module-backup capability.
+- Enable WAL only when the database is on a local WAL-safe filesystem and the module-owned safe-backup capability marker exists.
 - Use `synchronous=NORMAL` with WAL.
 - Leave the existing `DELETE` mode unchanged when either capability check fails.
 
-The migration to WAL occurs under the Core lifecycle barrier, after a verified pre-migration backup and before normal writers restart. It validates that `PRAGMA journal_mode=WAL` returns `wal`. A failed change leaves the module in `DELETE` mode and does not fail an otherwise compatible upgrade.
+The migration to WAL occurs only after versioned migrations and the setup snapshot validation succeed. The installed bridge version writes the safe-backup marker only after its `unInstallFiles()` override and lifecycle hooks are present. WAL activation validates that `PRAGMA journal_mode=WAL` returns `wal`. A failed change leaves the module in `DELETE` mode and does not fail an otherwise compatible upgrade.
 
 Before handing control back to Core after a successful migration, the module runs a best-effort `PRAGMA wal_checkpoint(TRUNCATE)`. Sidecar files are never included in module packages or logical backups.
 
@@ -103,11 +105,15 @@ The module implements a small graceful-drain hook compatible with Core:
 - `DRAINING`: stop assigning new jobs; allow bounded heartbeat and submit-result completion for existing leases.
 - `MAINTENANCE`: reject module writes with the existing REST envelope, HTTP 503, and `Retry-After`.
 
-Core owns the authoritative state outside the module directory. The module does not recreate the removed file-lease guard and does not make the scanner repeatedly exit while the module is still enabled. After Core activates the new version, scanner and workers resume from persisted jobs and leases.
+`ModuleLifecycleGate` stores an atomic marker and advisory lock in the module database directory because the existing Core backup/restore path preserves that directory. API and admin write boundaries hold a shared lock for one complete operation. Disable writes the draining marker, waits for the exclusive lock, and retains the blocked state until enable. The scanner sleeps while blocked instead of exiting, preventing a supervisor restart loop. The design does not restore the previous complex transition state machine.
 
-### 7. Metadata coordination
+### 7. Module-owned backup and metadata coordination
 
-The module requests Core metadata invalidation before schema inspection and after migration. On older Core versions it falls back to recreating annotations/connections and logs that WAL remains disabled. It does not issue a global Redis flush itself.
+The installed module overrides `unInstallFiles()`. When settings must be preserved, it first creates a verified SQLite backup in a temporary sibling path, delegates normal file cleanup to the parent implementation, then atomically replaces the parent's raw database copy with the verified snapshot. WAL and SHM sidecars are excluded. This override protects updates after the bridge release is installed.
+
+During `installDB()`, the new package snapshots the restored legacy database before metadata or schema changes. Failure closes the module connection, restores that snapshot atomically, removes sidecars, verifies integrity, and returns installation failure with the original database preserved.
+
+`ModuleMetadataCache` deletes only Redis DB 2 model metadata keys for `Modules\\ModuleLocalSpeechToText\\Models\\...`, resets in-process metadata, and recreates annotations/connections. It runs before schema inspection and after migration. Redis unavailability is logged and never triggers a global flush from the module.
 
 ## Upgrade Compatibility
 
@@ -115,7 +121,7 @@ The module requests Core metadata invalidation before schema inspection and afte
 - Existing data is not rewritten unless a migration requires it.
 - The migration ledger is additive and does not require a Phalcon model.
 - Upgrade is idempotent: reinstalling the same package applies no completed migration twice.
-- Downgrade is performed by Core snapshot restore, not reverse migrations.
+- Downgrade is performed from the module-owned verified snapshot, not reverse migrations.
 - A short STT-only pause is expected. Telephony and recording continue; the macOS worker retries after 503 without losing saved run intent.
 
 ## Failure Handling
@@ -123,9 +129,9 @@ The module requests Core metadata invalidation before schema inspection and afte
 - Begin failure: no operation runs and an error is returned.
 - Commit failure: roll back if still active; report recovery failure if the connection remains poisoned.
 - Scanner rollback failure: terminate the scanner process with a critical log entry.
-- Migration failure: leave its ledger row absent and return failure to Core for full snapshot restore.
+- Migration failure: leave its ledger row absent, close the module connection, restore the pre-migration snapshot, verify it, and return installation failure.
 - Index mismatch: abort before dropping indexes.
-- WAL capability absent: retain `DELETE` journal mode and continue safely.
+- Safe-backup marker absent: retain `DELETE` journal mode and continue safely.
 - WAL transition failure: restore `DELETE` when possible, log the failure, and continue without WAL.
 
 ## Testing Strategy
@@ -142,14 +148,14 @@ Tests use real temporary SQLite databases where possible and PBX integration che
 - Migration interruption at every version is safely retryable.
 - Current production-shaped data preserves row counts and logical relationships.
 - Index cleanup leaves required query coverage and is idempotent.
-- WAL capability gating keeps older Core installations in `DELETE` mode.
-- Safe Core capability enables WAL and backup/restore retains all committed rows.
+- WAL capability gating keeps a legacy first upgrade in `DELETE` mode until the module-owned backup path is installed.
+- The module-owned backup marker enables WAL and backup/restore retains all committed rows.
 - Disable/reinstall while scanner, heartbeat, and submit-result traffic are active either completes safely or aborts before destructive steps.
 
 ## Rollout
 
-1. Ship transaction recovery and versioned-migration support with WAL capability-gated off.
-2. Ship or require the Core safe-upgrade capability.
-3. Enable WAL automatically only after Core reports that capability.
+1. The bridge upgrade runs transaction recovery and versioned migrations from the legacy `DELETE` database and creates a verified setup snapshot.
+2. After successful setup, install the lifecycle hooks and verified uninstall backup path, then write the safe-backup capability marker.
+3. Enable WAL only after that marker exists; all later updates are drained and backed up by the installed STT version.
 
 The module package does not change worker API payloads or require a coordinated macOS application update.
