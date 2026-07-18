@@ -8,13 +8,6 @@ use MikoPBX\Modules\Models\ModulesModelsBase;
 use Phalcon\Mvc\Model\Relation;
 use RuntimeException;
 
-/**
- * @Indexes(
- *     [name='event_key', columns=['event_key'], type='UNIQUE'],
- *     [name='event_cursor', columns=['created_at', 'id'], type=''],
- *     [name='result_id', columns=['result_id'], type='']
- * )
- */
 class STTTranscriptEvent extends ModulesModelsBase
 {
     public const string TYPE_TRANSCRIPT_COMPLETED = 'transcript.completed';

@@ -12,7 +12,9 @@ use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleMetadataCache;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigrator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
@@ -95,7 +97,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $setupSnapshot = $this->createSetupDatabaseSnapshot($databaseBackup);
             $this->cleanupLegacyLifecycleFiles();
 
-            ModulesDBConnectionsProvider::recreateModulesDBConnections();
+            (new ModuleMetadataCache())->invalidate();
             $connection = (new STTJob())->getWriteConnection();
             if ($this->isFreshModuleDatabase($connection)) {
                 if (!method_exists($connection, 'close') || $connection->close() !== true) {
@@ -114,6 +116,11 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
                 }
             );
+            if (!method_exists($connection, 'close') || $connection->close() !== true) {
+                throw new \RuntimeException('Unable to close STT database after migrations');
+            }
+            $connection = null;
+            (new ModuleMetadataCache())->invalidate();
             if (!$this->registerNewModule()) {
                 throw new \RuntimeException('Unable to register STT module');
             }
@@ -251,6 +258,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyWorkerProcessingMigration($connection),
                 'stt-schema-006-worker-processing'
             ),
+            new ModuleSchemaMigration(
+                7,
+                'canonical module indexes',
+                fn (mixed $connection): null => $this->applyModuleIndexMigration($connection),
+                'stt-schema-007-module-indexes'
+            ),
         ];
     }
 
@@ -338,6 +351,13 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 : (json_encode($value, JSON_PRESERVE_ZERO_FRACTION) ?: (string)$value);
             $this->setDefaultSetting($connection, $key, $encoded);
         }
+
+        return null;
+    }
+
+    private function applyModuleIndexMigration(mixed $connection): null
+    {
+        (new ModuleDatabaseIndexService())->ensure($connection);
 
         return null;
     }

@@ -22,6 +22,7 @@ CREATE TABLE m_STTJob (
     recording_duration_sec INTEGER
 );
 CREATE INDEX i_m_STTJob_queue ON m_STTJob(status, priority, cdr_endtime, created_at);
+CREATE UNIQUE INDEX i_m_STTJob_file_path ON m_STTJob(file_path);
 CREATE INDEX m_STTJob_call_status ON m_STTJob(call_id, status);
 CREATE INDEX m_STTJob_cdr_id ON m_STTJob(cdr_id);
 
@@ -35,6 +36,7 @@ CREATE TABLE m_STTResult (
     technical_info VARCHAR(0),
     created_at INTEGER NOT NULL
 );
+CREATE UNIQUE INDEX i_m_STTResult_job_id ON m_STTResult(job_id);
 
 CREATE TABLE m_STTTranscriptEvent (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -59,6 +61,7 @@ CREATE TABLE m_STTSetting (
     key VARCHAR(0) NOT NULL UNIQUE,
     value VARCHAR(0)
 );
+CREATE UNIQUE INDEX i_m_STTSetting_key ON m_STTSetting(key);
 
 CREATE TABLE m_STTWorker (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -72,6 +75,7 @@ CREATE TABLE m_STTWorker (
     created_at INTEGER NOT NULL,
     has_settings_changed INTEGER NOT NULL DEFAULT 1
 );
+CREATE UNIQUE INDEX i_m_STTWorker_worker_uid ON m_STTWorker(worker_uid);
 
 CREATE TABLE m_STTRetryState (
     cdr_id INTEGER PRIMARY KEY,
