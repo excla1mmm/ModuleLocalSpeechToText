@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 
+require_once __DIR__ . '/../Lib/Services/ModuleDatabasePragmas.php';
 require_once __DIR__ . '/../Lib/Services/ModuleDatabaseBackup.php';
 
 function expectModuleDatabaseBackup(bool $condition, string $message): void
@@ -64,6 +66,7 @@ try {
     file_put_contents($sourceDirectory . '/state.json', '{"preserved":true}');
     file_put_contents($sourceDirectory . '/module.db-journal', '');
     file_put_contents($sourceDirectory . '/.module-lifecycle-state-v2.json', '{"state":"disabled"}');
+    (new ModuleDatabasePragmas())->writeSafeBackupCapability($sourceDirectory);
 
     $reader = new SQLite3($sourcePath, SQLITE3_OPEN_READONLY);
     $readerResult = $reader->query('SELECT * FROM sample ORDER BY id');
@@ -83,6 +86,10 @@ try {
     expectModuleDatabaseBackup(
         file_get_contents($snapshotDirectory . '/state.json') === '{"preserved":true}',
         'Ordinary database-directory state must be copied'
+    );
+    expectModuleDatabaseBackup(
+        is_file($snapshotDirectory . '/' . ModuleDatabasePragmas::SAFE_BACKUP_MARKER),
+        'Verified backups must preserve the installed safe-backup capability'
     );
 
     $snapshot = new SQLite3($snapshotDirectory . '/module.db', SQLITE3_OPEN_READONLY);

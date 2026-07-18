@@ -9,6 +9,7 @@ use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -32,6 +33,7 @@ class LocalSpeechToTextBaseController extends BaseController
         if ($this->moduleWriteLease === null) {
             throw new \RuntimeException('ModuleLocalSpeechToText is temporarily unavailable during maintenance');
         }
+        (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
         $this->view->logoImagePath = $this->url->get() . 'assets/img/cache/' . self::MODULE_UNIQUE_ID . '/logo.svg';
         $this->view->submitMode = null;
         parent::initialize();

@@ -12,6 +12,7 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerTransactionRecovery;
@@ -33,6 +34,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private const int MAX_SKIPPED_RETRY_AGE_SECONDS = 2592000;
 
     private ?RetryStateStore $retryStateStore = null;
+    private bool $runtimePragmasConfigured = false;
 
     public static function getCheckInterval(): int
     {
@@ -64,6 +66,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             try {
+                if (!$this->runtimePragmasConfigured) {
+                    (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+                    $this->runtimePragmasConfigured = true;
+                }
                 if (!$cdrTablesInitialized) {
                     DatabaseProviderBase::ensureCdrTables();
                     $cdrTablesInitialized = true;

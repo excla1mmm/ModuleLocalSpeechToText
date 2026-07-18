@@ -144,10 +144,7 @@ final class ModuleDatabaseBackup
             if (!$source->backup($destination)) {
                 throw new RuntimeException('SQLite backup failed: ' . basename($sourcePath));
             }
-            $journalMode = strtolower((string)$destination->querySingle('PRAGMA journal_mode=DELETE'));
-            if ($journalMode !== 'delete') {
-                throw new RuntimeException('SQLite backup could not be normalized to DELETE journal mode');
-            }
+            (new ModuleDatabasePragmas())->checkpointAndNormalizeBackup($destination);
         } finally {
             $destination->close();
             $source->close();

@@ -10,7 +10,10 @@ use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
 use MikoPBX\Modules\Config\ConfigClass;
 use Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Throwable;
 
 class LocalSpeechToTextConf extends ConfigClass
 {
@@ -30,6 +33,22 @@ class LocalSpeechToTextConf extends ConfigClass
 
     public function onAfterModuleEnable(): void
     {
+        try {
+            $connection = (new STTJob())->getWriteConnection();
+            $pragmas = new ModuleDatabasePragmas();
+            $pragmas->enableWalAfterVerifiedSetup(
+                $connection,
+                dirname(__DIR__) . '/db/module.db'
+            );
+            $pragmas->checkpoint($connection);
+        } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::write(
+                'setup',
+                'Unable to refresh STT database runtime pragmas during enable: ' . $exception->getMessage(),
+                LOG_WARNING
+            );
+        }
+
         $this->gate(bootstrap: true)->completeEnable();
         PBXConfModulesProvider::recreateModulesProvider();
         Processes::restartAllWorkers(true);
@@ -38,6 +57,15 @@ class LocalSpeechToTextConf extends ConfigClass
     public function onBeforeModuleDisable(): bool
     {
         if ($this->gate()->beginDrain(self::DRAIN_TIMEOUT_MILLISECONDS)) {
+            try {
+                (new ModuleDatabasePragmas())->checkpoint((new STTJob())->getWriteConnection());
+            } catch (Throwable $exception) {
+                LocalSpeechToTextLogger::write(
+                    'setup',
+                    'Unable to checkpoint STT WAL after writer drain: ' . $exception->getMessage(),
+                    LOG_WARNING
+                );
+            }
             return true;
         }
 

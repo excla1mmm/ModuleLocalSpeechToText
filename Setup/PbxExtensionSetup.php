@@ -13,6 +13,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleMetadataCache;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigration;
@@ -121,6 +122,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             }
             $connection = null;
             (new ModuleMetadataCache())->invalidate();
+
+            $databasePath = $this->moduleDir . '/db/module.db';
+            $databaseBackup->verify($databasePath);
+            $databasePragmas = new ModuleDatabasePragmas();
+            $databasePragmas->writeSafeBackupCapability($this->moduleDir . '/db');
+            $connection = (new STTJob())->getWriteConnection();
+            $databasePragmas->enableWalAfterVerifiedSetup($connection, $databasePath);
+            $databasePragmas->checkpoint($connection);
+
             if (!$this->registerNewModule()) {
                 throw new \RuntimeException('Unable to register STT module');
             }
@@ -128,6 +138,10 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 throw new \RuntimeException('Unable to register STT sidebar item');
             }
             $this->ensureWorkerApiKeyPermissions();
+            if (!method_exists($connection, 'close') || $connection->close() !== true) {
+                throw new \RuntimeException('Unable to close STT database after runtime configuration');
+            }
+            $connection = null;
             try {
                 $databaseBackup->discard($setupSnapshot);
             } catch (Throwable $exception) {

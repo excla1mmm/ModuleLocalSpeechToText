@@ -6,11 +6,13 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\DownloadAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\GetNextAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\SubmitErrorAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Actions\SubmitResultAction;
+use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Phalcon\Di\Injectable;
 
 enum JobAction: string
@@ -50,6 +52,7 @@ class Processor extends Injectable
         }
 
         try {
+            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
             $data = self::requestData($request);
             $result = match ($action) {
                 JobAction::GET_NEXT => GetNextAction::main($data),

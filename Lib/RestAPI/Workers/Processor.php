@@ -7,7 +7,9 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\GetProcessingSettingsAction;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\RegisterAction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Phalcon\Di\Injectable;
 
 enum WorkerAction: string
@@ -43,6 +45,7 @@ class Processor extends Injectable
         }
 
         try {
+            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
             $data = self::requestData($request);
             $result = match ($action) {
                 WorkerAction::REGISTER => RegisterAction::main($data),

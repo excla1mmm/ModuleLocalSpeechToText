@@ -57,7 +57,8 @@ if [[ -d "${TMP_MODULE_DIR}/db" ]]; then
   find "${TMP_MODULE_DIR}/db" -maxdepth 1 -type f \
     \( -name 'module.db' -o -name 'module.db-*' \
        -o -name '*-wal' -o -name '*-shm' -o -name '*-journal' \
-       -o -name '.module-lifecycle-*' -o -name '.setup-database-snapshot-*' \) \
+       -o -name '.module-lifecycle-*' -o -name '.setup-database-snapshot-*' \
+       -o -name '.stt-safe-backup-*' \) \
     -delete
 fi
 
@@ -158,6 +159,11 @@ php -r '
       if (preg_match("#^db/module\\.db(?:-|$)#", $normalized) === 1) {
           $zip->close();
           fwrite(STDERR, "Invalid module package: runtime database artifact included: {$name}\n");
+        exit(1);
+      }
+      if (preg_match("#^db/(?:.*-(?:wal|shm|journal)|\\.module-lifecycle-.*|\\.setup-database-snapshot-.*|\\.stt-safe-backup-.*)$#", $normalized) === 1) {
+          $zip->close();
+          fwrite(STDERR, "Invalid module package: runtime database state included: {$name}\n");
           exit(1);
       }
       foreach ($forbiddenPrefixes as $prefix) {
