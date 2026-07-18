@@ -16,6 +16,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerTransactionRecovery;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -32,6 +33,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private const int MAX_SKIPPED_RECORDINGS = 100;
     private const int MAX_SKIPPED_RETRY_SECONDS = 3600;
     private const int MAX_SKIPPED_RETRY_AGE_SECONDS = 2592000;
+    private const int TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600;
 
     private ?RetryStateStore $retryStateStore = null;
     private bool $runtimePragmasConfigured = false;
@@ -87,6 +89,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 $this->retrySkippedRecordings();
                 $this->createJobsFromCompletedCdr();
                 (new CallTranscriptRevisionService())->publishReady();
+                $this->purgeExpiredTranscripts();
             } catch (Throwable $exception) {
                 LocalSpeechToTextLogger::syslog(
                     __CLASS__,
@@ -115,6 +118,41 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             sprintf('Worker stopped (PID:%d)', getmypid()),
             LOG_NOTICE
         );
+    }
+
+    private function purgeExpiredTranscripts(): void
+    {
+        $retentionDays = STTSetting::transcriptRetentionDays();
+        if ($retentionDays === 0) {
+            return;
+        }
+
+        $now = time();
+        $lastCleanupAt = max(0, (int)STTSetting::getValue(
+            STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT,
+            '0'
+        ));
+        if ($lastCleanupAt > $now - self::TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS) {
+            return;
+        }
+
+        $summary = (new TranscriptRetentionService())->purgeExpired($retentionDays, $now);
+        STTSetting::setValue(
+            STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT,
+            $summary['has_more'] ? '0' : (string)$now
+        );
+        if ($summary['calls'] > 0 || $summary['results'] > 0) {
+            LocalSpeechToTextLogger::syslog(
+                __CLASS__,
+                sprintf(
+                    'Purged %d call(s) and %d transcript result(s); cutoff=%d',
+                    $summary['calls'],
+                    $summary['results'],
+                    $summary['cutoff']
+                ),
+                LOG_NOTICE
+            );
+        }
     }
 
     /**
