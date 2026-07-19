@@ -23,9 +23,16 @@ class ReleaseResponseDataStructure extends AbstractDataStructure implements Open
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaRelease',
             'properties' => [
-                'status' => ['type' => 'string'],
+                'status' => [
+                    'type' => 'string',
+                    'enum' => ['pending'],
+                    'description' => 'module_local_speech_to_text_ApiFieldReleaseStatus',
+                    'example' => 'pending',
+                ],
             ],
+            'example' => ['status' => 'pending'],
         ];
     }
 

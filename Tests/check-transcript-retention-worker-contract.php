@@ -32,7 +32,6 @@ foreach ([
     "['has_more']",
     "['calls']",
     "['results']",
-    "['cutoff']",
 ] as $needle) {
     expectRetentionWorker(str_contains($method, $needle), "worker retention method is missing {$needle}");
 }
@@ -45,8 +44,11 @@ expectRetentionWorker(
     'cleanup marker must remain due while another batch exists'
 );
 expectRetentionWorker(
-    str_contains($method, 'Purged %d call(s) and %d transcript result(s); cutoff=%d'),
-    'retention log must contain counts and cutoff only'
+    str_contains($method, "'retention_cleanup_completed'")
+        && str_contains($method, "'calls_count' => \$summary['calls']")
+        && str_contains($method, "'results_count' => \$summary['results']")
+        && str_contains($method, "'has_more' => \$summary['has_more']"),
+    'retention log must expose only the structured cleanup summary'
 );
 
 echo "Transcript retention worker contract OK\n";

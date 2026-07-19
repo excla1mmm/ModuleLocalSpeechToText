@@ -7,10 +7,14 @@ namespace Modules\ModuleLocalSpeechToText\Setup;
 use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Providers\ModulesDBConnectionsProvider;
+use MikoPBX\Core\System\Directories;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
@@ -49,7 +53,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $backup->snapshot($this->moduleDir . '/db', $verifiedSnapshot);
         } catch (Throwable $exception) {
             $message = 'Unable to create verified STT database backup: ' . $exception->getMessage();
-            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            self::logSetupFailure('create_database_backup', $exception);
             $this->messages[] = $message;
             return false;
         }
@@ -64,7 +68,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         } catch (Throwable $exception) {
             $message = 'Unable to publish verified STT database backup; snapshot retained at '
                 . $verifiedSnapshot . ': ' . $exception->getMessage();
-            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            self::logSetupFailure('publish_database_backup', $exception);
             $this->messages[] = $message;
             return false;
         }
@@ -72,12 +76,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         try {
             $backup->discard($verifiedSnapshot);
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write(
-                'setup',
-                'Verified STT backup was published but temporary snapshot cleanup failed: '
-                    . $exception->getMessage(),
-                LOG_WARNING
-            );
+            self::logSetupFailure('cleanup_published_backup_snapshot', $exception, LOG_WARNING);
         }
 
         return true;
@@ -85,6 +84,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
     public function installDB(): bool
     {
+        $this->migrateLegacyModuleLogs();
         $lifecycleGate = new ModuleLifecycleGate($this->moduleDir . '/db', bootstrap: true);
         if (!$lifecycleGate->beginDrain(30000)) {
             $this->messages[] = 'STT database writers did not drain before setup';
@@ -146,14 +146,14 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             try {
                 $databaseBackup->discard($setupSnapshot);
             } catch (Throwable $exception) {
-                LocalSpeechToTextLogger::write(
-                    'setup',
-                    'Database setup succeeded but temporary snapshot cleanup failed: '
-                        . $exception->getMessage(),
-                    LOG_WARNING
-                );
+                self::logSetupFailure('cleanup_setup_snapshot', $exception, LOG_WARNING);
             }
-            LocalSpeechToTextLogger::write('setup', 'Database setup completed', LOG_NOTICE);
+            LocalSpeechToTextLogger::event(
+                'setup',
+                'module_setup_completed',
+                'STT module database setup completed',
+                LOG_NOTICE
+            );
         } catch (Throwable $exception) {
             $recoveryFailure = null;
             try {
@@ -178,12 +178,53 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             if ($restoreFailure !== null) {
                 $message .= '; snapshot restore failed: ' . $restoreFailure->getMessage();
             }
-            LocalSpeechToTextLogger::write('setup', $message, LOG_ERR);
+            self::logSetupFailure('database_setup', $exception);
             $this->messages[] = $message;
             return false;
         }
 
         return true;
+    }
+
+    private function migrateLegacyModuleLogs(): void
+    {
+        try {
+            $directory = rtrim(Directories::getDir(Directories::CORE_LOGS_DIR), '/')
+                . '/ModuleLocalSpeechToText';
+            $summary = (new LocalSpeechToTextLegacyLogMigration(
+                $directory,
+                new LocalSpeechToTextLogWriter($directory)
+            ))->run();
+            if ($summary['imported'] > 0 || $summary['removed'] > 0 || $summary['skipped'] > 0) {
+                LocalSpeechToTextLogger::event(
+                    'setup',
+                    'legacy_logs_migrated',
+                    'Legacy STT module logs migrated',
+                    LOG_NOTICE,
+                    [
+                        'imported_count' => $summary['imported'],
+                        'removed_count' => $summary['removed'],
+                        'skipped_count' => $summary['skipped'],
+                    ]
+                );
+            }
+        } catch (Throwable $exception) {
+            self::logSetupFailure('legacy_log_migration', $exception, LOG_WARNING);
+        }
+    }
+
+    private static function logSetupFailure(string $operation, Throwable $exception, int $level = LOG_ERR): void
+    {
+        LocalSpeechToTextLogger::event(
+            'setup',
+            'operation_failed',
+            'STT module setup operation failed',
+            $level,
+            [
+                'operation' => $operation,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
     }
 
     private function createSetupDatabaseSnapshot(ModuleDatabaseBackup $backup): string
@@ -201,12 +242,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         try {
             $backup->discard($snapshot);
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write(
-                'setup',
-                'Database snapshot restored but temporary snapshot cleanup failed: '
-                    . $exception->getMessage(),
-                LOG_WARNING
-            );
+            self::logSetupFailure('cleanup_restored_snapshot', $exception, LOG_WARNING);
         }
         ModulesDBConnectionsProvider::recreateModulesDBConnections();
     }
@@ -454,10 +490,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 continue;
             }
             if (!@unlink($path)) {
-                LocalSpeechToTextLogger::write(
+                LocalSpeechToTextLogger::event(
                     'setup',
-                    'Unable to remove obsolete runtime file: ' . $fileName,
-                    LOG_WARNING
+                    'operation_failed',
+                    'Obsolete module runtime file could not be removed',
+                    LOG_WARNING,
+                    [
+                        'operation' => 'cleanup_legacy_runtime_file',
+                        'error_code' => 'unlink_failed',
+                    ]
                 );
             }
         }

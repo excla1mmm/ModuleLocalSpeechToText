@@ -40,7 +40,7 @@ expectTrueQueueLifecycle(
 );
 expectTrueQueueLifecycle(
     str_contains($worker, '$this->retrySkippedRecordings();')
-        && str_contains($worker, 'Recovered skipped transcription job')
+        && str_contains($worker, "'skipped_recording_recovered'")
         && str_contains($worker, 'saveSkippedRecordings'),
     'Skipped recordings must be revisited and removed after recovery'
 );

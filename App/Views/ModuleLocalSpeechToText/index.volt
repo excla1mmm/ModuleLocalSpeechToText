@@ -533,38 +533,54 @@
             <div class="ui active dimmer stt-logs-dimmer" id="get-logs-dimmer">
                 <div class="ui indeterminate text loader">{{ t._('module_local_speech_to_text_LogsLoading') }}</div>
             </div>
+            <div class="stt-log-header">
+                <h3 class="ui header">{{ t._('module_local_speech_to_text_LogsTitle') }}</h3>
+                <p>{{ t._('module_local_speech_to_text_LogsDescription') }}</p>
+            </div>
             <form class="ui form stt-module-logs-form" id="stt-module-logs-form" data-url="{{ url(logsDataPath) }}">
-                <div id="universal-navigation">
-                    <div class="time-navigation-modern">
-                        <div class="time-controls-inline">
-                            <div class="quick-period-buttons" id="period-buttons">
-                                <button type="button" class="period-btn active" data-period="3600">1h</button>
-                                <button type="button" class="period-btn" data-period="10800">3h</button>
-                                <button type="button" class="period-btn" data-period="43200">12h</button>
-                                <button type="button" class="period-btn" data-period="86400">1d</button>
-                                <button type="button" class="period-btn" data-period="604800">1w</button>
-                                <button type="button" class="period-btn" data-period="1209600">2w</button>
-                            </div>
-                            <div class="time-slider-inline">
-                                <div id="time-slider-container" class="stt-log-time-range"></div>
-                            </div>
-                            <div class="ui icon button stt-log-refresh" id="show-last-log" data-content="{{ t._('module_local_speech_to_text_LogsRefresh') }}">
-                                <i class="refresh icon"></i>
-                            </div>
+                <div class="stt-log-toolbar">
+                    <div class="quick-period-buttons" id="period-buttons">
+                        <button type="button" class="period-btn active" data-period="3600">1h</button>
+                        <button type="button" class="period-btn" data-period="10800">3h</button>
+                        <button type="button" class="period-btn" data-period="43200">12h</button>
+                        <button type="button" class="period-btn" data-period="86400">1d</button>
+                        <button type="button" class="period-btn" data-period="0">{{ t._('module_local_speech_to_text_LogsPeriodAll') }}</button>
+                    </div>
+                    <div class="field stt-log-filter-field">
+                        <label for="stt-log-level-filter">{{ t._('module_local_speech_to_text_LogsLevelFilter') }}</label>
+                        <select id="stt-log-level-filter">
+                            <option value="">{{ t._('module_local_speech_to_text_LogsLevelAll') }}</option>
+                            <option value="debug">{{ t._('module_local_speech_to_text_LogLevelDebug') }}</option>
+                            <option value="info">{{ t._('module_local_speech_to_text_LogLevelInfo') }}</option>
+                            <option value="notice">{{ t._('module_local_speech_to_text_LogLevelNotice') }}</option>
+                            <option value="warning">{{ t._('module_local_speech_to_text_LogLevelWarning') }}</option>
+                            <option value="error">{{ t._('module_local_speech_to_text_LogLevelError') }}</option>
+                        </select>
+                    </div>
+                    <div class="field stt-log-filter-field">
+                        <label for="stt-log-component-filter">{{ t._('module_local_speech_to_text_LogsComponentFilter') }}</label>
+                        <select id="stt-log-component-filter">
+                            <option value="">{{ t._('module_local_speech_to_text_LogsComponentAll') }}</option>
+                        </select>
+                    </div>
+                    <div class="field stt-log-search-field">
+                        <label for="stt-log-search">{{ t._('module_local_speech_to_text_LogsSearch') }}</label>
+                        <div class="ui icon input">
+                            <input id="stt-log-search" type="search" autocomplete="off" placeholder="{{ t._('module_local_speech_to_text_LogsSearchPlaceholder') }}">
+                            <i class="search icon"></i>
                         </div>
                     </div>
+                    <button type="button" class="ui primary button stt-log-refresh" id="show-last-log">
+                        <i class="refresh icon"></i>{{ t._('module_local_speech_to_text_LogsRefresh') }}
+                    </button>
                 </div>
-                <div class="stt-logs-meta" id="stt-module-logs-meta"></div>
             </form>
-            <div class="code-container stt-logs-code-container">
-                <div id="log-content-readonly" class="log-content-readonly stt-log-content-readonly">
-                    <pre id="stt-module-log-content">{{ t._('module_local_speech_to_text_LogsLoading') }}</pre>
-                </div>
-
-                <div class="fullscreen-toggle-btn stt-logs-fullscreen-toggle">
-                    <i class="inverted expand icon"></i>
-                </div>
+            <div class="stt-logs-meta" id="stt-module-logs-meta">
+                <span id="stt-log-result-count"></span>
+                <span id="stt-log-updated-at"></span>
             </div>
+            <div class="ui message stt-log-state" id="stt-log-state" hidden></div>
+            <div class="stt-log-results" id="stt-log-results" aria-live="polite"></div>
         </div>
     </div>
 </div>

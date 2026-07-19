@@ -17,8 +17,8 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/transcripts/events',
-    tags: ['Local Speech To Text transcript events'],
-    description: 'Completed transcript event cursor API',
+    tags: ['Local Speech To Text'],
+    description: 'module_local_speech_to_text_TranscriptEventsApiDescription',
     processor: Processor::class
 )]
 #[ResourceSecurity('module_local_speech_to_text_transcript_events', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
@@ -40,8 +40,8 @@ class Controller extends BaseRestController
      */
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'custom', schemaName: 'LocalSTTTranscriptEventListResponse')]
     #[ApiOperation(
-        summary: 'List completed transcript events',
-        description: 'Returns idempotent transcript.completed events after a cursor.',
+        summary: 'module_local_speech_to_text_ListTranscriptEvents',
+        description: 'module_local_speech_to_text_ListTranscriptEventsDesc',
         operationId: 'listLocalSpeechToTextTranscriptEvents'
     )]
     #[ApiParameterRef('cursor')]
@@ -49,6 +49,7 @@ class Controller extends BaseRestController
     #[ApiResponse(200, 'rest_response_200_list')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function getList(): void
     {
         // Implementation handled by BaseRestController.

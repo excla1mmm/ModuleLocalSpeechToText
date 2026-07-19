@@ -23,10 +23,21 @@ class HeartbeatResponseDataStructure extends AbstractDataStructure implements Op
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaHeartbeat',
             'properties' => [
-                'status' => ['type' => 'string'],
-                'lease_expires_at' => ['type' => 'integer'],
+                'status' => [
+                    'type' => 'string',
+                    'enum' => ['processing'],
+                    'description' => 'module_local_speech_to_text_ApiFieldHeartbeatStatus',
+                    'example' => 'processing',
+                ],
+                'lease_expires_at' => [
+                    'type' => 'integer',
+                    'description' => 'module_local_speech_to_text_ApiFieldLeaseExpiresAt',
+                    'example' => 1784456400,
+                ],
             ],
+            'example' => ['status' => 'processing', 'lease_expires_at' => 1784456400],
         ];
     }
 

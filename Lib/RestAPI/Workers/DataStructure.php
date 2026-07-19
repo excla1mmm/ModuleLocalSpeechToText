@@ -15,21 +15,22 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'request' => [
                 'worker_uid' => [
                     'type' => 'string',
-                    'description' => 'Stable worker identifier.',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerUid',
                     'example' => 'mac-mini-stt-01',
                     'required' => true,
+                    'minLength' => 1,
                     'maxLength' => 255,
                 ],
                 'name' => [
                     'type' => 'string',
-                    'description' => 'Human-readable worker name.',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerName',
                     'example' => 'Mac mini STT',
                     'required' => false,
                     'maxLength' => 255,
                 ],
                 'model' => [
                     'type' => 'string',
-                    'description' => 'Speech recognition model name.',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerModel',
                     'example' => 'whisper-large-v3',
                     'required' => false,
                     'maxLength' => 255,
@@ -38,12 +39,12 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'response' => [
                 'worker_id' => [
                     'type' => 'integer',
-                    'description' => 'Internal worker record id.',
+                    'description' => 'module_local_speech_to_text_ApiFieldWorkerId',
                     'example' => 1,
                 ],
                 'poll_interval' => [
                     'type' => 'integer',
-                    'description' => 'Recommended polling interval in seconds.',
+                    'description' => 'module_local_speech_to_text_ApiFieldPollInterval',
                     'example' => 30,
                 ],
             ],
@@ -59,10 +60,20 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaWorkerRegistration',
             'properties' => [
-                'worker_id' => ['type' => 'integer'],
-                'poll_interval' => ['type' => 'integer'],
+                'worker_id' => [
+                    'type' => 'integer',
+                    'description' => 'module_local_speech_to_text_ApiFieldWorkerId',
+                    'example' => 1,
+                ],
+                'poll_interval' => [
+                    'type' => 'integer',
+                    'description' => 'module_local_speech_to_text_ApiFieldPollInterval',
+                    'example' => 30,
+                ],
             ],
+            'example' => ['worker_id' => 1, 'poll_interval' => 30],
         ];
     }
 

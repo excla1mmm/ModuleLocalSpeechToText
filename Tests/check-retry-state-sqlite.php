@@ -134,7 +134,8 @@ expectRetryState(
     str_contains($worker, 'RetryStateStore::TYPE_DELAYED')
         && str_contains($worker, 'RetryStateStore::TYPE_SKIPPED')
         && str_contains($worker, '->due(')
-        && str_contains($worker, 'durable retry state'),
+        && str_contains($worker, 'retryStateStore()->remove(')
+        && str_contains($worker, 'deferWithBackoff('),
     'Worker overflow and retry paths must use observable durable state'
 );
 expectRetryState(

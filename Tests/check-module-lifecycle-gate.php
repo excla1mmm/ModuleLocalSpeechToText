@@ -157,9 +157,13 @@ $adminBase = (string)file_get_contents(__DIR__ . '/../App/Controllers/LocalSpeec
 
 expectLifecycleGate(
     str_contains($scanner, 'ModuleLifecycleGate')
-        && str_contains($scanner, 'Module lifecycle gate is closed; scanner iteration paused')
+        && preg_match(
+            '/if \(\$writeLease === null\) \{\s*sleep\(self::SCAN_INTERVAL_SECONDS\);\s*continue;\s*\}/',
+            $scanner
+        ) === 1
+        && !str_contains($scanner, 'Module lifecycle gate is closed; scanner iteration paused')
         && !str_contains($scanner, 'Worker stopped accepting database work because the module is changing state'),
-    'scanner must pause without the legacy exit-loop behavior'
+    'scanner must pause silently without the legacy exit-loop behavior'
 );
 expectLifecycleGate(
     str_contains($jobsProcessor, 'httpCode = 503')

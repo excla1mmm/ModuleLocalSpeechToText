@@ -17,7 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/workers',
-    tags: ['Local Speech To Text workers'],
+    tags: ['Local Speech To Text'],
     description: 'module_local_speech_to_text_WorkersApiDescription',
     processor: Processor::class
 )]
@@ -39,7 +39,7 @@ class Controller extends BaseRestController
     /**
      * @route POST /pbxcore/api/v3/module-local-speech-to-text/workers:register
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_RegisterWorker',
         description: 'module_local_speech_to_text_RegisterWorkerDesc',
@@ -48,10 +48,12 @@ class Controller extends BaseRestController
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('name')]
     #[ApiParameterRef('model')]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseWorkerRegistered')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function register(): void
     {
         // Implementation handled by BaseRestController.
@@ -71,11 +73,12 @@ class Controller extends BaseRestController
         operationId: 'getLocalSTTWorkerProcessingSettings'
     )]
     #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseProcessingSettings')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function getProcessingSettings(): void
     {
         // Implementation handled by BaseRestController.

@@ -17,7 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/jobs',
-    tags: ['Local Speech To Text jobs'],
+    tags: ['Local Speech To Text'],
     description: 'module_local_speech_to_text_JobsApiDescription',
     processor: Processor::class
 )]
@@ -58,16 +58,19 @@ class Controller extends BaseRestController
     /**
      * @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs:getNext
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJob')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_GetNextJob',
         description: 'module_local_speech_to_text_GetNextJobDesc',
         operationId: 'getNextLocalSpeechToTextJob'
     )]
     #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobClaimed')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function getNext(): void
     {
         // Implementation handled by BaseRestController.
@@ -84,10 +87,15 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok', content: self::DOWNLOAD_BINARY_CONTENT)]
-    #[ApiResponse(206, 'Partial Content', content: self::DOWNLOAD_BINARY_CONTENT, headers: self::PARTIAL_CONTENT_HEADERS)]
+    #[ApiResponse(200, 'rest_response_200_stream', content: self::DOWNLOAD_BINARY_CONTENT)]
+    #[ApiResponse(206, 'rest_response_206_partial_content', content: self::DOWNLOAD_BINARY_CONTENT, headers: self::PARTIAL_CONTENT_HEADERS)]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(413, 'Payload Too Large', 'PBXApiResult')]
+    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
+    #[ApiResponse(413, 'module_local_speech_to_text_ApiResponseRecordingRejected', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function download(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -110,10 +118,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('duration_ms')]
     #[ApiParameterRef('model_used')]
     #[ApiParameterRef('technical_info')]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseResultAccepted')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function submitResult(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -132,10 +143,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
     #[ApiParameterRef('error_msg')]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseErrorAccepted')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function submitError(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -153,10 +167,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseLeaseExtended')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function heartbeat(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -174,10 +191,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobReleased')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function release(string $id): void
     {
         // Implementation handled by BaseRestController.

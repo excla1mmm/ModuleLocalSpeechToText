@@ -23,6 +23,11 @@ class STTJob extends ModulesModelsBase
     private const int DEFAULT_PROCESSING_TIMEOUT_SECONDS = 1800;
     private const int MAX_ATTEMPTS = 3;
 
+    public static function maxAttempts(): int
+    {
+        return self::MAX_ATTEMPTS;
+    }
+
     /**
      * @Primary
      * @Identity

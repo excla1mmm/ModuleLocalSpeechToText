@@ -87,10 +87,27 @@ namespace {
     expectSameRestApiContract(false, $jobParameters['request']['duration_ms']['required'] ?? null, 'duration_ms must be optional');
     expectTrueRestApiContract(!isset($jobParameters['request']['duration']), 'Jobs API must not document legacy duration seconds input');
     expectSameRestApiContract('array', $jobParameters['request']['transcript']['type'] ?? null, 'Jobs API must accept transcript arrays');
+    $transcriptDescriptionKey = (string)($jobParameters['request']['transcript']['description'] ?? '');
+    expectSameRestApiContract(
+        'module_local_speech_to_text_ApiParamTranscript',
+        $transcriptDescriptionKey,
+        'Jobs API transcript description must use the localized OpenAPI key'
+    );
+    $russianMessages = include __DIR__ . '/../Messages/ru.php';
+    $englishMessages = include __DIR__ . '/../Messages/en.php';
+    $transcriptDescriptions = [
+        $russianMessages[$transcriptDescriptionKey] ?? '',
+        $englishMessages[$transcriptDescriptionKey] ?? '',
+    ];
     expectTrueRestApiContract(
-        str_contains((string)($jobParameters['request']['transcript']['description'] ?? ''), 'start_ms')
-            && str_contains((string)($jobParameters['request']['transcript']['description'] ?? ''), 'end_ms'),
-        'Jobs API transcript docs must require millisecond segment timestamps'
+        array_reduce(
+            $transcriptDescriptions,
+            static fn(bool $valid, string $description): bool => $valid
+                && str_contains($description, 'start_ms')
+                && str_contains($description, 'end_ms'),
+            true
+        ),
+        'Jobs API RU/EN transcript docs must require millisecond segment timestamps'
     );
     expectSameRestApiContract('object', $jobParameters['request']['technical_info']['type'] ?? null, 'Jobs API must accept worker technical_info objects');
 

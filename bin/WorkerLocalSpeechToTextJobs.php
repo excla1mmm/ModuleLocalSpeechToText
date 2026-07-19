@@ -11,6 +11,7 @@ use MikoPBX\Common\Providers\DatabaseProviderBase;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
@@ -45,10 +46,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     public function start(array $argv): void
     {
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf('Worker started (PID:%d)', getmypid()),
-            LOG_NOTICE
+        LocalSpeechToTextLogger::event(
+            'system',
+            'scanner_started',
+            'STT recording scanner started',
+            LOG_NOTICE,
+            ['pid' => getmypid()]
         );
 
         $lifecycleGate = new ModuleLifecycleGate();
@@ -58,11 +61,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
             $writeLease = $lifecycleGate->acquireWriteLease();
             if ($writeLease === null) {
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    'Module lifecycle gate is closed; scanner iteration paused',
-                    LOG_NOTICE
-                );
                 sleep(self::SCAN_INTERVAL_SECONDS);
                 continue;
             }
@@ -79,30 +77,55 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 STTWorker::markStaleOffline();
                 $requeued = STTJob::requeueStaleProcessing();
                 if ($requeued > 0) {
-                    LocalSpeechToTextLogger::syslog(
-                        __CLASS__,
-                        sprintf('Requeued %d stale processing transcription job(s)', $requeued),
-                        LOG_NOTICE
+                    LocalSpeechToTextLogger::event(
+                        'queue',
+                        'stale_leases_recovered',
+                        'Expired transcription leases were recovered',
+                        LOG_NOTICE,
+                        ['recovered_count' => $requeued]
                     );
                 }
                 $this->retryDelayedRecordings();
                 $this->retrySkippedRecordings();
                 $this->createJobsFromCompletedCdr();
-                (new CallTranscriptRevisionService())->publishReady();
+                $publication = (new CallTranscriptRevisionService())->publishReady();
+                if ($publication['published'] > 0) {
+                    LocalSpeechToTextLogger::event(
+                        'transcript',
+                        'call_transcripts_published',
+                        'Call transcript revisions published',
+                        LOG_NOTICE,
+                        [
+                            'published_count' => $publication['published'],
+                            'scanned_count' => $publication['scanned'],
+                            'blocked_jobs' => $publication['blocked_jobs'],
+                        ]
+                    );
+                }
                 $this->purgeExpiredTranscripts();
             } catch (Throwable $exception) {
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    'Error while scanning CDR recordings: ' . $exception->getMessage(),
-                    LOG_ERR
+                LocalSpeechToTextLogger::event(
+                    'system',
+                    'operation_failed',
+                    'STT recording scan failed',
+                    LOG_ERR,
+                    [
+                        'operation' => 'scanner_iteration',
+                        'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+                    ]
                 );
                 try {
                     (new ScannerTransactionRecovery())->recover($this->scannerConnections());
                 } catch (TransactionRecoveryException $recoveryException) {
-                    LocalSpeechToTextLogger::syslog(
-                        __CLASS__,
-                        'Scanner database recovery failed: ' . $recoveryException->getMessage(),
-                        LOG_CRIT
+                    LocalSpeechToTextLogger::event(
+                        'storage',
+                        'database_operation_failed',
+                        'Scanner database recovery failed',
+                        LOG_CRIT,
+                        [
+                            'operation' => 'scanner_database_recovery',
+                            'error_code' => LocalSpeechToTextLogSanitizer::errorCode($recoveryException),
+                        ]
                     );
                     throw $recoveryException;
                 }
@@ -113,10 +136,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             sleep(self::SCAN_INTERVAL_SECONDS);
         }
 
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf('Worker stopped (PID:%d)', getmypid()),
-            LOG_NOTICE
+        LocalSpeechToTextLogger::event(
+            'system',
+            'scanner_stopped',
+            'STT recording scanner stopped',
+            LOG_NOTICE,
+            ['pid' => getmypid()]
         );
     }
 
@@ -142,15 +167,16 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $summary['has_more'] ? '0' : (string)$now
         );
         if ($summary['calls'] > 0 || $summary['results'] > 0) {
-            LocalSpeechToTextLogger::syslog(
-                __CLASS__,
-                sprintf(
-                    'Purged %d call(s) and %d transcript result(s); cutoff=%d',
-                    $summary['calls'],
-                    $summary['results'],
-                    $summary['cutoff']
-                ),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'transcript',
+                'retention_cleanup_completed',
+                'Expired transcript data removed',
+                LOG_NOTICE,
+                [
+                    'calls_count' => $summary['calls'],
+                    'results_count' => $summary['results'],
+                    'has_more' => $summary['has_more'],
+                ]
             );
         }
     }
@@ -353,7 +379,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         if (!$this->recordingWithinDurationLimit($record)) {
-            $this->logSkippedLongRecording($record);
             $this->rememberSkippedRecording($record, 'duration_too_long');
             return;
         }
@@ -366,7 +391,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
         $this->forgetDelayedRecording($delayedRecordings, $this->recordId($record));
         if (!$this->recordingWithinSizeLimit($recordingPath)) {
-            $this->logSkippedLargeRecording($recordingPath);
             $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath);
             return;
         }
@@ -380,7 +404,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function createJob(array $record, string $recordingPath): void
     {
-        STTJob::createPending(
+        $job = STTJob::createPending(
             $this->callId($record),
             $recordingPath,
             $this->priority($record),
@@ -389,11 +413,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $this->recordingDurationSeconds($record)
         );
 
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf('Created transcription job for recording %s', $recordingPath),
-            LOG_INFO
-        );
+        $this->logJobCreated($job, $this->recordingDurationSeconds($record));
     }
 
     private function retryDelayedRecordings(): void
@@ -430,7 +450,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             if (!$this->recordingWithinDurationLimit($record)) {
-                $this->logSkippedLongRecording($record);
                 $this->rememberSkippedRecording($record, 'duration_too_long', '', (int)$recordId);
                 unset($delayedRecordings[$recordId]);
                 $changed = true;
@@ -455,7 +474,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             if (!$this->recordingWithinSizeLimit($recordingPath)) {
-                $this->logSkippedLargeRecording($recordingPath);
                 $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath, (int)$recordId);
                 unset($delayedRecordings[$recordId]);
                 $changed = true;
@@ -463,7 +481,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             if (!STTJob::existsForFilePath($recordingPath)) {
-                STTJob::createPending(
+                $job = STTJob::createPending(
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
@@ -471,10 +489,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     $this->recordingIdentity($record, $recordingPath),
                     $this->recordingDurationSeconds($record)
                 );
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    sprintf('Created delayed transcription job for recording %s', $recordingPath),
-                    LOG_INFO
+                $this->logJobCreated(
+                    $job,
+                    $this->recordingDurationSeconds($record),
+                    'delayed_recording_recovered'
                 );
             }
 
@@ -516,10 +534,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 unset($skippedRecordings[$recordId]);
                 $this->retryStateStore()->remove($recordId);
                 $changed = true;
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    sprintf('Removed retry state for CDR #%d after it left the configured history window', $recordId),
-                    LOG_INFO
+                LocalSpeechToTextLogger::event(
+                    'scanner',
+                    'recording_retry_dropped',
+                    'Recording retry state removed',
+                    LOG_INFO,
+                    ['skip_reason' => 'outside_history_window']
                 );
                 continue;
             }
@@ -572,7 +592,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             }
 
             if (!STTJob::existsForFilePath($recordingPath)) {
-                STTJob::createPending(
+                $job = STTJob::createPending(
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
                     (int)($record['priority'] ?? 5),
@@ -580,10 +600,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     $this->recordingIdentity($record, $recordingPath),
                     $this->recordingDurationSeconds($record)
                 );
-                LocalSpeechToTextLogger::syslog(
-                    __CLASS__,
-                    sprintf('Recovered skipped transcription job for recording %s', $recordingPath),
-                    LOG_INFO
+                $this->logJobCreated(
+                    $job,
+                    $this->recordingDurationSeconds($record),
+                    'skipped_recording_recovered'
                 );
             }
 
@@ -636,6 +656,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             return;
         }
 
+        $isNew = !isset($delayedRecordings[$recordId]);
         $now = time();
         $retryRecord = [
             'recordingfile' => (string)($record['recordingfile'] ?? ''),
@@ -659,6 +680,20 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'recording_missing',
             $now
         );
+        if ($isNew) {
+            LocalSpeechToTextLogger::event(
+                'scanner',
+                'recording_delayed',
+                'Recording is not available yet; retry scheduled',
+                LOG_INFO,
+                [
+                    'skip_reason' => 'recording_missing',
+                    'recording_duration_ms' => $this->recordingDurationSeconds($record) !== null
+                        ? $this->recordingDurationSeconds($record) * 1000
+                        : null,
+                ]
+            );
+        }
 
         if (count($delayedRecordings) > self::MAX_DELAYED_RECORDINGS) {
             uasort(
@@ -666,10 +701,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 static fn (array $left, array $right): int => ((int)($left['first_seen'] ?? 0)) <=> ((int)($right['first_seen'] ?? 0))
             );
             $delayedRecordings = array_slice($delayedRecordings, -self::MAX_DELAYED_RECORDINGS, null, true);
-            LocalSpeechToTextLogger::syslog(
-                __CLASS__,
-                'Delayed recording display cache overflowed; evicted entries remain in durable retry state',
-                LOG_WARNING
+            LocalSpeechToTextLogger::event(
+                'scanner',
+                'retry_cache_overflow',
+                'Recording retry display cache reached its limit',
+                LOG_WARNING,
+                ['cache_type' => 'delayed']
             );
         }
     }
@@ -695,6 +732,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         $skippedRecordings = $this->skippedRecordings();
+        $isNew = !isset($skippedRecordings[$recordId]);
         $retryRecord = [
             'recordingfile' => $recordingFile,
             'recording_path' => $recordingPath,
@@ -717,6 +755,20 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $retryRecord,
             $reason
         );
+        if ($isNew) {
+            LocalSpeechToTextLogger::event(
+                'scanner',
+                'recording_skipped',
+                'Recording skipped before transcription',
+                LOG_WARNING,
+                [
+                    'skip_reason' => $reason,
+                    'recording_duration_ms' => $this->recordingDurationSeconds($record) !== null
+                        ? $this->recordingDurationSeconds($record) * 1000
+                        : null,
+                ]
+            );
+        }
 
         if (count($skippedRecordings) > self::MAX_SKIPPED_RECORDINGS) {
             uasort(
@@ -724,10 +776,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 static fn (array $left, array $right): int => ((int)($left['created_at'] ?? 0)) <=> ((int)($right['created_at'] ?? 0))
             );
             $skippedRecordings = array_slice($skippedRecordings, -self::MAX_SKIPPED_RECORDINGS, null, true);
-            LocalSpeechToTextLogger::syslog(
-                __CLASS__,
-                'Skipped recording display cache overflowed; evicted entries remain in durable retry state',
-                LOG_WARNING
+            LocalSpeechToTextLogger::event(
+                'scanner',
+                'retry_cache_overflow',
+                'Recording retry display cache reached its limit',
+                LOG_WARNING,
+                ['cache_type' => 'skipped']
             );
         }
 
@@ -805,10 +859,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $recordId = (int)$retryRecord['cdr_id'];
         unset($skippedRecordings[$recordId]);
         $this->retryStateStore()->remove($recordId);
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf('Expired retry state for CDR #%d after the finite skipped-recording retry lifetime', $recordId),
-            LOG_WARNING
+        LocalSpeechToTextLogger::event(
+            'scanner',
+            'recording_retry_expired',
+            'Recording retry lifetime expired',
+            LOG_WARNING,
+            ['skip_reason' => 'retry_lifetime_exhausted']
         );
 
         return true;
@@ -1050,28 +1106,20 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         return STTSetting::recordingDurationAllowed($this->recordingDurationSeconds($record));
     }
 
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function logSkippedLongRecording(array $record): void
+    private function logJobCreated(STTJob $job, ?int $recordingDurationSeconds, ?string $reason = null): void
     {
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf(
-                'Skipped transcription job: recording duration %d seconds exceeds configured limit of %d minutes',
-                $this->recordingDurationSeconds($record) ?? 0,
-                STTSetting::maxRecordingDurationMinutes()
-            ),
-            LOG_WARNING
-        );
-    }
-
-    private function logSkippedLargeRecording(string $recordingPath): void
-    {
-        LocalSpeechToTextLogger::syslog(
-            __CLASS__,
-            sprintf('Skipped transcription job for %s: file exceeds fixed maximum size', $recordingPath),
-            LOG_WARNING
+        LocalSpeechToTextLogger::event(
+            'queue',
+            'job_created',
+            'Transcription job created',
+            LOG_INFO,
+            [
+                'job_id' => (int)$job->id,
+                'recording_duration_ms' => $recordingDurationSeconds !== null
+                    ? $recordingDurationSeconds * 1000
+                    : null,
+                'skip_reason' => $reason,
+            ]
         );
     }
 }

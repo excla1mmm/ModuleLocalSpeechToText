@@ -10,6 +10,7 @@ use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
 use MikoPBX\Modules\Config\ConfigClass;
 use Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -42,11 +43,7 @@ class LocalSpeechToTextConf extends ConfigClass
             );
             $pragmas->checkpoint($connection);
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write(
-                'setup',
-                'Unable to refresh STT database runtime pragmas during enable: ' . $exception->getMessage(),
-                LOG_WARNING
-            );
+            self::logDatabaseFailure('enable_database_runtime', $exception, LOG_WARNING);
         }
 
         $this->gate(bootstrap: true)->completeEnable();
@@ -60,19 +57,20 @@ class LocalSpeechToTextConf extends ConfigClass
             try {
                 (new ModuleDatabasePragmas())->checkpoint((new STTJob())->getWriteConnection());
             } catch (Throwable $exception) {
-                LocalSpeechToTextLogger::write(
-                    'setup',
-                    'Unable to checkpoint STT WAL after writer drain: ' . $exception->getMessage(),
-                    LOG_WARNING
-                );
+                self::logDatabaseFailure('disable_database_checkpoint', $exception, LOG_WARNING);
             }
             return true;
         }
 
-        LocalSpeechToTextLogger::write(
-            'setup',
-            'Module disable aborted because STT database writers did not drain before the deadline',
-            LOG_ERR
+        LocalSpeechToTextLogger::event(
+            'system',
+            'operation_failed',
+            'Module disable aborted because database writers remained active',
+            LOG_ERR,
+            [
+                'operation' => 'disable_writer_drain',
+                'error_code' => 'writer_drain_timeout',
+            ]
         );
         return false;
     }
@@ -89,5 +87,19 @@ class LocalSpeechToTextConf extends ConfigClass
         }
 
         return $this->lifecycleGate;
+    }
+
+    private static function logDatabaseFailure(string $operation, Throwable $exception, int $level): void
+    {
+        LocalSpeechToTextLogger::event(
+            'storage',
+            'database_operation_failed',
+            'STT database operation failed',
+            $level,
+            [
+                'operation' => $operation,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
     }
 }

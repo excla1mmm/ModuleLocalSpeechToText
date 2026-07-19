@@ -9,51 +9,101 @@ function expectTrueModuleLogging(bool $condition, string $message): void
     }
 }
 
-$logger = file_get_contents(__DIR__ . '/../Lib/Services/LocalSpeechToTextLogger.php');
-$main = file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextMain.php');
-$worker = file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
-$baseController = file_get_contents(__DIR__ . '/../App/Controllers/LocalSpeechToTextBaseController.php');
-$controller = file_get_contents(__DIR__ . '/../App/Controllers/ModuleLocalSpeechToTextController.php');
-$setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
+$root = dirname(__DIR__);
+$paths = [
+    'sanitizer' => $root . '/Lib/Services/LocalSpeechToTextLogSanitizer.php',
+    'writer' => $root . '/Lib/Services/LocalSpeechToTextLogWriter.php',
+    'logger' => $root . '/Lib/Services/LocalSpeechToTextLogger.php',
+    'reader' => $root . '/Lib/Services/ModuleLogReader.php',
+    'migration' => $root . '/Lib/Services/LocalSpeechToTextLegacyLogMigration.php',
+    'main' => $root . '/Lib/LocalSpeechToTextMain.php',
+    'worker' => $root . '/bin/WorkerLocalSpeechToTextJobs.php',
+    'baseController' => $root . '/App/Controllers/LocalSpeechToTextBaseController.php',
+    'controller' => $root . '/App/Controllers/ModuleLocalSpeechToTextController.php',
+    'setup' => $root . '/Setup/PbxExtensionSetup.php',
+];
+$sources = [];
+foreach ($paths as $name => $path) {
+    expectTrueModuleLogging(is_file($path), "Structured logging file is missing: {$name}");
+    $sources[$name] = (string)file_get_contents($path);
+}
 
-expectTrueModuleLogging($logger !== false, 'Cannot read LocalSpeechToTextLogger.php');
-expectTrueModuleLogging($main !== false, 'Cannot read LocalSpeechToTextMain.php');
-expectTrueModuleLogging($worker !== false, 'Cannot read WorkerLocalSpeechToTextJobs.php');
-expectTrueModuleLogging($baseController !== false, 'Cannot read LocalSpeechToTextBaseController.php');
-expectTrueModuleLogging($controller !== false, 'Cannot read ModuleLocalSpeechToTextController.php');
-expectTrueModuleLogging($setup !== false, 'Cannot read PbxExtensionSetup.php');
+$production = '';
+foreach (['App', 'Lib', 'Setup', 'bin'] as $directory) {
+    foreach (new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root . '/' . $directory, FilesystemIterator::SKIP_DOTS)
+    ) as $file) {
+        if ($file instanceof SplFileInfo && $file->isFile() && $file->getExtension() === 'php') {
+            $production .= (string)file_get_contents($file->getPathname());
+        }
+    }
+}
+
+$withoutLogger = str_replace($sources['logger'], '', $production);
+expectTrueModuleLogging(
+    str_contains($sources['logger'], 'SystemMessages::sysLogMsg')
+        && !str_contains($withoutLogger, 'SystemMessages::sysLogMsg'),
+    'only the structured logger may call MikoPBX syslog'
+);
+expectTrueModuleLogging(
+    !str_contains($production, 'LocalSpeechToTextLogger::write(')
+        && !str_contains($production, 'LocalSpeechToTextLogger::syslog(')
+        && substr_count($production, 'LocalSpeechToTextLogger::event(') >= 20,
+    'all operational sites must use explicit structured events'
+);
+
+foreach ([
+    'worker_registered', 'job_claimed', 'recording_access_failed', 'transcription_completed',
+    'transcript_completed_published', 'job_retry', 'job_failed', 'job_released',
+    'stale_leases_recovered', 'job_created', 'recording_delayed', 'recording_skipped',
+    'call_transcripts_published', 'retention_cleanup_completed', 'module_setup_completed',
+    'worker_api_key_created', 'worker_api_key_deleted', 'settings_changed',
+] as $event) {
+    expectTrueModuleLogging(str_contains($production, "'{$event}'"), 'required useful event is missing: ' . $event);
+}
+
+$heartbeatStart = strpos($sources['main'], 'public static function heartbeatJob');
+$heartbeatEnd = strpos($sources['main'], 'public static function releaseJob', $heartbeatStart ?: 0);
+$heartbeatBody = $heartbeatStart !== false && $heartbeatEnd !== false
+    ? substr($sources['main'], $heartbeatStart, $heartbeatEnd - $heartbeatStart)
+    : '';
+expectTrueModuleLogging(!str_contains($heartbeatBody, 'LocalSpeechToTextLogger'), 'heartbeat success/failure path must remain free of repetitive logging');
+expectTrueModuleLogging(!str_contains($sources['controller'], 'Module logs requested:'), 'log retrieval must not log itself');
+expectTrueModuleLogging(!str_contains($production, 'empty_poll'), 'empty queue polling must remain silent');
+expectTrueModuleLogging(!str_contains($production, 'progress_updated'), 'progress updates must remain silent');
 
 expectTrueModuleLogging(
-    str_contains($logger, "MODULE_UNIQUE_ID = 'ModuleLocalSpeechToText'")
-        && str_contains($logger, "Directories::getDir(Directories::CORE_LOGS_DIR)")
-        && str_contains($logger, "self::MODULE_UNIQUE_ID")
-        && str_contains($logger, "'.log'"),
-    'Logger must write .log files under the module log directory'
+    str_contains($sources['main'], "'worker_reported_error'")
+        && !str_contains($sources['main'], "reported error for job #%d: %s"),
+    'worker-controlled error text must be replaced with a stable error code'
 );
 expectTrueModuleLogging(
-    str_contains($logger, "date('Y-m-d H:i:s')")
-        && str_contains($logger, 'levelName')
-        && str_contains($logger, 'normalizeMessage'),
-    'Logger lines must use the timestamp format parsed by the log viewer'
+    !preg_match('/LocalSpeechToTextLogger::event\([^;]*\$(?:recordingPath|recordingFile)/s', $sources['worker'])
+        && !preg_match('/LocalSpeechToTextLogger::event\([^;]*[\'\"](?:recording_path|monitor_path)[\'\"]\s*=>/s', $sources['worker']),
+    'scanner log events must not include recording paths'
 );
 expectTrueModuleLogging(
-    str_contains($logger, 'SystemMessages::sysLogMsg')
-        && str_contains($logger, 'public static function syslog'),
-    'Logger must keep syslog mirroring for operational events'
+    str_contains($sources['baseController'], "'changed_fields'")
+        && !str_contains($sources['baseController'], 'Settings saved: language='),
+    'settings logging must contain field names without values'
 );
+
 expectTrueModuleLogging(
-    !str_contains($main, 'SystemMessages::sysLogMsg')
-        && !str_contains($worker, 'SystemMessages::sysLogMsg')
-        && str_contains($main, 'LocalSpeechToTextLogger')
-        && str_contains($worker, 'LocalSpeechToTextLogger::syslog'),
-    'API and worker events must go through the module logger'
+    str_contains($sources['reader'], "'/module.log.1'")
+        && str_contains($sources['reader'], "'/module.log'")
+        && !str_contains($sources['reader'], 'RecursiveDirectoryIterator')
+        && !str_contains($sources['reader'], "'/messages")
+        && !str_contains($sources['reader'], 'glob('),
+    'reader must read only the two canonical journal generations'
 );
+foreach (['entries', 'logText', 'lineCount', 'fileCount', 'generatedAt', 'period', 'availableFrom', 'truncated', 'sourceStatus', 'malformedCount'] as $field) {
+    expectTrueModuleLogging(str_contains($sources['reader'], "'{$field}'"), 'reader compatibility field is missing: ' . $field);
+}
+
 expectTrueModuleLogging(
-    str_contains($baseController, 'Settings saved:')
-        && str_contains($controller, 'Module logs requested:')
-        && str_contains($controller, 'Worker API key created:')
-        && str_contains($setup, 'Database setup completed'),
-    'Web UI and setup actions must write module log entries'
+    str_contains($sources['setup'], 'LocalSpeechToTextLegacyLogMigration')
+        && str_contains($sources['setup'], 'legacy_logs_migrated'),
+    'setup must run and summarize safe legacy migration'
 );
 
 echo "Module logging contract OK\n";

@@ -4,185 +4,156 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use Closure;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\System\SystemMessages;
 use Throwable;
 
-class LocalSpeechToTextLogger
+final class LocalSpeechToTextLogger
 {
     private const string MODULE_UNIQUE_ID = 'ModuleLocalSpeechToText';
 
-    public static function write(string $channel, string $message, int $level = LOG_INFO): void
-    {
-        $filePath = self::logDir() . '/' . self::sanitizeChannel($channel) . '.log';
-        $line = sprintf(
-            "%s %-5s [%s] %s\n",
-            date('Y-m-d H:i:s'),
-            self::levelName($level),
-            $channel,
-            self::normalizeMessage($message)
-        );
+    private static ?self $default = null;
+    private static bool $fallbackReported = false;
 
-        if (!self::ensureWritableDirectory(dirname($filePath))) {
-            return;
-        }
+    /** @var Closure(string, string, int): void|null */
+    private readonly ?Closure $syslogMirror;
 
-        [$bytesWritten, $warning] = self::captureFilesystemWarning(
-            static fn (): int|false => file_put_contents($filePath, $line, FILE_APPEND | LOCK_EX)
-        );
-
-        if (!is_int($bytesWritten)) {
-            self::reportFileIoError('write log file', $filePath, $warning);
-            return;
-        }
-
-        self::chmodPath($filePath, 0644);
+    public function __construct(
+        private readonly LocalSpeechToTextLogWriter $writer,
+        ?callable $syslogMirror = null
+    ) {
+        $this->syslogMirror = $syslogMirror === null ? null : Closure::fromCallable($syslogMirror);
     }
 
-    public static function syslog(string $ident, string $message, int $level = LOG_INFO): void
-    {
-        self::write(self::channelFromIdent($ident), $message, $level);
+    /** @param array<array-key, mixed> $context */
+    public static function event(
+        string $component,
+        string $event,
+        string $message,
+        int $level = LOG_INFO,
+        array $context = []
+    ): void {
         try {
-            SystemMessages::sysLogMsg($ident, $message, $level);
-        } catch (Throwable $exception) {
-            self::write(
-                'logger',
-                sprintf('Syslog mirror failed for %s: %s', $ident, $exception->getMessage()),
-                LOG_WARNING
+            self::default()->writeEvent($component, $event, $message, $level, $context);
+        } catch (Throwable) {
+            self::fallbackFailure('structured log initialization failed');
+        }
+    }
+
+    /** @param array<array-key, mixed> $context */
+    public function writeEvent(
+        string $component,
+        string $event,
+        string $message,
+        int $level = LOG_INFO,
+        array $context = []
+    ): void {
+        try {
+            $this->writeEventInternal($component, $event, $message, $level, $context);
+        } catch (Throwable) {
+            self::fallbackFailure('structured log write failed');
+        }
+    }
+
+    /** @param array<array-key, mixed> $context */
+    private function writeEventInternal(
+        string $component,
+        string $event,
+        string $message,
+        int $level,
+        array $context
+    ): void {
+        $safeContext = LocalSpeechToTextLogSanitizer::context($context);
+        $record = [
+            'ts' => date(DATE_RFC3339),
+            'level' => self::levelName($level),
+            'component' => self::machineKey($component, 'system'),
+            'event' => self::machineKey($event, 'event'),
+            'message' => LocalSpeechToTextLogSanitizer::message($message),
+            'context' => $safeContext === [] ? (object)[] : $safeContext,
+        ];
+        $encoded = json_encode(
+            $record,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+        if (!is_string($encoded) || !$this->writer->append($encoded)) {
+            self::fallbackFailure('structured log write failed');
+        }
+
+        if ($this->syslogMirror === null || !self::mustMirror($level)) {
+            return;
+        }
+
+        $summary = sprintf('[%s.%s] %s', $record['component'], $record['event'], $record['message']);
+        if ($safeContext !== []) {
+            $encodedContext = json_encode(
+                $safeContext,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+            if (is_string($encodedContext)) {
+                $summary .= ' ' . $encodedContext;
+            }
+        }
+
+        try {
+            ($this->syslogMirror)(self::MODULE_UNIQUE_ID, $summary, $level);
+        } catch (Throwable) {
+            self::fallbackFailure('syslog mirror failed');
+        }
+    }
+
+    private static function fallbackFailure(string $reason): void
+    {
+        if (self::$fallbackReported) {
+            return;
+        }
+        self::$fallbackReported = true;
+        try {
+            error_log(self::MODULE_UNIQUE_ID . ' ' . $reason);
+        } catch (Throwable) {
+            // Logging is strictly best-effort and must never alter module control flow.
+        }
+    }
+
+    private static function default(): self
+    {
+        if (self::$default === null) {
+            $directory = rtrim(Directories::getDir(Directories::CORE_LOGS_DIR), '/')
+                . '/' . self::MODULE_UNIQUE_ID;
+            self::$default = new self(
+                new LocalSpeechToTextLogWriter($directory),
+                static function (string $ident, string $message, int $level): void {
+                    SystemMessages::sysLogMsg($ident, $message, $level);
+                }
             );
         }
+
+        return self::$default;
     }
 
-    public static function exception(string $context, Throwable $exception): void
+    private static function machineKey(string $value, string $fallback): string
     {
-        self::syslog(
-            'LocalSpeechToTextMain',
-            sprintf('%s failed: %s', $context, $exception->getMessage()),
-            LOG_ERR
-        );
-    }
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9_]+/', '_', $value) ?? '';
+        $value = trim($value, '_');
 
-    private static function logDir(): string
-    {
-        return rtrim(Directories::getDir(Directories::CORE_LOGS_DIR), '/') . '/' . self::MODULE_UNIQUE_ID;
-    }
-
-    private static function ensureWritableDirectory(string $dir): bool
-    {
-        if (is_dir($dir)) {
-            if (is_writable($dir)) {
-                return true;
-            }
-
-            self::reportFileIoError('write to log directory', $dir, 'directory is not writable');
-            return false;
-        }
-
-        if (file_exists($dir)) {
-            self::reportFileIoError('create log directory', $dir, 'path exists and is not a directory');
-            return false;
-        }
-
-        [$created, $warning] = self::captureFilesystemWarning(
-            static fn (): bool => mkdir($dir, 0755, true)
-        );
-
-        if ($created === true || is_dir($dir)) {
-            self::chmodPath($dir, 0755);
-
-            return is_writable($dir);
-        }
-
-        self::reportFileIoError('create log directory', $dir, $warning);
-        return false;
-    }
-
-    private static function channelFromIdent(string $ident): string
-    {
-        $parts = explode('\\', trim($ident));
-        $channel = end($parts);
-
-        return is_string($channel) && $channel !== '' ? $channel : 'module';
-    }
-
-    private static function sanitizeChannel(string $channel): string
-    {
-        $sanitized = strtolower(preg_replace('/[^a-zA-Z0-9_.-]+/', '-', trim($channel)) ?? '');
-        $sanitized = trim($sanitized, '-.');
-
-        return $sanitized === '' ? 'module' : $sanitized;
-    }
-
-    private static function normalizeMessage(string $message): string
-    {
-        $message = trim(preg_replace('/\s+/', ' ', $message) ?? $message);
-
-        return function_exists('mb_substr') ? mb_substr($message, 0, 4000) : substr($message, 0, 4000);
+        return $value === '' ? $fallback : substr($value, 0, 64);
     }
 
     private static function levelName(int $level): string
     {
         return match ($level) {
-            LOG_ERR, LOG_CRIT, LOG_ALERT, LOG_EMERG => 'ERROR',
-            LOG_WARNING => 'WARN',
-            LOG_DEBUG => 'DEBUG',
-            LOG_NOTICE => 'NOTICE',
-            default => 'INFO',
+            LOG_DEBUG => 'debug',
+            LOG_NOTICE => 'notice',
+            LOG_WARNING => 'warning',
+            LOG_ERR, LOG_CRIT, LOG_ALERT, LOG_EMERG => 'error',
+            default => 'info',
         };
     }
 
-    /**
-     * @template T
-     * @param callable(): T $operation
-     * @return array{0: T|null, 1: string|null}
-     */
-    private static function captureFilesystemWarning(callable $operation): array
+    private static function mustMirror(int $level): bool
     {
-        $warning = null;
-        $result = null;
-
-        set_error_handler(static function (int $severity, string $message) use (&$warning): bool {
-            if (($severity & (E_WARNING | E_NOTICE | E_USER_WARNING | E_USER_NOTICE)) === 0) {
-                return false;
-            }
-
-            $warning = $message;
-            return true;
-        });
-
-        try {
-            $result = $operation();
-        } catch (Throwable $exception) {
-            $warning = $exception->getMessage();
-        } finally {
-            restore_error_handler();
-        }
-
-        return [$result, $warning];
-    }
-
-    private static function reportFileIoError(string $action, string $path, ?string $reason = null): void
-    {
-        $message = sprintf('%s: unable to %s "%s"', self::MODULE_UNIQUE_ID, $action, $path);
-        if ($reason !== null && $reason !== '') {
-            $message .= ': ' . $reason;
-        }
-
-        error_log($message);
-    }
-
-    private static function chmodPath(string $path, int $permissions): void
-    {
-        if (!file_exists($path)) {
-            return;
-        }
-
-        [$changed, $warning] = self::captureFilesystemWarning(
-            static fn (): bool => chmod($path, $permissions)
-        );
-
-        if ($changed !== true) {
-            self::reportFileIoError('change permissions for', $path, $warning);
-        }
+        return in_array($level, [LOG_WARNING, LOG_ERR, LOG_CRIT, LOG_ALERT, LOG_EMERG], true);
     }
 }

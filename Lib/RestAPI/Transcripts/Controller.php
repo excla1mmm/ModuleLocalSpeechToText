@@ -17,8 +17,8 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/transcripts',
-    tags: ['Local Speech To Text transcripts'],
-    description: 'Completed transcript integration API',
+    tags: ['Local Speech To Text'],
+    description: 'module_local_speech_to_text_TranscriptsApiDescription',
     processor: Processor::class
 )]
 #[ResourceSecurity('module_local_speech_to_text_transcripts', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
@@ -40,8 +40,8 @@ class Controller extends BaseRestController
      */
     #[ApiDataSchema(schemaClass: ListDataStructure::class, type: 'custom', schemaName: 'LocalSTTTranscriptListResponse')]
     #[ApiOperation(
-        summary: 'List completed transcripts',
-        description: 'Returns completed transcript summaries for module integration.',
+        summary: 'module_local_speech_to_text_ListTranscripts',
+        description: 'module_local_speech_to_text_ListTranscriptsDesc',
         operationId: 'listLocalSpeechToTextTranscripts'
     )]
     #[ApiParameterRef('limit')]
@@ -51,6 +51,7 @@ class Controller extends BaseRestController
     #[ApiResponse(200, 'rest_response_200_list')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function getList(): void
     {
         // Implementation handled by BaseRestController.
@@ -59,15 +60,18 @@ class Controller extends BaseRestController
     /**
      * @route GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/{id}
      */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTTranscript')]
     #[ApiOperation(
-        summary: 'Get completed transcript detail',
-        description: 'Returns one completed transcript with normalized segments.',
+        summary: 'module_local_speech_to_text_GetTranscript',
+        description: 'module_local_speech_to_text_GetTranscriptDesc',
         operationId: 'getLocalSpeechToTextTranscript'
     )]
     #[ApiParameterRef('id', required: true)]
-    #[ApiResponse(200, 'rest_response_200_ok')]
+    #[ApiResponse(200, 'rest_response_200_get')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
     public function getRecord(string $id): void
     {
         // Implementation handled by BaseRestController.

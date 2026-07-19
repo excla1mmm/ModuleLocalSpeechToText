@@ -18,8 +18,8 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/call-transcripts/events',
-    tags: ['Local Speech To Text call transcript events'],
-    description: 'Revisioned logical-call transcript event cursor API',
+    tags: ['Local Speech To Text'],
+    description: 'module_local_speech_to_text_CallTranscriptEventsApiDescription',
     processor: Processor::class
 )]
 #[ResourceSecurity('module_local_speech_to_text_call_transcript_events', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
@@ -29,10 +29,17 @@ class Controller extends BaseRestController
     protected string $processorClass = Processor::class;
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'custom', schemaName: 'LocalSTTCallTranscriptEventListResponse')]
-    #[ApiOperation(summary: 'List call transcript revision events', description: 'Returns idempotent call-level events.', operationId: 'listLocalSpeechToTextCallTranscriptEvents')]
+    #[ApiOperation(
+        summary: 'module_local_speech_to_text_ListCallTranscriptEvents',
+        description: 'module_local_speech_to_text_ListCallTranscriptEventsDesc',
+        operationId: 'listLocalSpeechToTextCallTranscriptEvents'
+    )]
     #[ApiParameterRef('cursor')]
     #[ApiParameterRef('limit')]
     #[ApiResponse(200, 'rest_response_200_list', PBXApiResult::class)]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', PBXApiResult::class)]
+    #[ApiResponse(403, 'rest_response_403_forbidden', PBXApiResult::class)]
+    #[ApiResponse(500, 'rest_response_500_error', PBXApiResult::class)]
     public function getList(): void
     {
     }

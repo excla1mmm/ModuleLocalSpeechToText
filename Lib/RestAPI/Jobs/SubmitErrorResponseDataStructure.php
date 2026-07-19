@@ -23,10 +23,22 @@ class SubmitErrorResponseDataStructure extends AbstractDataStructure implements 
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaSubmitError',
             'properties' => [
-                'status' => ['type' => 'string'],
-                'attempts' => ['type' => 'integer'],
+                'status' => [
+                    'type' => 'string',
+                    'enum' => ['pending', 'error'],
+                    'description' => 'module_local_speech_to_text_ApiFieldJobStatusAfterError',
+                    'example' => 'pending',
+                ],
+                'attempts' => [
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'description' => 'module_local_speech_to_text_ApiFieldJobAttempts',
+                    'example' => 1,
+                ],
             ],
+            'example' => ['status' => 'pending', 'attempts' => 1],
         ];
     }
 

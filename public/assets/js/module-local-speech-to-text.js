@@ -410,51 +410,262 @@
 
     function initializeModuleLogs() {
         var $form = $('#stt-module-logs-form');
-        var $content = $('#stt-module-log-content');
-        var $viewer = $('#log-content-readonly');
         var $segment = $('#system-logs-segment');
-        var $meta = $('#stt-module-logs-meta');
-        var $timeRange = $('#time-slider-container');
-        var $fullscreenButton = $('.stt-logs-fullscreen-toggle');
-        var $fullscreenIcon = $fullscreenButton.find('i.icon');
+        var $results = $('#stt-log-results');
+        var $state = $('#stt-log-state');
+        var $resultCount = $('#stt-log-result-count');
+        var $updatedAt = $('#stt-log-updated-at');
+        var $levelFilter = $('#stt-log-level-filter');
+        var $componentFilter = $('#stt-log-component-filter');
+        var $search = $('#stt-log-search');
 
-        if ($form.length === 0 || $content.length === 0 || $viewer.length === 0) {
+        if ($form.length === 0 || $results.length === 0 || $state.length === 0) {
             return;
         }
 
         var dataUrl = $form.data('url');
         var $periodButtons = $form.find('.period-btn');
         var $refreshButton = $form.find('.stt-log-refresh');
-        var currentPeriod = parseInt($periodButtons.filter('.active').data('period'), 10) || 3600;
+        var currentPeriod = parseInt($periodButtons.filter('.active').data('period'), 10);
         var loadedOnce = false;
         var request = null;
+        var requestGeneration = 0;
+        var currentEntries = [];
+        var currentResponse = null;
 
-        function metaText(response) {
-            var template = translation(
-                'module_local_speech_to_text_LogsMeta',
-                '%lines% lines from %files% files, updated %time%'
+        if (!Number.isFinite(currentPeriod)) {
+            currentPeriod = 3600;
+        }
+
+        function levelName(level) {
+            var levels = {
+                debug: ['module_local_speech_to_text_LogLevelDebug', 'Debug'],
+                info: ['module_local_speech_to_text_LogLevelInfo', 'Info'],
+                notice: ['module_local_speech_to_text_LogLevelNotice', 'Notice'],
+                warning: ['module_local_speech_to_text_LogLevelWarning', 'Warning'],
+                error: ['module_local_speech_to_text_LogLevelError', 'Error']
+            };
+            var item = levels[level] || levels.info;
+
+            return translation(item[0], item[1]);
+        }
+
+        function componentName(component) {
+            var aliases = {
+                api: 'api',
+                queue: 'queue',
+                scanner: 'scanner',
+                worker: 'worker',
+                workerlocalspeechtotextjobs: 'worker',
+                settings: 'settings',
+                web_ui: 'settings',
+                setup: 'setup',
+                storage: 'storage',
+                transcript: 'transcript',
+                system: 'system',
+                localspeechtotextmain: 'system',
+                logger: 'system'
+            };
+            var labels = {
+                api: ['module_local_speech_to_text_LogComponentApi', 'API'],
+                queue: ['module_local_speech_to_text_LogComponentQueue', 'Queue'],
+                scanner: ['module_local_speech_to_text_LogComponentScanner', 'Recording scanner'],
+                worker: ['module_local_speech_to_text_LogComponentWorker', 'Worker'],
+                settings: ['module_local_speech_to_text_LogComponentSettings', 'Settings'],
+                setup: ['module_local_speech_to_text_LogComponentSetup', 'Setup'],
+                storage: ['module_local_speech_to_text_LogComponentStorage', 'Storage'],
+                transcript: ['module_local_speech_to_text_LogComponentTranscript', 'Transcripts'],
+                system: ['module_local_speech_to_text_LogComponentSystem', 'System'],
+                other: ['module_local_speech_to_text_LogComponentOther', 'Other']
+            };
+            var label = labels[aliases[component] || 'other'];
+
+            return translation(label[0], label[1]);
+        }
+
+        function formatTimestamp(timestamp) {
+            var date = new Date(timestamp);
+            if (Number.isNaN(date.getTime())) {
+                return timestamp || '—';
+            }
+
+            return date.toLocaleString();
+        }
+
+        function renderState(kind, message) {
+            if (!message) {
+                $state.prop('hidden', true).removeClass('info warning error').text('');
+                return;
+            }
+
+            $state
+                .removeClass('info warning error')
+                .addClass(kind || 'info')
+                .text(message)
+                .prop('hidden', false);
+        }
+
+        function filterEntries(entries) {
+            var level = String($levelFilter.val() || '');
+            var component = String($componentFilter.val() || '');
+            var query = String($search.val() || '').trim().toLowerCase();
+
+            return entries.filter(function (entry) {
+                if (level && entry.level !== level) {
+                    return false;
+                }
+                if (component && entry.component !== component) {
+                    return false;
+                }
+                if (!query) {
+                    return true;
+                }
+
+                var haystack = [
+                    entry.message,
+                    entry.component,
+                    entry.event,
+                    JSON.stringify(entry.context || {})
+                ].join(' ').toLowerCase();
+
+                return haystack.indexOf(query) !== -1;
+            });
+        }
+
+        function renderEntries(entries) {
+            $results.empty();
+            entries.forEach(function (entry) {
+                var $card = $('<article>').addClass('stt-log-entry stt-log-level-' + entry.level);
+                var $header = $('<div>').addClass('stt-log-entry-header');
+                var $identity = $('<div>').addClass('stt-log-entry-identity');
+                var $level = $('<span>').addClass('ui tiny label stt-log-level-label').text(levelName(entry.level));
+                var $component = $('<span>').addClass('stt-log-component').text(componentName(entry.component));
+                var $time = $('<time>').addClass('stt-log-time').text(formatTimestamp(entry.ts));
+                var $message = $('<div>').addClass('stt-log-message').text(entry.message || '—');
+                var $details = $('<details>').addClass('stt-log-details');
+                var $summary = $('<summary>').text(translation(
+                    'module_local_speech_to_text_LogsTechnicalDetails',
+                    'Technical details'
+                ));
+                var detailText = translation('module_local_speech_to_text_LogsEvent', 'Event')
+                    + ': ' + (entry.event || '—');
+                if (entry.context && Object.keys(entry.context).length > 0) {
+                    detailText += '\n' + JSON.stringify(entry.context, null, 2);
+                }
+
+                $identity.append($level, $component);
+                $header.append($identity, $time);
+                $details.append($summary, $('<pre>').text(detailText));
+                $card.append($header, $message, $details);
+                $results.append($card);
+            });
+        }
+
+        function updateComponentOptions(entries) {
+            var selected = String($componentFilter.val() || '');
+            var components = [];
+            entries.forEach(function (entry) {
+                if (entry.component && components.indexOf(entry.component) === -1) {
+                    components.push(entry.component);
+                }
+            });
+            components.sort(function (left, right) {
+                return componentName(left).localeCompare(componentName(right));
+            });
+
+            $componentFilter.empty().append(
+                $('<option>').val('').text(translation(
+                    'module_local_speech_to_text_LogsComponentAll',
+                    'All components'
+                ))
             );
+            components.forEach(function (component) {
+                $componentFilter.append($('<option>').val(component).text(componentName(component)));
+            });
+            if (selected && components.indexOf(selected) !== -1) {
+                $componentFilter.val(selected);
+            }
+        }
 
-            return template
-                .replace('%lines%', response.lineCount || 0)
-                .replace('%files%', response.fileCount || 0)
-                .replace('%time%', response.generatedAt || '');
+        function updateMeta(count, response) {
+            var found = translation('module_local_speech_to_text_LogsFound', '%count% events')
+                .replace('%count%', count);
+            var updated = translation('module_local_speech_to_text_LogsUpdated', 'Updated: %time%')
+                .replace('%time%', response && response.generatedAt
+                    ? response.generatedAt
+                    : translation('module_local_speech_to_text_LogsNever', 'never'));
+            $resultCount.text(found);
+            $updatedAt.text(updated);
+        }
+
+        function renderCurrent() {
+            if (!currentResponse) {
+                return;
+            }
+            var filtered = filterEntries(currentEntries);
+            renderEntries(filtered);
+            updateMeta(filtered.length, currentResponse);
+
+            if (currentResponse.sourceStatus === 'missing') {
+                renderState('info', translation(
+                    'module_local_speech_to_text_LogsMissing',
+                    'The module journal has not been created yet.'
+                ));
+                return;
+            }
+            if (currentResponse.sourceStatus === 'unavailable') {
+                renderState('error', translation(
+                    'module_local_speech_to_text_LogsUnavailable',
+                    'The module journal is unavailable.'
+                ));
+                return;
+            }
+            if (currentResponse.sourceStatus === 'corrupt') {
+                renderState('error', translation(
+                    'module_local_speech_to_text_LogsCorrupt',
+                    'The journal contains no readable events.'
+                ));
+                return;
+            }
+            if (currentEntries.length === 0) {
+                renderState('info', translation(
+                    'module_local_speech_to_text_LogsEmpty',
+                    'No module events were found for this period.'
+                ));
+                return;
+            }
+            if (filtered.length === 0) {
+                renderState('info', translation(
+                    'module_local_speech_to_text_LogsFilteredEmpty',
+                    'No events match the selected filters.'
+                ));
+                return;
+            }
+
+            var notices = [];
+            if (currentResponse.sourceStatus === 'partial') {
+                notices.push(translation(
+                    'module_local_speech_to_text_LogsPartial',
+                    '%count% damaged journal lines were skipped.'
+                ).replace('%count%', currentResponse.malformedCount || 0));
+            }
+            if (currentResponse.truncated) {
+                notices.push(translation(
+                    'module_local_speech_to_text_LogsTruncated',
+                    'Only the newest 1000 events are shown.'
+                ));
+            }
+            renderState(notices.length > 0 ? 'warning' : '', notices.join(' '));
         }
 
         function setLoading() {
             $segment.addClass('stt-logs-loading');
-            $viewer.addClass('stt-log-loading');
-            $content.text(translation(
+            $results.empty();
+            updateMeta(0, null);
+            renderState('info', translation(
                 'module_local_speech_to_text_LogsLoading',
-                'Loading logs...'
+                'Loading module events...'
             ));
-        }
-
-        function updatePeriodLabel(response) {
-            var activeLabel = $periodButtons.filter('.active').text() || '';
-            var lineCount = response && response.lineCount ? response.lineCount : 0;
-
-            $timeRange.text(activeLabel + ' · ' + lineCount + ' lines');
         }
 
         function loadLogs(force) {
@@ -464,13 +675,15 @@
             if (!dataUrl) {
                 return;
             }
+            requestGeneration += 1;
+            var requestId = requestGeneration;
             if (request !== null) {
                 request.abort();
             }
 
             setLoading();
             $refreshButton.addClass('loading disabled');
-            request = $.ajax({
+            var currentRequest = $.ajax({
                 url: dataUrl,
                 method: 'GET',
                 dataType: 'json',
@@ -478,48 +691,45 @@
                     period: currentPeriod
                 }
             }).done(function (response) {
-                var logText = response && response.logText ? response.logText : '';
-
-                $viewer.removeClass('stt-log-loading');
-                $content.text(logText || translation(
-                    'module_local_speech_to_text_LogsEmpty',
-                    'No module log entries found for the selected period.'
-                ));
-                if (response) {
-                    $meta.text(metaText(response));
-                    updatePeriodLabel(response);
-                }
-                loadedOnce = true;
-                $viewer.scrollTop($viewer[0].scrollHeight);
-            }).fail(function (xhr, status) {
-                if (status === 'abort') {
+                if (requestId !== requestGeneration) {
                     return;
                 }
-
-                $viewer.removeClass('stt-log-loading');
-                $content.text(translation(
+                currentResponse = response || {};
+                currentEntries = Array.isArray(currentResponse.entries) ? currentResponse.entries : [];
+                updateComponentOptions(currentEntries);
+                renderCurrent();
+                loadedOnce = true;
+            }).fail(function (xhr, status) {
+                if (requestId !== requestGeneration || status === 'abort') {
+                    return;
+                }
+                currentResponse = null;
+                currentEntries = [];
+                renderState('error', translation(
                     'module_local_speech_to_text_LogsError',
-                    'Unable to load module logs.'
+                    'Unable to load module events.'
                 ));
             }).always(function () {
-                request = null;
+                if (requestId !== requestGeneration) {
+                    return;
+                }
+                if (request === currentRequest) {
+                    request = null;
+                }
                 $segment.removeClass('stt-logs-loading');
                 $refreshButton.removeClass('loading disabled');
             });
-        }
-
-        function setFullscreenState(isFullscreen) {
-            $segment.toggleClass('fullscreen', isFullscreen);
-            $fullscreenIcon.toggleClass('expand', !isFullscreen);
-            $fullscreenIcon.toggleClass('compress', isFullscreen);
+            request = currentRequest;
         }
 
         $periodButtons.on('click', function () {
             var $button = $(this);
-            currentPeriod = parseInt($button.data('period'), 10) || 3600;
+            currentPeriod = parseInt($button.data('period'), 10);
+            if (!Number.isFinite(currentPeriod)) {
+                currentPeriod = 3600;
+            }
             $periodButtons.removeClass('active');
             $button.addClass('active');
-            updatePeriodLabel({ lineCount: 0 });
             loadedOnce = false;
             loadLogs(true);
         });
@@ -528,22 +738,8 @@
             loadLogs(true);
         });
 
-        $fullscreenButton.on('click', function () {
-            var element = $segment[0];
-
-            if (!document.fullscreenElement && element && element.requestFullscreen) {
-                element.requestFullscreen();
-                return;
-            }
-
-            if (document.fullscreenElement && document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        });
-
-        document.addEventListener('fullscreenchange', function () {
-            setFullscreenState(document.fullscreenElement === $segment[0]);
-        });
+        $levelFilter.add($componentFilter).on('change', renderCurrent);
+        $search.on('input', renderCurrent);
 
         $('#module-local-speech-to-text-menu .item[data-tab="logs"]').on('click', function () {
             window.setTimeout(function () {
@@ -551,7 +747,7 @@
             }, 0);
         });
 
-        updatePeriodLabel({ lineCount: 0 });
+        updateMeta(0, null);
         if (requestedTab() === 'logs' || $form.closest('.tab.segment').hasClass('active')) {
             loadLogs(false);
         }

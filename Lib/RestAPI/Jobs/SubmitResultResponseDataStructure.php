@@ -25,7 +25,8 @@ class SubmitResultResponseDataStructure extends AbstractDataStructure implements
             'type' => 'array',
             'items' => false,
             'maxItems' => 0,
-            'description' => 'Empty data returned after accepting a transcript.',
+            'description' => 'module_local_speech_to_text_ApiSchemaSubmitResult',
+            'example' => [],
         ];
     }
 

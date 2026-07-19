@@ -79,6 +79,7 @@ class LocalSpeechToTextBaseController extends BaseController
             ),
         ];
         $normalizedProcessing = WorkerProcessingSettingsService::normalize($processingInput);
+        $previousProcessing = WorkerProcessingSettingsService::current();
         $previousHistoryDays = STTSetting::cdrHistoryDays();
         $previousRetentionDays = STTSetting::transcriptRetentionDays();
         $nextHistoryDays = STTSetting::normalizeCdrHistoryDays(
@@ -93,65 +94,86 @@ class LocalSpeechToTextBaseController extends BaseController
             );
         }
 
-        STTSetting::setValue(
-            STTSetting::DEFAULT_LANGUAGE,
-            STTSetting::normalizeLanguageId($this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16))
-        );
-        STTSetting::setValue(
-            STTSetting::POLL_INTERVAL_SEC,
-            (string)$this->postInt(STTSetting::POLL_INTERVAL_SEC, 30, 30, 3600)
-        );
-        STTSetting::setValue(
-            STTSetting::MAX_RECORDING_DURATION_MIN,
-            (string)STTSetting::normalizeRecordingDurationMinutes(
+        $customTerms = $this->vocabularyTermsTextFromRequest();
+        $nextValues = [
+            STTSetting::DEFAULT_LANGUAGE => STTSetting::normalizeLanguageId(
+                $this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16)
+            ),
+            STTSetting::POLL_INTERVAL_SEC => (string)$this->postInt(
+                STTSetting::POLL_INTERVAL_SEC,
+                30,
+                30,
+                3600
+            ),
+            STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::normalizeRecordingDurationMinutes(
                 $this->postInt(STTSetting::MAX_RECORDING_DURATION_MIN, 60, 1, 1440)
-            )
-        );
-        STTSetting::setValue(
-            STTSetting::CDR_SCAN_LIMIT,
-            (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000)
-        );
-        STTSetting::setValue(STTSetting::CDR_HISTORY_DAYS, (string)$nextHistoryDays);
+            ),
+            STTSetting::CDR_SCAN_LIMIT => (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000),
+            STTSetting::CDR_HISTORY_DAYS => (string)$nextHistoryDays,
+            STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$nextRetentionDays,
+            STTSetting::PROCESSING_TIMEOUT_SEC => (string)$this->postInt(
+                STTSetting::PROCESSING_TIMEOUT_SEC,
+                1800,
+                60,
+                86400
+            ),
+            STTSetting::SELECTED_MODEL => $this->request->hasPost(STTSetting::SELECTED_MODEL)
+                ? STTSetting::normalizeModelId(
+                    $this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255)
+                )
+                : STTSetting::selectedModelId(),
+            STTSetting::CUSTOM_VOCABULARY_TERMS => function_exists('mb_substr')
+                ? mb_substr($customTerms, 0, 8000)
+                : substr($customTerms, 0, 8000),
+        ];
+        $previousValues = [
+            STTSetting::DEFAULT_LANGUAGE => STTSetting::selectedLanguageId(),
+            STTSetting::POLL_INTERVAL_SEC => STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
+            STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::maxRecordingDurationMinutes(),
+            STTSetting::CDR_SCAN_LIMIT => STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200'),
+            STTSetting::CDR_HISTORY_DAYS => (string)$previousHistoryDays,
+            STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$previousRetentionDays,
+            STTSetting::PROCESSING_TIMEOUT_SEC => STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800'),
+            STTSetting::SELECTED_MODEL => STTSetting::selectedModelId(),
+            STTSetting::CUSTOM_VOCABULARY_TERMS => STTSetting::customVocabularyTermsText(),
+        ];
+
+        foreach ($nextValues as $key => $value) {
+            STTSetting::setValue($key, (string)$value);
+        }
         if ($previousHistoryDays !== $nextHistoryDays) {
             STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
             STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
             STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '');
             STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
         }
-        STTSetting::setValue(STTSetting::TRANSCRIPT_RETENTION_DAYS, (string)$nextRetentionDays);
         if ($previousRetentionDays !== $nextRetentionDays) {
             STTSetting::setValue(STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT, '0');
         }
-        STTSetting::setValue(
-            STTSetting::PROCESSING_TIMEOUT_SEC,
-            (string)$this->postInt(STTSetting::PROCESSING_TIMEOUT_SEC, 1800, 60, 86400)
-        );
-        if ($this->request->hasPost(STTSetting::SELECTED_MODEL)) {
-            STTSetting::setValue(
-                STTSetting::SELECTED_MODEL,
-                STTSetting::normalizeModelId($this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255))
+        (new WorkerProcessingSettingsService())->save($normalizedProcessing);
+
+        $changedFields = [];
+        foreach ($nextValues as $key => $value) {
+            if ((string)($previousValues[$key] ?? '') !== (string)$value) {
+                $changedFields[] = $key;
+            }
+        }
+        foreach ($normalizedProcessing as $key => $value) {
+            if (($previousProcessing[$key] ?? null) !== $value) {
+                $changedFields[] = $key;
+            }
+        }
+        $changedFields = array_values(array_unique($changedFields));
+        sort($changedFields);
+        if ($changedFields !== []) {
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'settings_changed',
+                'STT module settings changed',
+                LOG_NOTICE,
+                ['changed_fields' => implode(',', $changedFields)]
             );
         }
-        $customTerms = $this->vocabularyTermsTextFromRequest();
-        STTSetting::setValue(
-            STTSetting::CUSTOM_VOCABULARY_TERMS,
-            function_exists('mb_substr') ? mb_substr($customTerms, 0, 8000) : substr($customTerms, 0, 8000)
-        );
-        $processingChanged = (new WorkerProcessingSettingsService())->save($normalizedProcessing);
-        LocalSpeechToTextLogger::write(
-            'web-ui',
-            sprintf(
-                'Settings saved: language=%s model=%s history_days=%d retention_days=%d max_duration_min=%d vocabulary_terms=%d processing_changed=%s',
-                STTSetting::selectedLanguageId(),
-                STTSetting::selectedModelId(),
-                $nextHistoryDays,
-                $nextRetentionDays,
-                STTSetting::maxRecordingDurationMinutes(),
-                count(STTSetting::selectedVocabularyTerms()),
-                $processingChanged ? 'yes' : 'no'
-            ),
-            LOG_NOTICE
-        );
     }
 
     protected function countJobsByStatus(string $status): int

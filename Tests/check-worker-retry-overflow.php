@@ -55,9 +55,15 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
     {
         public static array $messages = [];
 
-        public static function syslog(string $identity, string $message, int $level = LOG_INFO): void
+        public static function event(
+            string $component,
+            string $event,
+            string $message,
+            int $level = LOG_INFO,
+            array $context = []
+        ): void
         {
-            self::$messages[] = [$identity, $message, $level];
+            self::$messages[] = compact('component', 'event', 'message', 'level', 'context');
         }
     }
 
@@ -96,6 +102,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 
     final class STTJob
     {
+        public int $id = 0;
         public static ?RetryOverflowConnection $connection = null;
         /** @var array<string, array<string, mixed>> */
         public static array $jobs = [];
@@ -129,7 +136,10 @@ namespace Modules\ModuleLocalSpeechToText\Models {
                 'recording_duration_sec' => $recordingDurationSec,
             ];
 
-            return new self();
+            $job = new self();
+            $job->id = count(self::$jobs);
+
+            return $job;
         }
 
         public static function requeueStaleProcessing(): int
@@ -289,7 +299,7 @@ namespace {
     expectWorkerRetry(
         count(array_filter(
             LocalSpeechToTextLogger::$messages,
-            static fn(array $message): bool => str_contains($message[1], 'overflowed')
+            static fn(array $message): bool => ($message['event'] ?? '') === 'retry_cache_overflow'
         )) >= 2,
         'Both display-cache overflows must be observable in logs'
     );

@@ -213,7 +213,16 @@ final class ModuleDatabasePragmas
         }
 
         if (class_exists(LocalSpeechToTextLogger::class)) {
-            LocalSpeechToTextLogger::write('setup', $message, LOG_WARNING);
+            LocalSpeechToTextLogger::event(
+                'storage',
+                'database_operation_failed',
+                'STT database runtime configuration failed',
+                LOG_WARNING,
+                [
+                    'operation' => 'database_runtime_configuration',
+                    'error_code' => 'database_pragma_failed',
+                ]
+            );
             return;
         }
 

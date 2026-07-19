@@ -8,6 +8,7 @@ use MikoPBX\Common\Models\ApiKeys;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModelMarketplaceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
 use Modules\ModuleLocalSpeechToText\Lib\Services\QueueViewService;
@@ -24,7 +25,6 @@ use Throwable;
 class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 {
     private const string SESSION_GENERATED_API_KEY = 'ModuleLocalSpeechToTextGeneratedApiKey';
-
     public function indexAction(): void
     {
         $generatedApiKey = $this->generatedApiKeyFromSession();
@@ -61,14 +61,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 STTSetting::selectedModelId()
             ));
             STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Recognition model selected: %s', STTSetting::selectedModelId()),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'settings_changed',
+                'STT module settings changed',
+                LOG_NOTICE,
+                ['changed_fields' => STTSetting::SELECTED_MODEL]
             );
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to save recognition model: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('save_model', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -88,14 +90,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
                 'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
             ]);
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Custom recognition model added: %s', (string)$this->request->getPost('model_repo', 'string', '')),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'settings_changed',
+                'Custom recognition model added',
+                LOG_NOTICE,
+                ['changed_fields' => 'custom_models']
             );
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelAdded'));
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to add custom recognition model: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('add_custom_model', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -107,10 +111,16 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         try {
             $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
             STTSetting::removeCustomModel($modelId);
-            LocalSpeechToTextLogger::write('web-ui', sprintf('Custom recognition model deleted: %s', $modelId), LOG_NOTICE);
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'settings_changed',
+                'Custom recognition model deleted',
+                LOG_NOTICE,
+                ['changed_fields' => 'custom_models']
+            );
             $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelDeleted'));
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to delete custom recognition model: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('delete_custom_model', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -121,18 +131,22 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     {
         try {
             $count = STTJob::requeueErrors();
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Retry failed recordings requested: %d job(s) returned to queue', $count),
-                $count > 0 ? LOG_NOTICE : LOG_INFO
-            );
+            if ($count > 0) {
+                LocalSpeechToTextLogger::event(
+                    'queue',
+                    'failed_jobs_requeued',
+                    'Failed transcription jobs returned to the queue',
+                    LOG_NOTICE,
+                    ['requeued_count' => $count]
+                );
+            }
             $this->flash->{$count > 0 ? 'success' : 'warning'}(
                 $count > 0
                     ? sprintf($this->translation->_('module_local_speech_to_text_RetryErrorsSuccess'), $count)
                     : $this->translation->_('module_local_speech_to_text_RetryErrorsEmpty')
             );
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to retry failed recordings: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('retry_failed_jobs', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -156,11 +170,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                     try {
                         $service->removeWorkerApiKeyBinding((int)$apiKey->id);
                     } catch (Throwable $cleanupException) {
-                        LocalSpeechToTextLogger::write(
-                            'web-ui',
-                            'Failed to compensate worker API key binding: ' . $cleanupException->getMessage(),
-                            LOG_ERR
-                        );
+                        $this->logControllerFailure('compensate_worker_api_key_binding', $cleanupException);
                     }
                     throw $exception;
                 }
@@ -168,11 +178,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 try {
                     $service->rollBackCoreApiKeyTransaction();
                 } catch (Throwable $rollbackException) {
-                    LocalSpeechToTextLogger::write(
-                        'web-ui',
-                        'Failed to roll back worker API key transaction: ' . $rollbackException->getMessage(),
-                        LOG_ERR
-                    );
+                    $this->logControllerFailure('rollback_worker_api_key_create', $rollbackException);
                 }
                 throw $exception;
             }
@@ -182,24 +188,22 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             try {
                 $service->clearCoreApiKeyCache();
             } catch (Throwable $cacheException) {
-                LocalSpeechToTextLogger::write(
-                    'web-ui',
-                    'Failed to refresh API key cache after create: ' . $cacheException->getMessage(),
-                    LOG_WARNING
-                );
+                $this->logControllerFailure('refresh_api_key_cache_after_create', $cacheException, LOG_WARNING);
             }
             $this->session->set(self::SESSION_GENERATED_API_KEY, [
                 'apiKey' => $plainApiKey,
                 'apiKeyId' => (int)$apiKey->id,
             ]);
-            LocalSpeechToTextLogger::write(
-                'web-ui',
-                sprintf('Worker API key created: id=%d', (int)$apiKey->id),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'worker_api_key_created',
+                'Worker API key created',
+                LOG_NOTICE,
+                ['api_key_id' => (int)$apiKey->id]
             );
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyCreated'));
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to create worker API key: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('create_worker_api_key', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -236,11 +240,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                         try {
                             $service->clearCoreApiKeyCache();
                         } catch (Throwable $cacheException) {
-                            LocalSpeechToTextLogger::write(
-                                'web-ui',
-                                'Failed to refresh API key cache after delete: ' . $cacheException->getMessage(),
-                                LOG_WARNING
-                            );
+                            $this->logControllerFailure('refresh_api_key_cache_after_delete', $cacheException, LOG_WARNING);
                         }
                     }
                 }
@@ -248,18 +248,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 try {
                     $service->rollBackCoreApiKeyTransaction();
                 } catch (Throwable $rollbackException) {
-                    LocalSpeechToTextLogger::write(
-                        'web-ui',
-                        'Failed to roll back worker API key deletion: ' . $rollbackException->getMessage(),
-                        LOG_ERR
-                    );
+                    $this->logControllerFailure('rollback_worker_api_key_delete', $rollbackException);
                 }
                 throw $exception;
             }
-            LocalSpeechToTextLogger::write('web-ui', sprintf('Worker API key deleted: id=%d', $apiKeyId), LOG_NOTICE);
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'worker_api_key_deleted',
+                'Worker API key deleted',
+                LOG_NOTICE,
+                ['api_key_id' => $apiKeyId]
+            );
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyDeleted'));
         } catch (Throwable $exception) {
-            LocalSpeechToTextLogger::write('web-ui', 'Failed to delete worker API key: ' . $exception->getMessage(), LOG_ERR);
+            $this->logControllerFailure('delete_worker_api_key', $exception);
             $this->flash->error($exception->getMessage());
         }
 
@@ -345,18 +347,22 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     public function logsAction(): void
     {
         $period = (int)$this->request->getQuery('period', 'int', 3600);
-        if (!in_array($period, [3600, 10800, 43200, 86400, 604800, 1209600], true)) {
+        if (!in_array($period, [0, 3600, 10800, 43200, 86400], true)) {
             $period = 3600;
         }
 
-        LocalSpeechToTextLogger::write('web-ui', sprintf('Module logs requested: period=%d seconds', $period), LOG_INFO);
-        $payload = (new ModuleLogReader())->moduleLogsPayload(time() - $period);
+        $payload = (new ModuleLogReader())->recentForPeriod($period);
         $this->view->success = true;
+        $this->view->entries = $payload['entries'];
         $this->view->logText = $payload['logText'];
         $this->view->lineCount = $payload['lineCount'];
         $this->view->fileCount = $payload['fileCount'];
-        $this->view->generatedAt = date('Y-m-d H:i:s');
-        $this->view->period = $period;
+        $this->view->generatedAt = $payload['generatedAt'];
+        $this->view->period = $payload['period'];
+        $this->view->availableFrom = $payload['availableFrom'];
+        $this->view->truncated = $payload['truncated'];
+        $this->view->sourceStatus = $payload['sourceStatus'];
+        $this->view->malformedCount = $payload['malformedCount'];
     }
 
     /**
@@ -441,6 +447,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $tab = (string)$this->request->getQuery('tab', 'string', 'settings');
 
         return in_array($tab, ['settings', 'models', 'queue', 'workers', 'transcripts', 'logs'], true) ? $tab : 'settings';
+    }
+
+    private function logControllerFailure(string $operation, Throwable $exception, int $level = LOG_ERR): void
+    {
+        LocalSpeechToTextLogger::event(
+            'settings',
+            'operation_failed',
+            'STT administration operation failed',
+            $level,
+            [
+                'operation' => $operation,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
     }
 
     private function conversationService(): TranscriptConversationService

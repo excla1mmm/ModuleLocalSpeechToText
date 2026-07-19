@@ -4,259 +4,300 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use Generator;
 use MikoPBX\Core\System\Directories;
+use Throwable;
 
-class ModuleLogReader
+final class ModuleLogReader
 {
-    private const string MODULE_UNIQUE_ID = 'ModuleLocalSpeechToText';
-    private const int MODULE_LOG_MAX_RESPONSE_LINES = 2000;
-    private const int MODULE_LOG_TAIL_LINES_PER_FILE = 4000;
+    private const int CHUNK_BYTES = 65_536;
+    private const array PERIODS = [0, 3600, 10800, 43200, 86400];
+    private const array LEVELS = ['debug', 'info', 'notice', 'warning', 'error'];
 
-    public function moduleLogsPayload(int $sinceTimestamp): array
+    private readonly string $directory;
+    private readonly int $maxEntries;
+
+    public function __construct(?string $directory = null, int $maxEntries = 1000)
     {
-        $entries = [];
-        foreach ($this->moduleLogSources() as $source) {
-            $sourceTimestamp = $this->fileModificationTime($source['path']);
-            $lastTimestamp = is_int($sourceTimestamp) ? $sourceTimestamp : 0;
-            $lineNumber = 0;
-
-            foreach ($this->tailLines($source['path'], self::MODULE_LOG_TAIL_LINES_PER_FILE) as $line) {
-                $lineNumber++;
-                $line = rtrim($line, "\r\n");
-                if ($line === '') {
-                    continue;
-                }
-
-                if ($source['filterModuleLines'] && !$this->isModuleSystemLogLine($line)) {
-                    continue;
-                }
-
-                $timestamp = $this->parseLogTimestamp($line);
-                if ($timestamp !== 0) {
-                    $lastTimestamp = $timestamp;
-                } else {
-                    $timestamp = $lastTimestamp;
-                }
-
-                if ($timestamp !== 0 && $timestamp < $sinceTimestamp) {
-                    continue;
-                }
-
-                $entries[] = [
-                    'timestamp' => $timestamp,
-                    'source' => $source['label'],
-                    'lineNumber' => $lineNumber,
-                    'line' => $line,
-                ];
-            }
-        }
-
-        usort($entries, static function (array $left, array $right): int {
-            return [
-                (int)$left['timestamp'],
-                (string)$left['source'],
-                (int)$left['lineNumber'],
-            ] <=> [
-                (int)$right['timestamp'],
-                (string)$right['source'],
-                (int)$right['lineNumber'],
-            ];
-        });
-
-        if (count($entries) > self::MODULE_LOG_MAX_RESPONSE_LINES) {
-            $entries = array_slice($entries, -self::MODULE_LOG_MAX_RESPONSE_LINES);
-        }
-
-        $lines = array_map(
-            static fn (array $entry): string => sprintf('[%s] %s', $entry['source'], $entry['line']),
-            $entries
+        $this->directory = rtrim(
+            $directory ?? (Directories::getDir(Directories::CORE_LOGS_DIR) . '/ModuleLocalSpeechToText'),
+            '/'
         );
+        $this->maxEntries = max(1, min(1000, $maxEntries));
+    }
 
+    /** @return array<string, mixed> */
+    public function recentForPeriod(int $period): array
+    {
+        if (!in_array($period, self::PERIODS, true)) {
+            $period = 3600;
+        }
+
+        $realDirectory = $this->validatedDirectory();
+        if ($realDirectory === null) {
+            return $this->payload([], 0, 0, $period, false, 'unavailable');
+        }
+
+        $cutoff = $period === 0 ? null : time() - $period;
+        $newestFirst = [];
+        $malformedCount = 0;
+        $fileCount = 0;
+        $presentSources = 0;
+        $unsafeSource = false;
+
+        foreach (array_reverse($this->sourcePaths()) as $path) {
+            clearstatcache(true, $path);
+            if (!file_exists($path) && !is_link($path)) {
+                continue;
+            }
+            $presentSources++;
+
+            $handle = $this->openValidatedSource($path, $realDirectory);
+            if (!is_resource($handle)) {
+                $unsafeSource = true;
+                continue;
+            }
+            $fileCount++;
+
+            try {
+                foreach ($this->linesNewestFirst($handle) as $line) {
+                    if ($line === '') {
+                        continue;
+                    }
+                    $entry = $this->decodeEntry($line);
+                    if ($entry === null) {
+                        $malformedCount++;
+                        continue;
+                    }
+
+                    $timestamp = strtotime($entry['ts']);
+                    if ($cutoff !== null && is_int($timestamp) && $timestamp < $cutoff) {
+                        break 2;
+                    }
+                    $newestFirst[] = $entry;
+                    if (count($newestFirst) > $this->maxEntries) {
+                        break 2;
+                    }
+                }
+            } finally {
+                fclose($handle);
+            }
+        }
+
+        $truncated = count($newestFirst) > $this->maxEntries;
+        if ($truncated) {
+            $newestFirst = array_slice($newestFirst, 0, $this->maxEntries);
+        }
+        $entries = array_reverse($newestFirst);
+
+        if ($entries !== []) {
+            $sourceStatus = ($malformedCount > 0 || $unsafeSource) ? 'partial' : 'ok';
+        } elseif ($malformedCount > 0) {
+            $sourceStatus = 'corrupt';
+        } elseif ($unsafeSource) {
+            $sourceStatus = 'unavailable';
+        } elseif ($presentSources === 0) {
+            $sourceStatus = 'missing';
+        } else {
+            $sourceStatus = 'empty';
+        }
+
+        return $this->payload(
+            $entries,
+            $fileCount,
+            $malformedCount,
+            $period,
+            $truncated,
+            $sourceStatus
+        );
+    }
+
+    /** @return array<int, string> */
+    private function sourcePaths(): array
+    {
         return [
-            'logText' => implode("\n", $lines),
-            'lineCount' => count($lines),
-            'fileCount' => count($this->moduleLogSources()),
+            $this->directory . '/module.log.1',
+            $this->directory . '/module.log',
         ];
     }
 
-    /**
-     * @return array<int, array{path: string, label: string, filterModuleLines: bool}>
-     */
-    private function moduleLogSources(): array
+    private function validatedDirectory(): ?string
     {
-        $coreLogsDir = rtrim(Directories::getDir(Directories::CORE_LOGS_DIR), '/');
-        $sources = [];
-        $seen = [];
-        $moduleLogDir = $coreLogsDir . '/' . self::MODULE_UNIQUE_ID;
-
-        if (is_dir($moduleLogDir)) {
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($moduleLogDir, \FilesystemIterator::SKIP_DOTS)
-            );
-            foreach ($iterator as $fileInfo) {
-                if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile() || !$fileInfo->isReadable()) {
-                    continue;
-                }
-                if (preg_match('/\.log(?:\.\d+)?$/', $fileInfo->getFilename()) !== 1) {
-                    continue;
-                }
-
-                $realPath = $fileInfo->getRealPath();
-                if ($realPath === false || isset($seen[$realPath])) {
-                    continue;
-                }
-
-                $seen[$realPath] = true;
-                $relativePath = ltrim(str_replace($moduleLogDir, '', $realPath), '/');
-                $sources[] = [
-                    'path' => $realPath,
-                    'label' => self::MODULE_UNIQUE_ID . '/' . $relativePath,
-                    'filterModuleLines' => false,
-                ];
-            }
+        if ($this->directory === '' || is_link($this->directory) || !is_dir($this->directory)) {
+            return null;
+        }
+        clearstatcache(true, $this->directory);
+        $stat = @lstat($this->directory);
+        $realDirectory = realpath($this->directory);
+        if (!is_array($stat)
+            || (($stat['mode'] & 0170000) !== 0040000)
+            || !is_string($realDirectory)
+        ) {
+            return null;
         }
 
-        foreach ([$coreLogsDir . '/system/messages', $coreLogsDir . '/messages'] as $systemLogPath) {
-            $realPath = realpath($systemLogPath);
-            if ($realPath === false || isset($seen[$realPath]) || !is_file($realPath) || !is_readable($realPath)) {
-                continue;
-            }
-
-            $seen[$realPath] = true;
-            $sources[] = [
-                'path' => $realPath,
-                'label' => str_replace($coreLogsDir . '/', '', $realPath),
-                'filterModuleLines' => true,
-            ];
-        }
-
-        return $sources;
+        return rtrim($realDirectory, '/');
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function tailLines(string $filePath, int $maxLines): array
+    /** @return resource|false */
+    private function openValidatedSource(string $path, string $realDirectory)
     {
-        $fileSize = $this->fileSize($filePath);
-        if (!is_int($fileSize) || $fileSize <= 0) {
-            return [];
+        if (dirname($path) !== $this->directory
+            || is_link($path)
+            || !is_file($path)
+            || !is_readable($path)
+        ) {
+            return false;
         }
-
-        $handle = $this->openReadHandle($filePath);
-        if ($handle === false) {
-            return [];
-        }
-
-        $chunkSize = 65536;
-        $position = $fileSize;
-        $buffer = '';
-
-        while ($position > 0 && substr_count($buffer, "\n") <= $maxLines) {
-            $readSize = min($chunkSize, $position);
-            $position -= $readSize;
-            if (fseek($handle, $position) !== 0) {
-                break;
-            }
-
-            $chunk = fread($handle, $readSize);
-            if ($chunk === false) {
-                break;
-            }
-
-            $buffer = $chunk . $buffer;
-            if (strlen($buffer) > 8 * 1024 * 1024) {
-                break;
-            }
-        }
-
-        fclose($handle);
-
-        $lines = preg_split('/\r\n|\r|\n/', $buffer);
-        if (!is_array($lines)) {
-            return [];
-        }
-
-        if ($lines !== [] && end($lines) === '') {
-            array_pop($lines);
-        }
-
-        return array_slice($lines, -$maxLines);
-    }
-
-    private function isModuleSystemLogLine(string $line): bool
-    {
-        return stripos($line, self::MODULE_UNIQUE_ID) !== false
-            || stripos($line, 'LocalSpeechToText') !== false
-            || stripos($line, 'local-speech-to-text') !== false;
-    }
-
-    private function parseLogTimestamp(string $line): int
-    {
-        $patterns = [
-            '/^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/' => 'Y-m-d H:i:s',
-            '/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/' => 'Y-m-d H:i:s',
-            '/^(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/' => 'Y/m/d H:i:s',
-            '/^\[(\d{1,2}-[A-Za-z]{3}-\d{4}\s+\d{2}:\d{2}:\d{2})\s+[^\]]+\]/' => 'd-M-Y H:i:s',
-            '/^\[[A-Za-z]{3},\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+[+-]\d{4})\]/' => 'd M y H:i:s O',
-        ];
-
-        foreach ($patterns as $pattern => $format) {
-            if (preg_match($pattern, $line, $matches) !== 1) {
-                continue;
-            }
-
-            $timestamp = strtotime($matches[1]);
-            if ($timestamp !== false) {
-                return $timestamp;
-            }
-        }
-
-        if (preg_match('/^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+/', $line, $matches) === 1) {
-            $timestamp = strtotime($matches[1] . ' ' . date('Y'));
-            if ($timestamp !== false) {
-                return $timestamp;
-            }
-        }
-
-        return 0;
-    }
-
-
-
-    private function fileModificationTime(string $filePath): int
-    {
-        if (!is_file($filePath) || !is_readable($filePath)) {
-            return 0;
-        }
-
-        clearstatcache(true, $filePath);
-        $timestamp = filemtime($filePath);
-
-        return is_int($timestamp) ? $timestamp : 0;
-    }
-
-    private function fileSize(string $filePath): int
-    {
-        if (!is_file($filePath) || !is_readable($filePath)) {
-            return 0;
-        }
-
-        clearstatcache(true, $filePath);
-        $size = filesize($filePath);
-
-        return is_int($size) ? $size : 0;
-    }
-
-    /**
-     * @return resource|false
-     */
-    private function openReadHandle(string $filePath)
-    {
-        if (!is_file($filePath) || !is_readable($filePath)) {
+        $realPath = realpath($path);
+        if (!is_string($realPath) || dirname($realPath) !== $realDirectory) {
             return false;
         }
 
-        return fopen($filePath, 'rb');
+        $handle = fopen($path, 'rb');
+        if (!is_resource($handle)) {
+            return false;
+        }
+        $handleStat = fstat($handle);
+        clearstatcache(true, $path);
+        $pathStat = @lstat($path);
+        $safe = is_array($handleStat)
+            && is_array($pathStat)
+            && (($handleStat['mode'] & 0170000) === 0100000)
+            && (($pathStat['mode'] & 0170000) === 0100000)
+            && (int)$handleStat['dev'] === (int)$pathStat['dev']
+            && (int)$handleStat['ino'] === (int)$pathStat['ino']
+            && !is_link($path);
+        if (!$safe) {
+            fclose($handle);
+            return false;
+        }
+
+        return $handle;
+    }
+
+    /**
+     * @param resource $handle
+     * @return Generator<int, string>
+     */
+    private function linesNewestFirst($handle): Generator
+    {
+        $stat = fstat($handle);
+        $size = is_array($stat) ? (int)$stat['size'] : 0;
+        if ($size <= 0) {
+            return;
+        }
+
+        $position = $size;
+        $buffer = '';
+        while ($position > 0) {
+            $readBytes = min(self::CHUNK_BYTES, $position);
+            $position -= $readBytes;
+            if (fseek($handle, $position) !== 0) {
+                return;
+            }
+            $chunk = fread($handle, $readBytes);
+            if (!is_string($chunk) || strlen($chunk) !== $readBytes) {
+                return;
+            }
+            $buffer = $chunk . $buffer;
+
+            while (($newline = strrpos($buffer, "\n")) !== false) {
+                $line = rtrim(substr($buffer, $newline + 1), "\r");
+                $buffer = substr($buffer, 0, $newline);
+                if ($line !== '') {
+                    yield $line;
+                }
+            }
+        }
+
+        $line = rtrim($buffer, "\r");
+        if ($line !== '') {
+            yield $line;
+        }
+    }
+
+    /** @return array{ts:string,level:string,component:string,event:string,message:string,context:array<string, scalar|null>}|null */
+    private function decodeEntry(string $line): ?array
+    {
+        try {
+            $decoded = json_decode($line, true, 64, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return null;
+        }
+        if (!is_array($decoded) || array_keys($decoded) !== ['ts', 'level', 'component', 'event', 'message', 'context']) {
+            return null;
+        }
+        foreach (['ts', 'level', 'component', 'event', 'message'] as $required) {
+            if (!is_string($decoded[$required] ?? null) || trim($decoded[$required]) === '') {
+                return null;
+            }
+        }
+        if (strtotime($decoded['ts']) === false
+            || !in_array($decoded['level'], self::LEVELS, true)
+            || preg_match('/^[a-z0-9_]{1,64}$/D', $decoded['component']) !== 1
+            || preg_match('/^[a-z0-9_]{1,64}$/D', $decoded['event']) !== 1
+            || !is_array($decoded['context'])
+        ) {
+            return null;
+        }
+        foreach ($decoded['context'] as $key => $value) {
+            if (preg_match('/^[a-z][a-z0-9_]{0,63}$/D', (string)$key) !== 1
+                || (!is_scalar($value) && $value !== null)
+            ) {
+                return null;
+            }
+        }
+
+        /** @var array{ts:string,level:string,component:string,event:string,message:string,context:array<string, scalar|null>} $decoded */
+        return $decoded;
+    }
+
+    /**
+     * @param array<int, array{ts:string,level:string,component:string,event:string,message:string,context:array<string, scalar|null>}> $entries
+     * @return array<string, mixed>
+     */
+    private function payload(
+        array $entries,
+        int $fileCount,
+        int $malformedCount,
+        int $period,
+        bool $truncated,
+        string $sourceStatus
+    ): array {
+        $lines = array_map(static function (array $entry): string {
+            $line = sprintf(
+                '[%s] %s %s.%s: %s',
+                $entry['ts'],
+                strtoupper($entry['level']),
+                $entry['component'],
+                $entry['event'],
+                $entry['message']
+            );
+            if ($entry['context'] !== []) {
+                $context = json_encode(
+                    $entry['context'],
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+                );
+                if (is_string($context)) {
+                    $line .= ' ' . $context;
+                }
+            }
+
+            return $line;
+        }, $entries);
+
+        return [
+            'entries' => $entries,
+            'logText' => implode("\n", $lines),
+            'lineCount' => count($entries),
+            'fileCount' => $fileCount,
+            'generatedAt' => date('Y-m-d H:i:s'),
+            'period' => $period,
+            'availableFrom' => $entries[0]['ts'] ?? null,
+            'truncated' => $truncated,
+            'sourceStatus' => $sourceStatus,
+            'malformedCount' => $malformedCount,
+        ];
     }
 }

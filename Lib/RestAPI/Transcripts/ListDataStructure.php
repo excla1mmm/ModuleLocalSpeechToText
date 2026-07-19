@@ -23,20 +23,27 @@ class ListDataStructure extends AbstractDataStructure implements OpenApiSchemaPr
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaTranscriptList',
             'properties' => [
                 'items' => [
                     'type' => 'array',
+                    'description' => 'module_local_speech_to_text_ApiFieldTranscriptItems',
                     'items' => DataStructure::getListItemSchema(),
                 ],
                 'pagination' => [
                     'type' => 'object',
+                    'description' => 'module_local_speech_to_text_ApiFieldPagination',
                     'properties' => [
-                        'limit' => ['type' => 'integer'],
-                        'offset' => ['type' => 'integer'],
-                        'total' => ['type' => 'integer'],
-                        'has_more' => ['type' => 'boolean'],
+                        'limit' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldLimit', 'example' => 50],
+                        'offset' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldOffset', 'example' => 0],
+                        'total' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldTotal', 'example' => 137],
+                        'has_more' => ['type' => 'boolean', 'description' => 'module_local_speech_to_text_ApiFieldHasMore', 'example' => true],
                     ],
                 ],
+            ],
+            'example' => [
+                'items' => [DataStructure::getSummaryExample()],
+                'pagination' => ['limit' => 50, 'offset' => 0, 'total' => 137, 'has_more' => true],
             ],
         ];
     }

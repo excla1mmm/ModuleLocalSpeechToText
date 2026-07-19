@@ -15,25 +15,28 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'request' => [
                 'cursor' => [
                     'type' => 'string',
-                    'description' => 'Last processed cursor in created_at:event_id format.',
-                    'example' => '1760784793:42',
+                    'description' => 'module_local_speech_to_text_ApiParamCursor',
+                    'example' => '1784455000:120',
                     'required' => false,
+                    'pattern' => '^\\d+:\\d+$',
                 ],
                 'limit' => [
                     'type' => 'integer',
-                    'description' => 'Maximum number of events. Maximum is 200.',
+                    'description' => 'module_local_speech_to_text_ApiParamEventLimit',
                     'example' => 100,
                     'required' => false,
+                    'minimum' => 1,
+                    'maximum' => 200,
                 ],
             ],
             'response' => [
                 'events' => [
                     'type' => 'array',
-                    'description' => 'Completed transcript events.',
+                    'description' => 'module_local_speech_to_text_ApiFieldTranscriptEvents',
                 ],
                 'next_cursor' => [
                     'type' => 'string',
-                    'description' => 'Cursor to store after processing returned events.',
+                    'description' => 'module_local_speech_to_text_ApiFieldNextCursor',
                 ],
             ],
         ];
@@ -43,14 +46,15 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaTranscriptEvent',
             'properties' => [
-                'cursor' => ['type' => 'string'],
-                'event_type' => ['type' => 'string'],
-                'result_id' => ['type' => 'integer'],
-                'job_id' => ['type' => 'integer', 'nullable' => true],
-                'call_id' => ['type' => 'string'],
-                'created_at' => ['type' => 'integer'],
-                'update_type' => ['type' => 'string'],
+                'cursor' => ['type' => 'string', 'pattern' => '^\\d+:\\d+$', 'description' => 'module_local_speech_to_text_ApiFieldCursor', 'example' => '1784455350:121'],
+                'event_type' => ['type' => 'string', 'enum' => ['transcript.completed'], 'description' => 'module_local_speech_to_text_ApiFieldTranscriptEventType', 'example' => 'transcript.completed'],
+                'result_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldResultId', 'example' => 501],
+                'job_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldJobId', 'example' => 42],
+                'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => 'mikopbx-1784455200.42'],
+                'created_at' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldCreatedAt', 'example' => 1784455350],
+                'update_type' => ['type' => 'string', 'enum' => ['created'], 'description' => 'module_local_speech_to_text_ApiFieldUpdateType', 'example' => 'created'],
             ],
         ];
     }
@@ -59,13 +63,28 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     {
         return [
             'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiSchemaTranscriptEventList',
             'properties' => [
                 'events' => [
                     'type' => 'array',
+                    'description' => 'module_local_speech_to_text_ApiFieldTranscriptEvents',
                     'items' => self::getListItemSchema(),
                 ],
-                'next_cursor' => ['type' => 'string'],
-                'limit' => ['type' => 'integer'],
+                'next_cursor' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldNextCursor', 'example' => '1784455350:121'],
+                'limit' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldLimit', 'example' => 100],
+            ],
+            'example' => [
+                'events' => [[
+                    'cursor' => '1784455350:121',
+                    'event_type' => 'transcript.completed',
+                    'result_id' => 501,
+                    'job_id' => 42,
+                    'call_id' => 'mikopbx-1784455200.42',
+                    'created_at' => 1784455350,
+                    'update_type' => 'created',
+                ]],
+                'next_cursor' => '1784455350:121',
+                'limit' => 100,
             ],
         ];
     }

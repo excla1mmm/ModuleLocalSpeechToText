@@ -120,6 +120,15 @@ final class ModuleMetadataCache
             return;
         }
 
-        LocalSpeechToTextLogger::write('setup', $message, LOG_WARNING);
+        LocalSpeechToTextLogger::event(
+            'storage',
+            'database_operation_failed',
+            'Module metadata cache operation failed',
+            LOG_WARNING,
+            [
+                'operation' => 'metadata_cache_invalidation',
+                'error_code' => 'metadata_cache_operation_failed',
+            ]
+        );
     }
 }

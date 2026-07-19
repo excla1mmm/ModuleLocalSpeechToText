@@ -341,6 +341,7 @@
 .module-local-speech-to-text #system-logs-segment {
     margin: 0;
     padding: 0;
+    position: relative;
 }
 
 .module-local-speech-to-text #system-logs-segment .stt-logs-dimmer {
@@ -351,20 +352,32 @@
     display: flex;
 }
 
-.module-local-speech-to-text #universal-navigation .time-navigation-modern {
-    margin-bottom: 12px;
-    padding: 0;
+.module-local-speech-to-text .stt-log-header {
+    margin-bottom: 1em;
 }
 
-.module-local-speech-to-text #universal-navigation .time-controls-inline {
-    align-items: center;
-    display: flex;
-    gap: 10px;
+.module-local-speech-to-text .stt-log-header .ui.header {
+    margin-bottom: 0.25em;
+}
+
+.module-local-speech-to-text .stt-log-header p {
+    color: rgba(0, 0, 0, 0.58);
+    margin: 0;
+}
+
+.module-local-speech-to-text .stt-log-toolbar {
+    align-items: end;
+    display: grid;
+    gap: 0.75em;
+    grid-template-columns: auto minmax(9em, 0.7fr) minmax(11em, 0.9fr) minmax(15em, 1.4fr) auto;
+    margin-bottom: 0.85em;
 }
 
 .module-local-speech-to-text #period-buttons.quick-period-buttons {
     display: flex;
-    gap: 3px;
+    flex-wrap: wrap;
+    gap: 0.25em;
+    padding-bottom: 0.05em;
 }
 
 .module-local-speech-to-text .period-btn {
@@ -391,103 +404,129 @@
     color: #fff;
 }
 
-.module-local-speech-to-text .time-slider-inline {
-    flex: 1;
-    min-width: 0;
+.module-local-speech-to-text .stt-log-toolbar .field {
+    margin: 0 !important;
 }
 
-.module-local-speech-to-text #time-slider-container.stt-log-time-range {
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 3px;
-    color: #767676;
-    font-size: 11px;
-    line-height: 24px;
-    min-height: 24px;
-    overflow: hidden;
-    padding: 0 10px;
+.module-local-speech-to-text .stt-log-toolbar .field > label {
+    font-size: 0.86em;
+    margin-bottom: 0.35em;
+}
+
+.module-local-speech-to-text .stt-log-refresh {
+    margin: 0 0 0.05em !important;
     white-space: nowrap;
 }
 
 .module-local-speech-to-text .stt-logs-meta {
+    align-items: center;
     color: rgba(0, 0, 0, 0.48);
+    display: flex;
     font-size: 12px;
-    margin: -6px 0 10px 0;
+    gap: 1em;
+    justify-content: space-between;
+    margin: 0 0 0.75em;
     min-height: 16px;
 }
 
-.module-local-speech-to-text .code-container {
-    position: relative;
+.module-local-speech-to-text .stt-log-state {
+    margin: 0 0 0.85em !important;
 }
 
-.module-local-speech-to-text .log-content-readonly {
-    background: #050505;
-    border: 1px solid #222;
-    border-radius: 4px;
-    color: #d7d7d7;
-    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    font-size: 12px;
+.module-local-speech-to-text .stt-log-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65em;
+    min-height: 3em;
+}
+
+.module-local-speech-to-text .stt-log-entry {
+    background: #fff;
+    border: 1px solid rgba(34, 36, 38, 0.13);
+    border-left: 4px solid #a9a9a9;
+    border-radius: 0.28571429rem;
+    box-shadow: 0 1px 2px rgba(34, 36, 38, 0.04);
+    padding: 0.8em 0.95em;
+}
+
+.module-local-speech-to-text .stt-log-entry.stt-log-level-debug {
+    border-left-color: #767676;
+}
+
+.module-local-speech-to-text .stt-log-entry.stt-log-level-info {
+    border-left-color: #2185d0;
+}
+
+.module-local-speech-to-text .stt-log-entry.stt-log-level-notice {
+    border-left-color: #21ba45;
+}
+
+.module-local-speech-to-text .stt-log-entry.stt-log-level-warning {
+    border-left-color: #f2c037;
+}
+
+.module-local-speech-to-text .stt-log-entry.stt-log-level-error {
+    border-left-color: #db2828;
+}
+
+.module-local-speech-to-text .stt-log-entry-header {
+    align-items: center;
+    display: flex;
+    gap: 0.75em;
+    justify-content: space-between;
+    margin-bottom: 0.45em;
+}
+
+.module-local-speech-to-text .stt-log-entry-identity {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55em;
+}
+
+.module-local-speech-to-text .stt-log-level-label {
+    margin: 0 !important;
+    text-transform: uppercase;
+}
+
+.module-local-speech-to-text .stt-log-component {
+    color: rgba(0, 0, 0, 0.68);
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-log-time {
+    color: rgba(0, 0, 0, 0.48);
+    font-size: 0.86em;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-log-message {
     line-height: 1.45;
-    max-height: calc(100vh - 340px);
-    min-height: calc(100vh - 400px);
-    overflow: auto;
-    padding: 14px;
+    overflow-wrap: anywhere;
 }
 
-.module-local-speech-to-text .log-content-readonly pre {
-    background: transparent;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    margin: 0;
-    padding: 0;
+.module-local-speech-to-text .stt-log-details {
+    color: rgba(0, 0, 0, 0.56);
+    font-size: 0.86em;
+    margin-top: 0.55em;
+}
+
+.module-local-speech-to-text .stt-log-details summary {
+    cursor: pointer;
+    display: inline-block;
+}
+
+.module-local-speech-to-text .stt-log-details pre {
+    background: #f7f7f8;
+    border-radius: 0.28571429rem;
+    color: rgba(0, 0, 0, 0.74);
+    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+    margin: 0.55em 0 0;
+    overflow: auto;
+    padding: 0.7em;
     white-space: pre-wrap;
     word-break: break-word;
-}
-
-.module-local-speech-to-text .log-content-readonly.stt-log-loading {
-    color: #8f8f8f;
-}
-
-.module-local-speech-to-text .fullscreen-toggle-btn {
-    align-items: center;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 4px;
-    bottom: 20px;
-    cursor: pointer;
-    display: flex;
-    height: 42px;
-    justify-content: center;
-    position: absolute;
-    right: 20px;
-    transition: all 0.2s;
-    width: 42px;
-    z-index: 1000;
-}
-
-.module-local-speech-to-text .fullscreen-toggle-btn:hover {
-    background: rgba(0, 0, 0, 0.85);
-    transform: scale(1.05);
-}
-
-.module-local-speech-to-text .fullscreen-toggle-btn i.icon {
-    color: #fff;
-    font-size: 20px;
-    margin: 0;
-}
-
-.module-local-speech-to-text #system-logs-segment.fullscreen .log-content-readonly {
-    max-height: none;
-    min-height: calc(100vh - 100px);
-}
-
-.module-local-speech-to-text #system-logs-segment:fullscreen {
-    background: #1e1e1e;
-    padding: 20px;
-}
-
-.module-local-speech-to-text #system-logs-segment:fullscreen .code-container {
-    height: calc(100vh - 140px);
 }
 
 .module-local-speech-to-text .stt-recording-panel {
@@ -859,16 +898,30 @@
         grid-template-columns: 1.8em minmax(0, 1fr);
     }
 
-    .module-local-speech-to-text #universal-navigation .time-controls-inline {
-        align-items: stretch;
-        flex-direction: column;
+    .module-local-speech-to-text .stt-log-toolbar {
+        grid-template-columns: 1fr 1fr;
     }
 
     .module-local-speech-to-text #period-buttons.quick-period-buttons {
-        flex-wrap: wrap;
+        grid-column: 1 / -1;
     }
 
-    .module-local-speech-to-text .log-content-readonly {
-        min-height: 360px;
+    .module-local-speech-to-text .stt-log-search-field {
+        grid-column: 1 / -1;
+    }
+
+    .module-local-speech-to-text .stt-log-refresh {
+        justify-self: start;
+    }
+
+    .module-local-speech-to-text .stt-log-entry-header,
+    .module-local-speech-to-text .stt-logs-meta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.35em;
+    }
+
+    .module-local-speech-to-text .stt-log-time {
+        white-space: normal;
     }
 }

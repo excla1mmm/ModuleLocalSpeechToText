@@ -18,8 +18,8 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/call-transcripts',
-    tags: ['Local Speech To Text call transcripts'],
-    description: 'Immutable logical-call transcript revisions',
+    tags: ['Local Speech To Text'],
+    description: 'module_local_speech_to_text_CallTranscriptsApiDescription',
     processor: Processor::class
 )]
 #[ResourceSecurity('module_local_speech_to_text_call_transcripts', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
@@ -28,12 +28,19 @@ class Controller extends BaseRestController
 {
     protected string $processorClass = Processor::class;
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
-    #[ApiOperation(summary: 'Get call transcript revision', description: 'Returns one immutable aggregate revision.', operationId: 'getLocalSpeechToTextCallTranscript')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTCallTranscript')]
+    #[ApiOperation(
+        summary: 'module_local_speech_to_text_GetCallTranscript',
+        description: 'module_local_speech_to_text_GetCallTranscriptDesc',
+        operationId: 'getLocalSpeechToTextCallTranscript'
+    )]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('revision')]
-    #[ApiResponse(200, 'rest_response_200_ok', PBXApiResult::class)]
+    #[ApiResponse(200, 'rest_response_200_get', PBXApiResult::class)]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', PBXApiResult::class)]
+    #[ApiResponse(403, 'rest_response_403_forbidden', PBXApiResult::class)]
     #[ApiResponse(404, 'rest_response_404_not_found', PBXApiResult::class)]
+    #[ApiResponse(500, 'rest_response_500_error', PBXApiResult::class)]
     public function getRecord(string $id): void
     {
     }

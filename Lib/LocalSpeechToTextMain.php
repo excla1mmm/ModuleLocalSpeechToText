@@ -10,6 +10,7 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\AssignedJobConflictException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
@@ -58,17 +59,15 @@ class LocalSpeechToTextMain
                 self::clientIp($data),
                 self::requestApiKeyId($data)
             );
-            LocalSpeechToTextLogger::write(
-                'api',
-                sprintf(
-                    'Worker registered: uid=%s name=%s worker_id=%d api_key_id=%d ip=%s',
-                    $workerUid,
-                    (string)$worker->name,
-                    (int)$worker->id,
-                    (int)$worker->api_key_id,
-                    (string)$worker->ip
-                ),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'worker',
+                'worker_registered',
+                'STT worker registered',
+                LOG_NOTICE,
+                [
+                    'worker_id' => (int)$worker->id,
+                    'worker_uid' => $workerUid,
+                ]
             );
 
             return self::success([
@@ -113,10 +112,17 @@ class LocalSpeechToTextMain
                     'has_settings_changed' => $hasSettingsChanged,
                 ]);
             }
-            LocalSpeechToTextLogger::write(
-                'api',
-                sprintf('Assigned job #%d to worker %s', (int)$job->id, $workerUid),
-                LOG_INFO
+            LocalSpeechToTextLogger::event(
+                'queue',
+                'job_claimed',
+                'Transcription job claimed by a worker',
+                LOG_INFO,
+                [
+                    'job_id' => (int)$job->id,
+                    'worker_uid' => $workerUid,
+                    'attempt' => (int)$job->attempts,
+                    'max_attempts' => STTJob::maxAttempts(),
+                ]
             );
 
             return self::success([
@@ -203,11 +209,7 @@ class LocalSpeechToTextMain
                 if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $message)) {
                     return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
-                LocalSpeechToTextLogger::write(
-                    'api',
-                    sprintf('Job #%d failed permanently: %s', $jobId, $message),
-                    LOG_WARNING
-                );
+                self::logRecordingAccessFailure($jobId, $workerUid, 'duration_too_long');
 
                 return self::error('duration_too_long', $message, 413);
             }
@@ -221,11 +223,7 @@ class LocalSpeechToTextMain
                 )) {
                     return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
-                LocalSpeechToTextLogger::write(
-                    'api',
-                    sprintf('Job #%d failed permanently: recording file is not available', $jobId),
-                    LOG_WARNING
-                );
+                self::logRecordingAccessFailure($jobId, $workerUid, 'recording_unavailable');
 
                 return self::error('file_not_found', 'Recording file is not available', 404);
             }
@@ -237,11 +235,7 @@ class LocalSpeechToTextMain
                 )) {
                     return self::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
-                LocalSpeechToTextLogger::write(
-                    'api',
-                    sprintf('Job #%d failed permanently: recording file exceeds fixed maximum size', $jobId),
-                    LOG_WARNING
-                );
+                self::logRecordingAccessFailure($jobId, $workerUid, 'file_too_large');
 
                 return self::error('file_too_large', 'Recording file exceeds fixed maximum size', 413);
             }
@@ -289,11 +283,24 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
 
+            $completionEventId = 0;
+            $segmentCount = 0;
+            $language = null;
+            $model = null;
             $connection = $job->getWriteConnection();
             try {
                 (new ModuleTransaction())->run(
                     $connection,
-                    static function () use ($data, $job, $worker, $leaseToken): void {
+                    static function () use (
+                        $data,
+                        $job,
+                        $worker,
+                        $leaseToken,
+                        &$completionEventId,
+                        &$segmentCount,
+                        &$language,
+                        &$model
+                    ): void {
                         $technicalInfo = is_array($data['technical_info'] ?? null)
                             ? $data['technical_info']
                             : null;
@@ -314,7 +321,10 @@ class LocalSpeechToTextMain
                             self::nullableStringField($data, 'model_used'),
                             self::encodeTechnicalInfo($technicalInfo)
                         );
-                        STTTranscriptEvent::ensureCompletedForResult($result, $job);
+                        $completionEvent = STTTranscriptEvent::ensureCompletedForResult($result, $job);
+                        $completionEventId = (int)$completionEvent->id;
+                        $segmentCount = count($transcript);
+                        $model = self::nullableStringField($data, 'model_used');
                         if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
                             throw new AssignedJobConflictException('Assigned STT job changed during result submission');
                         }
@@ -324,10 +334,36 @@ class LocalSpeechToTextMain
             } catch (AssignedJobConflictException) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            LocalSpeechToTextLogger::write(
-                'api',
-                sprintf('Job #%d completed by worker %s', $jobId, $workerUid),
-                LOG_INFO
+            $durationMs = (int)$job->started_at > 0 && (int)$job->finished_at > 0
+                ? max(0, (int)$job->finished_at - (int)$job->started_at) * 1000
+                : null;
+            $recordingDurationMs = (int)$job->recording_duration_sec > 0
+                ? (int)$job->recording_duration_sec * 1000
+                : null;
+            LocalSpeechToTextLogger::event(
+                'queue',
+                'transcription_completed',
+                'Transcription job completed',
+                LOG_NOTICE,
+                [
+                    'job_id' => $jobId,
+                    'worker_uid' => $workerUid,
+                    'duration_ms' => $durationMs,
+                    'recording_duration_ms' => $recordingDurationMs,
+                    'segment_count' => $segmentCount,
+                    'language' => $language,
+                    'model' => $model,
+                ]
+            );
+            LocalSpeechToTextLogger::event(
+                'transcript',
+                'transcript_completed_published',
+                'Transcript completion event published',
+                LOG_INFO,
+                [
+                    'job_id' => $jobId,
+                    'published_event_id' => $completionEventId,
+                ]
             );
 
             return self::success();
@@ -381,16 +417,21 @@ class LocalSpeechToTextMain
             )) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            LocalSpeechToTextLogger::write(
-                'api',
-                sprintf(
-                    'Worker %s reported error for job #%d: status=%s attempts=%d',
-                    $workerUid,
-                    $jobId,
-                    (string)$job->status,
-                    (int)$job->attempts
-                ),
-                LOG_WARNING
+            $failed = (string)$job->status === STTJob::STATUS_ERROR;
+            LocalSpeechToTextLogger::event(
+                'queue',
+                $failed ? 'job_failed' : 'job_retry',
+                $failed
+                    ? 'Worker reported a terminal transcription error'
+                    : 'Worker reported a retryable transcription error',
+                $failed ? LOG_ERR : LOG_WARNING,
+                [
+                    'job_id' => $jobId,
+                    'worker_uid' => $workerUid,
+                    'attempt' => (int)$job->attempts,
+                    'max_attempts' => STTJob::maxAttempts(),
+                    'error_code' => 'worker_reported_error',
+                ]
             );
 
             return self::success([
@@ -490,10 +531,16 @@ class LocalSpeechToTextMain
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            LocalSpeechToTextLogger::write(
-                'api',
-                sprintf('Worker %s released job #%d', $workerUid, $jobId),
-                LOG_NOTICE
+            LocalSpeechToTextLogger::event(
+                'queue',
+                'job_released',
+                'Worker released a transcription job',
+                LOG_NOTICE,
+                [
+                    'job_id' => $jobId,
+                    'worker_uid' => $workerUid,
+                    'attempt' => (int)$job->attempts,
+                ]
             );
 
             return self::success([
@@ -871,6 +918,30 @@ class LocalSpeechToTextMain
 
     private static function logException(string $context, Throwable $exception): void
     {
-        LocalSpeechToTextLogger::exception($context, $exception);
+        LocalSpeechToTextLogger::event(
+            'api',
+            'operation_failed',
+            'STT API operation failed',
+            LOG_ERR,
+            [
+                'operation' => $context,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
+    }
+
+    private static function logRecordingAccessFailure(int $jobId, string $workerUid, string $errorCode): void
+    {
+        LocalSpeechToTextLogger::event(
+            'api',
+            'recording_access_failed',
+            'Assigned recording could not be served',
+            LOG_WARNING,
+            [
+                'job_id' => $jobId,
+                'worker_uid' => $workerUid,
+                'error_code' => $errorCode,
+            ]
+        );
     }
 }
