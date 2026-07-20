@@ -340,6 +340,31 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">
+        <div class="ui segment stt-worker-download">
+            <div class="ui middle aligned stackable grid">
+                <div class="ten wide column">
+                    <h4 class="ui header">
+                        <i class="download icon"></i>
+                        <span class="content">
+                            {{ t._('module_local_speech_to_text_WorkerDownloadTitle') }}
+                            <span class="sub header">{{ t._('module_local_speech_to_text_WorkerDownloadDescription') }}</span>
+                        </span>
+                    </h4>
+                    <div class="stt-table-muted stt-worker-download-meta">
+                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>files.miko.ru</strong>
+                    </div>
+                </div>
+                <div class="six wide right aligned column stt-worker-download-action">
+                    <button class="ui left labeled icon blue disabled button" type="button" disabled="disabled" aria-disabled="true">
+                        <i class="download icon"></i>
+                        {{ t._('module_local_speech_to_text_DownloadWorker') }}
+                    </button>
+                    <div class="stt-table-muted stt-worker-download-pending">
+                        {{ t._('module_local_speech_to_text_WorkerDownloadPending') }}
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="ui segment stt-worker-api-key">
             <div class="ui stackable grid">
                 <div class="ten wide column">
