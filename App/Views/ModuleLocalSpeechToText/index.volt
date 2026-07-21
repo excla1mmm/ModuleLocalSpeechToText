@@ -53,7 +53,7 @@
                     {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
                 </div>
             </div>
-            <div class="ui fluid styled accordion stt-advanced-settings-dropdown">
+            <div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>
                 <div class="title">
                     <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AdvancedSettings') }}
                 </div>

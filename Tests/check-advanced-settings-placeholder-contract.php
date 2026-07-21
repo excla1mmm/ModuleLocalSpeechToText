@@ -31,7 +31,7 @@ expectAdvancedSettings(
 );
 
 preg_match(
-    '/<div class="ui fluid styled accordion stt-advanced-settings-dropdown">\s*'
+    '/<div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>\s*'
         . '<div class="title">\s*<i class="dropdown icon"><\/i>'
         . "\{\{ t\._\('module_local_speech_to_text_AdvancedSettings'\) \}\}\s*<\/div>\s*"
         . '<div class="content">\s*(.+?)\s*<\/div>\s*<\/div>/s',
