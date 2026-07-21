@@ -93,11 +93,13 @@ namespace {
     $normalized = WorkerProcessingSettingsService::normalize(array_merge($defaults, [
         'temperature' => '0.4',
         'temperature_fallback_count' => '3',
-        'audio_normalization' => '0',
+        'audio_normalization' => 'false',
+        'voice_activity_detection' => 'true',
     ]));
     expectSameSettingsNormalization(0.4, $normalized['temperature'], 'Numeric strings must normalize to floats');
     expectSameSettingsNormalization(3, $normalized['temperature_fallback_count'], 'Integer strings must normalize to integers');
-    expectSameSettingsNormalization(false, $normalized['audio_normalization'], 'Boolean form values must normalize');
+    expectSameSettingsNormalization(false, $normalized['audio_normalization'], 'False form values must normalize');
+    expectSameSettingsNormalization(true, $normalized['voice_activity_detection'], 'True form values must normalize');
 
     foreach ([
         ['temperature' => 1.1],

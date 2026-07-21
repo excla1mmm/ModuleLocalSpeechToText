@@ -78,5 +78,18 @@ expectAdminSettingsWrite(
         && $profileValidation < $firstWrite,
     'The complete processing profile must be validated before any setting is written'
 );
+expectAdminSettingsWrite(
+    str_contains(
+        $saveBody,
+        'STTSetting::AUDIO_NORMALIZATION => $this->request->getPost(STTSetting::AUDIO_NORMALIZATION, null, false)'
+    )
+        && str_contains(
+            $saveBody,
+            'STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->getPost(STTSetting::VOICE_ACTIVITY_DETECTION, null, false)'
+        )
+        && !str_contains($saveBody, 'hasPost(STTSetting::AUDIO_NORMALIZATION)')
+        && !str_contains($saveBody, 'hasPost(STTSetting::VOICE_ACTIVITY_DETECTION)'),
+    'Processing checkboxes must preserve their posted false values instead of using field presence'
+);
 
 echo "Administrative settings write contract OK\n";

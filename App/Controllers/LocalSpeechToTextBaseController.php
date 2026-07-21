@@ -69,8 +69,8 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::LOG_PROBABILITY_THRESHOLD),
             STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD => $this->request->getPost(STTSetting::FIRST_TOKEN_LOG_PROBABILITY_THRESHOLD),
             STTSetting::NO_SPEECH_THRESHOLD => $this->request->getPost(STTSetting::NO_SPEECH_THRESHOLD),
-            STTSetting::AUDIO_NORMALIZATION => $this->request->hasPost(STTSetting::AUDIO_NORMALIZATION) ? '1' : '0',
-            STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->hasPost(STTSetting::VOICE_ACTIVITY_DETECTION) ? '1' : '0',
+            STTSetting::AUDIO_NORMALIZATION => $this->request->getPost(STTSetting::AUDIO_NORMALIZATION, null, false),
+            STTSetting::VOICE_ACTIVITY_DETECTION => $this->request->getPost(STTSetting::VOICE_ACTIVITY_DETECTION, null, false),
             STTSetting::MAX_SEGMENT_DURATION_MS => (int)round(
                 (float)$this->request->getPost('max_segment_duration_sec') * 1000
             ),

@@ -53,6 +53,7 @@
                     {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
                 </div>
             </div>
+            {# Keep these values in form submissions; remove hidden when the UI is ready to return. #}
             <div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>
                 <div class="title">
                     <i class="dropdown icon"></i>{{ t._('module_local_speech_to_text_AdvancedSettings') }}

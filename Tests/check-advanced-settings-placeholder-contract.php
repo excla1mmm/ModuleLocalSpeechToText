@@ -30,19 +30,35 @@ expectAdvancedSettings(
     'Advanced settings placeholder must be between the CDR hint and recognition terms'
 );
 
-preg_match(
-    '/<div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>\s*'
-        . '<div class="title">\s*<i class="dropdown icon"><\/i>'
-        . "\{\{ t\._\('module_local_speech_to_text_AdvancedSettings'\) \}\}\s*<\/div>\s*"
-        . '<div class="content">\s*(.+?)\s*<\/div>\s*<\/div>/s',
-    $view,
-    $accordionMatch
-);
+$advancedSection = substr($view, $advancedPosition, $vocabularyPosition - $advancedPosition);
 expectAdvancedSettings(
-    ($accordionMatch[0] ?? '') !== ''
-        && preg_match('/stt-advanced-settings-dropdown.*?<div class="content">\s*<\/div>/s', $view) !== 1,
+    str_starts_with(
+        $advancedSection,
+        'stt-advanced-settings-dropdown" hidden>'
+    )
+        && str_contains($advancedSection, "t._('module_local_speech_to_text_AdvancedSettings')")
+        && str_contains($advancedSection, '<div class="content">'),
     'Advanced settings accordion must remain collapsed and contain expert controls'
 );
+foreach ([
+    'temperature',
+    'temperature_fallback_step',
+    'temperature_fallback_count',
+    'top_k',
+    'compression_ratio_threshold',
+    'log_probability_threshold',
+    'first_token_log_probability_threshold',
+    'no_speech_threshold',
+    'audio_normalization',
+    'voice_activity_detection',
+    'max_segment_duration_sec',
+    'segment_overlap_sec',
+] as $field) {
+    expectAdvancedSettings(
+        str_contains($advancedSection, "form.render('{$field}')"),
+        "Hidden advanced settings accordion is missing {$field}"
+    );
+}
 expectAdvancedSettings(
     str_contains($sourceJs, '.stt-advanced-settings-dropdown')
         && str_contains($bundledJs, '.stt-advanced-settings-dropdown'),
