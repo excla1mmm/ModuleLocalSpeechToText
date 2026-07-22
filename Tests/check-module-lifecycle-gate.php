@@ -183,8 +183,10 @@ expectLifecycleGate(
     'module lifecycle hooks are not connected'
 );
 expectLifecycleGate(
-    str_contains($adminBase, 'acquireWriteLease') && str_contains($adminBase, 'releaseWriteLease'),
-    'admin requests must hold a lifecycle writer lease'
+    !str_contains($adminBase, 'ModuleLifecycleGate')
+        && !str_contains($adminBase, 'acquireWriteLease')
+        && !str_contains($adminBase, 'releaseWriteLease'),
+    'admin requests must remain available while the module lifecycle gate is closed'
 );
 
 echo "Module lifecycle gate behavior OK\n";
