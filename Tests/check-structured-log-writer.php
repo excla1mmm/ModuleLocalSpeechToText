@@ -43,6 +43,10 @@ $loggerPath = $root . '/Lib/Services/LocalSpeechToTextLogger.php';
 expectStructuredWriter(is_file($sanitizerPath), 'Structured log sanitizer is missing');
 expectStructuredWriter(is_file($writerPath), 'Structured log writer is missing');
 expectStructuredWriter(is_file($loggerPath), 'Structured logger is missing');
+expectStructuredWriter(
+    str_contains((string)file_get_contents($writerPath), 'chgrp('),
+    'journal writer must align journal files with the directory group'
+);
 
 require_once $sanitizerPath;
 require_once $writerPath;
@@ -51,6 +55,8 @@ require_once $loggerPath;
 $fixtureRoot = sys_get_temp_dir() . '/local-stt-log-writer-' . bin2hex(random_bytes(6));
 $journalDir = $fixtureRoot . '/journal';
 $rotationDir = $fixtureRoot . '/rotation';
+$groupAlignedDir = $fixtureRoot . '/group-aligned';
+$groupAlignedRotationDir = $fixtureRoot . '/group-aligned-rotation';
 $concurrentDir = $fixtureRoot . '/concurrent';
 $failureDir = $fixtureRoot . '/failure';
 $unsafeDir = $fixtureRoot . '/unsafe';
@@ -140,6 +146,37 @@ try {
     expectStructuredWriter((fileperms($journalDir) & 0777) === 0750, 'journal directory mode must be 0750');
     expectStructuredWriter((fileperms($journalDir . '/module.log') & 0777) === 0640, 'journal file mode must be 0640');
     expectStructuredWriter((fileperms($journalDir . '/.module-log.lock') & 0777) === 0640, 'lock file mode must be 0640');
+
+    $primaryGroup = function_exists('posix_getegid') ? posix_getegid() : null;
+    $alternateGroups = function_exists('posix_getgroups') ? posix_getgroups() : [];
+    $directoryGroup = is_int($primaryGroup)
+        ? array_values(array_filter($alternateGroups, static fn (int $group): bool => $group !== $primaryGroup))[0] ?? null
+        : null;
+    if (is_int($directoryGroup)) {
+        mkdir($groupAlignedDir, 0750, true);
+        expectStructuredWriter(chgrp($groupAlignedDir, $directoryGroup), 'group-aligned journal fixture must use a non-primary group');
+        $groupAlignedWriter = new LocalSpeechToTextLogWriter($groupAlignedDir, 900);
+        expectStructuredWriter($groupAlignedWriter->append('{"probe":"active"}'), 'group-aligned active journal append must succeed');
+        expectStructuredWriter(chgrp($groupAlignedDir . '/module.log', $primaryGroup), 'active journal fixture must accept an incorrect group');
+        expectStructuredWriter($groupAlignedWriter->append('{"probe":"realign"}'), 'group-aligned active journal realignment append must succeed');
+        expectStructuredWriter(
+            filegroup($groupAlignedDir . '/module.log') === filegroup($groupAlignedDir),
+            'active journal group must match its directory group'
+        );
+
+        mkdir($groupAlignedRotationDir, 0750, true);
+        expectStructuredWriter(chgrp($groupAlignedRotationDir, $directoryGroup), 'group-aligned rotation fixture must use a non-primary group');
+        $groupAlignedRotationWriter = new LocalSpeechToTextLogWriter($groupAlignedRotationDir, 80);
+        expectStructuredWriter($groupAlignedRotationWriter->append(str_repeat('a', 50)), 'group-aligned rotation first append must succeed');
+        expectStructuredWriter(chgrp($groupAlignedRotationDir . '/module.log', $primaryGroup), 'rotation journal fixture must accept an incorrect group');
+        expectStructuredWriter($groupAlignedRotationWriter->append(str_repeat('b', 50)), 'group-aligned rotation second append must succeed');
+        foreach (['module.log', 'module.log.1'] as $journalFile) {
+            expectStructuredWriter(
+                filegroup($groupAlignedRotationDir . '/' . $journalFile) === filegroup($groupAlignedRotationDir),
+                "rotated journal {$journalFile} group must match its directory group"
+            );
+        }
+    }
 
     $rotationLogger = new LocalSpeechToTextLogger(new LocalSpeechToTextLogWriter($rotationDir, 900));
     for ($index = 0; $index < 30; $index++) {

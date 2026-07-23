@@ -51,6 +51,9 @@ final class LocalSpeechToTextLogWriter
             if ($activeStat === false) {
                 return false;
             }
+            if (is_array($activeStat) && !$this->applyJournalPermissions($activePath, $realDirectory)) {
+                return false;
+            }
             $activeSize = is_array($activeStat) ? (int)$activeStat['size'] : 0;
             if ($activeSize > 0 && $activeSize + strlen($line) > $this->maxBytes) {
                 $previousStat = $this->regularFileStat($previousPath, $realDirectory, allowMissing: true);
@@ -66,7 +69,7 @@ final class LocalSpeechToTextLogWriter
                 ) {
                     return false;
                 }
-                if (!chmod($previousPath, 0640)) {
+                if (!$this->applyJournalPermissions($previousPath, $realDirectory)) {
                     return false;
                 }
             }
@@ -149,7 +152,7 @@ final class LocalSpeechToTextLogWriter
                 return false;
             }
 
-            if (!chmod($temporaryPath, 0640)) {
+            if (!$this->applyJournalPermissions($temporaryPath, $realDirectory)) {
                 @unlink($temporaryPath);
                 return false;
             }
@@ -165,7 +168,7 @@ final class LocalSpeechToTextLogWriter
             if (!is_array($stat) || (int)$stat['size'] > $this->maxBytes) {
                 return false;
             }
-            if (!chmod($previousPath, 0640)) {
+            if (!$this->applyJournalPermissions($previousPath, $realDirectory)) {
                 return false;
             }
 
@@ -278,12 +281,43 @@ final class LocalSpeechToTextLogWriter
             return false;
         }
 
-        if (!chmod($path, 0640)) {
+        if (!$this->applyJournalPermissions($path, $realDirectory)) {
             fclose($handle);
             return false;
         }
 
         return $handle;
+    }
+
+    private function applyJournalPermissions(string $path, string $realDirectory): bool
+    {
+        if (dirname($path) !== $realDirectory || is_link($path)) {
+            return false;
+        }
+
+        clearstatcache(true, $realDirectory);
+        clearstatcache(true, $path);
+        $directoryStat = @lstat($realDirectory);
+        $pathStat = @lstat($path);
+        if (!is_array($directoryStat)
+            || !is_array($pathStat)
+            || (($directoryStat['mode'] & 0170000) !== 0040000)
+            || (($pathStat['mode'] & 0170000) !== 0100000)
+        ) {
+            return false;
+        }
+
+        $directoryGroup = (int)$directoryStat['gid'];
+        if ((int)$pathStat['gid'] !== $directoryGroup && !chgrp($path, $directoryGroup)) {
+            return false;
+        }
+
+        clearstatcache(true, $path);
+        $updatedPathStat = @lstat($path);
+        return is_array($updatedPathStat)
+            && (($updatedPathStat['mode'] & 0170000) === 0100000)
+            && (int)$updatedPathStat['gid'] === $directoryGroup
+            && chmod($path, 0640);
     }
 
     /** @param resource $handle */
