@@ -102,7 +102,7 @@ Message matching is a fallback for drivers or wrappers that omit SQLite's numeri
 
 Add `ScannerIterationFailureHandler` to compose the existing `ScannerTransactionRecovery` with `ScannerDatabaseFailurePolicy`.
 
-Its input is the iteration exception, every connection used by the scanner, and the preceding consecutive database-failure count. Its output is a value array containing:
+Its input is the iteration exception, a callable that resolves every connection used by the scanner, and the preceding consecutive database-failure count. Resolving the connections inside the handler ensures that a poisoned DI lookup is itself converted into a failed-recovery outcome instead of escaping the controlled recycle path. Its output is a value array containing:
 
 ```php
 array{
