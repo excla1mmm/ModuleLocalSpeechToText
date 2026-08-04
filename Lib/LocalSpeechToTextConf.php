@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib;
 
 use MikoPBX\Common\Providers\PBXConfModulesProvider;
-use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
+use MikoPBX\Core\Workers\Libs\WorkerModelsEvents\Actions\ReloadRestAPIWorkerAction;
+use MikoPBX\Core\Workers\WorkerModelsEvents;
 use MikoPBX\Modules\Config\ConfigClass;
 use Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
@@ -48,7 +49,7 @@ class LocalSpeechToTextConf extends ConfigClass
 
         $this->gate(bootstrap: true)->completeEnable();
         PBXConfModulesProvider::recreateModulesProvider();
-        Processes::restartAllWorkers(true);
+        $this->scheduleRestApiReload();
     }
 
     public function onBeforeModuleDisable(): bool
@@ -78,6 +79,26 @@ class LocalSpeechToTextConf extends ConfigClass
     public function onAfterModuleDisable(): void
     {
         $this->gate()->completeDisable();
+        $this->scheduleRestApiReload();
+    }
+
+    private function scheduleRestApiReload(): void
+    {
+        try {
+            WorkerModelsEvents::invokeAction(ReloadRestAPIWorkerAction::class);
+        } catch (Throwable $exception) {
+            LocalSpeechToTextLogger::event(
+                'system',
+                'rest_api_reload_schedule_failed',
+                'REST API worker reload could not be scheduled',
+                LOG_ERR,
+                [
+                    'operation' => 'schedule_rest_api_reload',
+                    'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+                ]
+            );
+            throw $exception;
+        }
     }
 
     private function gate(bool $bootstrap = false): ModuleLifecycleGate
