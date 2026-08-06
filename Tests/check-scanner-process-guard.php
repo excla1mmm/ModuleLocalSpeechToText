@@ -91,6 +91,100 @@ expectScannerGuardRuntimeException(
     'state writes must require singleton ownership'
 );
 
+$permissiveRuntimeDirectory = $temporaryRoot . '/permissive-runtime';
+$permissiveLockPath = $permissiveRuntimeDirectory . '/.scanner-process.lock';
+$permissiveStatePath = $permissiveRuntimeDirectory . '/.scanner-recovery-state.json';
+mkdir($permissiveRuntimeDirectory, 0777);
+chmod($permissiveRuntimeDirectory, 0777);
+file_put_contents($permissiveLockPath, '');
+chmod($permissiveLockPath, 0666);
+file_put_contents(
+    $permissiveStatePath,
+    json_encode(['failure_count' => 1, 'last_failure_at' => $now], JSON_THROW_ON_ERROR)
+);
+chmod($permissiveStatePath, 0666);
+$permissiveGuard = new ScannerProcessGuard($permissiveRuntimeDirectory, $clock);
+expectScannerGuard($permissiveGuard->acquire(), 'permissive pre-existing guard could not acquire singleton');
+expectScannerGuard(
+    scannerGuardMode($permissiveRuntimeDirectory) === 0750,
+    'pre-existing scanner runtime directory mode must be normalized to 0750'
+);
+expectScannerGuard(
+    scannerGuardMode($permissiveLockPath) === 0640,
+    'pre-existing scanner lock mode must be normalized to 0640'
+);
+expectScannerGuard(
+    $permissiveGuard->startupBackoffSeconds() === 5,
+    'valid pre-existing scanner state must remain readable after normalization'
+);
+expectScannerGuard(
+    scannerGuardMode($permissiveStatePath) === 0640,
+    'pre-existing scanner state mode must be normalized to 0640'
+);
+$permissiveGuard->release();
+
+expectScannerGuardRuntimeException(
+    static function () use ($permissiveRuntimeDirectory): void {
+        $invalidClock = new ScannerProcessGuard(
+            $permissiveRuntimeDirectory,
+            static fn (): string => 'not-an-integer'
+        );
+        expectScannerGuard($invalidClock->acquire(), 'invalid-clock guard could not acquire singleton');
+        $invalidClock->startupBackoffSeconds();
+    },
+    'non-integer scanner clock results must be rejected'
+);
+$afterInvalidClock = new ScannerProcessGuard($permissiveRuntimeDirectory, $clock);
+expectScannerGuard($afterInvalidClock->acquire(), 'invalid clock failure must release the singleton on unwind');
+$afterInvalidClock->release();
+
+$replacedRuntimeDirectory = $temporaryRoot . '/replaced-runtime';
+$retainedRuntimeDirectory = $temporaryRoot . '/retained-runtime';
+$replacedRuntimeGuard = new ScannerProcessGuard($replacedRuntimeDirectory, $clock);
+expectScannerGuard($replacedRuntimeGuard->acquire(), 'runtime replacement guard could not acquire singleton');
+rename($replacedRuntimeDirectory, $retainedRuntimeDirectory);
+mkdir($replacedRuntimeDirectory, 0750);
+expectScannerGuardRuntimeException(
+    static fn (): int => $replacedRuntimeGuard->startupBackoffSeconds(),
+    'replaced scanner runtime directory inode must be rejected while the lock is owned'
+);
+$replacedRuntimeGuard->release();
+
+$unreadableStateRuntime = $temporaryRoot . '/unreadable-state-runtime';
+$unreadableStateGuard = new ScannerProcessGuard($unreadableStateRuntime, $clock);
+expectScannerGuard($unreadableStateGuard->acquire(), 'unreadable-state setup guard could not acquire singleton');
+$unreadableStateGuard->recordRecycle();
+$unreadableStateGuard->release();
+$unreadableStatePath = $unreadableStateRuntime . '/.scanner-recovery-state.json';
+chmod($unreadableStatePath, 0000);
+clearstatcache(true, $unreadableStatePath);
+if (!is_readable($unreadableStatePath)) {
+    $filesystemWarningRaised = false;
+    set_error_handler(
+        static function () use (&$filesystemWarningRaised): bool {
+            $filesystemWarningRaised = true;
+            return true;
+        }
+    );
+    try {
+        $unreadableStateReader = new ScannerProcessGuard($unreadableStateRuntime, $clock);
+        expectScannerGuard($unreadableStateReader->acquire(), 'unreadable state reader could not acquire singleton');
+        expectScannerGuard(
+            $unreadableStateReader->startupBackoffSeconds() === 5,
+            'unreadable regular state must use minimum delay'
+        );
+        expectScannerGuard(
+            $unreadableStateReader->lastStateErrorCode() === 'scanner_state_invalid',
+            'unreadable regular state must report invalid-state code'
+        );
+        $unreadableStateReader->release();
+    } finally {
+        restore_error_handler();
+    }
+    expectScannerGuard(!$filesystemWarningRaised, 'unreadable regular state must not emit filesystem warnings');
+}
+chmod($unreadableStatePath, 0640);
+
 $expectedBackoffs = [5, 15, 30, 60, 60];
 foreach ($expectedBackoffs as $expectedBackoff) {
     $writer = new ScannerProcessGuard($runtimeDirectory, $clock);

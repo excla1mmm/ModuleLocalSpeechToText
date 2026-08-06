@@ -20,6 +20,7 @@ final class ScannerProcessGuard
     private readonly string $lockPath;
     private readonly string $statePath;
     private mixed $clock;
+    private mixed $runtimeHandle = null;
     private mixed $lockHandle = null;
     /** @var array{failure_count: int, last_failure_at: int}|null */
     private ?array $state = null;
@@ -50,34 +51,61 @@ final class ScannerProcessGuard
     public function acquire(): bool
     {
         if (is_resource($this->lockHandle)) {
+            $this->assertRuntimeDirectory();
+            $this->normalizeRegularFileMode(
+                $this->lockPath,
+                $this->lockHandle,
+                'Scanner process lock changed during acquisition'
+            );
             return true;
         }
 
-        $this->ensureRuntimeDirectory();
-        [$handle, $created] = $this->openLockFile();
-
-        if ($created) {
-            if (!chmod($this->lockPath, 0640) || !$this->pathIdentifiesHandle($this->lockPath, $handle)) {
+        $this->runtimeHandle = $this->openRuntimeDirectory();
+        $handle = null;
+        try {
+            $this->assertRuntimeDirectory();
+            $handle = $this->openLockFile();
+            $this->normalizeRegularFileMode(
+                $this->lockPath,
+                $handle,
+                'Unable to secure scanner process lock'
+            );
+            $this->assertRuntimeDirectory();
+            if (!flock($handle, LOCK_EX | LOCK_NB)) {
                 fclose($handle);
-                throw new RuntimeException('Unable to set scanner process lock permissions');
+                $handle = null;
+                fclose($this->runtimeHandle);
+                $this->runtimeHandle = null;
+                return false;
             }
-        }
-        if (!flock($handle, LOCK_EX | LOCK_NB)) {
-            fclose($handle);
-            return false;
-        }
-        if (!$this->pathIdentifiesHandle($this->lockPath, $handle)) {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-            throw new RuntimeException('Scanner process lock changed during acquisition');
-        }
+            if (!$this->pathIdentifiesHandle($this->lockPath, $handle, 0100000)) {
+                throw new RuntimeException('Scanner process lock changed during acquisition');
+            }
+            $this->normalizeRegularFileMode(
+                $this->lockPath,
+                $handle,
+                'Scanner process lock changed during acquisition'
+            );
+            $this->assertRuntimeDirectory();
 
-        $this->lockHandle = $handle;
-        $this->state = null;
-        $this->stateLoaded = false;
-        $this->stateErrorCode = null;
+            $this->lockHandle = $handle;
+            $handle = null;
+            $this->state = null;
+            $this->stateLoaded = false;
+            $this->stateErrorCode = null;
 
-        return true;
+            return true;
+        } catch (Throwable $exception) {
+            if (is_resource($handle)) {
+                flock($handle, LOCK_UN);
+                fclose($handle);
+            }
+            if (is_resource($this->runtimeHandle)) {
+                fclose($this->runtimeHandle);
+            }
+            $this->runtimeHandle = null;
+            throw $exception;
+        }
     }
 
     public function startupBackoffSeconds(): int
@@ -136,13 +164,18 @@ final class ScannerProcessGuard
             flock($this->lockHandle, LOCK_UN);
             fclose($this->lockHandle);
         }
+        if (is_resource($this->runtimeHandle)) {
+            fclose($this->runtimeHandle);
+        }
         $this->lockHandle = null;
+        $this->runtimeHandle = null;
         $this->state = null;
         $this->stateLoaded = false;
         $this->stateErrorCode = null;
     }
 
-    private function ensureRuntimeDirectory(): void
+    /** @return resource */
+    private function openRuntimeDirectory(): mixed
     {
         if ($this->runtimeDirectory === '') {
             throw new RuntimeException('Scanner process runtime directory is empty');
@@ -150,15 +183,12 @@ final class ScannerProcessGuard
 
         clearstatcache(true, $this->runtimeDirectory);
         $metadata = @lstat($this->runtimeDirectory);
-        $created = false;
         if ($metadata === false) {
             if (!@mkdir($this->runtimeDirectory, 0750, true)) {
                 clearstatcache(true, $this->runtimeDirectory);
                 if (@lstat($this->runtimeDirectory) === false) {
                     throw new RuntimeException('Unable to create scanner process runtime directory');
                 }
-            } else {
-                $created = true;
             }
             clearstatcache(true, $this->runtimeDirectory);
             $metadata = @lstat($this->runtimeDirectory);
@@ -166,23 +196,42 @@ final class ScannerProcessGuard
         if (!is_array($metadata) || !$this->isDirectoryMetadata($metadata)) {
             throw new RuntimeException('Scanner process runtime directory is unsafe');
         }
-        if ($created && !chmod($this->runtimeDirectory, 0750)) {
-            throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+
+        $handle = fopen($this->runtimeDirectory, 'r');
+        if (!is_resource($handle)) {
+            throw new RuntimeException('Unable to open scanner process runtime directory');
         }
+        try {
+            if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $handle, 0040000)) {
+                throw new RuntimeException('Scanner process runtime directory changed during open');
+            }
+            $this->assertCurrentUserOwns($handle, 'Scanner process runtime directory has an unsafe owner');
+            if (!chmod($this->runtimeDirectory, 0750)) {
+                throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+            }
+            if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $handle, 0040000)) {
+                throw new RuntimeException('Scanner process runtime directory changed during permission update');
+            }
+            $updated = fstat($handle);
+            if (!is_array($updated) || ($updated['mode'] & 0777) !== 0750) {
+                throw new RuntimeException('Scanner process runtime directory permissions are unsafe');
+            }
+        } catch (Throwable $exception) {
+            fclose($handle);
+            throw $exception;
+        }
+
+        return $handle;
     }
 
-    /**
-     * @return array{0: resource, 1: bool}
-     */
-    private function openLockFile(): array
+    /** @return resource */
+    private function openLockFile(): mixed
     {
         for ($attempt = 0; $attempt < 3; $attempt++) {
             clearstatcache(true, $this->lockPath);
             $metadata = @lstat($this->lockPath);
-            $created = false;
             if ($metadata === false) {
                 $handle = fopen($this->lockPath, 'x+b');
-                $created = is_resource($handle);
             } else {
                 if (!$this->isRegularFileMetadata($metadata)) {
                     throw new RuntimeException('Scanner process lock is unsafe');
@@ -193,8 +242,10 @@ final class ScannerProcessGuard
             if (!is_resource($handle)) {
                 continue;
             }
-            if ($this->pathIdentifiesHandle($this->lockPath, $handle)) {
-                return [$handle, $created];
+            if ($this->pathIdentifiesHandle($this->lockPath, $handle, 0100000)) {
+                $this->assertRuntimeDirectory();
+                $this->assertRuntimeOwnerOwns($handle, 'Scanner process lock has an unsafe owner');
+                return $handle;
             }
 
             fclose($handle);
@@ -228,19 +279,37 @@ final class ScannerProcessGuard
         if (!$this->isRegularFileMetadata($metadata)) {
             return $this->setInvalidState();
         }
+        if (!$this->metadataIsOwnedByRuntime($metadata) || !is_readable($this->statePath)) {
+            return $this->setInvalidState();
+        }
 
         $handle = fopen($this->statePath, 'rb');
         if (!is_resource($handle)) {
             return $this->setInvalidState();
         }
         try {
-            if (!$this->pathIdentifiesHandle($this->statePath, $handle)) {
-                return $this->setInvalidState();
+            if (!$this->pathIdentifiesHandle($this->statePath, $handle, 0100000)) {
+                throw new RuntimeException('Scanner recovery state changed during open');
             }
+            $this->assertRuntimeOwnerOwns($handle, 'Scanner recovery state has an unsafe owner');
+            $this->normalizeRegularFileMode(
+                $this->statePath,
+                $handle,
+                'Unable to secure scanner recovery state'
+            );
             $contents = stream_get_contents($handle);
             if ($contents === false) {
                 return $this->setInvalidState();
             }
+            if (!$this->pathIdentifiesHandle($this->statePath, $handle, 0100000)) {
+                throw new RuntimeException('Scanner recovery state changed during read');
+            }
+            $this->normalizeRegularFileMode(
+                $this->statePath,
+                $handle,
+                'Scanner recovery state changed during read'
+            );
+            $this->assertRuntimeDirectory();
         } finally {
             fclose($handle);
         }
@@ -275,10 +344,14 @@ final class ScannerProcessGuard
     private function writeState(array $state): void
     {
         $this->requireOwnership();
+        $this->assertRuntimeDirectory();
         clearstatcache(true, $this->statePath);
         $current = @lstat($this->statePath);
         if (is_array($current) && !$this->isRegularFileMetadata($current)) {
             throw new RuntimeException('Scanner recovery state is unsafe');
+        }
+        if (is_array($current) && !$this->metadataIsOwnedByRuntime($current)) {
+            throw new RuntimeException('Scanner recovery state has an unsafe owner');
         }
 
         $contents = json_encode($state, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
@@ -289,35 +362,49 @@ final class ScannerProcessGuard
             if (!is_resource($handle)) {
                 throw new RuntimeException('Unable to create scanner recovery state temporary file');
             }
-            if (
-                !$this->pathIdentifiesHandle($temporaryPath, $handle)
-                || !chmod($temporaryPath, 0640)
-                || !$this->pathIdentifiesHandle($temporaryPath, $handle)
-            ) {
-                throw new RuntimeException('Unable to set scanner recovery state permissions');
-            }
+            $this->assertRuntimeOwnerOwns($handle, 'Scanner recovery state temporary file has an unsafe owner');
+            $this->normalizeRegularFileMode(
+                $temporaryPath,
+                $handle,
+                'Unable to set scanner recovery state permissions'
+            );
             $this->writeAll($handle, $contents);
             if (!fflush($handle)) {
                 throw new RuntimeException('Unable to flush scanner recovery state');
             }
-            fclose($handle);
-            $handle = null;
+            if (!$this->pathIdentifiesHandle($temporaryPath, $handle, 0100000)) {
+                throw new RuntimeException('Scanner recovery state temporary file changed before publication');
+            }
+            $this->assertRuntimeDirectory();
 
             clearstatcache(true, $this->statePath);
             $current = @lstat($this->statePath);
             if (is_array($current) && !$this->isRegularFileMetadata($current)) {
                 throw new RuntimeException('Scanner recovery state is unsafe');
             }
+            if (is_array($current) && !$this->metadataIsOwnedByRuntime($current)) {
+                throw new RuntimeException('Scanner recovery state has an unsafe owner');
+            }
             if (!rename($temporaryPath, $this->statePath)) {
                 throw new RuntimeException('Unable to publish scanner recovery state');
             }
+            if (!$this->pathIdentifiesHandle($this->statePath, $handle, 0100000)) {
+                throw new RuntimeException('Scanner recovery state changed during publication');
+            }
+            $published = fstat($handle);
+            if (!is_array($published) || ($published['mode'] & 0777) !== 0640) {
+                throw new RuntimeException('Published scanner recovery state permissions are unsafe');
+            }
+            $this->assertRuntimeOwnerOwns($handle, 'Published scanner recovery state has an unsafe owner');
+            $this->assertRuntimeDirectory();
+            fclose($handle);
+            $handle = null;
         } catch (Throwable $exception) {
             if (is_resource($handle)) {
+                if ($this->pathIdentifiesHandle($temporaryPath, $handle, 0100000)) {
+                    @unlink($temporaryPath);
+                }
                 fclose($handle);
-            }
-            clearstatcache(true, $temporaryPath);
-            if (@lstat($temporaryPath) !== false) {
-                @unlink($temporaryPath);
             }
             throw $exception;
         }
@@ -383,13 +470,96 @@ final class ScannerProcessGuard
 
     private function requireOwnership(): void
     {
-        if (!is_resource($this->lockHandle)) {
+        if (!is_resource($this->lockHandle) || !is_resource($this->runtimeHandle)) {
             throw new RuntimeException('Scanner process lock is not owned');
+        }
+        $this->assertRuntimeDirectory();
+        if (!$this->pathIdentifiesHandle($this->lockPath, $this->lockHandle, 0100000)) {
+            throw new RuntimeException('Scanner process lock changed while owned');
+        }
+        $this->assertRuntimeOwnerOwns($this->lockHandle, 'Scanner process lock has an unsafe owner');
+        $metadata = fstat($this->lockHandle);
+        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0640) {
+            throw new RuntimeException('Scanner process lock permissions changed while owned');
+        }
+    }
+
+    private function assertRuntimeDirectory(): void
+    {
+        if (!is_resource($this->runtimeHandle)) {
+            throw new RuntimeException('Scanner process runtime directory is not retained');
+        }
+        if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $this->runtimeHandle, 0040000)) {
+            throw new RuntimeException('Scanner process runtime directory changed while owned');
+        }
+        $this->assertCurrentUserOwns(
+            $this->runtimeHandle,
+            'Scanner process runtime directory has an unsafe owner'
+        );
+        $metadata = fstat($this->runtimeHandle);
+        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0750) {
+            throw new RuntimeException('Scanner process runtime directory permissions changed while owned');
         }
     }
 
     /** @param resource $handle */
-    private function pathIdentifiesHandle(string $path, mixed $handle): bool
+    private function normalizeRegularFileMode(string $path, mixed $handle, string $errorMessage): void
+    {
+        $this->assertRuntimeDirectory();
+        if (!$this->pathIdentifiesHandle($path, $handle, 0100000)) {
+            throw new RuntimeException($errorMessage);
+        }
+        $this->assertRuntimeOwnerOwns($handle, $errorMessage);
+        if (!chmod($path, 0640)) {
+            throw new RuntimeException($errorMessage);
+        }
+        if (!$this->pathIdentifiesHandle($path, $handle, 0100000)) {
+            throw new RuntimeException($errorMessage);
+        }
+        $metadata = fstat($handle);
+        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0640) {
+            throw new RuntimeException($errorMessage);
+        }
+        $this->assertRuntimeOwnerOwns($handle, $errorMessage);
+        $this->assertRuntimeDirectory();
+    }
+
+    /** @param resource $handle */
+    private function assertRuntimeOwnerOwns(mixed $handle, string $errorMessage): void
+    {
+        $metadata = fstat($handle);
+        $runtimeMetadata = is_resource($this->runtimeHandle) ? fstat($this->runtimeHandle) : false;
+        if (
+            !is_array($metadata)
+            || !is_array($runtimeMetadata)
+            || $metadata['uid'] !== $runtimeMetadata['uid']
+        ) {
+            throw new RuntimeException($errorMessage);
+        }
+    }
+
+    /** @param resource $handle */
+    private function assertCurrentUserOwns(mixed $handle, string $errorMessage): void
+    {
+        if (!function_exists('posix_geteuid')) {
+            return;
+        }
+        $metadata = fstat($handle);
+        if (!is_array($metadata) || $metadata['uid'] !== posix_geteuid()) {
+            throw new RuntimeException($errorMessage);
+        }
+    }
+
+    /** @param array<int|string, int> $metadata */
+    private function metadataIsOwnedByRuntime(array $metadata): bool
+    {
+        $runtimeMetadata = is_resource($this->runtimeHandle) ? fstat($this->runtimeHandle) : false;
+
+        return is_array($runtimeMetadata) && $metadata['uid'] === $runtimeMetadata['uid'];
+    }
+
+    /** @param resource $handle */
+    private function pathIdentifiesHandle(string $path, mixed $handle, int $expectedType): bool
     {
         $opened = fstat($handle);
         clearstatcache(true, $path);
@@ -397,7 +567,8 @@ final class ScannerProcessGuard
 
         return is_array($opened)
             && is_array($current)
-            && $this->isRegularFileMetadata($current)
+            && ($opened['mode'] & 0170000) === $expectedType
+            && ($current['mode'] & 0170000) === $expectedType
             && $opened['dev'] === $current['dev']
             && $opened['ino'] === $current['ino'];
     }
