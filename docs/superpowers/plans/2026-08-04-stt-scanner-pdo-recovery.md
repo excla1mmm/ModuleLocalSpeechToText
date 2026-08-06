@@ -551,13 +551,23 @@ Run:
 ```bash
 git diff --check origin/develop...HEAD
 git diff --name-only origin/develop...HEAD
-if rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" Lib bin; then
+scanner_recovery_files=(
+    bin/WorkerLocalSpeechToTextJobs.php
+    Lib/Services/ScannerDatabaseFailurePolicy.php
+    Lib/Services/ScannerIterationFailureHandler.php
+    Lib/Services/ScannerProcessGuard.php
+)
+if rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" "${scanner_recovery_files[@]}"; then
+    exit 1
+fi
+if git diff -U0 origin/develop...HEAD -- Lib bin \
+    | rg -q '^\+.*(recreateModulesDBConnections|ModulesDBConnectionsProvider)'; then
     exit 1
 fi
 rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" Tests/check-scanner-worker-recycle.php
 ```
 
-Expected: `git diff --check` exits 0; every changed path is inside this module; `rg` finds no reconnect call in production code. A literal may exist only in the worker contract's forbidden-string assertion.
+Expected: `git diff --check` exits 0; every changed path is inside this module; the scanner recovery files and new production diff additions contain no reconnect call. Pre-existing lifecycle/metadata services outside the scanner scope are not part of this check. A literal may exist only in the worker behavior test's additional forbidden-string assertion.
 
 - [ ] **Step 5: Inspect commit and worktree state**
 
