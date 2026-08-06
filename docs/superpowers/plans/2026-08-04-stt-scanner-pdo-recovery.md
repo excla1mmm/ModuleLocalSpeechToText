@@ -37,7 +37,7 @@
 | `Tests/check-scanner-database-failure-policy.php` | Numeric, wrapped, message-fallback, and decision unit contracts |
 | `Tests/check-scanner-transaction-recovery.php` | Existing rollback checks plus failure-handler orchestration |
 | `Tests/check-scanner-process-guard.php` | Lock contention, release, backoff, stale, and malformed-state contracts |
-| `Tests/check-scanner-worker-recycle-contract.php` | Worker ordering, phases, lease release, logging, and no-reconnect contract |
+| `Tests/check-scanner-worker-recycle.php` | Executable worker duplicate/recycle, lease release, logging, and process-lock behavior |
 
 ---
 
@@ -218,7 +218,7 @@ Assert all three paths:
 - a connection-provider closure throwing `TransactionRecoveryException` produces the same controlled outcome;
 - a non-PDO exception after successful recovery resets a previous count of 2 to 0 and selects `continue`.
 
-Remove the old worker-source assertion requiring `throw $recoveryException;`. Worker integration is deliberately deferred to Task 4 and will be covered by `check-scanner-worker-recycle-contract.php`; this task must test the handler without depending on a future worker edit.
+Remove the old worker-source assertion requiring `throw $recoveryException;`. Worker integration is deliberately deferred to Task 4 and will be covered by `check-scanner-worker-recycle.php`; this task must test the handler without depending on a future worker edit.
 
 - [ ] **Step 3: Run the updated test and verify RED**
 
@@ -365,28 +365,37 @@ git commit -m "feat: guard STT scanner process lifetime"
 
 **Files:**
 - Modify: `bin/WorkerLocalSpeechToTextJobs.php`
-- Create: `Tests/check-scanner-worker-recycle-contract.php`
+- Create: `Tests/check-scanner-worker-recycle.php`
 
 **Interfaces:**
 - Consumes: Tasks 2 and 3.
 - Produces events: `scanner_duplicate_rejected`, `scanner_recovery_backoff_applied`, `scanner_recycle_requested`, existing `operation_failed`, existing `database_operation_failed`, and `scanner_stopped` with a stable reason.
 - Produces phases: `runtime_pragmas`, `cdr_schema`, `stale_workers`, `stale_leases`, `delayed_recordings`, `skipped_recordings`, `cdr_scan`, `call_transcript_publish`, and `retention_cleanup`.
 
-- [ ] **Step 1: Write the failing worker ordering contract**
+- [ ] **Step 1: Write the failing executable duplicate-scanner behavior test**
 
-Read the worker source and assert all of these structural requirements:
+Build the test harness using real `ScannerProcessGuard`, `ScannerDatabaseFailurePolicy`, `ScannerIterationFailureHandler`, `ScannerTransactionRecovery`, and the real worker class. Stub only MikoPBX framework boundaries and unrelated scanner collaborators, following the namespace pattern in `Tests/check-worker-retry-overflow.php`.
 
-- `ScannerProcessGuard` is acquired before `scanner_started` and before `new ModuleLifecycleGate()`;
-- duplicate acquisition logs `scanner_duplicate_rejected` and returns;
-- guard release appears in an outer `finally`;
-- `ScannerIterationFailureHandler` replaces direct `ScannerTransactionRecovery` construction;
-- `ModulesDBConnectionsProvider`, `recreateModulesDBConnections`, and `throw $recoveryException` are absent;
-- `scanner_recycle_requested` is followed by leaving the loop without reaching the normal scan sleep;
-- lifecycle `releaseWriteLease($writeLease)` remains in the iteration `finally`.
+Point the `Directories::CORE_TEMP_DIR` stub at a unique temporary root. Acquire the real process guard before calling `WorkerLocalSpeechToTextJobs::start()` and assert that the worker:
 
-- [ ] **Step 2: Add failing phase and safe-log assertions**
+- emits `scanner_duplicate_rejected`;
+- returns without calling runtime pragmas, CDR schema setup, queue recovery, or publication;
+- does not acquire a lifecycle write lease;
+- leaves the original guard as the sole lock owner.
 
-Require every stable phase string and these context keys:
+- [ ] **Step 2: Add failing fatal-PDO recycle and cleanup behavior assertions**
+
+Release the competing guard, configure the `STTWorker::markStaleOffline()` stub to throw an unknown `PDOException`, and run a fresh worker. Assert observable effects:
+
+- the lifecycle gate acquired exactly one write lease and released that same lease exactly once;
+- `operation_failed` reports `scan_phase=stale_workers`, `database_error_kind=unknown_pdo`, `consecutive_failures=1`, `recovery_action=recycle`, and `recovery_succeeded=true`;
+- `scanner_recycle_requested` is emitted;
+- `scanner_stopped` reports `stop_reason=database_recycle`;
+- no later queue/publication collaborator ran;
+- a new real `ScannerProcessGuard` can acquire immediately after `start()` returns, proving outer-finally release;
+- the test completes without the normal 15-second iteration delay.
+
+Require these safe context keys in captured events:
 
 ```php
 [
@@ -399,13 +408,15 @@ Require every stable phase string and these context keys:
 ]
 ```
 
-Forbid new context keys named `exception_message`, `sql`, `dsn`, `database_path`, or `trace`. Require the original exception and any recovery exception to pass only through `LocalSpeechToTextLogSanitizer::errorCode()`.
+Forbid captured context keys named `exception_message`, `sql`, `dsn`, `database_path`, or `trace`. Require error values to be bounded sanitizer codes rather than the injected PDO message.
+
+As an additional module-boundary guard only, read the worker source once and assert that `ModulesDBConnectionsProvider` and `recreateModulesDBConnections` are absent. Do not use source text to prove recycle, ordering, logging, or lock behavior.
 
 - [ ] **Step 3: Run the worker contract and verify RED**
 
-Run: `php Tests/check-scanner-worker-recycle-contract.php && php Tests/check-scanner-transaction-recovery.php`
+Run: `php Tests/check-scanner-worker-recycle.php && php Tests/check-scanner-transaction-recovery.php`
 
-Expected: failure because the worker has no singleton, phase state, or controlled recycle outcome.
+Expected: behavior assertions fail because the worker has no singleton or controlled recycle outcome.
 
 - [ ] **Step 4: Wrap scanner startup with the process guard**
 
@@ -473,7 +484,7 @@ After the loop, log `scanner_stopped` with `pid` and `stop_reason`. Release the 
 Run:
 
 ```bash
-php Tests/check-scanner-worker-recycle-contract.php
+php Tests/check-scanner-worker-recycle.php
 php Tests/check-scanner-transaction-recovery.php
 php Tests/check-scanner-process-guard.php
 php Tests/check-module-logging-contract.php
@@ -486,7 +497,7 @@ Expected: every command exits 0; existing queue and lifecycle contracts remain u
 - [ ] **Step 9: Commit worker integration**
 
 ```bash
-git add bin/WorkerLocalSpeechToTextJobs.php Tests/check-scanner-worker-recycle-contract.php
+git add bin/WorkerLocalSpeechToTextJobs.php Tests/check-scanner-worker-recycle.php
 git commit -m "fix: recycle poisoned STT scanner connections"
 ```
 
@@ -510,7 +521,7 @@ php -l bin/WorkerLocalSpeechToTextJobs.php
 php -l Tests/check-scanner-database-failure-policy.php
 php -l Tests/check-scanner-transaction-recovery.php
 php -l Tests/check-scanner-process-guard.php
-php -l Tests/check-scanner-worker-recycle-contract.php
+php -l Tests/check-scanner-worker-recycle.php
 ```
 
 Expected: every file reports `No syntax errors detected`.
@@ -543,7 +554,7 @@ git diff --name-only origin/develop...HEAD
 if rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" Lib bin; then
     exit 1
 fi
-rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" Tests/check-scanner-worker-recycle-contract.php
+rg -n "recreateModulesDBConnections|ModulesDBConnectionsProvider" Tests/check-scanner-worker-recycle.php
 ```
 
 Expected: `git diff --check` exits 0; every changed path is inside this module; `rg` finds no reconnect call in production code. A literal may exist only in the worker contract's forbidden-string assertion.
