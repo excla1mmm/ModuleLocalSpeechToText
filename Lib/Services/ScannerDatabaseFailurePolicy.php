@@ -29,12 +29,14 @@ final class ScannerDatabaseFailurePolicy
             return self::KIND_NOT_PDO;
         }
 
-        $numericCode = $this->numericCode($pdoException);
-        if ($numericCode !== null) {
-            $kind = $this->kindForSqliteCode($numericCode & 0xff);
-            if ($kind !== null) {
-                return $kind;
-            }
+        $errorInfoKind = $this->kindForNumericCode($pdoException->errorInfo[1] ?? null);
+        if ($errorInfoKind !== null) {
+            return $errorInfoKind;
+        }
+
+        $codeKind = $this->kindForNumericCode($pdoException->getCode());
+        if ($codeKind !== null) {
+            return $codeKind;
         }
 
         return $this->kindForMessage($pdoException->getMessage()) ?? self::KIND_UNKNOWN_PDO;
@@ -72,16 +74,10 @@ final class ScannerDatabaseFailurePolicy
         return null;
     }
 
-    private function numericCode(PDOException $exception): ?int
+    private function kindForNumericCode(mixed $code): ?string
     {
-        $errorInfoCode = $exception->errorInfo[1] ?? null;
-        if (is_int($errorInfoCode) || is_string($errorInfoCode) && is_numeric($errorInfoCode)) {
-            return (int)$errorInfoCode;
-        }
-
-        $code = $exception->getCode();
         if (is_int($code) || is_string($code) && is_numeric($code)) {
-            return (int)$code;
+            return $this->kindForSqliteCode((int)$code & 0xff);
         }
 
         return null;

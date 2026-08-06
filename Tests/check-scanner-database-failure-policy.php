@@ -21,6 +21,15 @@ function scannerPdoException(int|string $code, string $message = 'database failu
     return $exception;
 }
 
+/** @param array<int, mixed> $errorInfo */
+function scannerPdoExceptionWithErrorInfo(int $code, array $errorInfo, string $message = 'database failure'): PDOException
+{
+    $exception = new PDOException($message, $code);
+    $exception->errorInfo = $errorInfo;
+
+    return $exception;
+}
+
 $policy = new ScannerDatabaseFailurePolicy();
 
 $expectedKinds = [
@@ -53,6 +62,19 @@ expectScannerDatabaseFailurePolicy(
 expectScannerDatabaseFailurePolicy(
     $policy->classify(scannerPdoException(262)) === ScannerDatabaseFailurePolicy::KIND_LOCKED,
     'Extended SQLite locked code was not normalized'
+);
+
+expectScannerDatabaseFailurePolicy(
+    $policy->classify(scannerPdoExceptionWithErrorInfo(5, [])) === ScannerDatabaseFailurePolicy::KIND_BUSY,
+    'PDO getCode() was not used when errorInfo has no driver code'
+);
+expectScannerDatabaseFailurePolicy(
+    $policy->classify(scannerPdoExceptionWithErrorInfo(6, ['HY000', 'not numeric'])) === ScannerDatabaseFailurePolicy::KIND_LOCKED,
+    'PDO getCode() was not used when errorInfo has a nonnumeric driver code'
+);
+expectScannerDatabaseFailurePolicy(
+    $policy->classify(scannerPdoExceptionWithErrorInfo(8, ['HY000', 1])) === ScannerDatabaseFailurePolicy::KIND_READONLY,
+    'Known PDO getCode() must take precedence over an unknown errorInfo driver code'
 );
 
 $fallbacks = [
@@ -116,5 +138,22 @@ expectScannerDatabaseFailurePolicy(
     $policy->recoveryAction(ScannerDatabaseFailurePolicy::KIND_NOT_PDO, 1, false) === ScannerDatabaseFailurePolicy::ACTION_RECYCLE,
     'failed recovery must recycle even for not_pdo'
 );
+
+foreach ([
+    ScannerDatabaseFailurePolicy::KIND_BUSY,
+    ScannerDatabaseFailurePolicy::KIND_LOCKED,
+    ScannerDatabaseFailurePolicy::KIND_READONLY,
+    ScannerDatabaseFailurePolicy::KIND_IO,
+    ScannerDatabaseFailurePolicy::KIND_CORRUPT,
+    ScannerDatabaseFailurePolicy::KIND_CANTOPEN,
+    ScannerDatabaseFailurePolicy::KIND_NOTADB,
+    ScannerDatabaseFailurePolicy::KIND_UNKNOWN_PDO,
+    ScannerDatabaseFailurePolicy::KIND_NOT_PDO,
+] as $kind) {
+    expectScannerDatabaseFailurePolicy(
+        $policy->recoveryAction($kind, 1, false) === ScannerDatabaseFailurePolicy::ACTION_RECYCLE,
+        "failed recovery must recycle {$kind}"
+    );
+}
 
 echo "Scanner database failure policy behavior OK\n";
