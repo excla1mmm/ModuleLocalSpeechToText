@@ -16,7 +16,9 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerTransactionRecovery;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerDatabaseFailurePolicy;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerIterationFailureHandler;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerProcessGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -46,103 +48,236 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     public function start(array $argv): void
     {
-        LocalSpeechToTextLogger::event(
-            'system',
-            'scanner_started',
-            'STT recording scanner started',
-            LOG_NOTICE,
-            ['pid' => getmypid()]
-        );
+        $processGuard = new ScannerProcessGuard();
+        $processGuardAcquired = false;
+        $consecutiveDatabaseFailures = 0;
+        $recycleRequested = false;
+        $stopReason = 'signal';
 
-        $lifecycleGate = new ModuleLifecycleGate();
-        $cdrTablesInitialized = false;
-        while ($this->needRestart === false) {
-            pcntl_signal_dispatch();
-
-            $writeLease = $lifecycleGate->acquireWriteLease();
-            if ($writeLease === null) {
-                sleep(self::SCAN_INTERVAL_SECONDS);
-                continue;
-            }
-
+        try {
             try {
-                if (!$this->runtimePragmasConfigured) {
-                    (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-                    $this->runtimePragmasConfigured = true;
-                }
-                if (!$cdrTablesInitialized) {
-                    DatabaseProviderBase::ensureCdrTables();
-                    $cdrTablesInitialized = true;
-                }
-                STTWorker::markStaleOffline();
-                $requeued = STTJob::requeueStaleProcessing();
-                if ($requeued > 0) {
-                    LocalSpeechToTextLogger::event(
-                        'queue',
-                        'stale_leases_recovered',
-                        'Expired transcription leases were recovered',
-                        LOG_NOTICE,
-                        ['recovered_count' => $requeued]
-                    );
-                }
-                $this->retryDelayedRecordings();
-                $this->retrySkippedRecordings();
-                $this->createJobsFromCompletedCdr();
-                $publication = (new CallTranscriptRevisionService())->publishReady();
-                if ($publication['published'] > 0) {
-                    LocalSpeechToTextLogger::event(
-                        'transcript',
-                        'call_transcripts_published',
-                        'Call transcript revisions published',
-                        LOG_NOTICE,
-                        [
-                            'published_count' => $publication['published'],
-                            'scanned_count' => $publication['scanned'],
-                            'blocked_jobs' => $publication['blocked_jobs'],
-                        ]
-                    );
-                }
-                $this->purgeExpiredTranscripts();
+                $processGuardAcquired = $processGuard->acquire();
             } catch (Throwable $exception) {
                 LocalSpeechToTextLogger::event(
                     'system',
                     'operation_failed',
-                    'STT recording scan failed',
+                    'STT scanner process guard failed',
                     LOG_ERR,
                     [
-                        'operation' => 'scanner_iteration',
+                        'operation' => 'scanner_process_guard',
                         'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
                     ]
                 );
-                try {
-                    (new ScannerTransactionRecovery())->recover($this->scannerConnections());
-                } catch (TransactionRecoveryException $recoveryException) {
-                    LocalSpeechToTextLogger::event(
-                        'storage',
-                        'database_operation_failed',
-                        'Scanner database recovery failed',
-                        LOG_CRIT,
-                        [
-                            'operation' => 'scanner_database_recovery',
-                            'error_code' => LocalSpeechToTextLogSanitizer::errorCode($recoveryException),
-                        ]
-                    );
-                    throw $recoveryException;
-                }
-            } finally {
-                $lifecycleGate->releaseWriteLease($writeLease);
+                return;
             }
 
-            sleep(self::SCAN_INTERVAL_SECONDS);
-        }
+            if (!$processGuardAcquired) {
+                LocalSpeechToTextLogger::event(
+                    'system',
+                    'scanner_duplicate_rejected',
+                    'Duplicate STT recording scanner rejected',
+                    LOG_NOTICE,
+                    ['pid' => getmypid()]
+                );
+                return;
+            }
 
-        LocalSpeechToTextLogger::event(
-            'system',
-            'scanner_stopped',
-            'STT recording scanner stopped',
-            LOG_NOTICE,
-            ['pid' => getmypid()]
-        );
+            $startupBackoffSeconds = $processGuard->startupBackoffSeconds();
+            if ($startupBackoffSeconds > 0) {
+                $backoffContext = ['delay_seconds' => $startupBackoffSeconds];
+                $stateErrorCode = $processGuard->lastStateErrorCode();
+                if ($stateErrorCode !== null) {
+                    $backoffContext['error_code'] = $stateErrorCode;
+                }
+                LocalSpeechToTextLogger::event(
+                    'system',
+                    'scanner_recovery_backoff_applied',
+                    'STT scanner recovery backoff applied',
+                    LOG_WARNING,
+                    $backoffContext
+                );
+                sleep($startupBackoffSeconds);
+            }
+
+            pcntl_signal_dispatch();
+            if ($this->needRestart) {
+                return;
+            }
+
+            LocalSpeechToTextLogger::event(
+                'system',
+                'scanner_started',
+                'STT recording scanner started',
+                LOG_NOTICE,
+                ['pid' => getmypid()]
+            );
+
+            $lifecycleGate = new ModuleLifecycleGate();
+            $cdrTablesInitialized = false;
+            while ($this->needRestart === false) {
+                pcntl_signal_dispatch();
+
+                $writeLease = $lifecycleGate->acquireWriteLease();
+                if ($writeLease === null) {
+                    sleep(self::SCAN_INTERVAL_SECONDS);
+                    continue;
+                }
+
+                $iterationSucceeded = false;
+                try {
+                    if (!$this->runtimePragmasConfigured) {
+                        $scanPhase = 'runtime_pragmas';
+                        (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+                        $this->runtimePragmasConfigured = true;
+                    }
+                    if (!$cdrTablesInitialized) {
+                        $scanPhase = 'cdr_schema';
+                        DatabaseProviderBase::ensureCdrTables();
+                        $cdrTablesInitialized = true;
+                    }
+                    $scanPhase = 'stale_workers';
+                    STTWorker::markStaleOffline();
+                    $scanPhase = 'stale_leases';
+                    $requeued = STTJob::requeueStaleProcessing();
+                    if ($requeued > 0) {
+                        LocalSpeechToTextLogger::event(
+                            'queue',
+                            'stale_leases_recovered',
+                            'Expired transcription leases were recovered',
+                            LOG_NOTICE,
+                            ['recovered_count' => $requeued]
+                        );
+                    }
+                    $scanPhase = 'delayed_recordings';
+                    $this->retryDelayedRecordings();
+                    $scanPhase = 'skipped_recordings';
+                    $this->retrySkippedRecordings();
+                    $scanPhase = 'cdr_scan';
+                    $this->createJobsFromCompletedCdr();
+                    $scanPhase = 'call_transcript_publish';
+                    $publication = (new CallTranscriptRevisionService())->publishReady();
+                    if ($publication['published'] > 0) {
+                        LocalSpeechToTextLogger::event(
+                            'transcript',
+                            'call_transcripts_published',
+                            'Call transcript revisions published',
+                            LOG_NOTICE,
+                            [
+                                'published_count' => $publication['published'],
+                                'scanned_count' => $publication['scanned'],
+                                'blocked_jobs' => $publication['blocked_jobs'],
+                            ]
+                        );
+                    }
+                    $scanPhase = 'retention_cleanup';
+                    $this->purgeExpiredTranscripts();
+                    $iterationSucceeded = true;
+                } catch (Throwable $exception) {
+                    $outcome = (new ScannerIterationFailureHandler())->handle(
+                        $exception,
+                        fn (): array => $this->scannerConnections(),
+                        $consecutiveDatabaseFailures
+                    );
+                    $consecutiveDatabaseFailures = $outcome['consecutive_database_failures'];
+
+                    LocalSpeechToTextLogger::event(
+                        'system',
+                        'operation_failed',
+                        'STT recording scan failed',
+                        LOG_ERR,
+                        [
+                            'operation' => 'scanner_iteration',
+                            'scan_phase' => $scanPhase,
+                            'database_error_kind' => $outcome['database_error_kind'],
+                            'consecutive_failures' => $consecutiveDatabaseFailures,
+                            'recovery_action' => $outcome['recovery_action'],
+                            'recovery_succeeded' => $outcome['recovery_succeeded'],
+                            'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+                        ]
+                    );
+
+                    $recoveryException = $outcome['recovery_exception'];
+                    if ($recoveryException !== null) {
+                        LocalSpeechToTextLogger::event(
+                            'storage',
+                            'database_operation_failed',
+                            'Scanner database recovery failed',
+                            LOG_CRIT,
+                            [
+                                'operation' => 'scanner_database_recovery',
+                                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($recoveryException),
+                            ]
+                        );
+                    }
+
+                    if ($outcome['recovery_action'] === ScannerDatabaseFailurePolicy::ACTION_RECYCLE) {
+                        try {
+                            $processGuard->recordRecycle();
+                        } catch (Throwable $stateException) {
+                            LocalSpeechToTextLogger::event(
+                                'system',
+                                'operation_failed',
+                                'STT scanner recycle state could not be persisted',
+                                LOG_WARNING,
+                                [
+                                    'operation' => 'scanner_recycle_state',
+                                    'error_code' => LocalSpeechToTextLogSanitizer::errorCode($stateException),
+                                ]
+                            );
+                        }
+                        $recycleRequested = true;
+                        $stopReason = 'database_recycle';
+                        LocalSpeechToTextLogger::event(
+                            'system',
+                            'scanner_recycle_requested',
+                            'STT scanner process recycle requested',
+                            LOG_WARNING,
+                            ['pid' => getmypid()]
+                        );
+                    }
+                } finally {
+                    $lifecycleGate->releaseWriteLease($writeLease);
+                }
+
+                if ($iterationSucceeded) {
+                    $consecutiveDatabaseFailures = 0;
+                    try {
+                        $processGuard->recordHealthy();
+                    } catch (Throwable $stateException) {
+                        LocalSpeechToTextLogger::event(
+                            'system',
+                            'operation_failed',
+                            'STT scanner healthy state could not be persisted',
+                            LOG_WARNING,
+                            [
+                                'operation' => 'scanner_healthy_state',
+                                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($stateException),
+                            ]
+                        );
+                    }
+                }
+                if ($recycleRequested) {
+                    break;
+                }
+
+                sleep(self::SCAN_INTERVAL_SECONDS);
+            }
+
+            LocalSpeechToTextLogger::event(
+                'system',
+                'scanner_stopped',
+                'STT recording scanner stopped',
+                LOG_NOTICE,
+                [
+                    'pid' => getmypid(),
+                    'stop_reason' => $stopReason,
+                ]
+            );
+        } finally {
+            if ($processGuardAcquired) {
+                $processGuard->release();
+            }
+        }
     }
 
     private function purgeExpiredTranscripts(): void
