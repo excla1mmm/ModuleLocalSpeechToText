@@ -4,7 +4,7 @@
 
 **Goal:** Make the STT scanner self-heal from stale or poisoned PDO state by safely recycling its process, rejecting duplicate scanners, and applying bounded restart backoff entirely inside `ModuleLocalSpeechToText`.
 
-**Architecture:** Keep transaction cleanup in the existing recovery service, add a pure PDO failure policy and a recovery-outcome coordinator, and make the worker return after fatal database outcomes so its supervisor builds a clean process and DI graph. Protect the complete scanner lifetime with a module-owned advisory lock and persist only a small restart counter in the Core temporary directory.
+**Architecture:** Keep transaction cleanup in the existing recovery service, add a pure PDO failure policy and a recovery-outcome coordinator, and make the worker return after fatal database outcomes so its supervisor builds a clean process and DI graph. Protect the complete scanner lifetime with a module-owned advisory lock and persist only a small restart counter in the stable Core-managed worker lock directory. The clearable Core temp directory is unsafe because pathname replacement can split singleton ownership across two inodes.
 
 **Tech Stack:** PHP 8.3, Phalcon database adapters/models, PDO/SQLite, POSIX `flock`, MikoPBX `WorkerBase`, module structured logging, standalone PHP contract tests.
 
@@ -17,6 +17,8 @@
 - Do not change database schema, REST contracts, worker payloads, job ownership, leases, or event formats.
 - Keep the process lock outside the replaceable module `db` directory.
 - Hold the process lock during startup backoff and until the worker's outermost `finally` completes.
+- Revalidate retained process-guard ownership after backoff and before every lifecycle write lease.
+- Publish composite CDR cursor IDs before end times so interrupted writes are conservative.
 - Release the lifecycle write lease before every sleep, normal stop, or database recycle.
 - Treat only SQLite `BUSY` and `LOCKED` as transient; recycle them on the third consecutive database failure.
 - Recycle immediately for every other PDO failure and for every transaction-recovery failure.
@@ -36,8 +38,9 @@
 | `bin/WorkerLocalSpeechToTextJobs.php` | Phase tracking, structured diagnostics, healthy reset, and controlled return |
 | `Tests/check-scanner-database-failure-policy.php` | Numeric, wrapped, message-fallback, and decision unit contracts |
 | `Tests/check-scanner-transaction-recovery.php` | Existing rollback checks plus failure-handler orchestration |
-| `Tests/check-scanner-process-guard.php` | Lock contention, release, backoff, stale, and malformed-state contracts |
-| `Tests/check-scanner-worker-recycle.php` | Executable worker duplicate/recycle, lease release, logging, and process-lock behavior |
+| `Tests/check-scanner-process-guard.php` | Lock contention/failure, ownership integrity, warning confidentiality, release, backoff, stale, and malformed-state contracts |
+| `Tests/check-scanner-cursor-interruption.php` | Stateful failure injection for realtime/backfill cursor and completion publication |
+| `Tests/check-scanner-worker-recycle.php` | Executable worker duplicate/recycle matrix, lease release, logging, and process-lock-loss behavior |
 
 ---
 
@@ -271,9 +274,9 @@ git commit -m "feat: coordinate scanner transaction recovery"
 - Create: `Tests/check-scanner-process-guard.php`
 
 **Interfaces:**
-- Produces: `acquire(): bool`, `startupBackoffSeconds(): int`, `recordRecycle(): void`, `recordHealthy(): void`, `lastStateErrorCode(): ?string`, and `release(): void`.
+- Produces: `acquire(): bool`, integrity-only `assertOwnership(): void`, `startupBackoffSeconds(): int`, `recordRecycle(): void`, `recordHealthy(): void`, `lastStateErrorCode(): ?string`, and `release(): void`.
 - Constructor: `__construct(?string $runtimeDirectory = null, mixed $clock = null)`.
-- Default directory: `rtrim(Directories::getDir(Directories::CORE_TEMP_DIR), DIRECTORY_SEPARATOR) . '/ModuleLocalSpeechToText/scanner'`.
+- Default directory: `rtrim(Processes::getLockFileDir(), DIRECTORY_SEPARATOR) . '/ModuleLocalSpeechToText/scanner'`. Do not use `Directories::CORE_TEMP_DIR`: temp cleanup can replace the pathname while the old process retains the original inode.
 - Files: `.scanner-process.lock` and `.scanner-recovery-state.json` with directory mode `0750` and file mode `0640`.
 
 - [ ] **Step 1: Write the failing singleton contract**
@@ -321,7 +324,7 @@ On `acquire()`:
 2. reject an empty path or a symlinked runtime directory;
 3. create/open `.scanner-process.lock` without following a symlink;
 4. set mode `0640` for a newly created file;
-5. call `flock($handle, LOCK_EX | LOCK_NB)`;
+5. call `flock($handle, LOCK_EX | LOCK_NB, $wouldBlock)`, returning `false` only when `$wouldBlock === 1` and throwing a stable exception for other failures;
 6. retain the resource only on success.
 
 Make repeated `acquire()` on the same owning instance idempotently return true. Make `release()` unlock, close, and clear the resource. Call `release()` from `__destruct()`.
@@ -376,7 +379,7 @@ git commit -m "feat: guard STT scanner process lifetime"
 
 Build the test harness using real `ScannerProcessGuard`, `ScannerDatabaseFailurePolicy`, `ScannerIterationFailureHandler`, `ScannerTransactionRecovery`, and the real worker class. Stub only MikoPBX framework boundaries and unrelated scanner collaborators, following the namespace pattern in `Tests/check-worker-retry-overflow.php`.
 
-Point the `Directories::CORE_TEMP_DIR` stub at a unique temporary root. Acquire the real process guard before calling `WorkerLocalSpeechToTextJobs::start()` and assert that the worker:
+Point the `Processes::getLockFileDir()` stub at a unique temporary root. Acquire the real process guard before calling `WorkerLocalSpeechToTextJobs::start()` and assert that the worker:
 
 - emits `scanner_duplicate_rejected`;
 - returns without calling runtime pragmas, CDR schema setup, queue recovery, or publication;
@@ -500,6 +503,23 @@ Expected: every command exits 0; existing queue and lifecycle contracts remain u
 git add bin/WorkerLocalSpeechToTextJobs.php Tests/check-scanner-worker-recycle.php
 git commit -m "fix: recycle poisoned STT scanner connections"
 ```
+
+### Task 4A: Harden singleton integrity and interruption boundaries
+
+**Files:**
+- Modify: `Lib/Services/ScannerProcessGuard.php`
+- Modify: `bin/WorkerLocalSpeechToTextJobs.php`
+- Modify: `Tests/check-scanner-process-guard.php`
+- Modify: `Tests/check-scanner-worker-recycle.php`
+- Create: `Tests/check-scanner-cursor-interruption.php`
+
+- [ ] Add executable RED coverage for runtime/lock replacement after backoff and between iterations, then stop with `process_guard_lost` before another database scan.
+- [ ] Add `assertOwnership()` checks for acquired resources, retained canonical pathname and handle identity, owner/type/device/inode, and exact modes without normalization or state mutation.
+- [ ] Convert guard filesystem warnings to stable path-free exceptions with a narrowly scoped error handler that always restores its predecessor; place all startup guard operations inside the sanitized worker boundary.
+- [ ] Cover real contention separately from non-contention `flock()` failure by using `$wouldBlock`.
+- [ ] Cover BUSY threshold, success reset, non-PDO continue, and recovery-failure recycle with one release per acquired lifecycle lease and no normal post-recycle sleep.
+- [ ] Persist realtime/backfill cursor IDs before end times, and the backfill history snapshot before the done flag; prove second-write interruption cannot skip ordered rows.
+- [ ] Register randomized-root cleanup immediately, track lifecycle lock/marker pre-existence independently, and remove only artifacts created by the test.
 
 ### Task 5: Verify regression safety and package boundaries
 

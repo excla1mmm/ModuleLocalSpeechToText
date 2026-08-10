@@ -2,6 +2,90 @@
 
 declare(strict_types=1);
 
+namespace MikoPBX\Core\System {
+    final class Directories
+    {
+        public const string CORE_TEMP_DIR = 'core_temp';
+        public static string $coreTempDirectory = '';
+
+        public static function getDir(string $directory): string
+        {
+            return self::$coreTempDirectory;
+        }
+    }
+
+    final class Processes
+    {
+        public static string $lockFileDirectory = '';
+
+        public static function getLockFileDir(): string
+        {
+            return self::$lockFileDirectory;
+        }
+    }
+}
+
+namespace Modules\ModuleLocalSpeechToText\Lib\Services {
+    final class ScannerGuardFilesystemProbe
+    {
+        public static ?int $flockWouldBlock = null;
+        public static ?string $fopenFailureNeedle = null;
+        public static ?string $pathCheckFailureNeedle = null;
+        public static string $filesystemWarning = '';
+    }
+
+    function flock(mixed $stream, int $operation, ?int &$wouldBlock = null): bool
+    {
+        if (ScannerGuardFilesystemProbe::$flockWouldBlock !== null && ($operation & LOCK_EX) === LOCK_EX) {
+            $wouldBlock = ScannerGuardFilesystemProbe::$flockWouldBlock;
+            return false;
+        }
+
+        return \flock($stream, $operation, $wouldBlock);
+    }
+
+    function fopen(
+        string $filename,
+        string $mode,
+        bool $useIncludePath = false,
+        mixed $context = null
+    ): mixed {
+        $needle = ScannerGuardFilesystemProbe::$fopenFailureNeedle;
+        if ($needle !== null && str_contains($filename, $needle)) {
+            trigger_error(ScannerGuardFilesystemProbe::$filesystemWarning, E_USER_WARNING);
+            return false;
+        }
+
+        return $context === null
+            ? \fopen($filename, $mode, $useIncludePath)
+            : \fopen($filename, $mode, $useIncludePath, $context);
+    }
+
+    function file_exists(string $filename): bool
+    {
+        $needle = ScannerGuardFilesystemProbe::$pathCheckFailureNeedle;
+        if ($needle !== null && str_contains($filename, $needle)) {
+            trigger_error(ScannerGuardFilesystemProbe::$filesystemWarning, E_USER_WARNING);
+            return false;
+        }
+        return \file_exists($filename);
+    }
+
+    function is_link(string $filename): bool
+    {
+        $needle = ScannerGuardFilesystemProbe::$pathCheckFailureNeedle;
+        if ($needle !== null && str_contains($filename, $needle)) {
+            trigger_error(ScannerGuardFilesystemProbe::$filesystemWarning, E_USER_WARNING);
+            return false;
+        }
+        return \is_link($filename);
+    }
+}
+
+namespace {
+use MikoPBX\Core\System\Directories;
+use MikoPBX\Core\System\Processes;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerGuardFilesystemProbe;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerProcessGuard;
 
 require_once __DIR__ . '/../Lib/Services/ScannerProcessGuard.php';
@@ -61,6 +145,8 @@ register_shutdown_function(
         removeScannerGuardTestDirectory($temporaryRoot);
     }
 );
+Directories::$coreTempDirectory = $temporaryRoot . '/unsafe-core-temp';
+Processes::$lockFileDirectory = $temporaryRoot . '/stable-worker-locks';
 
 $now = 1_785_819_600;
 $clock = static function () use (&$now): int {
@@ -69,10 +155,99 @@ $clock = static function () use (&$now): int {
 $lockPath = $runtimeDirectory . '/.scanner-process.lock';
 $statePath = $runtimeDirectory . '/.scanner-recovery-state.json';
 
+$defaultRuntimeDirectory = Processes::$lockFileDirectory . '/ModuleLocalSpeechToText/scanner';
+$defaultGuard = new ScannerProcessGuard();
+expectScannerGuard($defaultGuard->acquire(), 'default scanner guard could not acquire singleton');
+expectScannerGuard(
+    is_file($defaultRuntimeDirectory . '/.scanner-process.lock'),
+    'default scanner guard must use the stable Core-managed worker lock directory'
+);
+expectScannerGuard(
+    !file_exists(Directories::$coreTempDirectory . '/ModuleLocalSpeechToText/scanner/.scanner-process.lock'),
+    'default scanner guard must not use the clearable Core temp directory'
+);
+$defaultGuard->release();
+
+$flockFailureRuntime = $temporaryRoot . '/flock-failure-runtime';
+ScannerGuardFilesystemProbe::$flockWouldBlock = 0;
+expectScannerGuardRuntimeException(
+    static fn (): bool => (new ScannerProcessGuard($flockFailureRuntime))->acquire(),
+    'non-contention flock failure must throw a stable guard exception'
+);
+ScannerGuardFilesystemProbe::$flockWouldBlock = 1;
+expectScannerGuard(
+    !(new ScannerProcessGuard($flockFailureRuntime))->acquire(),
+    'actual flock contention must remain a duplicate rejection'
+);
+ScannerGuardFilesystemProbe::$flockWouldBlock = null;
+
+$warningRuntime = $temporaryRoot . '/warning-runtime-private-customer-path';
+$injectedFilesystemWarning = 'injected filesystem failure at /private/customer/secret.lock';
+ScannerGuardFilesystemProbe::$fopenFailureNeedle = 'warning-runtime-private-customer-path';
+ScannerGuardFilesystemProbe::$filesystemWarning = $injectedFilesystemWarning;
+$escapedWarnings = [];
+$warningException = null;
+set_error_handler(
+    static function (int $severity, string $message) use (&$escapedWarnings): bool {
+        $escapedWarnings[] = [$severity, $message];
+        return true;
+    }
+);
+try {
+    try {
+        (new ScannerProcessGuard($warningRuntime))->acquire();
+    } catch (Throwable $exception) {
+        $warningException = $exception;
+    }
+} finally {
+    restore_error_handler();
+    ScannerGuardFilesystemProbe::$fopenFailureNeedle = null;
+    ScannerGuardFilesystemProbe::$filesystemWarning = '';
+}
+expectScannerGuard($warningException instanceof RuntimeException, 'filesystem warning must become a guard exception');
+expectScannerGuard($escapedWarnings === [], 'guard filesystem warnings must not escape its sanitized boundary');
+expectScannerGuard(
+    !str_contains((string)$warningException?->getMessage(), $injectedFilesystemWarning)
+        && !str_contains((string)$warningException?->getMessage(), $warningRuntime),
+    'guard filesystem exception must not expose injected text or a runtime path'
+);
+
+$pathCheckRuntime = $temporaryRoot . '/path-check-runtime-private-customer-path';
+$injectedPathCheckWarning = 'open_basedir restriction at /private/customer/secret-runtime';
+ScannerGuardFilesystemProbe::$pathCheckFailureNeedle = 'path-check-runtime-private-customer-path';
+ScannerGuardFilesystemProbe::$filesystemWarning = $injectedPathCheckWarning;
+$escapedWarnings = [];
+$pathCheckException = null;
+set_error_handler(
+    static function (int $severity, string $message) use (&$escapedWarnings): bool {
+        $escapedWarnings[] = [$severity, $message];
+        return true;
+    }
+);
+try {
+    try {
+        (new ScannerProcessGuard($pathCheckRuntime))->acquire();
+    } catch (Throwable $exception) {
+        $pathCheckException = $exception;
+    }
+} finally {
+    restore_error_handler();
+    ScannerGuardFilesystemProbe::$pathCheckFailureNeedle = null;
+    ScannerGuardFilesystemProbe::$filesystemWarning = '';
+}
+expectScannerGuard($pathCheckException instanceof RuntimeException, 'path-check warning must become a guard exception');
+expectScannerGuard($escapedWarnings === [], 'guard pathname-check warnings must not escape its sanitized boundary');
+expectScannerGuard(
+    !str_contains((string)$pathCheckException?->getMessage(), $injectedPathCheckWarning)
+        && !str_contains((string)$pathCheckException?->getMessage(), $pathCheckRuntime),
+    'guard pathname-check exception must not expose injected text or a runtime path'
+);
+
 $first = new ScannerProcessGuard($runtimeDirectory, $clock);
 $second = new ScannerProcessGuard($runtimeDirectory, $clock);
 expectScannerGuard($first->acquire(), 'first scanner must acquire the singleton');
 expectScannerGuard($first->acquire(), 'owning scanner acquisition must be idempotent');
+$first->assertOwnership();
 expectScannerGuard(is_dir($runtimeDirectory), 'scanner runtime directory was not created');
 expectScannerGuard(scannerGuardMode($runtimeDirectory) === 0750, 'scanner runtime directory mode must be 0750');
 expectScannerGuard(is_file($lockPath), 'scanner lock file was not created');
@@ -149,6 +324,38 @@ expectScannerGuardRuntimeException(
     'replaced scanner runtime directory inode must be rejected while the lock is owned'
 );
 $replacedRuntimeGuard->release();
+
+$modeRuntimeDirectory = $temporaryRoot . '/mode-runtime';
+$modeGuard = new ScannerProcessGuard($modeRuntimeDirectory, $clock);
+expectScannerGuard($modeGuard->acquire(), 'mode validation guard could not acquire singleton');
+chmod($modeRuntimeDirectory, 0700);
+expectScannerGuardRuntimeException(
+    static fn (): null => $modeGuard->assertOwnership(),
+    'ownership assertion must reject a changed runtime directory mode'
+);
+chmod($modeRuntimeDirectory, 0750);
+$modeLockPath = $modeRuntimeDirectory . '/.scanner-process.lock';
+chmod($modeLockPath, 0600);
+expectScannerGuardRuntimeException(
+    static fn (): null => $modeGuard->assertOwnership(),
+    'ownership assertion must reject a changed lock file mode'
+);
+chmod($modeLockPath, 0640);
+$modeGuard->release();
+
+$replacedLockRuntime = $temporaryRoot . '/replaced-lock-runtime';
+$replacedLockPath = $replacedLockRuntime . '/.scanner-process.lock';
+$retainedLockPath = $replacedLockRuntime . '/.scanner-process.lock.retained';
+$replacedLockGuard = new ScannerProcessGuard($replacedLockRuntime, $clock);
+expectScannerGuard($replacedLockGuard->acquire(), 'lock replacement guard could not acquire singleton');
+rename($replacedLockPath, $retainedLockPath);
+file_put_contents($replacedLockPath, 'replacement');
+chmod($replacedLockPath, 0640);
+expectScannerGuardRuntimeException(
+    static fn (): null => $replacedLockGuard->assertOwnership(),
+    'ownership assertion must reject replacement of the retained lock pathname'
+);
+$replacedLockGuard->release();
 
 $unreadableStateRuntime = $temporaryRoot . '/unreadable-state-runtime';
 $unreadableStateGuard = new ScannerProcessGuard($unreadableStateRuntime, $clock);
@@ -309,4 +516,18 @@ expectScannerGuardRuntimeException(
     'empty scanner runtime directory must be rejected'
 );
 
+$canonicalParent = $temporaryRoot . '/canonical-parent';
+$canonicalRuntime = $canonicalParent . '/runtime';
+$retainedCanonicalParent = $temporaryRoot . '/canonical-parent-retained';
+$canonicalGuard = new ScannerProcessGuard($canonicalRuntime, $clock);
+expectScannerGuard($canonicalGuard->acquire(), 'canonical pathname guard could not acquire singleton');
+rename($canonicalParent, $retainedCanonicalParent);
+symlink($retainedCanonicalParent, $canonicalParent);
+expectScannerGuardRuntimeException(
+    static fn (): null => $canonicalGuard->assertOwnership(),
+    'ownership assertion must reject a changed canonical runtime pathname'
+);
+$canonicalGuard->release();
+
 echo "Scanner process guard behavior OK\n";
+}

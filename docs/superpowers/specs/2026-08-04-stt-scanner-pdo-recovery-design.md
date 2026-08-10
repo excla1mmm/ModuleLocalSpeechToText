@@ -31,6 +31,7 @@ It does not change:
 
 - At most one `WorkerLocalSpeechToTextJobs` scanner owns the module scan loop at a time.
 - The singleton lock remains held for the complete process lifetime, including startup backoff and shutdown.
+- Before database scheduling resumes after backoff or a completed iteration, the scanner verifies that its retained runtime directory and lock handles still identify the canonical owned paths, types, devices, inodes, owners, and exact modes.
 - A duplicate scanner exits before it opens the lifecycle scan loop or mutates jobs.
 - Every scanner iteration releases its lifecycle write lease before the process exits or sleeps.
 - An active database transaction is rolled back and verified after an iteration exception.
@@ -42,6 +43,7 @@ It does not change:
 - Restart throttling survives process replacement and is bounded at 60 seconds.
 - Scanner recovery never re-registers database services or reconstructs PDO connections inside the poisoned process.
 - Persisted jobs, results, revisions, and transcript events remain the source of truth across restart.
+- An interrupted composite CDR cursor write may rescan rows but must never skip an unprocessed row.
 
 ## Why Process Recycling Is the Recovery Boundary
 
@@ -55,7 +57,14 @@ Returning from the scanner worker lets its existing supervisor create a new PHP 
 
 ### 1. Process singleton and persistent restart state
 
-Add `ScannerProcessGuard`, backed by an advisory `flock(LOCK_EX | LOCK_NB)` file under the module's directory in `Directories::CORE_TEMP_DIR`.
+Add `ScannerProcessGuard`, backed by an advisory `flock(LOCK_EX | LOCK_NB)` file under this stable Core-managed worker runtime:
+
+```php
+rtrim(Processes::getLockFileDir(), DIRECTORY_SEPARATOR)
+    . '/ModuleLocalSpeechToText/scanner'
+```
+
+`Directories::CORE_TEMP_DIR` is intentionally not used. Core temp cleanup can replace or remove that pathname while a long-running scanner still retains an open lock handle; a new scanner could then lock a new inode and run concurrently with the old owner. The worker lock directory is the stable process-runtime boundary intended for worker coordination.
 
 The lock file must be outside the replaceable module database directory. The scanner acquires it before logging `scanner_started`, applying recovery backoff, or entering `ModuleLifecycleGate`. It holds the open lock handle until the outermost `finally` block. If acquisition fails, the process logs `scanner_duplicate_rejected` and returns successfully without touching scanner state.
 
@@ -65,7 +74,9 @@ The same guarded runtime directory contains an atomic JSON state file with:
 {"failure_count":2,"last_failure_at":1785819600}
 ```
 
-Only the process that owns the singleton lock reads or writes this state. Writes use a sibling temporary file followed by atomic rename and restrictive permissions.
+Only the process that owns the singleton lock reads or writes this state. Writes use a sibling temporary file followed by atomic rename and restrictive permissions. `assertOwnership()` is a public integrity-only check: it never repairs permissions or changes restart state. The worker calls it after startup backoff, before every lifecycle write-lease acquisition, and after a failed healthy-state write. Ownership loss logs only stable operation and sanitizer-derived error-code fields, stops with `process_guard_lost`, performs no next database iteration, and releases retained handles in the outer `finally`.
+
+Lock contention is distinguished from lock failure using `flock()`'s third `$wouldBlock` result. Only real contention returns `false`; every other failure becomes a stable startup exception. Filesystem operations are executed inside a narrowly scoped warning converter that always restores the prior PHP error handler and never propagates path-bearing warning text.
 
 At scanner startup, a recent recorded recycle applies the following delay:
 
@@ -161,6 +172,12 @@ Iteration error logs add only sanitized, bounded fields:
 
 No SQL text, database path, DSN, exception message, stack trace, worker key, or transcript content is added. A recovery failure is logged separately with its sanitizer-derived error code, then the controlled recycle proceeds.
 
+### 6. Interruption-safe CDR cursor publication
+
+Realtime and backfill cursors remain the existing two-setting lexicographic `(endtime,id)` contract. They publish `id` first and `endtime` last. If the second write is interrupted, the retained end time stays at the earlier checkpoint while the new ID can only cause conservative duplicate scanning; it cannot advance past unprocessed rows. Existing unique job constraints absorb duplicates.
+
+Backfill completion publishes `CDR_BACKFILL_DONE_HISTORY_AT` before `CDR_BACKFILL_DONE=1`. An interrupted second write therefore leaves backfill incomplete instead of advertising completion against an empty or stale history snapshot.
+
 ## Control Flow
 
 ```text
@@ -168,7 +185,9 @@ process starts
   -> acquire singleton lock
      -> duplicate: log and return
      -> owner: apply bounded persistent backoff
+        -> validate retained singleton ownership
         -> enter lifecycle-aware scan loop
+           -> validate retained ownership before each lifecycle lease
            -> complete iteration: clear counters/backoff, sleep 15s
            -> exception: recover transactions, classify exception
               -> non-PDO: release lease, sleep 15s, continue
@@ -183,6 +202,9 @@ process starts
 
 - Lock directory creation failure: log a sanitized startup failure and do not run an unlocked scanner.
 - Lock acquisition contention: treat as a duplicate process, not as a database failure.
+- Non-contention `flock()` failure: report a sanitized guard startup failure, never a duplicate.
+- Runtime-directory or lock-path replacement: stop with `process_guard_lost` before another database iteration.
+- Filesystem warning: convert it inside the guard to a stable path-free exception and restore the prior error handler.
 - Malformed or unreadable restart state: log a bounded state error code, treat it as one recent recycle, and apply exactly the five-second minimum delay; never block forever.
 - Backoff state write failure: log the error and continue with process recycling; safety does not depend on persistence of throttling.
 - Transaction recovery failure: request recycle even when the original exception was not PDO-related.
@@ -211,6 +233,9 @@ process starts
 - A healthy iteration resets backoff.
 - A recycle older than five minutes starts a new series.
 - Malformed state cannot grant a second process the singleton lock.
+- Runtime-directory and lock replacement are detected by `assertOwnership()` without repairing attacker-controlled state.
+- Non-contention lock failures throw while real contention returns `false`.
+- Injected filesystem warnings and paths do not escape through exceptions or logs.
 
 ### Worker contract and integration tests
 
@@ -219,6 +244,9 @@ process starts
 - Every required scan phase is assigned before its operation.
 - A recycle path releases the lifecycle write lease and skips the normal scan sleep.
 - A successful iteration records healthy state.
+- Backoff-time and between-iteration singleton replacement stop before any subsequent database scan.
+- BUSY/BUSY/third-BUSY, BUSY/success/reset, non-PDO continue, and recovery-failure recycle each release exactly one lifecycle lease per acquired iteration and never sleep normally after recycle.
+- Failure-injected realtime and backfill cursor writes remain conservative for shared end times and adversarial prior IDs.
 - A fatal PDO outcome returns from `start()` without re-registering database services.
 - The existing full module test suite passes.
 - The module packaging check succeeds without Core or schema changes.
@@ -237,4 +265,4 @@ process starts
 
 The change requires no migration and can be installed over the current module database. On first start there is no restart-state file, so the scanner starts without delay. Existing supervisors continue launching the same worker command; a requested recycle appears as a normal worker return followed by a clean supervisor restart.
 
-Rollback to the previous module version safely ignores the module-owned temporary lock and state files. They contain no credentials or business data and may remain until normal temporary-directory cleanup.
+Rollback to the previous module version safely ignores the module-owned worker-runtime lock and state files. They contain no credentials or business data. They are deliberately outside the clearable Core temp directory so normal temp cleanup cannot split singleton ownership.

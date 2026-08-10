@@ -48,7 +48,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     public function start(array $argv): void
     {
-        $processGuard = new ScannerProcessGuard();
+        $processGuard = null;
         $processGuardAcquired = false;
         $consecutiveDatabaseFailures = 0;
         $recycleRequested = false;
@@ -56,7 +56,35 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
         try {
             try {
+                $processGuard = new ScannerProcessGuard();
                 $processGuardAcquired = $processGuard->acquire();
+                if (!$processGuardAcquired) {
+                    LocalSpeechToTextLogger::event(
+                        'system',
+                        'scanner_duplicate_rejected',
+                        'Duplicate STT recording scanner rejected',
+                        LOG_NOTICE,
+                        ['pid' => getmypid()]
+                    );
+                    return;
+                }
+
+                $startupBackoffSeconds = $processGuard->startupBackoffSeconds();
+                if ($startupBackoffSeconds > 0) {
+                    $backoffContext = ['delay_seconds' => $startupBackoffSeconds];
+                    $stateErrorCode = $processGuard->lastStateErrorCode();
+                    if ($stateErrorCode !== null) {
+                        $backoffContext['error_code'] = $stateErrorCode;
+                    }
+                    LocalSpeechToTextLogger::event(
+                        'system',
+                        'scanner_recovery_backoff_applied',
+                        'STT scanner recovery backoff applied',
+                        LOG_WARNING,
+                        $backoffContext
+                    );
+                    sleep($startupBackoffSeconds);
+                }
             } catch (Throwable $exception) {
                 LocalSpeechToTextLogger::event(
                     'system',
@@ -71,32 +99,13 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 return;
             }
 
-            if (!$processGuardAcquired) {
-                LocalSpeechToTextLogger::event(
-                    'system',
-                    'scanner_duplicate_rejected',
-                    'Duplicate STT recording scanner rejected',
-                    LOG_NOTICE,
-                    ['pid' => getmypid()]
-                );
+            try {
+                $processGuard->assertOwnership();
+            } catch (Throwable $ownershipException) {
+                $stopReason = 'process_guard_lost';
+                $this->logProcessGuardLost($ownershipException);
+                $this->logScannerStopped($stopReason);
                 return;
-            }
-
-            $startupBackoffSeconds = $processGuard->startupBackoffSeconds();
-            if ($startupBackoffSeconds > 0) {
-                $backoffContext = ['delay_seconds' => $startupBackoffSeconds];
-                $stateErrorCode = $processGuard->lastStateErrorCode();
-                if ($stateErrorCode !== null) {
-                    $backoffContext['error_code'] = $stateErrorCode;
-                }
-                LocalSpeechToTextLogger::event(
-                    'system',
-                    'scanner_recovery_backoff_applied',
-                    'STT scanner recovery backoff applied',
-                    LOG_WARNING,
-                    $backoffContext
-                );
-                sleep($startupBackoffSeconds);
             }
 
             pcntl_signal_dispatch();
@@ -116,6 +125,14 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $cdrTablesInitialized = false;
             while ($this->needRestart === false) {
                 pcntl_signal_dispatch();
+
+                try {
+                    $processGuard->assertOwnership();
+                } catch (Throwable $ownershipException) {
+                    $stopReason = 'process_guard_lost';
+                    $this->logProcessGuardLost($ownershipException);
+                    break;
+                }
 
                 $writeLease = $lifecycleGate->acquireWriteLease();
                 if ($writeLease === null) {
@@ -254,6 +271,13 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                                 'error_code' => LocalSpeechToTextLogSanitizer::errorCode($stateException),
                             ]
                         );
+                        try {
+                            $processGuard->assertOwnership();
+                        } catch (Throwable $ownershipException) {
+                            $stopReason = 'process_guard_lost';
+                            $this->logProcessGuardLost($ownershipException);
+                            break;
+                        }
                     }
                 }
                 if ($recycleRequested) {
@@ -263,21 +287,40 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 sleep(self::SCAN_INTERVAL_SECONDS);
             }
 
-            LocalSpeechToTextLogger::event(
-                'system',
-                'scanner_stopped',
-                'STT recording scanner stopped',
-                LOG_NOTICE,
-                [
-                    'pid' => getmypid(),
-                    'stop_reason' => $stopReason,
-                ]
-            );
+            $this->logScannerStopped($stopReason);
         } finally {
-            if ($processGuardAcquired) {
+            if ($processGuardAcquired && $processGuard instanceof ScannerProcessGuard) {
                 $processGuard->release();
             }
         }
+    }
+
+    private function logProcessGuardLost(Throwable $exception): void
+    {
+        LocalSpeechToTextLogger::event(
+            'system',
+            'operation_failed',
+            'STT scanner process guard ownership lost',
+            LOG_CRIT,
+            [
+                'operation' => 'scanner_process_guard_ownership',
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
+    }
+
+    private function logScannerStopped(string $stopReason): void
+    {
+        LocalSpeechToTextLogger::event(
+            'system',
+            'scanner_stopped',
+            'STT recording scanner stopped',
+            LOG_NOTICE,
+            [
+                'pid' => getmypid(),
+                'stop_reason' => $stopReason,
+            ]
+        );
     }
 
     private function purgeExpiredTranscripts(): void
@@ -498,8 +541,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function markBackfillCompleted(string $historyStart): void
     {
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '1');
         STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, $historyStart);
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '1');
     }
 
     /**
@@ -1039,8 +1082,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function saveScanCursor(string $endtime, int $recordId): void
     {
-        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, $endtime);
         STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, (string)max(0, $recordId));
+        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, $endtime);
     }
 
     /**
@@ -1056,8 +1099,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function saveBackfillCursor(string $endtime, int $recordId): void
     {
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, $endtime);
         STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, (string)max(0, $recordId));
+        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, $endtime);
     }
 
     /**
