@@ -39,6 +39,7 @@
 | `Tests/check-scanner-database-failure-policy.php` | Numeric, wrapped, message-fallback, and decision unit contracts |
 | `Tests/check-scanner-transaction-recovery.php` | Existing rollback checks plus failure-handler orchestration |
 | `Tests/check-scanner-process-guard.php` | Lock contention/failure, ownership integrity, warning confidentiality, release, backoff, stale, and malformed-state contracts |
+| `Tests/check-scanner-process-guard-compatibility.php` | Old-Core default acquisition through the stable `/var/run/php-workers` fallback |
 | `Tests/check-scanner-cursor-interruption.php` | Stateful failure injection for realtime/backfill cursor and completion publication |
 | `Tests/check-scanner-worker-recycle.php` | Executable worker duplicate/recycle matrix, lease release, logging, and process-lock-loss behavior |
 
@@ -276,7 +277,7 @@ git commit -m "feat: coordinate scanner transaction recovery"
 **Interfaces:**
 - Produces: `acquire(): bool`, integrity-only `assertOwnership(): void`, `startupBackoffSeconds(): int`, `recordRecycle(): void`, `recordHealthy(): void`, `lastStateErrorCode(): ?string`, and `release(): void`.
 - Constructor: `__construct(?string $runtimeDirectory = null, mixed $clock = null)`.
-- Default directory: `rtrim(Processes::getLockFileDir(), DIRECTORY_SEPARATOR) . '/ModuleLocalSpeechToText/scanner'`. Do not use `Directories::CORE_TEMP_DIR`: temp cleanup can replace the pathname while the old process retains the original inode.
+- Default root: use `Processes::getLockFileDir()` when the method exists, otherwise the literal stable `/var/run/php-workers` fallback required by advertised PBX compatibility. Append `/ModuleLocalSpeechToText/scanner`. Do not use `Directories::CORE_TEMP_DIR`: temp cleanup can replace the pathname while the old process retains the original inode.
 - Files: `.scanner-process.lock` and `.scanner-recovery-state.json` with directory mode `0750` and file mode `0640`.
 
 - [ ] **Step 1: Write the failing singleton contract**
@@ -514,10 +515,13 @@ git commit -m "fix: recycle poisoned STT scanner connections"
 - Create: `Tests/check-scanner-cursor-interruption.php`
 
 - [ ] Add executable RED coverage for runtime/lock replacement after backoff and between iterations, then stop with `process_guard_lost` before another database scan.
+- [ ] Add a standalone old-Core `Processes` stub without `getLockFileDir()` and prove default construction/acquisition uses `/var/run/php-workers`, never Core temp.
 - [ ] Add `assertOwnership()` checks for acquired resources, retained canonical pathname and handle identity, owner/type/device/inode, and exact modes without normalization or state mutation.
+- [ ] Compare exact modes with `07777`; conditionally exercise real setuid/setgid/sticky bits for runtime, lock, state, temporary, and publication paths.
 - [ ] Convert guard filesystem warnings to stable path-free exceptions with a narrowly scoped error handler that always restores its predecessor; place all startup guard operations inside the sanitized worker boundary.
 - [ ] Cover real contention separately from non-contention `flock()` failure by using `$wouldBlock`.
 - [ ] Cover BUSY threshold, success reset, non-PDO continue, and recovery-failure recycle with one release per acquired lifecycle lease and no normal post-recycle sleep.
+- [ ] Failure-inject all nine documented worker phases and assert exact phase, bounded safe context, controlled recycle, no later collaborator, one lifecycle release, and no normal sleep.
 - [ ] Persist realtime/backfill cursor IDs before end times, and the backfill history snapshot before the done flag; prove second-write interruption cannot skip ordered rows.
 - [ ] Register randomized-root cleanup immediately, track lifecycle lock/marker pre-existence independently, and remove only artifacts created by the test.
 
@@ -541,7 +545,9 @@ php -l bin/WorkerLocalSpeechToTextJobs.php
 php -l Tests/check-scanner-database-failure-policy.php
 php -l Tests/check-scanner-transaction-recovery.php
 php -l Tests/check-scanner-process-guard.php
+php -l Tests/check-scanner-process-guard-compatibility.php
 php -l Tests/check-scanner-worker-recycle.php
+php -l Tests/check-scanner-cursor-interruption.php
 ```
 
 Expected: every file reports `No syntax errors detected`.

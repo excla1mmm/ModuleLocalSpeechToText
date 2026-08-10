@@ -30,10 +30,15 @@ final class ScannerProcessGuard
 
     public function __construct(?string $runtimeDirectory = null, mixed $clock = null)
     {
-        $runtimeDirectory ??= rtrim(
-            Processes::getLockFileDir(),
-            DIRECTORY_SEPARATOR
-        ) . '/ModuleLocalSpeechToText/scanner';
+        if ($runtimeDirectory === null) {
+            $workerLockDirectory = method_exists(Processes::class, 'getLockFileDir')
+                ? Processes::getLockFileDir()
+                : '/var/run/php-workers';
+            $runtimeDirectory = rtrim(
+                $workerLockDirectory,
+                DIRECTORY_SEPARATOR
+            ) . '/ModuleLocalSpeechToText/scanner';
+        }
         if ($clock !== null && !is_callable($clock)) {
             throw new RuntimeException('Scanner process clock must be callable');
         }
@@ -176,7 +181,7 @@ final class ScannerProcessGuard
         }
         $this->assertRuntimeOwnerOwns($this->lockHandle, 'Scanner process lock has an unsafe owner');
         $metadata = fstat($this->lockHandle);
-        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0640) {
+        if (!is_array($metadata) || ($metadata['mode'] & 07777) !== 0640) {
             throw new RuntimeException('Scanner process lock permissions changed while owned');
         }
     }
@@ -268,7 +273,7 @@ final class ScannerProcessGuard
                 throw new RuntimeException('Scanner process runtime directory changed during permission update');
             }
             $updated = fstat($handle);
-            if (!is_array($updated) || ($updated['mode'] & 0777) !== 0750) {
+            if (!is_array($updated) || ($updated['mode'] & 07777) !== 0750) {
                 throw new RuntimeException('Scanner process runtime directory permissions are unsafe');
             }
         } catch (Throwable $exception) {
@@ -467,7 +472,7 @@ final class ScannerProcessGuard
                 throw new RuntimeException('Scanner recovery state changed during publication');
             }
             $published = fstat($handle);
-            if (!is_array($published) || ($published['mode'] & 0777) !== 0640) {
+            if (!is_array($published) || ($published['mode'] & 07777) !== 0640) {
                 throw new RuntimeException('Published scanner recovery state permissions are unsafe');
             }
             $this->assertRuntimeOwnerOwns($handle, 'Published scanner recovery state has an unsafe owner');
@@ -575,7 +580,7 @@ final class ScannerProcessGuard
             'Scanner process runtime directory has an unsafe owner'
         );
         $metadata = fstat($this->runtimeHandle);
-        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0750) {
+        if (!is_array($metadata) || ($metadata['mode'] & 07777) !== 0750) {
             throw new RuntimeException('Scanner process runtime directory permissions changed while owned');
         }
     }
@@ -598,7 +603,7 @@ final class ScannerProcessGuard
             throw new RuntimeException($errorMessage);
         }
         $metadata = fstat($handle);
-        if (!is_array($metadata) || ($metadata['mode'] & 0777) !== 0640) {
+        if (!is_array($metadata) || ($metadata['mode'] & 07777) !== 0640) {
             throw new RuntimeException($errorMessage);
         }
         $this->assertRuntimeOwnerOwns($handle, $errorMessage);

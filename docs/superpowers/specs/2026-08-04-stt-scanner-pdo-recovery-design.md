@@ -57,12 +57,18 @@ Returning from the scanner worker lets its existing supervisor create a new PHP 
 
 ### 1. Process singleton and persistent restart state
 
-Add `ScannerProcessGuard`, backed by an advisory `flock(LOCK_EX | LOCK_NB)` file under this stable Core-managed worker runtime:
+Add `ScannerProcessGuard`, backed by an advisory `flock(LOCK_EX | LOCK_NB)` file under this stable worker runtime:
 
 ```php
-rtrim(Processes::getLockFileDir(), DIRECTORY_SEPARATOR)
+$workerLockDirectory = method_exists(Processes::class, 'getLockFileDir')
+    ? Processes::getLockFileDir()
+    : '/var/run/php-workers';
+
+rtrim($workerLockDirectory, DIRECTORY_SEPARATOR)
     . '/ModuleLocalSpeechToText/scanner'
 ```
+
+Current Core exposes the worker runtime through `Processes::getLockFileDir()`. PBX releases covered by the advertised `min_pbx_version=2025.1.1` predate that accessor, so the module uses the same stable `/var/run/php-workers` runtime literal as a compatibility fallback. It does not raise the minimum PBX version and never falls back to Core temp.
 
 `Directories::CORE_TEMP_DIR` is intentionally not used. Core temp cleanup can replace or remove that pathname while a long-running scanner still retains an open lock handle; a new scanner could then lock a new inode and run concurrently with the old owner. The worker lock directory is the stable process-runtime boundary intended for worker coordination.
 
@@ -77,6 +83,8 @@ The same guarded runtime directory contains an atomic JSON state file with:
 Only the process that owns the singleton lock reads or writes this state. Writes use a sibling temporary file followed by atomic rename and restrictive permissions. `assertOwnership()` is a public integrity-only check: it never repairs permissions or changes restart state. The worker calls it after startup backoff, before every lifecycle write-lease acquisition, and after a failed healthy-state write. Ownership loss logs only stable operation and sanitizer-derived error-code fields, stops with `process_guard_lost`, performs no next database iteration, and releases retained handles in the outer `finally`.
 
 Lock contention is distinguished from lock failure using `flock()`'s third `$wouldBlock` result. Only real contention returns `false`; every other failure becomes a stable startup exception. Filesystem operations are executed inside a narrowly scoped warning converter that always restores the prior PHP error handler and never propagates path-bearing warning text.
+
+All exact permission checks mask with `07777`, not `0777`. Runtime directories must be exactly `0750` and lock/state/temporary/publication files exactly `0640`; setuid, setgid, and sticky bits are rejected during integrity validation or cleared by the guarded normalization step.
 
 At scanner startup, a recent recorded recycle applies the following delay:
 
@@ -234,8 +242,10 @@ process starts
 - A recycle older than five minutes starts a new series.
 - Malformed state cannot grant a second process the singleton lock.
 - Runtime-directory and lock replacement are detected by `assertOwnership()` without repairing attacker-controlled state.
+- Current-Core accessors and old-Core fallback acquisition both resolve the same stable worker runtime.
 - Non-contention lock failures throw while real contention returns `false`.
 - Injected filesystem warnings and paths do not escape through exceptions or logs.
+- Special-bit runtime, lock, state, temporary, and publication modes are rejected or normalized to exact modes when the filesystem supports those bits.
 
 ### Worker contract and integration tests
 
@@ -246,6 +256,7 @@ process starts
 - A successful iteration records healthy state.
 - Backoff-time and between-iteration singleton replacement stop before any subsequent database scan.
 - BUSY/BUSY/third-BUSY, BUSY/success/reset, non-PDO continue, and recovery-failure recycle each release exactly one lifecycle lease per acquired iteration and never sleep normally after recycle.
+- Failure injection at each of the nine documented phases proves the exact phase context, controlled recycle, no later collaborator, one lifecycle release, safe context keys, and no normal post-recycle sleep.
 - Failure-injected realtime and backfill cursor writes remain conservative for shared end times and adversarial prior IDs.
 - A fatal PDO outcome returns from `start()` without re-registering database services.
 - The existing full module test suite passes.

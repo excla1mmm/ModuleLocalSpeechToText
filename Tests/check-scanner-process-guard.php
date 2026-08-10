@@ -31,6 +31,10 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         public static ?int $flockWouldBlock = null;
         public static ?string $fopenFailureNeedle = null;
         public static ?string $pathCheckFailureNeedle = null;
+        public static ?string $forcedChmodNeedle = null;
+        public static ?int $forcedChmodMode = null;
+        public static ?string $forcedRenameNeedle = null;
+        public static ?int $forcedRenameMode = null;
         public static string $filesystemWarning = '';
     }
 
@@ -79,6 +83,35 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
             return false;
         }
         return \is_link($filename);
+    }
+
+    function chmod(string $filename, int $permissions): bool
+    {
+        if (!\chmod($filename, $permissions)) {
+            return false;
+        }
+        $needle = ScannerGuardFilesystemProbe::$forcedChmodNeedle;
+        $forcedMode = ScannerGuardFilesystemProbe::$forcedChmodMode;
+        if ($needle !== null && $forcedMode !== null && str_contains($filename, $needle)) {
+            return \chmod($filename, $forcedMode);
+        }
+
+        return true;
+    }
+
+    function rename(string $from, string $to, mixed $context = null): bool
+    {
+        $renamed = $context === null ? \rename($from, $to) : \rename($from, $to, $context);
+        if (!$renamed) {
+            return false;
+        }
+        $needle = ScannerGuardFilesystemProbe::$forcedRenameNeedle;
+        $forcedMode = ScannerGuardFilesystemProbe::$forcedRenameMode;
+        if ($needle !== null && $forcedMode !== null && str_contains($to, $needle)) {
+            return \chmod($to, $forcedMode);
+        }
+
+        return true;
     }
 }
 
@@ -136,6 +169,28 @@ function scannerGuardMode(string $path): int
     }
 
     return $permissions & 0777;
+}
+
+function scannerGuardFullMode(string $path): int
+{
+    clearstatcache(true, $path);
+    $permissions = fileperms($path);
+    if ($permissions === false) {
+        throw new RuntimeException('unable to read full scanner guard permissions');
+    }
+
+    return $permissions & 07777;
+}
+
+function scannerGuardOperationThrows(callable $operation): bool
+{
+    try {
+        $operation();
+    } catch (RuntimeException) {
+        return true;
+    }
+
+    return false;
 }
 
 $temporaryRoot = sys_get_temp_dir() . '/local-stt-scanner-guard-' . bin2hex(random_bytes(8));
@@ -341,7 +396,101 @@ expectScannerGuardRuntimeException(
     'ownership assertion must reject a changed lock file mode'
 );
 chmod($modeLockPath, 0640);
+
+foreach ([02750, 01750] as $specialRuntimeMode) {
+    chmod($modeRuntimeDirectory, $specialRuntimeMode);
+    if (scannerGuardFullMode($modeRuntimeDirectory) === $specialRuntimeMode) {
+        expectScannerGuard(
+            scannerGuardOperationThrows(static fn (): null => $modeGuard->assertOwnership()),
+            sprintf('ownership assertion accepted special-bit runtime mode %04o', $specialRuntimeMode)
+        );
+    }
+    chmod($modeRuntimeDirectory, 0750);
+}
+foreach ([04640, 01640] as $specialLockMode) {
+    chmod($modeLockPath, $specialLockMode);
+    if (scannerGuardFullMode($modeLockPath) === $specialLockMode) {
+        expectScannerGuard(
+            scannerGuardOperationThrows(static fn (): null => $modeGuard->assertOwnership()),
+            sprintf('ownership assertion accepted special-bit lock mode %04o', $specialLockMode)
+        );
+    }
+    chmod($modeLockPath, 0640);
+}
 $modeGuard->release();
+
+$specialStateRuntime = $temporaryRoot . '/special-state-runtime';
+$specialStatePath = $specialStateRuntime . '/.scanner-recovery-state.json';
+mkdir($specialStateRuntime, 0750);
+file_put_contents(
+    $specialStatePath,
+    json_encode(['failure_count' => 1, 'last_failure_at' => $now], JSON_THROW_ON_ERROR)
+);
+foreach ([04640, 01640] as $specialStateMode) {
+    chmod($specialStatePath, $specialStateMode);
+    if (scannerGuardFullMode($specialStatePath) !== $specialStateMode) {
+        continue;
+    }
+    $specialStateGuard = new ScannerProcessGuard($specialStateRuntime, $clock);
+    expectScannerGuard($specialStateGuard->acquire(), 'special-mode state guard could not acquire singleton');
+    expectScannerGuard($specialStateGuard->startupBackoffSeconds() === 5, 'special-mode state could not be read');
+    expectScannerGuard(
+        scannerGuardFullMode($specialStatePath) === 0640,
+        sprintf('state mode %04o was not normalized to exact 0640', $specialStateMode)
+    );
+    $specialStateGuard->release();
+}
+
+$specialModeProbe = $temporaryRoot . '/special-mode-probe';
+file_put_contents($specialModeProbe, 'probe');
+$supportedPublicationMode = null;
+foreach ([04640, 01640] as $candidateMode) {
+    chmod($specialModeProbe, $candidateMode);
+    if (scannerGuardFullMode($specialModeProbe) === $candidateMode) {
+        $supportedPublicationMode = $candidateMode;
+        break;
+    }
+}
+chmod($specialModeProbe, 0640);
+if ($supportedPublicationMode !== null) {
+    $specialPublicationRuntime = $temporaryRoot . '/special-publication-runtime';
+    $specialPublicationGuard = new ScannerProcessGuard($specialPublicationRuntime, $clock);
+    expectScannerGuard($specialPublicationGuard->acquire(), 'special publication guard could not acquire singleton');
+    ScannerGuardFilesystemProbe::$forcedChmodNeedle = '.scanner-recovery-state.json.tmp-';
+    ScannerGuardFilesystemProbe::$forcedChmodMode = $supportedPublicationMode;
+    try {
+        $specialPublicationRejected = scannerGuardOperationThrows(
+            static fn (): null => $specialPublicationGuard->recordRecycle()
+        );
+    } finally {
+        ScannerGuardFilesystemProbe::$forcedChmodNeedle = null;
+        ScannerGuardFilesystemProbe::$forcedChmodMode = null;
+        $specialPublicationGuard->release();
+    }
+    expectScannerGuard(
+        $specialPublicationRejected,
+        sprintf('temporary path accepted special-bit mode %04o', $supportedPublicationMode)
+    );
+
+    $specialPublishedRuntime = $temporaryRoot . '/special-published-runtime';
+    $specialPublishedGuard = new ScannerProcessGuard($specialPublishedRuntime, $clock);
+    expectScannerGuard($specialPublishedGuard->acquire(), 'special published-state guard could not acquire singleton');
+    ScannerGuardFilesystemProbe::$forcedRenameNeedle = '.scanner-recovery-state.json';
+    ScannerGuardFilesystemProbe::$forcedRenameMode = $supportedPublicationMode;
+    try {
+        $specialPublishedRejected = scannerGuardOperationThrows(
+            static fn (): null => $specialPublishedGuard->recordRecycle()
+        );
+    } finally {
+        ScannerGuardFilesystemProbe::$forcedRenameNeedle = null;
+        ScannerGuardFilesystemProbe::$forcedRenameMode = null;
+        $specialPublishedGuard->release();
+    }
+    expectScannerGuard(
+        $specialPublishedRejected,
+        sprintf('published state accepted special-bit mode %04o', $supportedPublicationMode)
+    );
+}
 
 $replacedLockRuntime = $temporaryRoot . '/replaced-lock-runtime';
 $replacedLockPath = $replacedLockRuntime . '/.scanner-process.lock';

@@ -41,6 +41,7 @@ namespace MikoPBX\Common\Models {
         public static function find(array $parameters): ScannerRecordSet
         {
             self::$findCalls++;
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('cdr_scan');
             return new ScannerRecordSet();
         }
     }
@@ -54,6 +55,7 @@ namespace MikoPBX\Common\Providers {
         public static function ensureCdrTables(): void
         {
             self::$ensureCdrTablesCalls++;
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('cdr_schema');
         }
     }
 }
@@ -103,6 +105,10 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         public static ?string $fopenFailureNeedle = null;
         public static string $filesystemWarning = '';
         public static mixed $renameHandler = null;
+        public static ?string $injectedPhase = null;
+        public static string $injectedPhaseMessage = '';
+        /** @var array<int, string> */
+        public static array $visitedPhases = [];
 
         public static function reset(): void
         {
@@ -111,6 +117,24 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
             self::$fopenFailureNeedle = null;
             self::$filesystemWarning = '';
             self::$renameHandler = null;
+            self::$injectedPhase = null;
+            self::$injectedPhaseMessage = '';
+            self::$visitedPhases = [];
+        }
+
+        public static function reachPhase(string $phase): void
+        {
+            $lastPhase = self::$visitedPhases === []
+                ? null
+                : self::$visitedPhases[count(self::$visitedPhases) - 1];
+            if ($lastPhase !== $phase) {
+                self::$visitedPhases[] = $phase;
+            }
+            if (self::$injectedPhase !== $phase) {
+                return;
+            }
+
+            throw new \PDOException(self::$injectedPhaseMessage, 9999);
         }
 
         public static function isLifecycleLease(mixed $stream): bool
@@ -189,6 +213,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         public function configureRuntime(mixed $connection): void
         {
             self::$configureRuntimeCalls++;
+            ScannerWorkerProbe::reachPhase('runtime_pragmas');
         }
     }
 
@@ -204,6 +229,9 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         /** @return array<int, array<string, mixed>> */
         public function due(string $type, int $limit): array
         {
+            ScannerWorkerProbe::reachPhase(
+                $type === self::TYPE_DELAYED ? 'delayed_recordings' : 'skipped_recordings'
+            );
             return [];
         }
     }
@@ -216,6 +244,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         public function publishReady(): array
         {
             self::$publishReadyCalls++;
+            ScannerWorkerProbe::reachPhase('call_transcript_publish');
             return ['published' => 0, 'scanned' => 0, 'blocked_jobs' => 0];
         }
     }
@@ -247,6 +276,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public static function requeueStaleProcessing(): int
         {
             self::$requeueStaleProcessingCalls++;
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('stale_leases');
             return 0;
         }
     }
@@ -297,6 +327,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 
         public static function transcriptRetentionDays(): int
         {
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('retention_cleanup');
             return 0;
         }
     }
@@ -310,6 +341,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public static function markStaleOffline(): void
         {
             self::$markStaleOfflineCalls++;
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('stale_workers');
             $failure = array_shift(self::$failures);
             if ($failure instanceof \Throwable) {
                 throw $failure;
@@ -575,6 +607,73 @@ namespace {
     $afterRecycle = new ScannerProcessGuard();
     checkScannerWorker($afterRecycle->acquire(), 'fatal PDO recycle did not release process guard', $failures);
     $afterRecycle->release();
+
+    $documentedPhases = [
+        'runtime_pragmas',
+        'cdr_schema',
+        'stale_workers',
+        'stale_leases',
+        'delayed_recordings',
+        'skipped_recordings',
+        'cdr_scan',
+        'call_transcript_publish',
+        'retention_cleanup',
+    ];
+    $forbiddenContextKeys = ['exception_message', 'sql', 'dsn', 'database_path', 'trace'];
+    foreach ($documentedPhases as $phaseIndex => $phase) {
+        $runtimeRoot = $temporaryRoot . '/phase-' . str_replace('_', '-', $phase);
+        resetScannerWorkerProbes($runtimeRoot);
+        $injectedPhaseMessage = 'injected ' . $phase . ' failure dsn=sqlite:/private/customer/' . $phase . '.db';
+        ScannerWorkerProbe::$injectedPhase = $phase;
+        ScannerWorkerProbe::$injectedPhaseMessage = $injectedPhaseMessage;
+        runScannerWorker(true, $phase . ' phase recycle', $failures);
+
+        $phaseFailure = scannerWorkerEvent('operation_failed');
+        $phaseContext = is_array($phaseFailure) ? ($phaseFailure['context'] ?? []) : [];
+        checkScannerWorker(
+            ($phaseContext['scan_phase'] ?? null) === $phase
+                && ($phaseContext['database_error_kind'] ?? null) === 'unknown_pdo'
+                && ($phaseContext['consecutive_failures'] ?? null) === 1
+                && ($phaseContext['recovery_action'] ?? null) === 'recycle'
+                && ($phaseContext['recovery_succeeded'] ?? null) === true
+                && ($phaseContext['error_code'] ?? null) === 'pdo_exception',
+            $phase . ' did not emit its bounded controlled-recycle context',
+            $failures
+        );
+        foreach ($forbiddenContextKeys as $forbiddenContextKey) {
+            checkScannerWorker(
+                !array_key_exists($forbiddenContextKey, $phaseContext),
+                $phase . ' exposed prohibited context key ' . $forbiddenContextKey,
+                $failures
+            );
+        }
+        foreach (LocalSpeechToTextLogger::$events as $event) {
+            $encoded = json_encode($event, JSON_THROW_ON_ERROR);
+            checkScannerWorker(
+                !str_contains($encoded, $injectedPhaseMessage)
+                    && !str_contains($encoded, '/private/customer/'),
+                $phase . ' leaked injected exception text or path',
+                $failures
+            );
+        }
+        checkScannerWorker(
+            ScannerWorkerProbe::$visitedPhases === array_slice($documentedPhases, 0, $phaseIndex + 1),
+            $phase . ' ran a later collaborator or did not reach the injected phase in order',
+            $failures
+        );
+        checkScannerWorker(
+            scannerWorkerEvent('scanner_recycle_requested') !== null,
+            $phase . ' did not emit scanner_recycle_requested',
+            $failures
+        );
+        checkScannerWorker(
+            (scannerWorkerEvent('scanner_stopped')['context']['stop_reason'] ?? null) === 'database_recycle',
+            $phase . ' did not stop with database_recycle',
+            $failures
+        );
+        checkScannerWorker(ScannerWorkerSleepProbe::$seconds === [], $phase . ' used normal scan sleep', $failures);
+        checkLifecycleLeasePairs(1, $phase . ' phase recycle', $failures);
+    }
 
     $runtimeRoot = $temporaryRoot . '/guard-acquire-warning';
     resetScannerWorkerProbes($runtimeRoot);
