@@ -2,7 +2,16 @@
 
 declare(strict_types=1);
 
-$tests = glob(__DIR__ . '/check-*.php') ?: [];
+$tests = [
+    __DIR__ . '/check-worker-api-v2-route-contract.php',
+    __DIR__ . '/check-worker-api-v2-version-contract.php',
+];
+
+foreach (glob(__DIR__ . '/check-*.php') ?: [] as $test) {
+    if (!in_array($test, $tests, true)) {
+        $tests[] = $test;
+    }
+}
 sort($tests);
 
 if ($tests === []) {
