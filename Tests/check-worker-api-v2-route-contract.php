@@ -242,9 +242,12 @@ namespace {
         static fn(string $route): string => substr($route, strrpos($route, ' ') + 1),
         $legacy,
     ));
+    $allowed = array_merge($expected, $legacy);
     $actual = [];
     foreach ($operations as $operation) {
-        if (!$operation['custom'] && $operation['operationCount'] === 1) {
+        $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
+        expectWorkerApiV2Route(in_array($key, $allowed, true), "Unexpected reflected worker route tuple {$key}");
+        if ($operation['operationCount'] === 1) {
             $actual[] = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
         }
     }
@@ -255,6 +258,7 @@ namespace {
         if (!in_array($key, $expected, true)) {
             continue;
         }
+        expectWorkerApiV2Route(!$operation['custom'], "v2 tuple {$key} must not be routed as a custom action");
         expectWorkerApiV2Route($operation['operationCount'] === 1, "{$key} must expose exactly one ApiOperation");
         if ($operation['method'] === 'GET') {
             expectWorkerApiV2Route(!preg_match('/(?:create|claim|lease|submit|fail|heartbeat|release|update|patch|delete)/i', $operation['action']), "{$key} maps GET to a mutation");
@@ -268,15 +272,25 @@ namespace {
             $legacyByAction[$key] = $operation;
         }
     }
+    $legacyEnumCases = [
+        'POST /workers register' => 'WorkerAction::REGISTER',
+        'GET /workers getProcessingSettings' => 'WorkerAction::GET_PROCESSING_SETTINGS',
+        'GET /jobs getNext' => 'JobAction::GET_NEXT',
+        'GET /jobs/{id} download' => 'JobAction::DOWNLOAD',
+        'POST /jobs/{id} submitResult' => 'JobAction::SUBMIT_RESULT',
+        'POST /jobs/{id} submitError' => 'JobAction::SUBMIT_ERROR',
+        'POST /jobs/{id} heartbeat' => 'JobAction::HEARTBEAT',
+        'POST /jobs/{id} release' => 'JobAction::RELEASE',
+    ];
     foreach ($legacy as $key) {
         expectWorkerApiV2Route(isset($legacyByAction[$key]), "Legacy worker route must remain routable with its original HTTP method: {$key}");
         $operation = $legacyByAction[$key];
+        expectWorkerApiV2Route($operation['custom'], "Legacy route {$key} must remain a custom tombstone action");
         expectWorkerApiV2Route($operation['operationCount'] === 0, "Legacy route {$key} must not expose ApiOperation");
         $callback = functionBodyWorkerApiV2Route(processorSourceWorkerApiV2Route($root, $operation['processor']), 'callBack');
-        expectWorkerApiV2Route(str_contains($callback, 'WorkerApiContract::upgradeRequired'), "Legacy route {$key} must dispatch through the 426 upgrade tombstone");
         expectWorkerApiV2Route(
-            !preg_match('/(?:::main\(|LocalSpeechToTextMain::|ModuleLifecycleGate|ModuleDatabasePragmas|new\s+STTJob)/', $callback),
-            "Legacy route {$key} tombstone must not perform business work",
+            preg_match('/' . preg_quote($legacyEnumCases[$key], '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/', $callback) === 1,
+            "Legacy route {$key} must directly return LegacyRouteRejector::worker() from its action branch",
         );
     }
 

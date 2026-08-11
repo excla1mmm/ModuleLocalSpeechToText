@@ -16,9 +16,19 @@ Mutation proof (all exit 0 because each deliberately malformed fixture was rejec
 | Command | Exit code | Rejected mutation |
 | --- | ---: | --- |
 | `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | Extra GET lease route and a legacy callback without an upgrade tombstone. |
-| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | Multiline credential-bearing legacy `file_url`, ungated callback, string API version/title-case header, and ownership-header leakage. |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | The actual legacy runtime `file_url` builder, ungated callback, string API version/title-case header, and internal ownership-header leakage. |
 
 These fixtures demonstrate gaps the prior line-only URL scan, global processor substring scan, comment-derived routes, and string-symbol checks would have missed.
+
+## Corrective round 2
+
+The contract now validates the actual runtime `Lib/LocalSpeechToTextMain.php` claim `file_url` builder before the helper can be loaded. It permits exactly `'/job-recordings/' . $job->id` and rejects API-base prefixes, extra concatenation, credentials, query strings, fragments, and legacy paths. It then scans every REST schema/OpenAPI producer carrying `file_url`, explicitly including `JobLeases/DataStructure.php`, and scans any Swift-facing examples found in the module.
+
+Version gates now capture the variable assigned by `WorkerApiContract::requireVersion()` and require the immediate guard to return that same variable before action dispatch or business work. Legacy route verification now checks each exact enum action branch for a direct `LegacyRouteRejector::worker()` return; it no longer treats callback-wide later admin work as a tombstone failure.
+
+Ownership verification follows the canonical Task 6 handoff: header extraction may create `_worker_uid_header` and `_lease_token_header`; only JobRecordings may consume them, must overwrite both ownership inputs from those internal values, then clear them. Body-key unsets and title-cased header literals are deliberately not required.
+
+Route comparison now evaluates every reflected tuple before OpenAPI filtering. It allows only the exact v2 or exact legacy tuple/resource/method sets, checks v2 and legacy `ApiOperation` status separately, and rejects an extra hidden mapping or a legacy custom action mounted on the wrong resource.
 
 ## Files changed
 
@@ -31,7 +41,7 @@ These fixtures demonstrate gaps the prior line-only URL scan, global processor s
 | Command | Exit code | Result |
 | --- | ---: | --- |
 | `php Tests/check-worker-api-v2-route-contract.php` | 255 | Expected RED: reflected v2 `ApiResource`/`HttpMapping` operation set is empty because the v2 resources are absent. |
-| `php Tests/check-worker-api-v2-version-contract.php` | 255 | Expected RED: `Lib/Services/WorkerApiContract.php` is absent. |
+| `php Tests/check-worker-api-v2-version-contract.php` | 255 | Expected RED: the existing runtime claim builder still creates credential-bearing legacy `/jobs/{id}:download` URLs. |
 | `php -l Tests/check-worker-api-v2-route-contract.php` | 0 | No syntax errors. |
 | `php -l Tests/check-worker-api-v2-version-contract.php` | 0 | No syntax errors. |
 | `php -l Tests/run-all.php` | 0 | No syntax errors. |
