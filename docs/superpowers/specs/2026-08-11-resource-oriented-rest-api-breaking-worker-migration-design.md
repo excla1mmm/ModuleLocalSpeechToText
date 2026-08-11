@@ -11,7 +11,7 @@
 
 Любые другие worker-реализации находятся вне области этой спецификации: для них не требуются изменения, миграция, тестирование или включение в координированный релиз.
 
-Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Каждый продукт увеличивает свою обычную release/build version по принятой в его репозитории схеме; искусственно выравнивать версии STT module, AI module и двух macOS-приложений не требуется.
+Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Целевые release versions этого перехода: MikoPBX Core `2026.3.23`, `ModuleLocalSpeechToText` `1.45`, `ModuleAISupervisor` `1.73`, оба macOS-приложения `1.7` build `34`. Модули требуют `min_pbx_version = 2026.3.23`; искусственно выравнивать их product versions между собой не требуется.
 
 ## Цель
 
@@ -111,11 +111,11 @@ GET /pbxcore/api/v3/<module>/worker-api-contract
 
 ```json
 {
-  "contract": "mikopbx-worker-api",
+  "contract": "MikoPBX-Worker-API",
   "api_version": 2,
   "module": "ModuleLocalSpeechToText",
   "module_version": "1.45",
-  "capabilities": ["worker-crud", "job-leases", "job-recordings", "job-results"]
+  "capabilities": ["worker-crud", "worker-processing-settings", "job-leases", "job-recordings", "job-results", "job-failures"]
 }
 ```
 
@@ -144,7 +144,7 @@ Content-Type: application/json
 
 ```json
 {
-  "success": false,
+  "result": false,
   "data": {
     "error_code": "worker_upgrade_required",
     "module": "ModuleLocalSpeechToText",
@@ -220,6 +220,16 @@ PUT    /job-failures/{job_id}
 - `PUT /job-failures/{job_id}` идемпотентно фиксирует ошибку текущей попытки и применяет существующую retry/max-attempts политику.
 
 `worker_uid` и `lease_token` остаются обязательными данными изменяющих запросов. `lease_token` не помещается в URL и не должен попадать в access logs. Существующие ownership checks по `worker_uid`, `job_id`, token binding и constant-time сравнению `lease_token` сохраняются.
+
+Для body-less `GET /job-recordings/{job_id}` worker передаёт ownership-данные только в заголовках, которые MikoPBX Core уже фильтрует и передаёт в module processor:
+
+```text
+X-MikoPBX-Worker-UID: <worker_uid>
+X-MikoPBX-Job-Lease-Token: <lease_token>
+X-MikoPBX-Recording-Download-Token: <download_token>  # AI only
+```
+
+`file_url` в job payload содержит только path `/job-recordings/{job_id}` без query-параметров. Authorization, version и ownership headers добавляются client-кодом при скачивании. Они никогда логируются и не включаются в error payload.
 
 `job-recordings` сохраняет same-origin, realpath, file-size, duration, Range и download-token ограничения текущих модулей.
 
@@ -554,6 +564,12 @@ Breaking release не обещает бесшовный mixed-version rollback.
 - API keys не ротируются, поэтому после согласованного rollback не требуется повторно вводить token.
 
 ## Предполагаемые области изменений
+
+### MikoPBX Core prerequisite
+
+- `PBXApiResult` передаёт разрешённые response headers из backend worker в HTTP response;
+- внешний HTTP layer разрешает только `Upgrade`, `Cache-Control` и `Retry-After`, отбрасывает CR/LF и не передаёт `Set-Cookie`, `Authorization` и другие произвольные заголовки;
+- API-key permission matching распознаёт один immediate child segment как resource item даже для строкового ID без цифр, но не расширяет grant на deeper nested resources.
 
 ### ModuleLocalSpeechToText
 
