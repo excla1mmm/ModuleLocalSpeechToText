@@ -172,6 +172,10 @@ namespace {
         $fileUrlValues = fileUrlExpressionsWorkerApiV2Version($code);
         expectWorkerApiV2Version($fileUrlValues !== [], "{$file} must expose a structural file_url value");
         foreach ($fileUrlValues as $value) {
+            if (preg_match('/^[\'\"](?<url>[^\'\"]+)[\'\"]$/', $value, $scalar) === 1) {
+                expectWorkerApiV2Version(preg_match('#^/job-recordings/(?:[0-9]+|\{job_id\})$#', $scalar['url']) === 1, "{$file} scalar file_url must be an exact credential-free recording path", $scalar['url']);
+                continue;
+            }
             preg_match_all('/[\'\"]example[\'\"]=>[\'\"](?<url>[^\'\"]+)[\'\"]/', $value, $examples);
             expectWorkerApiV2Version(($examples['url'] ?? []) !== [], "{$file} file_url value must carry its own example", $value);
             foreach ($examples['url'] as $url) {
@@ -181,6 +185,18 @@ namespace {
                 $url,
             );
             }
+        }
+    }
+
+    function assertSwiftWorkerApiV2FileUrls(string $source, string $file): void
+    {
+        if (!str_contains($source, 'file_url')) {
+            return;
+        }
+        preg_match_all('/(?:[\'\"]file_url[\'\"]|file_url)\s*(?::|=)\s*[\'\"](?<url>[^\'\"]+)[\'\"]/', $source, $matches);
+        expectWorkerApiV2Version(($matches['url'] ?? []) !== [], "{$file} must bind every file_url example to a literal path");
+        foreach ($matches['url'] as $url) {
+            expectWorkerApiV2Version(preg_match('#^/job-recordings/(?:[0-9]+|\{job_id\})$#', $url) === 1, "{$file} has an unsafe file_url value", $url);
         }
     }
 
@@ -214,8 +230,8 @@ namespace {
         foreach ($otherProcessorSources as $source) {
             $code = codeWorkerApiV2Version($source);
             expectWorkerApiV2Version(
-                !preg_match('/\$data\[[\'\"](?:worker_uid|lease_token)[\'\"]\]=\(string\)\(\$data\[[\'\"]_(?:worker_uid_header|lease_token_header)[\'\"]\]/', $code),
-                'Only GET /job-recordings/{job_id} may consume canonical recording ownership headers',
+                !str_contains($code, '_worker_uid_header') && !str_contains($code, '_lease_token_header'),
+                'Only GET /job-recordings/{job_id} may reference canonical recording ownership headers',
             );
         }
     }
@@ -249,11 +265,30 @@ namespace {
         try {
             assertRecordingOwnershipHeaderScope(
                 "function callBack() { \$data['worker_uid'] = (string)(\$data['_worker_uid_header'] ?? ''); \$data['lease_token'] = (string)(\$data['_lease_token_header'] ?? ''); unset(\$data['_worker_uid_header'], \$data['_lease_token_header']); }",
-                ["function callBack() { \$data['worker_uid'] = (string)(\$data['_worker_uid_header'] ?? ''); }"],
+                ["function callBack() { \$owner = \$data['_worker_uid_header']; useOwner(\$owner); }"],
             );
             throw new RuntimeException('ownership-header scope mutation was accepted');
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'ownership-header mutation check did not fail for the intended reason');
+        }
+        try {
+            assertSchemaWorkerApiV2FileUrls("['file_url' => '/job-recordings/42']", 'scalar-safe.php');
+            assertSchemaWorkerApiV2FileUrls("['file_url' => '/jobs/42:download?lease_token=x']", 'scalar-unsafe.php');
+            throw new RuntimeException('scalar file_url mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'scalar file_url mutation check did not fail for the intended reason');
+        }
+        try {
+            assertSchemaWorkerApiV2FileUrls("['file_url' => ['example' => '/jobs/42:download?worker_uid=x'], 'example' => '/job-recordings/42']", 'nested-unsafe.php');
+            throw new RuntimeException('nested file_url mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'nested file_url mutation check did not fail for the intended reason');
+        }
+        try {
+            assertSwiftWorkerApiV2FileUrls("let good = \"/job-recordings/42\"; let file_url: String = \"/jobs/42:download?lease_token=x\"", 'unsafe.swift');
+            throw new RuntimeException('Swift file_url mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'Swift file_url mutation check did not fail for the intended reason');
         }
         echo "Worker API v2 version mutation checks OK\n";
         exit(0);
@@ -326,15 +361,7 @@ namespace {
         }
     }
     foreach ($swiftExamples as $swiftExample) {
-        $source = (string)file_get_contents($swiftExample);
-        if (!str_contains($source, 'file_url')) {
-            continue;
-        }
-        preg_match_all('#/job-recordings/[^\s\"\']+#', $source, $urls);
-        expectWorkerApiV2Version($urls[0] !== [], "{$swiftExample} must expose a file_url recording path");
-        foreach ($urls[0] as $url) {
-            expectWorkerApiV2Version(preg_match('#^/job-recordings/(?:[0-9]+|\{job_id\})$#', $url) === 1, "{$swiftExample} has an unsafe file_url example", $url);
-        }
+        assertSwiftWorkerApiV2FileUrls((string)file_get_contents($swiftExample), $swiftExample);
     }
 
     $recordingDirectory = $root . '/Lib/RestAPI/JobRecordings';
@@ -342,7 +369,7 @@ namespace {
     expectWorkerApiV2Version(is_file($recordingProcessor), 'GET /job-recordings/{job_id} must have a dedicated processor');
     $otherProcessorSources = [];
     foreach ($sources as $file => $source) {
-        if (!str_contains($file, '/Lib/RestAPI/') || str_starts_with($file, $recordingDirectory . '/')) {
+        if (!str_contains($file, '/Lib/RestAPI/') || !str_ends_with($file, '/Processor.php') || str_starts_with($file, $recordingDirectory . '/')) {
             continue;
         }
         $otherProcessorSources[] = $source;

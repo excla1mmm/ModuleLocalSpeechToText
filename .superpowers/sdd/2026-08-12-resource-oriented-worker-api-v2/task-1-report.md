@@ -36,6 +36,12 @@ Canonical-spec resolution: the user/canonical specification wins over the confli
 
 The ownership cleanup check now parses each `unset(...)` member list and requires one relevant statement to clear both internal header values, including the canonical combined unset. Version tests require the exact assigned version-error variable to be returned immediately, before dispatch, lifecycle acquisition, model/service work, or business calls. Legacy action arms must appear once and before setup. Route discovery now carries unknown module resources into the exact comparison (while explicitly classifying the transcript resources as non-worker) and rejects duplicate legacy tuples.
 
+## Corrective round 4
+
+Legacy tests now require a terminal `return match` dispatch, with one direct rejection arm for each legacy enum case and no lifecycle/model/service/business work before it. Mutation evidence includes a non-terminal `$result = match(...); (new STTJob())->save(); return $result;` callback and verifies rejection.
+
+PHP schema checks now validate each value structurally associated with a `file_url` key: direct scalar values and nested value-local examples are both supported, and unrelated examples cannot satisfy an unsafe `file_url`. Swift checks likewise extract values bound to `file_url:`/`"file_url":` forms rather than scanning unrelated path literals. Non-recording processors now reject any internal ownership-header reference, including aliases/helpers.
+
 ## Files changed
 
 - `Tests/check-worker-api-v2-route-contract.php` (new)
