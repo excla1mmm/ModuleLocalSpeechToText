@@ -1,5 +1,25 @@
 # Task 1 report: STT worker API v2 RED contracts
 
+## Corrective round 1
+
+The initial tests were strengthened after review. The route contract now derives all operations from reflected `ApiResource` and `HttpMapping` values instead of `@route` comments, compares the normalized v2 set exactly (including no extras), retains the exact legacy HTTP method map, and verifies that each legacy dispatch is a non-mutating `WorkerApiContract::upgradeRequired()` tombstone.
+
+The version/sensitive-data contract now:
+
+- Loads and reflects `WorkerApiContract`, requiring `CONTRACT_NAME === 'MikoPBX-Worker-API'`, integer `API_VERSION === 2`, and lower-case `VERSION_HEADER === 'x-mikopbx-worker-api-version'`.
+- Requires each worker-only v2 operation's own processor to gate before dispatch and any business/write-lease work, then return its version error rather than fall back to v1.
+- Extracts every multiline PHP `file_url => ...` expression from the v2 `JobLeases` resource; it requires `/job-recordings/` and rejects query strings, fragments, authorities, legacy `/jobs/`, `:download`, `worker_uid`, and `lease_token`.
+- Restricts the two ownership headers to the dedicated recording processor, requires body ownership values to be discarded, and rejects ownership query consumption.
+
+Mutation proof (all exit 0 because each deliberately malformed fixture was rejected by the strengthened assertion):
+
+| Command | Exit code | Rejected mutation |
+| --- | ---: | --- |
+| `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | Extra GET lease route and a legacy callback without an upgrade tombstone. |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | Multiline credential-bearing legacy `file_url`, ungated callback, string API version/title-case header, and ownership-header leakage. |
+
+These fixtures demonstrate gaps the prior line-only URL scan, global processor substring scan, comment-derived routes, and string-symbol checks would have missed.
+
 ## Files changed
 
 - `Tests/check-worker-api-v2-route-contract.php` (new)
@@ -10,8 +30,8 @@
 
 | Command | Exit code | Result |
 | --- | ---: | --- |
-| `php Tests/check-worker-api-v2-route-contract.php` | 255 | Expected RED: `GET /worker-api-contract` is absent from reflected controller routes. |
-| `php Tests/check-worker-api-v2-version-contract.php` | 255 | Expected RED: required `WorkerApiContract::API_VERSION` source symbol is absent. |
+| `php Tests/check-worker-api-v2-route-contract.php` | 255 | Expected RED: reflected v2 `ApiResource`/`HttpMapping` operation set is empty because the v2 resources are absent. |
+| `php Tests/check-worker-api-v2-version-contract.php` | 255 | Expected RED: `Lib/Services/WorkerApiContract.php` is absent. |
 | `php -l Tests/check-worker-api-v2-route-contract.php` | 0 | No syntax errors. |
 | `php -l Tests/check-worker-api-v2-version-contract.php` | 0 | No syntax errors. |
 | `php -l Tests/run-all.php` | 0 | No syntax errors. |
@@ -21,19 +41,20 @@ The two non-zero contract checks are intentional. Production v2 resources and th
 
 ## Contract coverage
 
-- Reflects `ApiResource`, `HttpMapping`, and `ApiOperation` controller attributes and validates the complete v2 method/path matrix.
-- Requires each legacy worker action route to remain routable as a tombstone while carrying no `ApiOperation`.
-- Rejects GET operations that resolve to mutation-named actions.
-- Requires the negotiated API version, ownership header, and upgrade-required symbols.
-- Requires at least one v2 processor to gate with `WorkerApiContract::requireVersion()` before STT business actions.
-- Guards v2 `/job-recordings/` source URLs against query credentials, legacy `:download`, and legacy `/jobs/` paths; scans any Swift examples in the module too.
+- Derives and exactly compares v2 operations from `ApiResource`/`HttpMapping` attributes, with no reliance on `@route` comments.
+- Requires each legacy action's original HTTP mapping, lack of `ApiOperation`, and non-mutating 426 tombstone dispatch.
+- Requires a pre-dispatch `requireVersion()`/return path for every worker-only v2 operation.
+- Reflects strict WorkerApiContract constants and requires the version/ownership/upgrade code identifiers after comments are stripped.
+- Parses complete multiline v2 `file_url` expressions/examples rather than matching a nearby path line.
+- Restricts ownership headers to the recording processor and requires body/query credentials to be ignored.
 
 ## Self-review
 
 - Reviewed the exact task-owned diff and confirmed no production API resources were added or altered.
 - The route check uses local attribute stubs, matching the established module contract-test pattern, so it remains runnable without Phalcon or a PBX image.
+- Reviewed processor path construction, normalized route comparison, action-level gate labels, multiline URL extraction, and ownership-header scope against controlled rejection fixtures.
 - The runner retains the existing dynamically discovered contract checks and additionally names both v2 checks explicitly.
-- No user changes were reverted, staged, or committed.
+- No production code or unrelated user changes were modified.
 
 ## Concerns
 

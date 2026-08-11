@@ -24,14 +24,6 @@ namespace MikoPBX\PBXCoreREST\Attributes {
             public string|array|null $idPattern = null,
         ) {
         }
-
-        /** @return list<string> */
-        public function getOperationsForMethod(string $httpMethod): array
-        {
-            $operations = $this->mapping[strtoupper($httpMethod)] ?? [];
-
-            return is_string($operations) ? [$operations] : $operations;
-        }
     }
 
     #[Attribute(Attribute::TARGET_METHOD)]
@@ -84,8 +76,41 @@ namespace {
         }
     }
 
-    /** @return list<array{method: string, path: string, controller: string, action: string, operationCount: int}> */
-    function reflectedRoutesWorkerApiV2(string $root): array
+    /** @param array<string, array<string>|string> $mapping
+     * @return list<array{method: string, path: string, action: string}>
+     */
+    function expandWorkerApiV2Mapping(string $path, string $idName, array $mapping, array $resourceLevel, array $collectionLevel): array
+    {
+        $routes = [];
+        foreach ($mapping as $httpMethod => $operations) {
+            foreach (is_string($operations) ? [$operations] : $operations as $action) {
+                $isResource = in_array($action, $resourceLevel, true);
+                $isCollection = in_array($action, $collectionLevel, true);
+                expectWorkerApiV2Route($isResource || $isCollection, "{$path} {$action} must be routable at resource or collection level");
+                if ($isResource) {
+                    $routes[] = ['method' => strtoupper($httpMethod), 'path' => $path . '/{' . $idName . '}', 'action' => $action];
+                }
+                if ($isCollection) {
+                    $routes[] = ['method' => strtoupper($httpMethod), 'path' => $path, 'action' => $action];
+                }
+            }
+        }
+
+        return $routes;
+    }
+
+    /** @param list<string> $expected
+     * @param list<string> $actual
+     */
+    function assertExactWorkerApiV2Routes(array $expected, array $actual): void
+    {
+        sort($expected);
+        sort($actual);
+        expectWorkerApiV2Route($actual === $expected, 'Reflected v2 ApiResource/HttpMapping operation set changed', ['expected' => $expected, 'actual' => $actual]);
+    }
+
+    /** @return list<array{method: string, path: string, action: string, controller: string, processor: string, operationCount: int, custom: bool}> */
+    function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $legacyActions): array
     {
         $before = get_declared_classes();
         $controllerFiles = glob($root . '/Lib/RestAPI/*/Controller.php') ?: [];
@@ -95,17 +120,17 @@ namespace {
         }
 
         $basePath = Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain::API_BASE_PATH;
-        $routes = [];
+        $operations = [];
         foreach (array_diff(get_declared_classes(), $before) as $controller) {
             $reflection = new ReflectionClass($controller);
             $resourceAttributes = $reflection->getAttributes(ApiResource::class);
             if (count($resourceAttributes) !== 1) {
                 continue;
             }
-
             /** @var ApiResource $resource */
             $resource = $resourceAttributes[0]->newInstance();
-            if (!str_starts_with($resource->path, $basePath . '/')) {
+            $path = str_starts_with($resource->path, $basePath) ? substr($resource->path, strlen($basePath)) : '';
+            if (!array_key_exists($path, $v2Resources)) {
                 continue;
             }
 
@@ -113,95 +138,146 @@ namespace {
             expectWorkerApiV2Route(count($mappingAttributes) === 1, "{$controller} must declare one HttpMapping attribute");
             /** @var HttpMapping $mapping */
             $mapping = $mappingAttributes[0]->newInstance();
+            foreach ($mapping->customMethods as $customAction) {
+                expectWorkerApiV2Route(
+                    in_array($customAction, $legacyActions, true),
+                    "{$controller} must not expose a non-legacy v2 custom action {$customAction}",
+                );
+            }
 
-            foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            foreach (expandWorkerApiV2Mapping($path, $v2Resources[$path], $mapping->mapping, $mapping->resourceLevelMethods, $mapping->collectionLevelMethods) as $route) {
+                expectWorkerApiV2Route($reflection->hasMethod($route['action']), "{$controller} mapping action {$route['action']} is not implemented");
+                $method = $reflection->getMethod($route['action']);
                 if ($method->getDeclaringClass()->getName() !== $controller) {
                     continue;
                 }
-
-                $doc = $method->getDocComment() ?: '';
-                if (!preg_match('/@route\\s+(GET|POST|PUT|PATCH|DELETE)\\s+([^\\s*]+)/', $doc, $match)) {
-                    continue;
-                }
-
-                $httpMethod = $match[1];
-                $path = $match[2];
-                expectWorkerApiV2Route(
-                    str_starts_with($path, $basePath . '/'),
-                    "{$controller}::{$method->getName()} route must stay under the module API base path",
-                    $path,
-                );
-                expectWorkerApiV2Route(
-                    in_array($method->getName(), $mapping->getOperationsForMethod($httpMethod), true),
-                    "{$controller}::{$method->getName()} @route method must match HttpMapping",
-                    $mapping->mapping,
-                );
-
-                $routes[] = [
-                    'method' => $httpMethod,
-                    'path' => substr($path, strlen($basePath)),
+                $operations[] = $route + [
                     'controller' => $controller,
-                    'action' => $method->getName(),
+                    'processor' => (string)$resource->processor,
                     'operationCount' => count($method->getAttributes(ApiOperation::class)),
+                    'custom' => in_array($route['action'], $mapping->customMethods, true),
                 ];
             }
         }
 
-        return $routes;
+        return $operations;
     }
+
+    function processorSourceWorkerApiV2Route(string $root, string $processor): string
+    {
+        $prefix = 'Modules\\ModuleLocalSpeechToText\\';
+        expectWorkerApiV2Route(str_starts_with($processor, $prefix), "Processor must belong to this module: {$processor}");
+        $file = $root . '/' . str_replace('\\', '/', substr($processor, strlen($prefix))) . '.php';
+        $source = file_get_contents($file);
+        expectWorkerApiV2Route($source !== false, "Unable to read tombstone processor {$file}");
+
+        return $source;
+    }
+
+    /** @return string */
+    function functionBodyWorkerApiV2Route(string $source, string $function): string
+    {
+        $start = strpos($source, "function {$function}(");
+        expectWorkerApiV2Route($start !== false, "Processor must declare {$function}()");
+        $open = strpos($source, '{', $start);
+        expectWorkerApiV2Route($open !== false, "Processor {$function}() has no body");
+        $depth = 0;
+        for ($offset = $open, $length = strlen($source); $offset < $length; $offset++) {
+            if ($source[$offset] === '{') {
+                $depth++;
+            } elseif ($source[$offset] === '}' && --$depth === 0) {
+                return substr($source, $open + 1, $offset - $open - 1);
+            }
+        }
+        throw new RuntimeException("Processor {$function}() body is not balanced");
+    }
+
+    if (getenv('WORKER_API_V2_ROUTE_MUTATION') === '1') {
+        $routes = expandWorkerApiV2Mapping('/job-leases', 'job_id', ['POST' => ['create'], 'GET' => ['create']], [], ['create']);
+        expectWorkerApiV2Route(count($routes) === 2, 'mutation fixture must create an unexpected GET mutation');
+        expectWorkerApiV2Route($routes[1]['method'] !== 'POST', 'mutation fixture did not preserve the bad GET route');
+        try {
+            assertExactWorkerApiV2Routes(['POST /job-leases create'], array_map(
+                static fn(array $route): string => $route['method'] . ' ' . $route['path'] . ' ' . $route['action'],
+                $routes,
+            ));
+            throw new RuntimeException('extra mapped mutation route was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'route mutation check did not fail for the intended reason');
+        }
+        $badTombstone = 'function callBack(array $request) { return LocalSpeechToTextMain::getNextJob([]); }';
+        expectWorkerApiV2Route(!str_contains($badTombstone, 'WorkerApiContract::upgradeRequired'), 'mutation fixture must omit the upgrade tombstone');
+        echo "Worker API v2 route mutation checks OK\n";
+        exit(0);
+    }
+
+    $v2Resources = [
+        '/worker-api-contract' => 'id',
+        '/workers' => 'worker_uid',
+        '/worker-processing-settings' => 'worker_uid',
+        '/job-leases' => 'job_id',
+        '/job-recordings' => 'job_id',
+        '/job-results' => 'job_id',
+        '/job-failures' => 'job_id',
+        '/jobs' => 'id',
+    ];
+    $expected = [
+        'GET /worker-api-contract getList',
+        'GET /workers getList', 'POST /workers create', 'GET /workers/{worker_uid} getRecord',
+        'PUT /workers/{worker_uid} update', 'PATCH /workers/{worker_uid} patch', 'DELETE /workers/{worker_uid} delete',
+        'GET /worker-processing-settings/{worker_uid} getRecord',
+        'POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete',
+        'GET /job-recordings/{job_id} getRecord', 'PUT /job-results/{job_id} update', 'PUT /job-failures/{job_id} update',
+        'GET /jobs getList', 'GET /jobs/{id} getRecord', 'POST /jobs create', 'PATCH /jobs/{id} patch',
+        'PATCH /jobs patch', 'DELETE /jobs/{id} delete', 'DELETE /jobs delete',
+    ];
+    $legacy = [
+        'POST /workers register', 'GET /workers getProcessingSettings', 'GET /jobs getNext',
+        'GET /jobs/{id} download', 'POST /jobs/{id} submitResult', 'POST /jobs/{id} submitError',
+        'POST /jobs/{id} heartbeat', 'POST /jobs/{id} release',
+    ];
 
     $root = dirname(__DIR__);
-    $v2 = [
-        ['GET', '/worker-api-contract'],
-        ['GET', '/workers'], ['POST', '/workers'], ['GET', '/workers/{worker_uid}'],
-        ['PUT', '/workers/{worker_uid}'], ['PATCH', '/workers/{worker_uid}'], ['DELETE', '/workers/{worker_uid}'],
-        ['GET', '/worker-processing-settings/{worker_uid}'],
-        ['POST', '/job-leases'], ['PATCH', '/job-leases/{job_id}'], ['DELETE', '/job-leases/{job_id}'],
-        ['GET', '/job-recordings/{job_id}'], ['PUT', '/job-results/{job_id}'], ['PUT', '/job-failures/{job_id}'],
-        ['GET', '/jobs'], ['GET', '/jobs/{id}'], ['POST', '/jobs'], ['PATCH', '/jobs/{id}'],
-        ['PATCH', '/jobs'], ['DELETE', '/jobs/{id}'], ['DELETE', '/jobs'],
-    ];
-    $legacyWorker = [
-        'workers:register', 'workers:getProcessingSettings', 'jobs:getNext',
-        'jobs/{id}:download', 'jobs/{id}:submitResult', 'jobs/{id}:submitError',
-        'jobs/{id}:heartbeat', 'jobs/{id}:release',
-    ];
+    $operations = reflectedWorkerApiV2Operations($root, $v2Resources, array_map(
+        static fn(string $route): string => substr($route, strrpos($route, ' ') + 1),
+        $legacy,
+    ));
+    $actual = [];
+    foreach ($operations as $operation) {
+        if (!$operation['custom'] && $operation['operationCount'] === 1) {
+            $actual[] = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
+        }
+    }
+    assertExactWorkerApiV2Routes($expected, $actual);
 
-    $routes = reflectedRoutesWorkerApiV2($root);
-    foreach ($v2 as [$httpMethod, $path]) {
-        $matches = array_values(array_filter(
-            $routes,
-            static fn(array $route): bool => $route['method'] === $httpMethod && $route['path'] === $path,
-        ));
-        expectWorkerApiV2Route(count($matches) === 1, "Missing or duplicate v2 route {$httpMethod} {$path}", $matches);
-        expectWorkerApiV2Route(
-            $matches[0]['operationCount'] === 1,
-            "v2 route {$httpMethod} {$path} must expose exactly one ApiOperation",
-            $matches[0]['operationCount'],
-        );
-
-        if ($httpMethod === 'GET') {
-            expectWorkerApiV2Route(
-                preg_match('/(?:create|claim|lease|submit|fail|heartbeat|release|update|patch|delete)/i', $matches[0]['action']) !== 1,
-                "GET {$path} must not map to a mutating worker action",
-                $matches[0]['action'],
-            );
+    foreach ($operations as $operation) {
+        $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
+        if (!in_array($key, $expected, true)) {
+            continue;
+        }
+        expectWorkerApiV2Route($operation['operationCount'] === 1, "{$key} must expose exactly one ApiOperation");
+        if ($operation['method'] === 'GET') {
+            expectWorkerApiV2Route(!preg_match('/(?:create|claim|lease|submit|fail|heartbeat|release|update|patch|delete)/i', $operation['action']), "{$key} maps GET to a mutation");
         }
     }
 
-    foreach ($legacyWorker as $legacyPath) {
-        $matches = array_values(array_filter(
-            $routes,
-            static fn(array $route): bool => $route['path'] === '/' . $legacyPath,
-        ));
-        expectWorkerApiV2Route($matches !== [], "Legacy worker route /{$legacyPath} must remain routable");
-        foreach ($matches as $match) {
-            expectWorkerApiV2Route(
-                $match['operationCount'] === 0,
-                "Legacy worker route /{$legacyPath} must be a tombstone without ApiOperation",
-                $match['operationCount'],
-            );
+    $legacyByAction = [];
+    foreach ($operations as $operation) {
+        $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
+        if (in_array($key, $legacy, true)) {
+            $legacyByAction[$key] = $operation;
         }
+    }
+    foreach ($legacy as $key) {
+        expectWorkerApiV2Route(isset($legacyByAction[$key]), "Legacy worker route must remain routable with its original HTTP method: {$key}");
+        $operation = $legacyByAction[$key];
+        expectWorkerApiV2Route($operation['operationCount'] === 0, "Legacy route {$key} must not expose ApiOperation");
+        $callback = functionBodyWorkerApiV2Route(processorSourceWorkerApiV2Route($root, $operation['processor']), 'callBack');
+        expectWorkerApiV2Route(str_contains($callback, 'WorkerApiContract::upgradeRequired'), "Legacy route {$key} must dispatch through the 426 upgrade tombstone");
+        expectWorkerApiV2Route(
+            !preg_match('/(?:::main\(|LocalSpeechToTextMain::|ModuleLifecycleGate|ModuleDatabasePragmas|new\s+STTJob)/', $callback),
+            "Legacy route {$key} tombstone must not perform business work",
+        );
     }
 
     echo "Worker API v2 route contract OK\n";
