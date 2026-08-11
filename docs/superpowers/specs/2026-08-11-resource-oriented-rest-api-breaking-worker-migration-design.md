@@ -7,12 +7,11 @@
 - `ModuleLocalSpeechToText`;
 - `ModuleAISupervisor`;
 - `LocalSTTWorkerMac`;
-- `AISupervisorWorkerMac`;
-- STT-части `MIKOAIWorkerWin`.
+- `AISupervisorWorkerMac`.
 
-Старый Python-клиент `moduleSTT-worker` намеренно не мигрируется и после обновления модуля становится несовместимым. Планируемая AI-часть Windows worker должна сразу реализовывать новый контракт и не должна содержать legacy-маршруты.
+Любые другие worker-реализации находятся вне области этой спецификации: для них не требуются изменения, миграция, тестирование или включение в координированный релиз.
 
-Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Каждый продукт увеличивает свою обычную release/build version по принятой в его репозитории схеме; искусственно выравнивать версии STT module, AI module, macOS и Windows приложений не требуется.
+Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Каждый продукт увеличивает свою обычную release/build version по принятой в его репозитории схеме; искусственно выравнивать версии STT module, AI module и двух macOS-приложений не требуется.
 
 ## Цель
 
@@ -451,8 +450,6 @@ Startup/reconnect flow v2:
 
 Если приложение обновляется во время задания, штатное завершение старой версии пытается освободить текущий lease. Если модуль уже обновлён и отвечает 426, приложение прекращает дальнейшие submit/release попытки: module migration уже вернула legacy lease в очередь. После запуска v2 worker получает задание заново. Duplicate final writes по старому пути невозможны, потому что tombstone не вызывает result service.
 
-`MIKOAIWorkerWin` обновляет client, contract tests и compatibility document одновременно. Старые Python workers не получают client migration и остаются заблокированными с 426.
-
 ## Порядок релиза и пользовательского обновления
 
 Релизы modules и workers с worker API version `2` публикуются в одном release window. Рекомендуемый пользовательский порядок:
@@ -581,8 +578,7 @@ Breaking release не обещает бесшовный mixed-version rollback.
 ### Worker applications
 
 - `LocalSTTWorker/Services/PBXClient.swift` и lifecycle/error UI/tests/docs;
-- `AISupervisorWorker/Services/AISupervisorClient.swift` и lifecycle/error UI/tests/docs;
-- `MIKOAIWorkerWin/src/MIKOAIWorker.Stt/Pbx/*`, contract tests и compatibility docs.
+- `AISupervisorWorker/Services/AISupervisorClient.swift` и lifecycle/error UI/tests/docs.
 
 ## Критерии приёмки
 
