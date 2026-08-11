@@ -90,12 +90,12 @@ namespace {
         expectWorkerApiV2Version($gate < $dispatch, "{$operation} must require v2 before its action dispatch");
         expectWorkerApiV2Version(
             isset($gateMatch['versionError'])
-                && preg_match('/if\(\$' . preg_quote($gateMatch['versionError'], '/') . '!==null\)\{?return\$' . preg_quote($gateMatch['versionError'], '/') . ';?\}?/', substr($callback, $gate + strlen($gateMatch[0]))) === 1,
+                && preg_match('/^if\(\$' . preg_quote($gateMatch['versionError'], '/') . '!==null\)\{?return\$' . preg_quote($gateMatch['versionError'], '/') . ';?\}?/', substr($callback, $gate + strlen($gateMatch[0]))) === 1,
             "{$operation} must return the exact requireVersion() result instead of falling back to v1",
         );
         $beforeGate = substr($callback, 0, $gate);
         expectWorkerApiV2Version(
-            !preg_match('/(?:::main\(|LocalSpeechToTextMain::|ModuleLifecycleGate|ModuleDatabasePragmas|newSTT(?:Job|Worker))/', $beforeGate),
+            !preg_match('/(?:::main\(|LocalSpeechToTextMain::|ModuleLifecycleGate|ModuleDatabasePragmas|newSTT(?:Job|Worker)|STT\w+Service)/', $beforeGate),
             "{$operation} must gate before business or write-lease work",
         );
     }
@@ -157,7 +157,7 @@ namespace {
         $expressions = fileUrlExpressionsWorkerApiV2Version(codeWorkerApiV2Version($source));
         expectWorkerApiV2Version(count($expressions) === 1, 'Runtime claim code must expose exactly one file_url builder', $expressions);
         expectWorkerApiV2Version(
-            preg_match('/^[\'\"]\/job-recordings\/[\'\"]\.\$job->id$/', $expressions[0]) === 1,
+            preg_match('/^[\'\"]\/job-recordings\/[\'\"]\.\(int\)\$job->id$/', $expressions[0]) === 1,
             'Runtime file_url must be exactly /job-recordings/{job_id} with no prefix, suffix, query, fragment, or extra concatenation',
             $expressions[0],
         );
@@ -169,15 +169,18 @@ namespace {
         if (!str_contains($code, 'file_url')) {
             return;
         }
-        preg_match_all('/[\'\"]example[\'\"]=>[\'\"](?<url>[^\'\"]+)[\'\"]/', $code, $examples);
-        $fileUrlExamples = array_values(array_filter($examples['url'] ?? [], static fn(string $url): bool => str_contains($url, 'job-recordings') || str_contains($url, 'jobs/')));
-        expectWorkerApiV2Version($fileUrlExamples !== [], "{$file} must expose an explicit file_url example");
-        foreach ($fileUrlExamples as $url) {
+        $fileUrlValues = fileUrlExpressionsWorkerApiV2Version($code);
+        expectWorkerApiV2Version($fileUrlValues !== [], "{$file} must expose a structural file_url value");
+        foreach ($fileUrlValues as $value) {
+            preg_match_all('/[\'\"]example[\'\"]=>[\'\"](?<url>[^\'\"]+)[\'\"]/', $value, $examples);
+            expectWorkerApiV2Version(($examples['url'] ?? []) !== [], "{$file} file_url value must carry its own example", $value);
+            foreach ($examples['url'] as $url) {
             expectWorkerApiV2Version(
                 preg_match('#^/job-recordings/[0-9]+$#', $url) === 1,
                 "{$file} file_url example must be an exact credential-free recording path",
                 $url,
             );
+            }
         }
     }
 
@@ -197,9 +200,11 @@ namespace {
                 && preg_match('/\$data\[[\'\"]lease_token[\'\"]\]=\(string\)\(\$data\[[\'\"]_lease_token_header[\'\"]\]\?\?[\'\"]{2}\);/', $recordingCode) === 1,
             'Recording processor must overwrite ownership only from the canonical internal header values',
         );
+        preg_match_all('/unset\((?<members>[^)]*)\)/', $recordingCode, $unsets);
+        $clearsBothHeaders = array_reduce($unsets['members'] ?? [], static fn(bool $clears, string $members): bool => $clears
+            || (str_contains($members, "\$data['_worker_uid_header']") && str_contains($members, "\$data['_lease_token_header']")), false);
         expectWorkerApiV2Version(
-            preg_match('/unset\(\$data\[[\'\"]_worker_uid_header[\'\"]\](?:,\$data\[[\'\"]_lease_token_header[\'\"]\])?\)/', $recordingCode) === 1
-                && preg_match('/unset\(\$data\[[\'\"]_lease_token_header[\'\"]\](?:,\$data\[[\'\"]_worker_uid_header[\'\"]\])?\)/', $recordingCode) === 1,
+            $clearsBothHeaders,
             'Recording processor must clear internal ownership header values after consuming them',
         );
         expectWorkerApiV2Version(
@@ -228,6 +233,12 @@ namespace {
             throw new RuntimeException('ungated operation mutation was accepted');
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'version-gate mutation check did not fail for the intended reason');
+        }
+        try {
+            assertWorkerApiV2Gate('dispatch-before-guard mutation', 'function callBack(array $request) { $result = match($action) { JobAction::GET_NEXT => GetNextAction::main([]) }; $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } }');
+            throw new RuntimeException('dispatch-before-guard mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'dispatch-order mutation check did not fail for the intended reason');
         }
         try {
             assertContractConstantsWorkerApiV2Version(['CONTRACT' => 'MikoPBX-Worker-API', 'API_VERSION' => '2', 'VERSION_HEADER' => 'X-MikoPBX-Worker-API-Version']);

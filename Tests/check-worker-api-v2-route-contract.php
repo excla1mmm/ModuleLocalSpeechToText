@@ -110,7 +110,7 @@ namespace {
     }
 
     /** @return list<array{method: string, path: string, action: string, controller: string, processor: string, operationCount: int, custom: bool}> */
-    function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $legacyActions): array
+    function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $legacyActions, array $nonWorkerResources): array
     {
         $before = get_declared_classes();
         $controllerFiles = glob($root . '/Lib/RestAPI/*/Controller.php') ?: [];
@@ -130,9 +130,10 @@ namespace {
             /** @var ApiResource $resource */
             $resource = $resourceAttributes[0]->newInstance();
             $path = str_starts_with($resource->path, $basePath) ? substr($resource->path, strlen($basePath)) : '';
-            if (!array_key_exists($path, $v2Resources)) {
+            if (in_array($path, $nonWorkerResources, true)) {
                 continue;
             }
+            $idName = $v2Resources[$path] ?? 'id';
 
             $mappingAttributes = $reflection->getAttributes(HttpMapping::class);
             expectWorkerApiV2Route(count($mappingAttributes) === 1, "{$controller} must declare one HttpMapping attribute");
@@ -145,7 +146,7 @@ namespace {
                 );
             }
 
-            foreach (expandWorkerApiV2Mapping($path, $v2Resources[$path], $mapping->mapping, $mapping->resourceLevelMethods, $mapping->collectionLevelMethods) as $route) {
+            foreach (expandWorkerApiV2Mapping($path, $idName, $mapping->mapping, $mapping->resourceLevelMethods, $mapping->collectionLevelMethods) as $route) {
                 expectWorkerApiV2Route($reflection->hasMethod($route['action']), "{$controller} mapping action {$route['action']} is not implemented");
                 $method = $reflection->getMethod($route['action']);
                 if ($method->getDeclaringClass()->getName() !== $controller) {
@@ -205,8 +206,23 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'route mutation check did not fail for the intended reason');
         }
+        try {
+            assertExactWorkerApiV2Routes(['POST /job-leases create'], ['POST /job-leases create', 'POST /job-leases create', 'GET /hidden-worker-resource getList']);
+            throw new RuntimeException('duplicate and hidden-resource mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'duplicate-resource mutation check did not fail for the intended reason');
+        }
         $badTombstone = 'function callBack(array $request) { return LocalSpeechToTextMain::getNextJob([]); }';
         expectWorkerApiV2Route(!str_contains($badTombstone, 'WorkerApiContract::upgradeRequired'), 'mutation fixture must omit the upgrade tombstone');
+        $lateTombstone = 'function callBack(array $request) { $gate = new ModuleLifecycleGate(); return match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() }; }';
+        $branch = strpos($lateTombstone, 'JobAction::GET_NEXT');
+        $setup = strpos($lateTombstone, 'ModuleLifecycleGate');
+        try {
+            expectWorkerApiV2Route($branch < $setup, 'legacy tombstone must reject before setup');
+            throw new RuntimeException('pre-tombstone mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'pre-tombstone mutation check did not fail for the intended reason');
+        }
         echo "Worker API v2 route mutation checks OK\n";
         exit(0);
     }
@@ -238,10 +254,11 @@ namespace {
     ];
 
     $root = dirname(__DIR__);
+    $nonWorkerResources = ['/transcripts', '/transcripts/events', '/call-transcripts', '/call-transcripts/events'];
     $operations = reflectedWorkerApiV2Operations($root, $v2Resources, array_map(
         static fn(string $route): string => substr($route, strrpos($route, ' ') + 1),
         $legacy,
-    ));
+    ), $nonWorkerResources);
     $allowed = array_merge($expected, $legacy);
     $actual = [];
     foreach ($operations as $operation) {
@@ -283,14 +300,26 @@ namespace {
         'POST /jobs/{id} release' => 'JobAction::RELEASE',
     ];
     foreach ($legacy as $key) {
+        $matches = array_values(array_filter($operations, static fn(array $operation): bool => $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'] === $key));
+        expectWorkerApiV2Route(count($matches) === 1, "Legacy worker route must appear exactly once with its original HTTP method: {$key}", count($matches));
         expectWorkerApiV2Route(isset($legacyByAction[$key]), "Legacy worker route must remain routable with its original HTTP method: {$key}");
         $operation = $legacyByAction[$key];
         expectWorkerApiV2Route($operation['custom'], "Legacy route {$key} must remain a custom tombstone action");
         expectWorkerApiV2Route($operation['operationCount'] === 0, "Legacy route {$key} must not expose ApiOperation");
         $callback = functionBodyWorkerApiV2Route(processorSourceWorkerApiV2Route($root, $operation['processor']), 'callBack');
+        $armPattern = '/' . preg_quote($legacyEnumCases[$key], '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/';
         expectWorkerApiV2Route(
-            preg_match('/' . preg_quote($legacyEnumCases[$key], '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/', $callback) === 1,
+            preg_match_all($armPattern, $callback) === 1,
             "Legacy route {$key} must directly return LegacyRouteRejector::worker() from its action branch",
+        );
+        $branchPosition = strpos($callback, $legacyEnumCases[$key]);
+        $setupPositions = array_filter([
+            strpos($callback, 'ModuleLifecycleGate'), strpos($callback, 'ModuleDatabasePragmas'),
+            strpos($callback, '::main('), strpos($callback, 'LocalSpeechToTextMain::'),
+        ], static fn(int|false $position): bool => $position !== false);
+        expectWorkerApiV2Route(
+            $setupPositions === [] || $branchPosition < min($setupPositions),
+            "Legacy route {$key} must reject before lifecycle or business setup",
         );
     }
 
