@@ -199,11 +199,25 @@ namespace {
         expectWorkerApiV2Route($terminal !== false, 'Legacy dispatch must be an immediate terminal return match');
         $before = substr($callback, 0, $terminal);
         expectWorkerApiV2Route(
-            !preg_match('/(?:ModuleLifecycleGate|ModuleDatabasePragmas|new\s+STT\w+|->save\(|::main\(|LocalSpeechToTextMain::|Service)/', $before),
-            'Legacy terminal dispatch must precede lifecycle, model, service, and business work',
+            !preg_match('/(?:STT\w+::|new\s+|->|::(?!tryFrom)|ModuleLifecycleGate|ModuleDatabasePragmas|Service|\$\w+\s*=\s*(?!\(string\)|\w+::tryFrom))/', $before),
+            'Legacy terminal dispatch must have only harmless action/request normalization before it',
         );
+        $open = strpos($callback, '{', $terminal);
+        expectWorkerApiV2Route($open !== false, 'Legacy terminal match has no body');
+        $depth = 0;
+        $end = null;
+        for ($i = $open, $length = strlen($callback); $i < $length; $i++) {
+            if ($callback[$i] === '{') {
+                $depth++;
+            } elseif ($callback[$i] === '}' && --$depth === 0) {
+                $end = $i;
+                break;
+            }
+        }
+        expectWorkerApiV2Route($end !== null, 'Legacy terminal match body is not balanced');
+        $arms = substr($callback, $open + 1, $end - $open - 1);
         expectWorkerApiV2Route(
-            preg_match_all('/' . preg_quote($enumCase, '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/', $callback) === 1,
+            preg_match_all('/' . preg_quote($enumCase, '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/', $arms) === 1,
             "{$enumCase} must have exactly one direct LegacyRouteRejector::worker() terminal arm",
         );
     }
@@ -227,6 +241,14 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'duplicate-resource mutation check did not fail for the intended reason');
         }
+        foreach ([null, 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\Unused\\Processor'] as $declaredProcessor) {
+            try {
+                expectWorkerApiV2Route($declaredProcessor === 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobLeases\\Processor', 'declared processor must be exact and non-null');
+                throw new RuntimeException('wrong declared processor mutation was accepted');
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'declared processor mutation did not fail for the intended reason');
+            }
+        }
         $badTombstone = 'function callBack(array $request) { return LocalSpeechToTextMain::getNextJob([]); }';
         expectWorkerApiV2Route(!str_contains($badTombstone, 'WorkerApiContract::upgradeRequired'), 'mutation fixture must omit the upgrade tombstone');
         $lateTombstone = 'function callBack(array $request) { $gate = new ModuleLifecycleGate(); return match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() }; }';
@@ -244,6 +266,18 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'terminal legacy mutation check did not fail for the intended reason');
         }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('STTJob::findFirst([])->delete(); return match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');
+            throw new RuntimeException('pre-tombstone work mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'pre-tombstone work mutation did not fail for the intended reason');
+        }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('return match($action) { JobAction::GET_NEXT => $result }; $later = match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');
+            throw new RuntimeException('later-match legacy arm mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'later-match mutation did not fail for the intended reason');
+        }
         echo "Worker API v2 route mutation checks OK\n";
         exit(0);
     }
@@ -257,6 +291,16 @@ namespace {
         '/job-results' => 'job_id',
         '/job-failures' => 'job_id',
         '/jobs' => 'id',
+    ];
+    $expectedProcessors = [
+        '/worker-api-contract' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\WorkerApiContract\\Processor',
+        '/workers' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\Workers\\Processor',
+        '/worker-processing-settings' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\WorkerProcessingSettings\\Processor',
+        '/job-leases' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobLeases\\Processor',
+        '/job-recordings' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobRecordings\\Processor',
+        '/job-results' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobResults\\Processor',
+        '/job-failures' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobFailures\\Processor',
+        '/jobs' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\Jobs\\Processor',
     ];
     $expected = [
         'GET /worker-api-contract getList',
@@ -285,6 +329,11 @@ namespace {
     foreach ($operations as $operation) {
         $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
         expectWorkerApiV2Route(in_array($key, $allowed, true), "Unexpected reflected worker route tuple {$key}");
+        $resourcePath = preg_replace('/\/\{[^}]+\}$/', '', $operation['path']);
+        if (isset($expectedProcessors[$resourcePath])) {
+            expectWorkerApiV2Route($operation['processor'] === $expectedProcessors[$resourcePath], "{$key} must declare the exact v2 processor", $operation['processor']);
+            processorSourceWorkerApiV2Route($root, $operation['processor']);
+        }
         if ($operation['operationCount'] === 1) {
             $actual[] = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
         }

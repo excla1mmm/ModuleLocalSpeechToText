@@ -42,6 +42,10 @@ Legacy tests now require a terminal `return match` dispatch, with one direct rej
 
 PHP schema checks now validate each value structurally associated with a `file_url` key: direct scalar values and nested value-local examples are both supported, and unrelated examples cannot satisfy an unsafe `file_url`. Swift checks likewise extract values bound to `file_url:`/`"file_url":` forms rather than scanning unrelated path literals. Non-recording processors now reject any internal ownership-header reference, including aliases/helpers.
 
+## Corrective round 5
+
+Reflected worker resources now require their declared processor to be the exact expected non-null class and require that processor file to exist; a null or unused/wrong processor mutation is rejected. The legacy parser identifies the first terminal `return match` and checks required arms only in that match body, with pre-terminal work checks and mutations for model deletion and later unrelated matches. Swift key-value extraction also supports typed assignments such as `file_url: String = "..."`; typed safe and unsafe fixtures were exercised.
+
 ## Files changed
 
 - `Tests/check-worker-api-v2-route-contract.php` (new)

@@ -193,7 +193,7 @@ namespace {
         if (!str_contains($source, 'file_url')) {
             return;
         }
-        preg_match_all('/(?:[\'\"]file_url[\'\"]|file_url)\s*(?::|=)\s*[\'\"](?<url>[^\'\"]+)[\'\"]/', $source, $matches);
+        preg_match_all('/(?:[\'\"]file_url[\'\"]\s*:\s*|file_url\s*(?::\s*[A-Za-z_][A-Za-z0-9_?<>\[\]]*\s*=|=))\s*[\'\"](?<url>[^\'\"]+)[\'\"]/', $source, $matches);
         expectWorkerApiV2Version(($matches['url'] ?? []) !== [], "{$file} must bind every file_url example to a literal path");
         foreach ($matches['url'] as $url) {
             expectWorkerApiV2Version(preg_match('#^/job-recordings/(?:[0-9]+|\{job_id\})$#', $url) === 1, "{$file} has an unsafe file_url value", $url);
@@ -290,6 +290,7 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'Swift file_url mutation check did not fail for the intended reason');
         }
+        assertSwiftWorkerApiV2FileUrls('let file_url: String = "/job-recordings/42"', 'typed-safe.swift');
         echo "Worker API v2 version mutation checks OK\n";
         exit(0);
     }
