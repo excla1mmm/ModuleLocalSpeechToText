@@ -575,8 +575,7 @@ class LocalSpeechToTextMain
         return [
             'id' => (int)$job->id,
             'call_id' => (string)$job->call_id,
-            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid)
-                . '&lease_token=' . rawurlencode((string)$job->lease_token),
+            'file_url' => '/job-recordings/'.(int)$job->id,
             'lease_token' => (string)$job->lease_token,
             'lease_expires_at' => (int)$job->lease_expires_at,
             'duration_hint' => self::jobDurationSeconds($job),

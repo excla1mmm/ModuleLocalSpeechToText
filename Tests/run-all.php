@@ -8,6 +8,7 @@ $tests = [
     __DIR__ . '/check-worker-api-v2-version-contract.php',
     __DIR__ . '/check-worker-api-v2-migration-sqlite.php',
     __DIR__ . '/check-worker-crud-v2-contract.php',
+    __DIR__ . '/check-worker-job-leases-v2.php',
 ];
 
 foreach (glob(__DIR__ . '/check-*.php') ?: [] as $test) {

@@ -339,6 +339,11 @@ namespace {
 
     if (getenv('WORKER_API_V2_VERSION_MUTATION') === '1') {
         $runtimeSource = (string)file_get_contents(dirname(__DIR__) . '/Lib/LocalSpeechToTextMain.php');
+        $runtimeSource = str_replace(
+            "'/job-recordings/'.(int)\$job->id",
+            "self::API_BASE_PATH.'/jobs/'.\$job->id.':download?worker_uid=mutated'",
+            $runtimeSource,
+        );
         try {
             assertRuntimeWorkerApiV2FileUrl($runtimeSource);
             throw new RuntimeException('legacy runtime file_url discovery was accepted');

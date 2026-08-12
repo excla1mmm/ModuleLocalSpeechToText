@@ -125,7 +125,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                             'properties' => [
                                 'id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldJobId', 'example' => 42],
                                 'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => 'mikopbx-1784455200.42'],
-                                'file_url' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldFileUrl', 'example' => '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download?worker_uid=mac-mini-stt-01&lease_token=9d587d4f4c5b4a8fa2423e746dc82f6a'],
+                                'file_url' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldFileUrl', 'example' => '/job-recordings/42'],
                                 'lease_token' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldLeaseToken', 'example' => '9d587d4f4c5b4a8fa2423e746dc82f6a'],
                                 'lease_expires_at' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldLeaseExpiresAt', 'example' => 1784456100],
                                 'duration_hint' => [
@@ -163,7 +163,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'job' => [
                     'id' => 42,
                     'call_id' => 'mikopbx-1784455200.42',
-                    'file_url' => '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download?worker_uid=mac-mini-stt-01&lease_token=9d587d4f4c5b4a8fa2423e746dc82f6a',
+                    'file_url' => '/job-recordings/42',
                     'lease_token' => '9d587d4f4c5b4a8fa2423e746dc82f6a',
                     'lease_expires_at' => 1784456100,
                     'duration_hint' => 83,

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
+namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerProcessingSettings;
 
 use MikoPBX\PBXCoreREST\Lib\Common\AbstractDataStructure;
 use MikoPBX\PBXCoreREST\Lib\Common\OpenApiSchemaProvider;
 
-class ProcessingSettingsResponseDataStructure extends AbstractDataStructure implements OpenApiSchemaProvider
+class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvider
 {
     public static function getParameterDefinitions(): array
     {
