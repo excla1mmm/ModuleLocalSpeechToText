@@ -55,10 +55,30 @@ final class TranscriptTimeNormalizer
                 $segment['end_ms'] = $endMs;
             }
 
-            $normalized[] = $segment;
+            $normalized[] = [
+                'segment' => $segment,
+                'index' => $index,
+                'timed' => $hasStart,
+            ];
         }
 
-        return $normalized;
+        usort($normalized, static function (array $left, array $right): int {
+            if ($left['timed'] !== $right['timed']) {
+                return $left['timed'] ? -1 : 1;
+            }
+            if (!$left['timed']) {
+                return $left['index'] <=> $right['index'];
+            }
+            $start = $left['segment']['start_ms'] <=> $right['segment']['start_ms'];
+            if ($start !== 0) {
+                return $start;
+            }
+            $end = $left['segment']['end_ms'] <=> $right['segment']['end_ms'];
+
+            return $end !== 0 ? $end : $left['index'] <=> $right['index'];
+        });
+
+        return array_column($normalized, 'segment');
     }
 
     /**

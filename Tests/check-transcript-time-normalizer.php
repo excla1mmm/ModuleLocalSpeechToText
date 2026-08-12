@@ -109,6 +109,26 @@ expectSameTranscriptTimeNormalizer(
     'Transcript segment timestamps must be normalized while preserving payload fields'
 );
 
+expectSameTranscriptTimeNormalizer(
+    [
+        ['text' => 'early', 'start_ms' => 100, 'end_ms' => 200],
+        ['text' => 'same-first', 'start_ms' => 300, 'end_ms' => 400],
+        ['text' => 'same-second', 'start_ms' => 300, 'end_ms' => 400],
+        ['text' => 'late', 'start_ms' => 500, 'end_ms' => 600],
+        ['text' => 'untimed-first'],
+        ['text' => 'untimed-second'],
+    ],
+    TranscriptTimeNormalizer::normalizeTranscriptSegments([
+        ['text' => 'late', 'start_ms' => '500', 'end_ms' => 600.0],
+        ['text' => 'untimed-first'],
+        ['text' => 'same-first', 'start_ms' => 300, 'end_ms' => 400],
+        ['text' => 'early', 'start_ms' => 100, 'end_ms' => 200],
+        ['text' => 'same-second', 'start_ms' => 300, 'end_ms' => 400],
+        ['text' => 'untimed-second'],
+    ]),
+    'Timed transcript segments must have stable canonical timestamp order and untimed segments must remain stable after them'
+);
+
 expectInvalidArgumentTranscriptTimeNormalizer(
     'transcript[0] must be an object',
     static fn (): array => TranscriptTimeNormalizer::normalizeTranscriptSegments(['not an object']),

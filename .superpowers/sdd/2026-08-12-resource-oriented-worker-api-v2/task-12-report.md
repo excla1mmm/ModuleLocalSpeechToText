@@ -25,3 +25,9 @@
 - RED: the SQLite lease test set a valid owned lease expired after conceptual preflight but before heartbeat CAS; the old UPDATE revived it.
 - GREEN: `refreshProcessingLeaseForWorker()` now requires `lease_expires_at >= :now` in its authoritative UPDATE, matching the timeout-boundary policy. A zero-row CAS leaves the lease untouched, so the existing conflict path produces no liveness or telemetry side effect.
 - Verification: lease SQLite/runtime, authoritative-side-effects, queue, claim, migration, and full suite passed.
+
+## Quality Fix 1 — canonical transcript segment order
+
+- RED: out-of-order timed segments were integer-normalized but persisted in worker arrival order.
+- GREEN: timed segments are now stably ordered by `(start_ms, end_ms, original_index)` before filtering, persistence, events, and call-revision composition. Existing untimed compatibility is retained: untimed segments follow all timed segments while preserving their original relative order.
+- Verification: normalizer regression covers integer conversion, stable equal timestamps, and untimed ordering; the production terminal submission fixture now supplies out-of-order input and verifies normalized stored/result/event/revision flow. Focused quality/terminal/assembler/revision/receipt/migration and full suite passed.
