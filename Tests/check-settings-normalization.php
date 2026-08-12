@@ -208,6 +208,18 @@ namespace {
     STTSetting::setWorkerApiKeyIds([7, '8', 0, -3, 7]);
     expectSameSettingsNormalization('[7,8]', ModulesModelsBase::$values[STTSetting::WORKER_API_KEY_IDS] ?? null, 'Worker API key list must be persisted as normalized JSON');
     expectSameSettingsNormalization('7', ModulesModelsBase::$values[STTSetting::WORKER_API_KEY_ID] ?? null, 'Legacy worker API key setting must mirror the first current key');
+    ModulesModelsBase::$values[STTSetting::WORKER_API_KEY_HISTORY_IDS] = '[6]';
+    STTSetting::addWorkerApiKeyId(9);
+    STTSetting::removeWorkerApiKeyId(9);
+    expectSameSettingsNormalization(
+        [6, 9],
+        STTSetting::workerApiKeyHistoryIds(),
+        'Worker API-key history must retain revoked IDs for queued/cache fail-closed authorization'
+    );
+    expectTrueSettingsNormalization(
+        STTSetting::isWorkerApiKeyIdKnown(9) && !STTSetting::isWorkerApiKeyIdAllowed(9),
+        'Removed worker API key must remain known without remaining authorized'
+    );
 
     $repo = 'owner/model.repo';
     $runtimeModel = 'model-v1';

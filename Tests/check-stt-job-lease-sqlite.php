@@ -157,6 +157,8 @@ namespace {
             error_msg TEXT
         )'
     );
+    $pdo->exec('CREATE TABLE m_STTWorker (id INTEGER PRIMARY KEY, worker_uid TEXT NOT NULL)');
+    $pdo->exec("INSERT INTO m_STTWorker(id, worker_uid) VALUES (1, 'worker-one'), (2, 'worker-two')");
     ModulesModelsBase::useTestPdo($pdo);
     $now = time();
     $statement = $pdo->prepare(

@@ -113,6 +113,30 @@ namespace Phalcon\Di {
     }
 }
 
+namespace MikoPBX\Common\Models {
+    final class ApiKeys
+    {
+        public int $id = 42;
+        public string $full_permissions = '0';
+        public string $allowed_paths = '{"/api/v3/module-local-speech-to-text/workers":"write","/api/v3/module-local-speech-to-text/jobs":"write"}';
+
+        public static function findFirstById(int $id): ?self
+        {
+            return $id === 42 ? new self() : null;
+        }
+    }
+}
+
+namespace Modules\ModuleLocalSpeechToText\Lib\Services {
+    final class WorkerApiKeyService
+    {
+        public const array WORKER_ALLOWED_PATHS = [
+            '/api/v3/module-local-speech-to-text/workers' => 'write',
+            '/api/v3/module-local-speech-to-text/jobs' => 'write',
+        ];
+    }
+}
+
 namespace Modules\ModuleLocalSpeechToText\Lib {
     class LocalSpeechToTextMain
     {

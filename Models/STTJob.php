@@ -248,7 +248,9 @@ class STTJob extends ModulesModelsBase
                         lease_expires_at = :lease_expires_at,
                         finished_at = NULL,
                         error_msg = NULL
-                  WHERE id = :id AND status = :pending',
+                  WHERE id = :id
+                    AND status = :pending
+                    AND EXISTS (SELECT 1 FROM m_STTWorker WHERE id = :worker_id)',
                 [
                     'processing' => self::STATUS_PROCESSING,
                     'worker_id' => $workerId,

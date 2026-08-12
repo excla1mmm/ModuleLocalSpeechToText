@@ -6,7 +6,6 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
-use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use RuntimeException;
 use Throwable;
@@ -17,7 +16,8 @@ final class STTWorkerResourceService
     private const int MAX_LIMIT = 200;
     private const array MUTABLE_FIELDS = ['name', 'model', 'status'];
     private const array INTERNAL_FIELDS = [
-        'id', '_remote_addr', '_auth_type', '_api_key_id', '_http_method',
+        'id', 'httpMethod', '_remote_addr', '_auth_type', '_api_key_id', '_http_method',
+        '_auth_user_name', '_auth_session_id',
         '_worker_uid_header', '_lease_token_header',
     ];
 
@@ -132,15 +132,8 @@ final class STTWorkerResourceService
         }
 
         try {
-            $active = STTJob::count([
-                'conditions' => 'worker_id = :worker_id: AND status = :status: AND lease_token IS NOT NULL',
-                'bind' => ['worker_id' => (int)$worker->id, 'status' => STTJob::STATUS_PROCESSING],
-            ]);
-            if ((int)$active > 0) {
+            if (!STTWorker::deleteIfNoActiveLease((int)$worker->id)) {
                 return self::error('worker_has_active_lease', 'Worker has an active job lease', 409);
-            }
-            if (!$worker->delete()) {
-                throw new RuntimeException(implode(', ', $worker->getMessages()));
             }
 
             return self::success(['id' => (int)$worker->id]);

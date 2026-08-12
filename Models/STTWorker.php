@@ -11,7 +11,8 @@ use RuntimeException;
 /**
  * @Indexes(
  *     [name='worker_uid', columns=['worker_uid'], type='UNIQUE'],
- *     [name='api_key_id', columns=['api_key_id'], type='']
+ *     [name='api_key_id', columns=['api_key_id'], type=''],
+ *     [name='api_key_id_unique', columns=['api_key_id'], type='UNIQUE']
  * )
  */
 class STTWorker extends ModulesModelsBase
@@ -241,6 +242,30 @@ class STTWorker extends ModulesModelsBase
         )) {
             throw new RuntimeException('Unable to mark stale workers offline');
         }
+    }
+
+    public static function deleteIfNoActiveLease(int $workerId): bool
+    {
+        if ($workerId <= 0) {
+            return false;
+        }
+        $connection = (new self())->getWriteConnection();
+        if (!$connection->execute(
+            'DELETE FROM m_STTWorker
+              WHERE id = :worker_id
+                AND NOT EXISTS (
+                    SELECT 1
+                      FROM m_STTJob
+                     WHERE worker_id = :worker_id
+                       AND status = :processing
+                       AND lease_token IS NOT NULL
+                )',
+            ['worker_id' => $workerId, 'processing' => STTJob::STATUS_PROCESSING]
+        )) {
+            throw new RuntimeException('Unable to delete worker');
+        }
+
+        return (int)$connection->affectedRows() === 1;
     }
 
     private static function saveNewWorker(self $worker): void

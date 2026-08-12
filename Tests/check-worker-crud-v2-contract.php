@@ -20,15 +20,40 @@ namespace Phalcon\Di {
     }
 }
 
+namespace MikoPBX\Common\Models {
+    class ApiKeys
+    {
+        /** @var array<int, self> */
+        public static array $rows = [];
+
+        public int $id = 0;
+        public string $full_permissions = '0';
+        public string $allowed_paths = '{}';
+
+        public static function findFirstById(int $id): ?self
+        {
+            return self::$rows[$id] ?? null;
+        }
+    }
+}
+
 namespace Modules\ModuleLocalSpeechToText\Models {
     class STTSetting
     {
         /** @var list<int> */
         public static array $allowedWorkerApiKeyIds = [77, 99];
 
+        /** @var list<int> */
+        public static array $knownWorkerApiKeyIds = [77, 99, 123];
+
         public static function isWorkerApiKeyIdAllowed(int $apiKeyId): bool
         {
             return in_array($apiKeyId, self::$allowedWorkerApiKeyIds, true);
+        }
+
+        public static function isWorkerApiKeyIdKnown(int $apiKeyId): bool
+        {
+            return in_array($apiKeyId, self::$knownWorkerApiKeyIds, true);
         }
     }
 
@@ -114,6 +139,23 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public function delete(): bool
         {
             unset(self::$rows[(int)$this->id]);
+
+            return true;
+        }
+
+        public static function deleteIfNoActiveLease(int $workerId): bool
+        {
+            foreach (STTJob::$rows as $job) {
+                if ($job['worker_id'] === $workerId
+                    && $job['status'] === STTJob::STATUS_PROCESSING
+                    && $job['lease_token'] !== null) {
+                    return false;
+                }
+            }
+            if (!isset(self::$rows[$workerId])) {
+                return false;
+            }
+            unset(self::$rows[$workerId]);
 
             return true;
         }
@@ -237,6 +279,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib {
 }
 
 namespace {
+    use MikoPBX\Common\Models\ApiKeys;
     use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
     use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Processor;
@@ -244,6 +287,7 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
     use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
     use Modules\ModuleLocalSpeechToText\Models\STTJob;
+    use Modules\ModuleLocalSpeechToText\Models\STTSetting;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
     /** @param mixed $actual */
@@ -313,6 +357,7 @@ namespace {
     expectWorkerCrud(is_file($serviceFile), 'STTWorkerResourceService CRUD implementation is missing');
 
     require_once $root . '/Lib/Services/WorkerApiContract.php';
+    require_once $root . '/Lib/Services/WorkerApiKeyService.php';
     require_once $root . '/Lib/RestAPI/Common/WorkerRequestContext.php';
     require_once $root . '/Lib/RestAPI/Common/LegacyRouteRejector.php';
     require_once $serviceFile;
@@ -324,6 +369,15 @@ namespace {
     workerFixture(2, 'worker-b', 'offline', '2', '2.4.0', 88);
     workerFixture(3, 'worker-c', 'online', '1', '1.9.0', null);
     STTWorker::$nextId = 4;
+    foreach ([77, 99] as $workerApiKeyId) {
+        $workerApiKey = new ApiKeys();
+        $workerApiKey->id = $workerApiKeyId;
+        $workerApiKey->allowed_paths = json_encode([
+            '/api/v3/module-local-speech-to-text/workers' => 'write',
+            '/api/v3/module-local-speech-to-text/jobs' => 'write',
+        ]);
+        ApiKeys::$rows[$workerApiKeyId] = $workerApiKey;
+    }
     $service = new STTWorkerResourceService();
 
     $filtered = $service->getList([
@@ -377,8 +431,15 @@ namespace {
         $service->update(2, ['name' => 'Incomplete'])->httpCode === 422,
         'Administrative PUT must require every mutable replacement field',
     );
+    $realEnvelopePut = $service->update(2, [
+        'name' => 'Core Envelope',
+        'model' => 'core-model',
+        'status' => 'online',
+        'httpMethod' => 'PUT',
+    ]);
+    expectWorkerCrud($realEnvelopePut->success, "Core's exact data[httpMethod] metadata must not invalidate PUT");
 
-    $patched = $service->patch(2, ['id' => 2, 'name' => 'Patched']);
+    $patched = $service->patch(2, ['id' => 2, 'name' => 'Patched', 'httpMethod' => 'PATCH']);
     expectWorkerCrud($patched->success && ($patched->data['name'] ?? null) === 'Patched', 'PATCH allow-list update failed');
     foreach (['worker_uid', 'api_key_id', 'api_version', 'app_version', 'created_at', 'unknown'] as $forbiddenField) {
         $rejected = $service->patch(2, [$forbiddenField => 'mutation']);
@@ -492,6 +553,11 @@ namespace {
         );
     }
 
+    $explicitAdminKey = new ApiKeys();
+    $explicitAdminKey->id = 555;
+    $explicitAdminKey->full_permissions = '1';
+    ApiKeys::$rows[555] = $explicitAdminKey;
+
     $adminBearerRequest = requestForWorkerCrud(
         'create',
         ['worker_uid' => 'admin-bearer-created', 'name' => 'Bearer admin', 'app_version' => '4.1.0'],
@@ -505,6 +571,91 @@ namespace {
         $adminBearer->httpCode === 200,
         'Administrator bearer POST must remain outside worker-key registration gates',
         [$adminBearer->httpCode, $adminBearer->data],
+    );
+    workerFixture(10, 'admin-key-delete', 'offline', '2', '4.0.0', null);
+    foreach ([
+        'getList' => [],
+        'getRecord' => ['id' => 1],
+        'update' => ['id' => 1, 'name' => 'Key Admin', 'model' => 'key-model', 'status' => 'online'],
+        'patch' => ['id' => 1, 'name' => 'Key Admin Patch'],
+        'delete' => ['id' => 10],
+    ] as $action => $data) {
+        $request = requestForWorkerCrud($action, $data, false, false);
+        $request['sessionContext']['auth_type'] = 'bearer_token';
+        $request['sessionContext']['token_id'] = 555;
+        $result = Processor::callBack($request);
+        expectWorkerCrud(
+            $result->httpCode >= 200 && $result->httpCode < 300,
+            "Explicit full-permission administrator API key must allow {$action} without v2",
+            [$result->httpCode, $result->data],
+        );
+    }
+
+    $jwtRequest = requestForWorkerCrud('getList', [], false, false);
+    $jwtRequest['sessionContext'] = [
+        'auth_type' => 'bearer_token',
+        'token_id' => 0,
+        'user_name' => 'admin',
+        'role' => 'admins',
+        'session_id' => 'admin',
+        'remote_addr' => '198.51.100.10',
+    ];
+    expectWorkerCrud(Processor::callBack($jwtRequest)->httpCode === 200, 'JWT administrator CRUD must not require v2');
+
+    $writeOnlyKey = new ApiKeys();
+    $writeOnlyKey->id = 556;
+    $writeOnlyKey->allowed_paths = json_encode([
+        '/api/v3/module-local-speech-to-text/workers' => 'write',
+    ]);
+    ApiKeys::$rows[556] = $writeOnlyKey;
+    $writeOnlyRequest = requestForWorkerCrud('getList', [], false, false);
+    $writeOnlyRequest['sessionContext']['auth_type'] = 'bearer_token';
+    $writeOnlyRequest['sessionContext']['token_id'] = 556;
+    $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;
+    expectWorkerCrud(
+        Processor::callBack($writeOnlyRequest)->httpCode === 403
+            && ModuleLifecycleGate::$acquireCalls === $beforeLeaseCalls,
+        'A generic write API key must not be inferred as a worker-resource administrator',
+    );
+
+    unset(ApiKeys::$rows[99]);
+    $beforeRegistration = LocalSpeechToTextMain::$registrationCalls;
+    $cachedAfterCoreDelete = Processor::callBack(requestForWorkerCrud(
+        'create',
+        ['worker_uid' => 'cached-after-core-delete'],
+        true,
+        true,
+        99,
+    ));
+    expectWorkerCrud(
+        $cachedAfterCoreDelete->httpCode === 403
+            && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
+        'A cached token must fail closed when its live Core API-key record has been deleted',
+    );
+
+    STTSetting::$allowedWorkerApiKeyIds = [99];
+    foreach (['getList', 'create', 'getRecord', 'update', 'patch', 'delete'] as $action) {
+        $data = match ($action) {
+            'create' => ['worker_uid' => 'worker-a'],
+            'update' => ['id' => 1, 'name' => 'No', 'model' => 'No', 'status' => 'offline'],
+            'patch' => ['id' => 1, 'name' => 'No'],
+            default => ['id' => 1],
+        };
+        $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;
+        $beforeRegistration = LocalSpeechToTextMain::$registrationCalls;
+        $revokedQueued = Processor::callBack(requestForWorkerCrud($action, $data, true, true, 77));
+        expectWorkerCrud($revokedQueued->httpCode === 403, "Revoked queued worker credential must deny {$action}");
+        expectWorkerCrud(
+            ModuleLifecycleGate::$acquireCalls === $beforeLeaseCalls
+                && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
+            "Revoked queued worker credential must deny {$action} before mutation",
+        );
+    }
+
+    $cachedRevoked = Processor::callBack(requestForWorkerCrud('create', ['worker_uid' => 'cached-revoked'], true, true, 123));
+    expectWorkerCrud(
+        $cachedRevoked->httpCode === 403 && !isset(STTWorker::$rows[STTWorker::$nextId]),
+        'Cached bearer for a historical worker key must fail closed after Core key deletion',
     );
 
     $controller = (string)file_get_contents($root . '/Lib/RestAPI/Workers/Controller.php');
@@ -525,7 +676,7 @@ namespace {
     expectWorkerCrud(
         !str_contains($resourceService, 'ApiKeys')
             && !str_contains($resourceService, 'WorkerApiKeyService')
-            && str_contains($resourceService, '$worker->delete()'),
+            && str_contains($resourceService, 'STTWorker::deleteIfNoActiveLease('),
         'Worker delete must target only the module worker row and leave Core API-key records untouched',
     );
     expectWorkerCrud(

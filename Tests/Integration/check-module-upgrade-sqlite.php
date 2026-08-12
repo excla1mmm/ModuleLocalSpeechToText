@@ -281,7 +281,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'legacy database did not apply migrations 1-11');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'legacy database did not apply migrations 1-12');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -299,7 +299,7 @@ expectSttUpgrade($after['integrity'] === 'ok', 'upgraded database failed integri
 expectSttUpgrade($after['journal_mode'] === 'wal', 'upgraded database is not in WAL mode');
 expectSttUpgrade($after['event_keys_unique'], 'event keys lost uniqueness');
 foreach ($before['counts'] as $table => $count) {
-    $expectedCount = $table === 'm_STTSetting' ? $count + 3 : $count;
+    $expectedCount = $table === 'm_STTSetting' ? $count + 4 : $count;
     expectSttUpgrade($after['counts'][$table] === $expectedCount, "unexpected row count for {$table}");
 }
 foreach ($before['hashes'] as $name => $hash) {
@@ -364,8 +364,15 @@ foreach ($before['rows']['jobs'] as $jobBefore) {
     expectSttUpgrade($jobAfter === $expectedJob, "legacy processing job {$jobId} changed outside requeue fields");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     'migration ledger is incomplete'
+);
+expectSttUpgrade(
+    json_decode((string)sqliteRows(
+        new SQLite3($resolvedDatabase, SQLITE3_OPEN_READONLY),
+        "SELECT value FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
+    )[0]['value'], true) === [41],
+    'worker API-key history was not preserved'
 );
 expectSttUpgrade(
     sqliteRows(
@@ -383,6 +390,10 @@ expectSttUpgrade(
 expectSttUpgrade(
     in_array('m_STTResult_created_at', $after['indexes'], true),
     'result processing timestamp index is missing after upgrade'
+);
+expectSttUpgrade(
+    in_array('i_m_STTWorker_api_key_id_unique', $after['indexes'], true),
+    'exclusive worker API-key index is missing after upgrade'
 );
 foreach ([
     'i_m_STTJob_file_path',

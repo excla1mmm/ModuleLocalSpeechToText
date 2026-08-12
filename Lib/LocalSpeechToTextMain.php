@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\AssignedJobConflictException;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\WorkerApiKeyBindingConflictException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
@@ -16,6 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -57,14 +59,21 @@ class LocalSpeechToTextMain
         }
 
         try {
-            $worker = STTWorker::registerWorker(
+            $apiKeyId = self::requestApiKeyId($data);
+            $connection = (new STTWorker())->getWriteConnection();
+            $worker = (new WorkerRegistrationTransaction())->run(
+                $connection,
+                $apiKeyId,
                 $workerUid,
-                self::stringField($data, 'name', $workerUid),
-                self::currentWorkerModelName(),
-                self::clientIp($data),
-                self::requestApiKeyId($data),
-                WorkerApiContract::API_VERSION,
-                self::stringField($data, 'app_version')
+                static fn (): STTWorker => STTWorker::registerWorker(
+                    $workerUid,
+                    self::stringField($data, 'name', $workerUid),
+                    self::currentWorkerModelName(),
+                    self::clientIp($data),
+                    $apiKeyId,
+                    WorkerApiContract::API_VERSION,
+                    self::stringField($data, 'app_version')
+                )
             );
             LocalSpeechToTextLogger::event(
                 'worker',
@@ -78,6 +87,11 @@ class LocalSpeechToTextMain
             );
 
             return self::success(STTWorkerResourceService::formatWorker($worker));
+        } catch (WorkerApiKeyBindingConflictException $exception) {
+            $result = self::error($exception->errorCode, $exception->getMessage(), 409);
+            $result->data['error_code'] = $exception->errorCode;
+
+            return $result;
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);

@@ -35,6 +35,7 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_BACKFILL_DONE_HISTORY_AT = 'cdr_backfill_done_history_at';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
+    public const string WORKER_API_KEY_HISTORY_IDS = 'worker_api_key_history_ids';
     public const string WORKER_API_CONTRACT_MIGRATION_V2 = 'worker_api_contract_migration_v2';
     public const string CUSTOM_MODELS = 'custom_models';
     public const string TEMPERATURE = 'temperature';
@@ -555,6 +556,7 @@ class STTSetting extends ModulesModelsBase
         $ids[] = $id;
 
         self::setWorkerApiKeyIds($ids);
+        self::rememberWorkerApiKeyId($id);
     }
 
     public static function removeWorkerApiKeyId(int $id): void
@@ -570,6 +572,47 @@ class STTSetting extends ModulesModelsBase
     public static function isWorkerApiKeyIdAllowed(int $id): bool
     {
         return $id > 0 && in_array($id, self::workerApiKeyIds(), true);
+    }
+
+    /** @return array<int, int> */
+    public static function workerApiKeyHistoryIds(): array
+    {
+        $decoded = json_decode(self::getValue(self::WORKER_API_KEY_HISTORY_IDS, '[]'), true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($decoded as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    public static function rememberWorkerApiKeyId(int $id): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+        $ids = self::workerApiKeyHistoryIds();
+        $ids[] = $id;
+        self::setValue(
+            self::WORKER_API_KEY_HISTORY_IDS,
+            json_encode(array_values(array_unique($ids))) ?: '[]'
+        );
+    }
+
+    public static function isWorkerApiKeyIdKnown(int $id): bool
+    {
+        return $id > 0 && in_array(
+            $id,
+            array_values(array_unique(array_merge(self::workerApiKeyIds(), self::workerApiKeyHistoryIds()))),
+            true
+        );
     }
 
     public static function normalizeModelId(string $modelId): string

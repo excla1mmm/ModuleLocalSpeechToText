@@ -1,0 +1,42 @@
+# SDD ledger — plan: /Users/excla1m/Development/Extensions/ModuleLocalSpeechToText/.worktrees/worker-api-v2-stt/docs/superpowers/plans/2026-08-12-resource-oriented-worker-api-v2.md
+
+Preflight decision: STT mutating requests keep worker_uid and lease_token in JSON bodies; ownership headers are exclusive to recording GET.
+
+Baseline: commit 3415f0bfcb6e074e4dd0ec3ff029355f6f4fbb57 on feature/worker-api-v2-stt; required plan commit is present.
+Baseline full `php Tests/run-all.php`: PASS in isolated `php:8.4-cli` runtime with the Core feature worktree mounted read-only at the repository-expected relative path; all module contract tests passed.
+Baseline environment note: host PHP lacked the relative Core layout; the PBX image supplied real Phalcon and conflicted with two deliberate test stubs. A clean PHP 8.4 container without Phalcon resolved both environment-only failures without modifying the source checkout.
+Baseline worktree status: clean; original checkout and its user logging/UI changes untouched.
+
+Task 1: BASE=3415f0bfcb6e074e4dd0ec3ff029355f6f4fbb57
+Task 1: initial commit d8b65e8b31d80948c38690122cdf70f1255a231c; review found 3 Critical and 2 Important contract-test bypasses.
+Task 1: fix round 1/5 commit 743b1f9270b352f7502b1ad9e15072195bfca9df; scoped re-review remained not clean.
+Task 1: fix round 2/5 commit 870ebedf5ac876f8cc1abb3239f1723d3cf93ab9; scoped re-review remained not clean.
+Task 1: fix round 3/5 commit 4aea8b283c6fe4f8c30a138968cae91998bdc489; canonical spec overrides the component-plan `API_BASE_PATH` snippet, so runtime `file_url` is path-only `'/job-recordings/' . (int)$job->id`; scoped re-review remained not clean.
+Task 1: fix round 4/5 commit 41389f8f521fdf048287dc468f1a4c9b7fe637d3; scoped re-review remained not clean.
+Task 1: fix round 5/5 commit 1efffe8ac788851dc0e3ca100fad028731c32e7b; final scoped re-review FAIL (2 Critical, 1 Important load-bearing test weaknesses remain).
+Task 1: BLOCKED after maximum five fix rounds. Remaining: prove legacy tombstone and v2 version gate are top-level unconditional with whitelist-only harmless prelude; scan all production PHP outside JobRecordings for internal ownership-header consumption. Current range 3415f0bfcb6e074e4dd0ec3ff029355f6f4fbb57..1efffe8ac788851dc0e3ca100fad028731c32e7b; worktree clean; Task 1 is not complete and Task 2 was not started.
+
+Task 0: plan correction initial commits cd43b3eab4b428d11a6ba900e63ce8aa7140b0fe (STT), 512885ebe85d837b6b42640d291f91e12334c3ea (AI), e2073ab0b5ab04009203c01caf8333de9baeafd4 (STT macOS), f0f1d1176fdfe63fd69b9bf458bdde5b3f8c7654 (AI macOS); review found 1 Critical and 8 Important cross-plan defects.
+Task 0: fix round 1/5 (9 addressed, 0 open; commits f0c646a61b22b11b7afc55a756290d59e3ff6269, abc7f52f6d77e75e0e1b314158c855da392a8832, cdd2a6a00a4a2c5398ae1894eb82d747a4f9ee6f, 0458a19f0babcfef6a1356d00781b6e3b2340395).
+Task 0: complete (four repository documentation ranges reviewed clean; module-only architecture, path-only recording URLs, sequential SDD gates, required review roles, and fresh post-review verification are binding).
+Task 1 restart note: the old task-1 brief and its preflight ownership decision predate Task 0 and are superseded. Existing Task 1 test commits and the current unstaged test/report diff are preserved as candidate work, not accepted completion. Generate a fresh brief from the corrected plan and restart the task review cycle without discarding history.
+Task 1 (corrected plan): implementer commit 0676e4a7f19db552986f921885ec3cb38f0b4fd3; fresh RED evidence confirmed route mismatch and missing WorkerApiContract, mutation/syntax/diff checks clean. Review found 3 Important gaps: reflected numeric idPattern, restricted POST registration version gate, and executable 426/body/non-dispatch tombstone result contract.
+Task 1: minor (deferred): route test globally couples legacy tombstone arm order to the first setup/main reference even though terminal match semantics make unselected arm ordering irrelevant; final review must triage after the three Important gaps are fixed.
+Task 1: fix round 1/5 (2 addressed, 1 open — reflected numeric idPattern and executable tombstone result addressed; restricted CREATE gate still accepts an OR-broadened administrative action; commit 0676e4a..506b0cc).
+Task 1: fix round 2/5 (1 addressed, 0 open — restricted CREATE gate now rejects GET_LIST/GET_RECORD OR broadening while leaving admin CRUD ungated; commit 506b0cc..495417a).
+Task 1: complete (commits 3415f0b..495417a, review clean; one deferred Minor retained for final review).
+Task 2: initial commit 4cff31f3fca81de6a06e8c091d9809418acb96cf; negotiation and focused compatibility tests pass, aggregate version/route guards progress to later-task failures. Review found unsafe non-scalar ownership/API-key context coercion and confirmed a plan/task-boundary contradiction around exact 1.45 timing and aggregate green expectations.
+Task 2: controller-promoted explicit-constraint fix: remove the local PBXApiResult responseHeaders test property/assertions and replace them with a source guard forbidding responseHeaders/Upgrade/Cache-Control in Task 2 production.
+Task 2: minor (deferred): real-Core OpenAPI/controller integration remains for the established mounted read-only Core test environment; no Core change is permitted.
+Task 2: fix round 1/5 (3 addressed, 0 open — scalar-safe context/secrecy, corrected staged acceptance, and source-guarded body-only 426; commit 4cff31f..b14d0b8).
+Task 2: complete (commits 495417a..b14d0b8, scoped re-review clean; plain aggregate version guard intentionally progresses to Task 5 legacy file_url).
+Task 3: initial commit 663f598 (focused real-SQLite migration/rollback/idempotency/preservation green; production-shaped Phalcon rehearsal skipped on host). Review found no queue/data-loss defect but one Important wording conflict: the module marker is the last schema/data operation, while the framework migration ledger necessarily follows in the same transaction before commit.
+Task 3: minor (deferred): seed non-empty linked rows in every protected call-transcript aggregate/part/revision/event table for preservation hashing.
+Task 3: minor (deferred): add a lightweight production migration registration/version/name/checksum contract because the focused harness reconstructs migration 11 and Phalcon rehearsal skips locally.
+Task 3: minor (deferred): repeated setup evidence uses ModuleSchemaMigrator plus separate permission reconciliation rather than full installDB; add key hash/suffix/display sentinels to reconciliation tests before final release verification.
+Task 3: fix round 1/5 (1 addressed, 0 open — marker/ledger/commit contract clarified without production changes; commit 663f598..5af134f).
+Task 3: complete (commits b14d0b8..5af134f, scoped re-review clean; Phalcon production rehearsal deferred to pre-release environment).
+Cross-plan note: before ModuleAISupervisor migration implementation, align its analogous marker wording to the canonical module-owned-statement/framework-ledger transaction contract established here.
+Task 4: initial commit a80507e (numeric Worker CRUD, restricted POST self-registration, and terminal Worker tombstones; focused Task-4 tests green, aggregate route/version guards intentionally stop on later resources).
+Task 4: security review NEEDS FIX (4 Important, 0 Critical/Minor): stale/revoked worker bearer privilege inversion, concurrent API-key binding race, active-lease delete/claim race, and real-Core `httpMethod` payload metadata causing valid PUT/PATCH to return 422.
+Task 4: fix round 1/5 (4 addressed, 0 open — positive admin/live worker-key provenance, persistent revoked-key history, migration-12 unique binding invariant plus transactional registration, atomic delete/claim ordering, and exact Core httpMethod metadata; focused SQLite/CRUD/lease/permission/mutation checks green; follow-up subject `fix: harden STT worker resource authorization`).

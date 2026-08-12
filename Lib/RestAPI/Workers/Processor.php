@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
-use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\LegacyRouteRejector;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
@@ -39,14 +38,21 @@ class Processor extends Injectable
             WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker(),
             default => (static function () use ($request, $action, $actionString): PBXApiResult {
                 $data = WorkerRequestContext::data($request);
-                if ($action === WorkerAction::CREATE && WorkerRequestContext::isRestrictedWorkerKey($data)) {
+                if (WorkerRequestContext::isRevokedWorkerKey($data)) {
+                    return self::forbidden('worker_api_key_forbidden', 'Worker API key is no longer authorized');
+                }
+                $restricted = WorkerRequestContext::isRestrictedWorkerKey($data);
+                if (!$restricted && !WorkerRequestContext::isAdministrator($data)) {
+                    return self::forbidden('worker_authorization_forbidden', 'Worker resource authorization is not valid');
+                }
+                if ($action === WorkerAction::CREATE && $restricted) {
                     $versionError = WorkerApiContract::requireVersion($request);
                     if ($versionError !== null) {
                         return $versionError;
                     }
                 }
 
-                if (WorkerRequestContext::isRestrictedWorkerKey($data)) {
+                if ($restricted) {
                     if ($action !== WorkerAction::CREATE) {
                         return self::forbidden('worker_resource_forbidden', 'Worker credentials may only self-register');
                     }
@@ -55,7 +61,12 @@ class Processor extends Injectable
                         return $bindingError;
                     }
                 } elseif ($action === WorkerAction::CREATE) {
-                    unset($data['_auth_type'], $data['_api_key_id']);
+                    unset(
+                        $data['_auth_type'],
+                        $data['_api_key_id'],
+                        $data['_auth_user_name'],
+                        $data['_auth_session_id']
+                    );
                 }
 
                 if (!$action instanceof WorkerAction) {
@@ -81,7 +92,7 @@ class Processor extends Injectable
                     $id = (int)($data['id'] ?? 0);
                     $result = match ($action) {
                         WorkerAction::GET_LIST => $service->getList($data),
-                        WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data),
+                        WorkerAction::CREATE => $service->create($data),
                         WorkerAction::GET_RECORD => $service->getRecord($id),
                         WorkerAction::UPDATE => $service->update($id, $data),
                         WorkerAction::PATCH => $service->patch($id, $data),
