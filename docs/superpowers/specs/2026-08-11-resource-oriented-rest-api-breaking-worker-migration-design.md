@@ -9,9 +9,9 @@
 - `LocalSTTWorkerMac`;
 - `AISupervisorWorkerMac`.
 
-Любые другие worker-реализации находятся вне области этой спецификации: для них не требуются изменения, миграция, тестирование или включение в координированный релиз.
+Windows STT Worker и Python STT Worker, а также любые другие worker-реализации находятся вне области этой спецификации: для них не требуются изменения, миграция, тестирование или включение в координированный релиз. `/Users/excla1m/Development/MikoPBX-develop` полностью read-only и вне scope: не создавать там branch/worktree, не выполнять существующий Core commit `361dd80b0`, не планировать Core implementation/release tasks.
 
-Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Целевые release versions этого перехода: MikoPBX Core `2026.3.23`, `ModuleLocalSpeechToText` `1.45`, `ModuleAISupervisor` `1.73`, оба macOS-приложения `1.7` build `34`. Модули требуют `min_pbx_version = 2026.3.23`; искусственно выравнивать их product versions между собой не требуется.
+Изменение выпускается как worker API contract version `2`. Product/module version и worker API version остаются независимыми: совместимость определяется только целочисленным contract version, а `module_version` и `app_version` передаются для диагностики. Целевые release versions этого перехода: `ModuleLocalSpeechToText` `1.45`, `ModuleAISupervisor` `1.73`, оба macOS-приложения `1.7` build `34`. Оба модуля сохраняют `min_pbx_version = 2025.1.1`; новый релиз MikoPBX Core не требуется.
 
 ## Цель
 
@@ -133,12 +133,10 @@ X-MikoPBX-Worker-API-Version: 2
 
 ## Ошибка несовместимости
 
-Новый модуль отвечает старому worker или клиенту с неверной версией:
+Новый модуль отвечает старому worker или клиенту с неверной версией через обычный `PBXApiResult`. Текущий Core не переносит произвольные backend response headers из `PBXApiResult`, поэтому совместимость определяется только HTTP-кодом и телом:
 
 ```http
 HTTP/1.1 426 Upgrade Required
-Upgrade: MikoPBX-Worker-API/2
-Cache-Control: no-store
 Content-Type: application/json
 ```
 
@@ -157,45 +155,47 @@ Content-Type: application/json
 }
 ```
 
+Не добавлять `Upgrade`, `Cache-Control`, `responseHeaders`, streaming/raw-response обходы или иной Core workaround. `httpCode = 426`, `error_code = worker_upgrade_required` и `required_worker_api_version = 2` являются полным wire-contract ошибки.
+
 Для нового worker против старого модуля `worker-api-contract` возвращает 404/405. Приложение классифицирует это только как `module_upgrade_required`, прекращает регистрацию и polling и показывает пользователю требование обновить соответствующий модуль до релиза с worker API version `2`. Оно не проверяет `workers:register` и не пробует `jobs:getNext`.
 
 Ошибки авторизации `401/403`, временные `5xx`, сетевые ошибки и `module_upgrade_required` остаются разными категориями. Несовместимость не должна попадать в бесконечный reconnect backoff как временная ошибка.
 
 ## Новый Worker CRUD
 
-Публичным стабильным идентификатором worker становится `worker_uid`; внутренний numeric `id` остаётся в payload и базе данных, но не является обязательным знанием приложения.
+`worker_uid` остаётся стабильным публичным уникальным полем. Item routes используют совместимый с текущим Core numeric database `id`; приложение сохраняет возвращённый numeric ID только как runtime-диагностику и не использует его как локальную идентичность.
 
 Оба модуля реализуют одну ресурсную ветку:
 
 ```text
 GET    /workers
 POST   /workers
-GET    /workers/{worker_uid}
-PUT    /workers/{worker_uid}
-PATCH  /workers/{worker_uid}
-DELETE /workers/{worker_uid}
+GET    /workers/{id}
+PUT    /workers/{id}
+PATCH  /workers/{id}
+DELETE /workers/{id}
 ```
 
 Семантика:
 
 - `GET /workers` — административный список с пагинацией и фильтрами `status`, `worker_uid`, `api_version`, `app_version`;
-- `POST /workers` — административное создание, возвращает `201` и `409` при конфликте UID;
-- `GET /workers/{worker_uid}` — административная detail-запись;
-- `PUT /workers/{worker_uid}` — идемпотентная регистрация или полная замена worker representation;
-- `PATCH /workers/{worker_uid}` — административное частичное изменение разрешённых полей;
-- `DELETE /workers/{worker_uid}` — удаление worker без удаления его исторических job/result данных.
+- `POST /workers` — идемпотентный upsert по обязательному `worker_uid` в body; возвращает numeric `id` и одинаковое представление при безопасном повторе;
+- `GET /workers/{id}` — административная detail-запись по numeric ID;
+- `PUT /workers/{id}` — административная полная замена разрешённого представления;
+- `PATCH /workers/{id}` — административное частичное изменение разрешённых полей;
+- `DELETE /workers/{id}` — удаление worker без удаления его исторических job/result данных.
 
-Restricted worker API key может выполнять только `PUT` для собственного `worker_uid`. Он не может получать список, читать чужого worker, выполнять admin PATCH или DELETE. Связь `worker_uid` с token ID проверяется до записи, как и в текущей регистрации.
+Restricted worker API key может выполнять только собственный `POST /workers`. Processor до записи проверяет `worker_uid` из body и привязку API key. Такой key не может получать список, читать item, выполнять `PUT`, `PATCH` или `DELETE`. Запрет реализуется внутри module processor, потому что текущая Core permission `write` также разрешает чтение.
 
 `DELETE` возвращает `409 worker_has_active_lease`, если worker владеет активным заданием. Удаление отвязывает worker от API key, но не отзывает сам key автоматически; жизненный цикл keys управляется отдельным ресурсом.
 
 STT processing settings становятся отдельным read-only ресурсом:
 
 ```text
-GET /worker-processing-settings/{worker_uid}
+GET /worker-processing-settings
 ```
 
-Worker key может читать только собственный профиль. Получение профиля сохраняет текущую атомарную семантику `has_settings_changed`.
+Worker key может читать только собственный singleton-профиль. Processor разрешает worker по привязке API key и обязательному `X-MikoPBX-Worker-UID`, а не по item path. Получение профиля сохраняет текущую атомарную семантику `has_settings_changed`.
 
 ## Новый worker job protocol
 
@@ -221,7 +221,7 @@ PUT    /job-failures/{job_id}
 
 `worker_uid` и `lease_token` остаются обязательными данными изменяющих запросов. `lease_token` не помещается в URL и не должен попадать в access logs. Существующие ownership checks по `worker_uid`, `job_id`, token binding и constant-time сравнению `lease_token` сохраняются.
 
-Для body-less `GET /job-recordings/{job_id}` worker передаёт ownership-данные только в заголовках, которые MikoPBX Core уже фильтрует и передаёт в module processor:
+Для body-less `GET /job-recordings/{job_id}` worker передаёт ownership-данные только в заголовках. Текущий MikoPBX Core уже передаёт входящие `X-MikoPBX-*` заголовки в module processor; менять Core не требуется:
 
 ```text
 X-MikoPBX-Worker-UID: <worker_uid>
@@ -376,7 +376,6 @@ MikoPBX Core преобразует английское имя в `rest_tag_*`.
 
 ```http
 HTTP/1.1 410 Gone
-Cache-Control: no-store
 ```
 
 с `error_code = api_route_removed` и полем `replacement_path`. Они не являются compatibility adapters и никогда не перенаправляют запрос автоматически.
@@ -391,7 +390,7 @@ Legacy rejection routes не публикуются как рабочие опе
    - `api_version INTEGER NOT NULL DEFAULT 1`;
    - `app_version TEXT NOT NULL DEFAULT ''`;
    - `updated_at INTEGER NOT NULL DEFAULT 0`.
-2. Существующие workers получают `api_version = 1`, `status = offline`, `has_settings_changed = 1` и сохраняют `worker_uid`, numeric ID, API key binding и историю.
+2. Существующие v1 workers (`api_version < 2`; для добавленной колонки default равен `1`) получают `api_version = 1`, `status = offline`, `has_settings_changed = 1` и сохраняют `worker_uid`, numeric ID, API key binding и историю. Уже-v2 worker не изменяется.
 3. Все задания со статусом `processing` и активным legacy lease атомарно возвращаются в `pending`:
    - `worker_id = NULL`;
    - `lease_token = NULL`;
@@ -401,7 +400,7 @@ Legacy rejection routes не публикуются как рабочие опе
 4. Готовые, skipped и terminal jobs/results/transcripts не изменяются.
 5. Worker API key IDs сохраняются. Их path permissions пересобираются под v2 resources; executable allowlist полностью исключает выполнение v1 processors.
 6. В `m_STTSetting` записывается marker `worker_api_contract_migration_v2 = 1` только после успешного завершения транзакции.
-7. Повторный запуск setup видит marker и всё равно проверяет наличие колонок, permissions и отсутствие legacy active leases; операция остаётся идемпотентной.
+7. Повторный запуск setup после marker не изменяет уже мигрированные данные. Permissions могут быть идемпотентно пересобраны только module-кодом через существующий Core API.
 8. После commit планируется reload REST metadata/cache и перезапуск module workers стандартным lifecycle механизмом.
 
 ## Миграция ModuleAISupervisor при обновлении
@@ -411,13 +410,13 @@ Legacy rejection routes не публикуются как рабочие опе
 1. Добавляет в `m_AISupervisorWorker`:
    - `api_version INTEGER NOT NULL DEFAULT 1`;
    - при отсутствии — `updated_at INTEGER NOT NULL DEFAULT 0`.
-2. Сохраняет существующие `app_version`, capabilities, model, API key binding и worker history, но выставляет `api_version = 1` и `status = offline`.
+2. Для v1 rows (`api_version < 2`) сохраняет существующие `app_version`, capabilities, model, numeric ID, API key binding и worker history, но выставляет `api_version = 1` и `status = offline`; уже-v2 worker не изменяется.
 3. Все `running` jobs с legacy lease возвращаются в `pending` без увеличения attempts; `worker_id`, `lease_token` и `lease_expires_at` очищаются.
 4. Сохранённые partial results, transcript cache, cache fingerprints и reusable reduce/chunk data не удаляются. Новый worker может продолжить их использовать после повторного claim при совпадении текущего cache context.
 5. Transcript refs и analysis pipeline projections синхронизируются с состоянием `pending`; готовые результаты не пересчитываются.
 6. API key IDs сохраняются, permissions пересобираются под v2 worker resources.
 7. В `m_AISupervisorSetting` фиксируется `worker_api_contract_migration_v2 = 1` после успешной транзакции.
-8. Повторный setup безопасно повторяет reconciliation и не сбрасывает jobs, уже захваченные worker v2.
+8. Повторный setup после marker не изменяет уже мигрированные данные и не сбрасывает jobs, уже захваченные worker v2; permissions могут быть идемпотентно пересобраны отдельно.
 
 Миграция различает v1 и v2 lease по `worker.api_version`. После marker нельзя массово сбрасывать все running jobs: разрешено сбрасывать только lease, принадлежащие worker с `api_version < 2` или отсутствующим worker.
 
@@ -437,8 +436,8 @@ Legacy rejection routes не публикуются как рабочие опе
 Приложение удаляет legacy fallback code и заменяет клиентские методы:
 
 ```text
-register               -> PUT /workers/{worker_uid}
-getProcessingSettings  -> GET /worker-processing-settings/{worker_uid}
+register               -> POST /workers  (worker_uid in body; response includes numeric id)
+getProcessingSettings  -> GET /worker-processing-settings
 getNext                -> POST /job-leases
 heartbeat              -> PATCH /job-leases/{job_id}
 release                -> DELETE /job-leases/{job_id}
@@ -453,7 +452,7 @@ Startup/reconnect flow v2:
 
 1. Получить `worker-api-contract`.
 2. Проверить `api_version == 2` и module ID; `module_version` используется только для диагностики.
-3. Выполнить `PUT /workers/{worker_uid}` с `app_version`, capabilities/model/platform и обязательным version header.
+3. Выполнить `POST /workers` с `worker_uid`, `app_version`, capabilities/model/platform и обязательным version header; сохранить возвращённый numeric `id` только для runtime-диагностики.
 4. Для STT получить processing settings.
 5. Начать polling через `POST /job-leases`.
 6. Сохранять текущие heartbeat, reconnect, wake, network recovery и saved run-intent гарантии только для совместимой пары.
@@ -504,7 +503,7 @@ Worker UI показывает отдельные невременные сос�
 
 - Существующие localhost/Bearer requirements сохраняются.
 - Contract endpoint не раскрывает secrets и может быть доступен аутентифицированному client до регистрации worker.
-- Restricted worker key получает только собственный `PUT /workers/{uid}`, собственные settings и worker job protocol resources.
+- Restricted worker key получает только собственный `POST /workers`, собственный singleton settings и worker job protocol resources; processors блокируют административное чтение/изменение до вызова domain services.
 - Management CRUD, списки workers/jobs, bulk PATCH/DELETE, API key lifecycle, imports и audit runs запрещены restricted worker keys.
 - Все job mutations сохраняют ownership и lease validation.
 - Recording download сохраняет assigned-worker, lease, path, origin, size, duration и token checks.
@@ -527,7 +526,7 @@ Worker UI показывает отдельные невременные сос�
 ### REST и OpenAPI
 
 - каждый resource имеет отдельный tag и переведённый `rest_tag_*` во всех locales;
-- Worker management реализует list/create/detail/update/patch/delete;
+- Worker management реализует list/create/detail/update/patch/delete с numeric item IDs; worker self-registration — idempotent `POST /workers` по `worker_uid` в body;
 - `POST /job-leases` является единственным worker способом захватить job;
 - ни один GET не изменяет queue/lease state;
 - new routes используют `PBXApiResult` и точные schemas;
@@ -565,12 +564,6 @@ Breaking release не обещает бесшовный mixed-version rollback.
 
 ## Предполагаемые области изменений
 
-### MikoPBX Core prerequisite
-
-- `PBXApiResult` передаёт разрешённые response headers из backend worker в HTTP response;
-- внешний HTTP layer разрешает только `Upgrade`, `Cache-Control` и `Retry-After`, отбрасывает CR/LF и не передаёт `Set-Cookie`, `Authorization` и другие произвольные заголовки;
-- API-key permission matching распознаёт один immediate child segment как resource item даже для строкового ID без цифр, но не расширяет grant на deeper nested resources.
-
 ### ModuleLocalSpeechToText
 
 - `Lib/RestAPI/*` — новые resource controllers/processors/actions/data structures и legacy rejection controller;
@@ -601,7 +594,7 @@ Breaking release не обещает бесшовный mixed-version rollback.
 Изменение считается завершённым только когда одновременно выполнено следующее:
 
 1. Swagger показывает отдельные сущностные секции, а не одну группу на модуль.
-2. Worker CRUD доступен администраторам и изолирован для restricted keys.
+2. Worker CRUD с numeric item IDs доступен администраторам; restricted key может только idempotent self-registration через `POST /workers` и изолирован внутри processors.
 3. Worker v2 проходит весь job lifecycle только через resource-oriented routes.
 4. Старый worker против нового модуля всегда получает 426 до любой mutation.
 5. Новый worker против старого модуля не использует fallback и показывает требование обновления модуля.

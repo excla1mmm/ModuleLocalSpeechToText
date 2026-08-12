@@ -10,16 +10,17 @@
 
 ## Global Constraints
 
-- Require MikoPBX Core `2026.3.23`; set `min_pbx_version` to exactly `2026.3.23`.
+- Keep `min_pbx_version` exactly `2025.1.1`. MikoPBX Core is read-only/out of scope; do not create Core tasks, worktrees, branches, commits, tests, or release dependencies. Existing Core commit `361dd80b0` is not part of this plan.
 - Release the module as `1.45`; worker API contract version is independently fixed at integer `2`.
 - Preserve the `PBXApiResult` envelope, integer-millisecond transcript timestamps, stable `segment_id`, transcript event cursors, result payload shapes, and one-time API-key secrecy.
 - Preserve `worker_uid`, `job_id`, `lease_token`, API-key binding, constant-time token comparison, retry limits, late heartbeat behavior, recording realpath/range/size/duration checks, and completed data.
 - Every worker-only v2 request except `GET /worker-api-contract` must carry `X-MikoPBX-Worker-API-Version: 2`.
 - `GET /job-recordings/{job_id}` receives `worker_uid` and `lease_token` only through `X-MikoPBX-Worker-UID` and `X-MikoPBX-Job-Lease-Token`; no token may appear in a URL, access log, error, or diagnostic message.
+- Current Core already forwards incoming `X-MikoPBX-*` headers. It does not propagate arbitrary backend response headers from `PBXApiResult`: compatibility errors use only `httpCode=426`, `error_code=worker_upgrade_required`, and `required_worker_api_version=2`; do not add `Upgrade`, `Cache-Control`, `responseHeaders`, streaming/raw-response workarounds, or Core changes.
 - A v1 worker route always returns 426 with `worker_upgrade_required` and never invokes old business logic. A removed administrative action route always returns 410 with `api_route_removed` and `replacement_path`.
-- Restricted worker keys may use only contract negotiation, their own `PUT /workers/{worker_uid}`, their own processing settings, worker job-protocol resources, and legacy tombstones. They may not list/manage workers, use management Jobs CRUD, or read transcripts.
+- Worker item CRUD uses numeric `{id}`. `worker_uid` remains a stable unique field. Restricted worker keys may use only negotiation, their own idempotent `POST /workers` with `worker_uid` in the body, their caller-bound singleton processing settings, worker job-protocol resources, and legacy tombstones. Because current Core `write` permission also permits read, processors must block list/read/PUT/PATCH/DELETE and every management Jobs action before domain calls.
 - Preserve existing unrelated working-tree changes; stage only files named by the active task.
-- Before implementing API/auth/queue changes, use the repository's contract, queue-resilience, and security review workflows required by `AGENTS.md`.
+- Keep implementer and reviewers sequential: complete the implementation first, then run the project-specific review gate in Task 12 one reviewer at a time and return findings to the implementer.
 - Implement with tests first and commit after every task.
 
 ---
@@ -42,9 +43,9 @@ Define the exact working route matrix:
 ```php
 $v2 = [
     ['GET', '/worker-api-contract'],
-    ['GET', '/workers'], ['POST', '/workers'], ['GET', '/workers/{worker_uid}'],
-    ['PUT', '/workers/{worker_uid}'], ['PATCH', '/workers/{worker_uid}'], ['DELETE', '/workers/{worker_uid}'],
-    ['GET', '/worker-processing-settings/{worker_uid}'],
+    ['GET', '/workers'], ['POST', '/workers'], ['GET', '/workers/{id}'],
+    ['PUT', '/workers/{id}'], ['PATCH', '/workers/{id}'], ['DELETE', '/workers/{id}'],
+    ['GET', '/worker-processing-settings'],
     ['POST', '/job-leases'], ['PATCH', '/job-leases/{job_id}'], ['DELETE', '/job-leases/{job_id}'],
     ['GET', '/job-recordings/{job_id}'], ['PUT', '/job-results/{job_id}'], ['PUT', '/job-failures/{job_id}'],
     ['GET', '/jobs'], ['GET', '/jobs/{id}'], ['POST', '/jobs'], ['PATCH', '/jobs/{id}'],
@@ -110,7 +111,7 @@ git commit -m "test: define STT worker API v2 contract"
 - Produces: `WorkerApiContract::API_VERSION = 2`, `MODULE_ID`, `VERSION_HEADER`, and `CAPABILITIES`.
 - Produces: `WorkerApiContract::requireVersion(array $request): ?PBXApiResult`.
 - Produces: `WorkerApiContract::contractResult(): PBXApiResult`.
-- Produces: `WorkerApiContract::upgradeRequired(): PBXApiResult` with HTTP 426 and safe response headers.
+- Produces: `WorkerApiContract::upgradeRequired(): PBXApiResult` with HTTP 426 and body fields `error_code=worker_upgrade_required`, `required_worker_api_version=2`.
 - Produces: `WorkerRequestContext::data(array $request): array<string,mixed>` and `isRestrictedWorkerKey(array $data): bool`.
 - Produces: `LegacyRouteRejector::worker(): PBXApiResult` and `removed(string $replacementPath): PBXApiResult`.
 
@@ -128,8 +129,7 @@ foreach ([[], ['x-mikopbx-worker-api-version' => ''], ['x-mikopbx-worker-api-ver
     $error = WorkerApiContract::requireVersion(['httpHeaders' => $headers]);
     expectV2($error?->httpCode === 426, 'invalid version must return 426');
     expectV2(($error?->data['error_code'] ?? '') === 'worker_upgrade_required', 'wrong error code');
-    expectV2(($error?->responseHeaders['Upgrade'] ?? '') === 'MikoPBX-Worker-API/2', 'Upgrade header missing');
-    expectV2(($error?->responseHeaders['Cache-Control'] ?? '') === 'no-store', 'no-store missing');
+    expectV2(($error?->data['required_worker_api_version'] ?? null) === 2, 'required version missing');
 }
 ```
 
@@ -165,7 +165,6 @@ $result->data = [
     'required_worker_api_version' => self::API_VERSION,
 ];
 $result->messages['error'][] = 'Update the worker application to a release that supports worker API version 2';
-$result->responseHeaders = ['Upgrade' => 'MikoPBX-Worker-API/2', 'Cache-Control' => 'no-store'];
 ```
 
 - [ ] **Step 3: Implement request context without leaking headers**
@@ -183,7 +182,7 @@ $data['_lease_token_header'] = (string)($headers['x-mikopbx-job-lease-token'] ??
 
 Map `GET /worker-api-contract` to `getList` as a collection-level singleton operation with tag `Local STT Workers`, authenticated security, and response schema containing `contract`, `api_version`, `module`, `module_version`, and `capabilities`. The `contract` value is exactly `WorkerApiContract::CONTRACT`.
 
-`LegacyRouteRejector::removed()` returns status 410, `error_code=api_route_removed`, the exact replacement path, and `Cache-Control: no-store`.
+Do not set `responseHeaders`. `LegacyRouteRejector::removed()` returns status 410, `error_code=api_route_removed`, and the exact replacement path in the body.
 
 - [ ] **Step 5: Run and commit**
 
@@ -212,7 +211,7 @@ Expected: both tests pass.
 - Adds: `STTWorker::$api_version`, `$app_version`, `$updated_at`.
 - Adds: `STTSetting::WORKER_API_CONTRACT_MIGRATION_V2 = 'worker_api_contract_migration_v2'`.
 - Produces: schema migration version `11`, checksum seed `stt-schema-011-worker-api-v2`.
-- Produces: `WorkerApiV2Migration::migrate(mixed $connection): void` and `reconcile(mixed $connection): void`.
+- Produces: `WorkerApiV2Migration::migrate(mixed $connection): void`; after marker `worker_api_contract_migration_v2=1`, data migration is a no-op. Permission rebuilding remains a separate idempotent module operation through the existing Core API.
 
 - [ ] **Step 1: Build a failing legacy SQLite fixture test**
 
@@ -227,7 +226,7 @@ VALUES
   (11, 'done', '/tmp/done.wav', 'done', 1, 2, 1690000000, 1700000000, 1700000000, NULL, NULL, '');
 ```
 
-After migration assert columns exist, worker 1 has `api_version=1`, `app_version=''`, `status='offline'`, `has_settings_changed=1`, job 10 is pending with cleared ownership/lease and unchanged attempts `1`, job 11 is byte-for-byte unchanged, key binding remains 41, and marker equals `1`.
+Also seed an already-v2 worker with an active processing lease. After migration assert columns exist, worker 1 has `api_version=1`, `app_version=''`, `status='offline'`, `has_settings_changed=1`, job 10 is pending with cleared ownership/lease and unchanged attempts `1`, job 11 is byte-for-byte unchanged, the active v2 lease is byte-for-byte unchanged, key binding remains 41, and marker equals `1`.
 
 - [ ] **Step 2: Run the migration test and verify failure**
 
@@ -237,7 +236,7 @@ php Tests/check-worker-api-v2-migration-sqlite.php
 
 Expected: FAIL because migration 11 and the new columns do not exist.
 
-- [ ] **Step 3: Add model fields and migration 11**
+- [ ] **Step 3: Add model fields and transactional migration 11**
 
 Define fields with these annotations/defaults:
 
@@ -252,12 +251,13 @@ public ?string $app_version = '';
 public ?string $updated_at = '0';
 ```
 
-Migration SQL must be transactional through the existing `ModuleSchemaMigrator` and execute:
+Migration SQL must execute in one explicit transaction through the existing `ModuleSchemaMigrator`. Check the marker first and return without mutating data when it is already `1`; otherwise execute:
 
 ```sql
 UPDATE m_STTWorker
    SET api_version = 1, status = 'offline', has_settings_changed = 1,
-       updated_at = CASE WHEN updated_at = 0 THEN CAST(strftime('%s','now') AS INTEGER) ELSE updated_at END;
+       updated_at = CASE WHEN updated_at = 0 THEN CAST(strftime('%s','now') AS INTEGER) ELSE updated_at END
+ WHERE api_version < 2;
 
 UPDATE m_STTJob
    SET status = 'pending', worker_id = NULL, started_at = NULL,
@@ -268,15 +268,15 @@ UPDATE m_STTJob
    AND (worker_id IS NULL OR worker_id IN (SELECT id FROM m_STTWorker WHERE api_version < 2));
 ```
 
-Do not modify `attempts`, terminal jobs, results, transcripts, or transcript events. Insert/update the marker only after both updates succeed.
+Do not modify `attempts`, terminal jobs, results, transcripts, transcript events, or cursors. Insert/update the marker only after every schema/data statement succeeds, immediately before commit.
 
-- [ ] **Step 4: Add post-ledger reconciliation**
+- [ ] **Step 4: Rebuild permissions without post-marker data reconciliation**
 
-After the migrator completes, call `reconcile()`. It verifies the three columns and permissions on every setup, and requeues only orphaned or `api_version < 2` processing leases. It must leave a running lease owned by an `api_version=2` worker unchanged even when the marker already exists.
+After the transaction commits, rebuild worker-key permissions idempotently using only module code and the existing Core API. Do not scan/requeue jobs after the marker. The migration WHERE clause must leave an active lease owned by an `api_version=2` worker untouched.
 
 - [ ] **Step 5: Prove idempotency and rollback**
 
-Run migration and reconciliation twice; assert the second state hash is identical. Inject an exception between worker invalidation and marker creation through a test callback/connection double and assert the existing setup snapshot restores the database.
+Inject an exception immediately before marker creation and assert the transaction rolls back schema and data, including worker status and lease ownership. Then migrate successfully, snapshot all module tables, run setup again, and assert the second state hash is identical. API-key ID/binding/key material stays unchanged while permissions are rebuilt.
 
 Update `Integration/check-module-upgrade-sqlite.php` expected migration ledger to `[1,2,3,4,5,6,7,8,9,10,11]` and include new columns in worker hashes.
 
@@ -292,7 +292,7 @@ git commit -m "feat: migrate STT workers to API v2"
 
 Expected: all tests pass.
 
-### Task 4: Implement Worker management CRUD and restricted idempotent registration
+### Task 4: Implement numeric Worker CRUD and restricted idempotent POST registration
 
 **Files:**
 - Create: `Lib/Services/STTWorkerResourceService.php`
@@ -307,24 +307,24 @@ Expected: all tests pass.
 - Modify: `Tests/run-all.php`
 
 **Interfaces:**
-- Produces service methods: `getList(array): PBXApiResult`, `create(array): PBXApiResult`, `getRecord(string): PBXApiResult`, `patch(string,array): PBXApiResult`, `delete(string): PBXApiResult`.
-- Preserves: `LocalSpeechToTextMain::registerWorker(array): PBXApiResult` as the PUT implementation.
+- Produces service methods: `getList(array): PBXApiResult`, `create(array): PBXApiResult`, `getRecord(int): PBXApiResult`, `update(int,array): PBXApiResult`, `patch(int,array): PBXApiResult`, `delete(int): PBXApiResult`.
+- Preserves: `LocalSpeechToTextMain::registerWorker(array): PBXApiResult` as the idempotent POST upsert implementation.
 - Worker response fields: `id`, `worker_uid`, `name`, `ip`, `status`, `model`, `api_key_id`, `api_version`, `app_version`, `compatible`, `last_seen`, `created_at`, `updated_at`.
 
 - [ ] **Step 1: Write failing CRUD and access tests**
 
-Cover list filters `status`, `worker_uid`, `api_version`, `app_version`, `limit`, `offset`; create 201; duplicate UID 409; detail 404; PATCH allow-list; active-lease DELETE 409; successful DELETE preserves job/result rows and clears no API key record.
+Cover list filters `status`, `worker_uid`, `api_version`, `app_version`, `limit`, `offset`; idempotent POST create/update by body `worker_uid`; same request returns the same numeric `id`; administrative detail/PUT/PATCH/DELETE use numeric IDs; detail 404; PATCH allow-list; active-lease DELETE 409; successful DELETE preserves job/result rows and clears no API key record.
 
 Add a processor test table:
 
 ```php
 $restricted = [
-    'getList' => 403, 'create' => 403, 'getRecord' => 403,
+    'getList' => 403, 'create' => 200, 'getRecord' => 403, 'update' => 403,
     'patch' => 403, 'delete' => 403,
 ];
 ```
 
-and prove restricted PUT succeeds only when route UID matches its existing/exclusive API-key binding.
+and prove restricted POST succeeds only when body `worker_uid` matches its existing/exclusive API-key binding. This denial must occur inside `Workers\Processor` before `STTWorkerResourceService`, because Core `write` permission includes read.
 
 - [ ] **Step 2: Run the test and verify failure**
 
@@ -336,7 +336,7 @@ Expected: FAIL because CRUD methods are missing.
 
 - [ ] **Step 3: Implement the service and model mapping**
 
-Use `worker_uid` as the only public lookup. PATCH may change only `name`, `model`, and `status`; reject `id`, `worker_uid`, `api_key_id`, `api_version`, timestamps, and unknown keys with 422. DELETE checks:
+Use numeric `id` for every item lookup; expose `worker_uid` as a stable unique response/filter field. PATCH may change only `name`, `model`, and `status`; reject `id`, `worker_uid`, `api_key_id`, `api_version`, timestamps, and unknown keys with 422. DELETE checks:
 
 ```php
 $active = STTJob::count([
@@ -347,7 +347,7 @@ $active = STTJob::count([
 
 Return `worker_has_active_lease` on conflict. On success delete only the worker row and leave Core `ApiKeys` untouched.
 
-- [ ] **Step 4: Convert registration to PUT**
+- [ ] **Step 4: Convert registration to idempotent POST**
 
 Map:
 
@@ -359,7 +359,7 @@ Map:
 'DELETE' => ['delete'],
 ```
 
-with string UID pattern `[A-Za-z0-9][A-Za-z0-9._-]{0,254}`. Before restricted PUT call `WorkerApiContract::requireVersion()`, inject route `id` into `worker_uid`, and call existing registration logic. Extend registration/model writes with:
+with numeric item pattern `[0-9]+`. For `POST`, call `WorkerApiContract::requireVersion()` before processor/domain mutation when the caller is a restricted worker key, validate body `worker_uid` with `[A-Za-z0-9][A-Za-z0-9._-]{0,254}`, enforce key binding, and call existing registration logic. Return numeric `id`; the macOS worker uses it only for runtime diagnostics. Extend registration/model writes with:
 
 ```php
 $worker->api_version = WorkerApiContract::API_VERSION;
@@ -367,11 +367,11 @@ $worker->app_version = self::stringField($data, 'app_version');
 $worker->updated_at = (string)time();
 ```
 
-An admin PUT may use the same idempotent representation; management GET/POST/PATCH/DELETE never require the worker version header.
+Administrative `PUT /workers/{id}` is a full replacement of allowed fields, not self-registration. Administrative management requests do not require the worker version header.
 
 - [ ] **Step 5: Retain legacy methods only as undocumented tombstones**
 
-Keep `register()` and `getProcessingSettings()` public stubs in the controller's custom mapping without `ApiOperation` or schemas. In the processor dispatch both directly to `LegacyRouteRejector::worker()` before lifecycle acquisition.
+Keep `register()` and `getProcessingSettings()` public stubs in the controller's custom mapping without `ApiOperation` or schemas. In the processor dispatch both directly to `LegacyRouteRejector::worker()` before lifecycle acquisition, model lookup, or registration/settings services.
 
 - [ ] **Step 6: Run and commit**
 
@@ -399,7 +399,7 @@ Expected: PASS.
 - Modify: `Tests/run-all.php`
 
 **Interfaces:**
-- Produces: `GET /worker-processing-settings/{worker_uid}`.
+- Produces: caller-bound singleton `GET /worker-processing-settings`.
 - Produces: `POST /job-leases`, `PATCH /job-leases/{job_id}`, `DELETE /job-leases/{job_id}`.
 - Consumes existing methods: `getWorkerProcessingSettings`, `getNextJob`, `heartbeatJob`, `releaseJob`.
 
@@ -417,7 +417,7 @@ Expected: FAIL because the resource controllers do not exist.
 
 - [ ] **Step 3: Implement the settings resource**
 
-Use route UID as `worker_uid`, require contract v2, require that the API key is bound to that same worker, then call `getWorkerProcessingSettings()`. Preserve the current atomic clearing of `has_settings_changed`; do not read another worker's profile.
+Require contract v2, read `X-MikoPBX-Worker-UID` from `WorkerRequestContext`, resolve the worker from that UID plus the restricted API-key binding, then call `getWorkerProcessingSettings()`. There is no item path. Preserve the current atomic clearing of `has_settings_changed`; do not read another worker's profile.
 
 - [ ] **Step 4: Implement the lease resource**
 
@@ -754,7 +754,7 @@ Expected: PASS.
 - Modify: `Tests/run-all.php`
 
 **Interfaces:**
-- Publishes module version `1.45` and Core floor `2026.3.23`.
+- Publishes module version `1.45` while retaining Core floor `2025.1.1`.
 - Documents exact old/new route table, update order, 426/404 behavior, preserved data, and rollback limits.
 
 - [ ] **Step 1: Add failing metadata and legacy reachability checks**
@@ -764,7 +764,7 @@ Assert `module.json` contains:
 ```json
 {
   "version": "1.45",
-  "min_pbx_version": "2026.3.23"
+  "min_pbx_version": "2025.1.1"
 }
 ```
 
@@ -795,6 +795,10 @@ Expected: PASS.
 **Interfaces:**
 - Produces a release-candidate module ZIP and recorded compatibility evidence for the coordinated release plan.
 
+- [ ] **Step 0: Run sequential project reviews after implementation**
+
+After the implementer has completed Tasks 1-11, schedule reviewers one at a time and return every finding to the same implementer before invoking the next reviewer: `module-contract-guardian`, `queue-resilience-reviewer`, `worker-stt-quality-reviewer`, then `module-security-reviewer`. Re-run the focused checks for each fix. After all four component plans are implemented and their project reviews are clear, schedule one final cross-project `module-contract-guardian` review across both modules and both macOS workers; do not run implementer and reviewer concurrently.
+
 - [ ] **Step 1: Run the complete repository suite**
 
 ```bash
@@ -815,7 +819,7 @@ Expected: package succeeds and contains no test DB, local secret, `.git`, build 
 
 - [ ] **Step 3: Run live REST checks on an isolated PBX**
 
-Use the `miko-rest-api-check` workflow with `MIKOPBX_TEST_BASE_URL` and `MIKOPBX_TEST_BEARER` environment variables. Verify the v2 happy path, wrong/missing version 426 plus `Upgrade`, all eight legacy routes 426 without DB mutations, admin CRUD, restricted-key ownership, Range recording, and a before/after SQLite hash for terminal jobs/results/transcripts.
+Use the `miko-rest-api-check` workflow with `MIKOPBX_TEST_BASE_URL` and `MIKOPBX_TEST_BEARER` environment variables. Verify the v2 happy path, wrong/missing version `426` with body `error_code=worker_upgrade_required` and `required_worker_api_version=2`, all eight legacy routes 426 without DB mutations, numeric-ID admin CRUD, restricted-key self-registration/ownership and management denial, Range recording, and a before/after SQLite hash for terminal jobs/results/transcripts. Do not assert response headers.
 
 - [ ] **Step 4: Inspect final state**
 
