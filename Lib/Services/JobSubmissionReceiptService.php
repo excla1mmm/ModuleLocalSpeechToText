@@ -35,6 +35,9 @@ final class JobSubmissionReceiptService
         if ((int)$row['worker_id'] !== $workerId || !hash_equals((string)$row['operation'], $operation) || !hash_equals((string)$row['payload_digest'], $digest)) return self::conflict();
         $stored = json_decode((string)$row['response_json'], true, 32, JSON_THROW_ON_ERROR);
         $result = new PBXApiResult(); $result->success = (bool)($stored['success'] ?? false); $result->httpCode = (int)$row['http_code']; $result->data = $stored['data'] ?? []; $result->messages = is_array($stored['messages'] ?? null) ? $stored['messages'] : [];
+        $result->processor = (string)($stored['processor'] ?? ''); $result->function = (string)($stored['function'] ?? '');
+        $result->pagination = is_array($stored['pagination'] ?? null) ? $stored['pagination'] : null;
+        $result->reload = (string)($stored['reload'] ?? '');
         return $result;
     }
 
@@ -52,7 +55,7 @@ final class JobSubmissionReceiptService
                 if ($existing !== null) return $existing;
                 $result = $mutation();
                 if (!$result instanceof PBXApiResult || !$result->success) throw new JobSubmissionMutationRejected($result);
-                $response = json_encode(['success'=>$result->success,'data'=>$result->data,'messages'=>$result->messages], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $response = json_encode(['success'=>$result->success,'data'=>$result->data,'messages'=>$result->messages,'processor'=>$result->processor,'function'=>$result->function,'pagination'=>$result->pagination,'reload'=>$result->reload], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 $ok = $connection->execute('INSERT INTO m_STTJobSubmissionReceipt (job_id,worker_id,lease_token_hash,operation,payload_digest,response_json,http_code,created_at) VALUES (:job_id,:worker_id,:token_hash,:operation,:digest,:response,:http_code,:created_at)', ['job_id'=>$jobId,'worker_id'=>$workerId,'token_hash'=>self::tokenHash($token),'operation'=>$operation,'digest'=>$digest,'response'=>$response,'http_code'=>(int)$result->httpCode,'created_at'=>time()]);
                 if ($ok !== true) throw new RuntimeException('Unable to persist STT submission receipt');
                 return $result;

@@ -47,11 +47,9 @@ if (strpos($failure, 'ResultProcessor::dispatch($request, true)') === false) {
     throw new RuntimeException('Failure resource must use the shared guarded PUT dispatch');
 }
 if (getenv('WORKER_JOB_ARTIFACTS_V2_MUTATION') === '1') {
-    $mutated = str_replace('replayOrConflict(', 'bypassReceipt(', $result);
-    if (str_contains($mutated, 'replayOrConflict(')) {
-        throw new RuntimeException('Mutation fixture did not alter receipt preflight');
-    }
-    throw new RuntimeException('Mutation detected: terminal receipt preflight was bypassed');
+    $mutated = str_replace('return self::decorate($replay, $failure);', 'return $replay;', $result);
+    if (str_contains($mutated, 'return self::decorate($replay, $failure);')) throw new RuntimeException('Mutation fixture did not alter replay decoration');
+    throw new RuntimeException('Mutation detected: terminal replay decoration was bypassed');
 }
 if (strpos($recording, "['_worker_uid_header']") === false
     || strpos($recording, "['_lease_token_header']") === false

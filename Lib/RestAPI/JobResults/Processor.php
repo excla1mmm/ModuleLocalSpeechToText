@@ -25,15 +25,18 @@ class Processor extends Injectable
         $digest = JobSubmissionReceiptService::digest($operation, $data);
         $receipts = new JobSubmissionReceiptService();
         $replay = $receipts->replayOrConflict($jobId, (int)$worker->id, $token, $operation, $digest);
-        if ($replay !== null) return $replay;
+        if ($replay !== null) return self::decorate($replay, $failure);
         $ownershipError = JobLeaseOwnership::preflight($jobId, $workerUid, $token); if ($ownershipError !== null) return $ownershipError;
         $data['id'] = $jobId; $gate = new ModuleLifecycleGate(); $lease = $gate->acquireWriteLease(allowDuringDrain: true); if ($lease === null) return self::error(503, 'module_unavailable');
         try {
             (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-            $result = $receipts->execute($jobId, (int)$worker->id, $token, $operation, $digest, static fn (): PBXApiResult => $failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data));
+            $result = $receipts->execute($jobId, (int)$worker->id, $token, $operation, $digest, static function () use ($failure, $data): PBXApiResult {
+                return self::decorate($failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data), $failure);
+            });
         }
         finally { $gate->releaseWriteLease($lease); }
-        $result->processor = __METHOD__; $result->function = 'update'; return $result;
+        return self::decorate($result, $failure);
     }
+    public static function decorate(PBXApiResult $result, bool $failure): PBXApiResult { $result->processor = $failure ? \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobFailures\Processor::class . '::callBack' : self::class . '::callBack'; $result->function = 'update'; return $result; }
     private static function error(int $status, string $code): PBXApiResult { $r = new PBXApiResult(); $r->success=false; $r->httpCode=$status; $r->data=['error_code'=>$code]; return $r; }
 }

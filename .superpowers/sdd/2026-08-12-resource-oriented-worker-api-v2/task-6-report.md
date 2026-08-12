@@ -34,3 +34,13 @@ Recording now calls the existing `bestEffortWorkerTouch()` after ownership, so l
 Fresh GREEN evidence: focused artifact and receipt SQLite tests; recording duration, transcript timestamp/technical-info, queue/lease runtime and concurrency, Worker CRUD/binding/API-v2 migration, and upgrade contract checks. Artifact mutation mode exits 255 after bypassing receipt preflight; route/version mutation modes pass. The host production-shaped upgrade rehearsal remains skipped because `ext-phalcon` is unavailable.
 
 Follow-up subject: `fix: make STT artifact submissions idempotent`.
+
+## Fix Round 2 — stable replay envelopes and executable processors
+
+Re-review reported two Important gaps. RED was `first and receipt replay Core result envelopes must match`: receipt reconstruction omitted stable `processor`, `function`, `pagination`, and `reload` properties. The receipt now preserves every stable field exposed by Core `PBXApiResult::getResult()` while intentionally excluding only runtime `pid`. Both endpoint processors route initial mutation, fast replay, and in-transaction replay through one `decorate()` path; failures identify `JobFailures\\Processor::callBack`, results identify `JobResults\\Processor::callBack`, and both report function `update`.
+
+Added an executable Core-shaped processor harness covering actual JobResults/JobFailures processor ordering, first and fast replay equivalence through `getResult()`, endpoint-specific processor identity, different-payload conflicts, single domain dispatch, and lifecycle balance. The real SQLite receipt harness also compares initial and replayed Core envelopes and retains canonicalization, rollback, idempotency, conflict, and secrecy coverage. Artifact mutation mode now removes the production replay-decoration path and is detected.
+
+Live-only remainder: full recording byte delivery through Core controller/proxy, especially Range 206/416 and monitor symlink behavior, still requires the isolated PBX curl matrix because the host has no Phalcon/Core controller runtime. Existing module domain contract tests cover duration, timestamps, and technical info.
+
+Follow-up subject: `test: verify STT artifact resource integration`.
