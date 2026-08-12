@@ -26,3 +26,7 @@ Commit subject: `feat: restrict STT worker API v2 permissions`.
 - A faithful persisted-state transaction adapter injects failure on the second save and rereads durable rows after rollback, proving the first write did not leak.
 - Workers and Jobs evaluate revoked/cache-stale bearer provenance before legacy tombstone dispatch. Those requests return 403 with no lifecycle/domain work; live worker keys retain terminal 426 behavior.
 - Focused reconciliation, permissions, authorization matrix, Worker CRUD, and Jobs runtime checks pass. The Jobs runtime executes all seven management actions plus live/revoked/cache-stale tombstone provenance.
+
+## Final re-review
+
+PASS: 0 Critical and 0 Important findings. The reviewer verified retryable post-commit cache invalidation, durable rollback state, and fail-closed revoked/cache-stale tombstones. A future unified all-resource authorization harness is parked as a non-blocking Minor; the focused production-bound Task 4-7 matrices remain the acceptance evidence.
