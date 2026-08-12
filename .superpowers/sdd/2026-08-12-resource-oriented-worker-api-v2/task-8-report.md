@@ -19,3 +19,10 @@ Every setup reconciles the union of current and historical stored key IDs that s
 No Core, AI, client, metadata, or translation file changed. `min_pbx_version` remains `2025.1.1`. Real Core permission semantics are rehearsed read-only; module processor gates remain load-bearing for Core's write/read quirk.
 
 Commit subject: `feat: restrict STT worker API v2 permissions`.
+
+## Fix round 1 — reconciliation and tombstone provenance
+
+- Reconciliation now always attempts cache invalidation after a committed Core transaction, so a post-commit clear failure is retried by setup even when stored rows are already canonical; no key rotation or recreation occurs.
+- A faithful persisted-state transaction adapter injects failure on the second save and rereads durable rows after rollback, proving the first write did not leak.
+- Workers and Jobs evaluate revoked/cache-stale bearer provenance before legacy tombstone dispatch. Those requests return 403 with no lifecycle/domain work; live worker keys retain terminal 426 behavior.
+- Focused reconciliation, permissions, authorization matrix, Worker CRUD, and Jobs runtime checks pass. The Jobs runtime executes all seven management actions plus live/revoked/cache-stale tombstone provenance.

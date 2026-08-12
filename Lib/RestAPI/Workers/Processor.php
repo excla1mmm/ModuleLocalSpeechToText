@@ -32,15 +32,15 @@ class Processor extends Injectable
     {
         $actionString = (string)($request['action'] ?? '');
         $action = WorkerAction::tryFrom($actionString);
+        $data = WorkerRequestContext::data($request);
+        if (WorkerRequestContext::isRevokedWorkerKey($data)) {
+            return self::forbidden('worker_api_key_forbidden', 'Worker API key is no longer authorized');
+        }
 
         return match ($action) {
             WorkerAction::REGISTER => LegacyRouteRejector::worker(),
             WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker(),
-            default => (static function () use ($request, $action, $actionString): PBXApiResult {
-                $data = WorkerRequestContext::data($request);
-                if (WorkerRequestContext::isRevokedWorkerKey($data)) {
-                    return self::forbidden('worker_api_key_forbidden', 'Worker API key is no longer authorized');
-                }
+            default => (static function () use ($request, $action, $actionString, $data): PBXApiResult {
                 $restricted = WorkerRequestContext::isRestrictedWorkerKey($data);
                 if (!$restricted && !WorkerRequestContext::isAdministrator($data)) {
                     return self::forbidden('worker_authorization_forbidden', 'Worker resource authorization is not valid');

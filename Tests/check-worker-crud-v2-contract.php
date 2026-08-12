@@ -581,6 +581,26 @@ namespace {
                 && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
             "Legacy {$legacyAction} must not acquire lifecycle or execute old services",
         );
+        $originalAllowedKeyIds = STTSetting::$allowedWorkerApiKeyIds;
+        STTSetting::$allowedWorkerApiKeyIds = [99, 123];
+        $cacheStaleKey = new ApiKeys();
+        $cacheStaleKey->id = 123;
+        $cacheStaleKey->full_permissions = '0';
+        $cacheStaleKey->allowed_paths = '{}';
+        ApiKeys::$rows[123] = $cacheStaleKey;
+        foreach ([77, 123] as $revokedKeyId) {
+            $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;
+            $beforeRegistration = LocalSpeechToTextMain::$registrationCalls;
+            $denied = Processor::callBack(requestForWorkerCrud($legacyAction, ['worker_uid' => 'worker-a'], true, true, $revokedKeyId));
+            expectWorkerCrud(
+                $denied->httpCode === 403
+                    && ModuleLifecycleGate::$acquireCalls === $beforeLeaseCalls
+                    && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
+                "Revoked/cache-stale credential must deny legacy {$legacyAction} before terminal tombstone",
+            );
+        }
+        unset(ApiKeys::$rows[123]);
+        STTSetting::$allowedWorkerApiKeyIds = $originalAllowedKeyIds;
     }
 
     $adminRequests = [

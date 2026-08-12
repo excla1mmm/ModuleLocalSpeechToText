@@ -189,7 +189,10 @@ class WorkerApiKeyService
             }
             throw $exception;
         }
-        if ($changed) $this->clearCoreApiKeyCache();
+        // Always invalidate after a successful reconciliation transaction. If a
+        // prior post-commit invalidation failed, the next setup must retry even
+        // though all persisted rows are already canonical.
+        $this->clearCoreApiKeyCache();
     }
 
     public function unbindWorkersFromApiKey(int $apiKeyId): void
