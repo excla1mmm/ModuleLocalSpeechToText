@@ -25,7 +25,7 @@ foreach ([
     'enableWalAfterVerifiedSetup',
     'unexpected row count for',
     "\$table === 'm_STTSetting' ? \$count + 4 : \$count",
-    'legacy database did not apply migrations 1-13',
+    'legacy database did not apply migrations 1-14',
     'worker API-key history was not preserved',
     'exclusive worker API-key index is missing after upgrade',
     'obsolete all-version worker API-key index remains after upgrade',

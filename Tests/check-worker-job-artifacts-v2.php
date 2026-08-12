@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $required = [
+    'Lib/Services/JobSubmissionReceiptService.php',
+    'Lib/Services/JobSubmissionReceiptMigration.php',
+    'Models/STTJobSubmissionReceipt.php',
     'Lib/RestAPI/JobRecordings/Controller.php',
     'Lib/RestAPI/JobRecordings/Processor.php',
     'Lib/RestAPI/JobResults/Controller.php',
@@ -22,6 +25,8 @@ foreach ($required as $file) {
 $recording = file_get_contents($root . '/Lib/RestAPI/JobRecordings/Processor.php');
 $result = file_get_contents($root . '/Lib/RestAPI/JobResults/Processor.php');
 $failure = file_get_contents($root . '/Lib/RestAPI/JobFailures/Processor.php');
+$jobModel = file_get_contents($root . '/Models/STTJob.php');
+$setup = file_get_contents($root . '/Setup/PbxExtensionSetup.php');
 foreach ([$recording, $result] as $source) {
     if (strpos($source, 'WorkerApiContract::requireVersion($request)') === false
         || strpos($source, 'WorkerBindingDecision::authorize') === false
@@ -30,8 +35,23 @@ foreach ([$recording, $result] as $source) {
         throw new RuntimeException('Artifact processor ordering/ownership/finally contract is incomplete');
     }
 }
+if (!str_contains($setup, "new ModuleSchemaMigration(\n                14,") || !str_contains($setup, 'stt-schema-014-job-submission-receipts')) {
+    throw new RuntimeException('Production migration 14 receipt registration is missing');
+}
+$failedMethod = strstr($jobModel, 'public function markFailedForWorker');
+$failedMethod = strstr((string)$failedMethod, 'public function markTerminalErrorForWorker', true);
+if (str_contains((string)$failedMethod, 'findFirst')) {
+    throw new RuntimeException('Failure CAS must not reload after a successful update');
+}
 if (strpos($failure, 'ResultProcessor::dispatch($request, true)') === false) {
     throw new RuntimeException('Failure resource must use the shared guarded PUT dispatch');
+}
+if (getenv('WORKER_JOB_ARTIFACTS_V2_MUTATION') === '1') {
+    $mutated = str_replace('replayOrConflict(', 'bypassReceipt(', $result);
+    if (str_contains($mutated, 'replayOrConflict(')) {
+        throw new RuntimeException('Mutation fixture did not alter receipt preflight');
+    }
+    throw new RuntimeException('Mutation detected: terminal receipt preflight was bypassed');
 }
 if (strpos($recording, "['_worker_uid_header']") === false
     || strpos($recording, "['_lease_token_header']") === false

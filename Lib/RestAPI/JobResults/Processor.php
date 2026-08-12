@@ -4,7 +4,8 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobResults;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
-use Modules\ModuleLocalSpeechToText\Lib\Services\{CanonicalJobId,JobLeaseOwnership,ModuleLifecycleGate,WorkerApiContract,WorkerBindingDecision};
+use Modules\ModuleLocalSpeechToText\Lib\Services\{CanonicalJobId,JobLeaseOwnership,JobSubmissionReceiptService,ModuleDatabasePragmas,ModuleLifecycleGate,WorkerApiContract,WorkerBindingDecision};
+use Modules\ModuleLocalSpeechToText\Models\{STTJob,STTWorker};
 use Phalcon\Di\Injectable;
 class Processor extends Injectable
 {
@@ -18,9 +19,19 @@ class Processor extends Injectable
         $headerUid = trim((string)($data['_worker_uid_header'] ?? '')); $token = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
         if ($workerUid === '' || $headerUid === '' || $workerUid !== $headerUid) return self::error(403, 'worker_identity_forbidden');
         $bindingError = WorkerBindingDecision::authorize($headerUid, (int)($data['_api_key_id'] ?? 0)); if ($bindingError !== null) return $bindingError;
+        $worker = STTWorker::findFirst(['conditions'=>'worker_uid = :uid:','bind'=>['uid'=>$workerUid]]);
+        if (!$worker instanceof STTWorker || $token === '') return self::error(409, 'job_lease_required');
+        $operation = $failure ? 'failure' : 'result';
+        $digest = JobSubmissionReceiptService::digest($operation, $data);
+        $receipts = new JobSubmissionReceiptService();
+        $replay = $receipts->replayOrConflict($jobId, (int)$worker->id, $token, $operation, $digest);
+        if ($replay !== null) return $replay;
         $ownershipError = JobLeaseOwnership::preflight($jobId, $workerUid, $token); if ($ownershipError !== null) return $ownershipError;
         $data['id'] = $jobId; $gate = new ModuleLifecycleGate(); $lease = $gate->acquireWriteLease(allowDuringDrain: true); if ($lease === null) return self::error(503, 'module_unavailable');
-        try { $result = $failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data); }
+        try {
+            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+            $result = $receipts->execute($jobId, (int)$worker->id, $token, $operation, $digest, static fn (): PBXApiResult => $failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data));
+        }
         finally { $gate->releaseWriteLease($lease); }
         $result->processor = __METHOD__; $result->function = 'update'; return $result;
     }

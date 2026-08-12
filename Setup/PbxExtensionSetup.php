@@ -15,6 +15,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobSubmissionReceiptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
@@ -353,6 +354,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyWorkerBindingIntegrityMigration($connection),
                 'stt-schema-013-repair-v2-worker-api-key-index'
             ),
+            new ModuleSchemaMigration(
+                14,
+                'terminal job submission receipts',
+                fn (mixed $connection): null => $this->applyJobSubmissionReceiptMigration($connection),
+                'stt-schema-014-job-submission-receipts'
+            ),
         ];
     }
 
@@ -509,6 +516,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     {
         (new WorkerBindingIntegrityMigration())->migrate($connection);
 
+        return null;
+    }
+
+    private function applyJobSubmissionReceiptMigration(mixed $connection): null
+    {
+        (new JobSubmissionReceiptMigration())->migrate($connection);
         return null;
     }
 

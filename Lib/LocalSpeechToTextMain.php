@@ -236,7 +236,7 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
             // Ownership must be established before this best-effort liveness mutation.
-            self::touchWorkerOnlineBestEffort($worker, self::clientIp($data));
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
             if (!STTSetting::recordingDurationAllowed(self::jobDurationSeconds($job))) {
                 $message = 'Recording duration exceeds configured maximum';
@@ -322,9 +322,7 @@ class LocalSpeechToTextMain
             $model = null;
             $connection = $job->getWriteConnection();
             try {
-                (new ModuleTransaction())->run(
-                    $connection,
-                    static function () use (
+                $storeResult = static function () use (
                         $data,
                         $job,
                         $worker,
@@ -362,8 +360,12 @@ class LocalSpeechToTextMain
                             throw new AssignedJobConflictException('Assigned STT job changed during result submission');
                         }
                         (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
-                    }
-                );
+                    };
+                if ($connection->isUnderTransaction()) {
+                    $storeResult();
+                } else {
+                    (new ModuleTransaction())->run($connection, $storeResult);
+                }
             } catch (AssignedJobConflictException) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }

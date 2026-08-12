@@ -592,18 +592,15 @@ class STTJob extends ModulesModelsBase
             return false;
         }
 
-        $freshJob = self::findFirstById($this->id);
-        if ($freshJob instanceof self) {
-            $this->status = $freshJob->status;
-            $this->worker_id = $freshJob->worker_id;
-            $this->attempts = $freshJob->attempts;
-            $this->started_at = $freshJob->started_at;
-            $this->updated_at = $freshJob->updated_at;
-            $this->lease_token = $freshJob->lease_token;
-            $this->lease_expires_at = $freshJob->lease_expires_at;
-            $this->finished_at = $freshJob->finished_at;
-            $this->error_msg = $freshJob->error_msg;
-        }
+        $this->status = $finalFailure ? self::STATUS_ERROR : self::STATUS_PENDING;
+        $this->worker_id = $finalFailure ? $workerId : null;
+        $this->attempts = (string)$nextAttempts;
+        $this->started_at = $finalFailure ? $this->started_at : null;
+        $this->updated_at = $finishedAt;
+        $this->lease_token = null;
+        $this->lease_expires_at = null;
+        $this->finished_at = $finalFailure ? $finishedAt : null;
+        $this->error_msg = substr($errorMessage, 0, 1000);
 
         return true;
     }

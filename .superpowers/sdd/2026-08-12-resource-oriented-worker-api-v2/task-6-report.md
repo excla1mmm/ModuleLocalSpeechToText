@@ -22,3 +22,15 @@ The four executable legacy Job action classes were deleted. Jobs controller/proc
 - Core was not changed or used as a dependency. `min_pbx_version` remains `2025.1.1`. No client, AI, macOS, Windows, or Python file changed.
 
 Commit subject: `feat: split STT job artifact resources`.
+
+## Fix Round 1 — authoritative terminal receipts
+
+The four Important review findings were reproduced and addressed. RED was `Task 6 resource is missing: Lib/Services/JobSubmissionReceiptService.php`. Migration 14 now creates the idempotent `m_STTJobSubmissionReceipt` table with a unique job/hashed-token key. Receipts store only the operation, canonical semantic digest, worker/job IDs, response envelope, status, and timestamp; neither raw lease tokens nor full transcript/error payloads are persisted.
+
+The processor performs live-key, exclusive binding, caller UID, and canonical route checks before receipt replay. A matching receipt returns its original response before active-lease preflight; another operation or digest returns `409 job_submission_conflict`. The authoritative in-transaction recheck serializes races, and result/failure mutation plus receipt insert commit or roll back together. Stable recursive payload canonicalization ignores transport/envelope metadata but includes semantic result/failure fields.
+
+Recording now calls the existing `bestEffortWorkerTouch()` after ownership, so liveness failures cannot replace the file response. Runtime pragmas are configured after lifecycle acquisition. `markFailedForWorker()` hydrates its known post-CAS state directly without a fallible reload.
+
+Fresh GREEN evidence: focused artifact and receipt SQLite tests; recording duration, transcript timestamp/technical-info, queue/lease runtime and concurrency, Worker CRUD/binding/API-v2 migration, and upgrade contract checks. Artifact mutation mode exits 255 after bypassing receipt preflight; route/version mutation modes pass. The host production-shaped upgrade rehearsal remains skipped because `ext-phalcon` is unavailable.
+
+Follow-up subject: `fix: make STT artifact submissions idempotent`.

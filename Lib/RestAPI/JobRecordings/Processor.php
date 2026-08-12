@@ -8,9 +8,11 @@ use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CanonicalJobId;
 use Modules\ModuleLocalSpeechToText\Lib\Services\JobLeaseOwnership;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingDecision;
 use Phalcon\Di\Injectable;
+use Modules\ModuleLocalSpeechToText\Models\STTJob;
 
 class Processor extends Injectable
 {
@@ -34,7 +36,7 @@ class Processor extends Injectable
         $gate = new ModuleLifecycleGate();
         $lease = $gate->acquireWriteLease(allowDuringDrain: true);
         if ($lease === null) return self::error(503, 'module_unavailable');
-        try { $result = LocalSpeechToTextMain::downloadJobFile($data); }
+        try { (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection()); $result = LocalSpeechToTextMain::downloadJobFile($data); }
         finally { $gate->releaseWriteLease($lease); }
         $result->processor = __METHOD__; $result->function = 'getRecord'; return $result;
     }
