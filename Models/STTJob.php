@@ -263,14 +263,46 @@ class STTJob extends ModulesModelsBase
                 ]
             );
 
-            if ((int)$connection->affectedRows() === 1) {
-                $claimedJob = self::findFirstById($job->id);
+            try {
+                $affectedRows = (int)$connection->affectedRows();
+            } catch (\Throwable $exception) {
+                try {
+                    if (!self::compensateUnknownClaim($connection, (int)$job->id, $workerId, $leaseToken)) {
+                        throw new RuntimeException('STT claim outcome is unknown and compensation did not match');
+                    }
+                } catch (\Throwable $compensationException) {
+                    throw new RuntimeException('STT claim outcome is unknown and compensation failed', 0, $compensationException);
+                }
+                throw $exception;
+            }
 
-                return $claimedJob instanceof self ? $claimedJob : null;
+            if ($affectedRows === 1) {
+                $job->status = self::STATUS_PROCESSING;
+                $job->worker_id = $workerId;
+                $job->started_at = (string)$now;
+                $job->updated_at = (string)$now;
+                $job->lease_token = $leaseToken;
+                $job->lease_expires_at = (string)$leaseExpiresAt;
+                $job->finished_at = null;
+                $job->error_msg = null;
+                return $job;
             }
         }
 
         return null;
+    }
+
+    private static function compensateUnknownClaim(mixed $connection, int $jobId, int $workerId, string $leaseToken): bool
+    {
+        $connection->execute(
+            'UPDATE m_STTJob SET status = :pending, worker_id = NULL, started_at = NULL,
+                    updated_at = :updated_at, lease_token = NULL, lease_expires_at = NULL,
+                    finished_at = NULL, error_msg = NULL
+              WHERE id = :id AND status = :processing AND worker_id = :worker_id AND lease_token = :lease_token',
+            ['pending' => self::STATUS_PENDING, 'updated_at' => (string)time(), 'id' => $jobId,
+             'processing' => self::STATUS_PROCESSING, 'worker_id' => $workerId, 'lease_token' => $leaseToken]
+        );
+        return (int)$connection->affectedRows() === 1;
     }
 
     public static function requeueStaleProcessing(): int

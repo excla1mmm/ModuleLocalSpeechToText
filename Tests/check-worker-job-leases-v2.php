@@ -23,6 +23,7 @@ $settingsProcessor = (string)file_get_contents($paths['settingsProcessor']);
 $leaseController = (string)file_get_contents($paths['leaseController']);
 $leaseProcessor = (string)file_get_contents($paths['leaseProcessor']);
 $main = (string)file_get_contents($root . '/Lib/LocalSpeechToTextMain.php');
+$jobModel = (string)file_get_contents($root . '/Models/STTJob.php');
 $jobsSchema = (string)file_get_contents($root . '/Lib/RestAPI/Jobs/DataStructure.php');
 $workersProcessor = (string)file_get_contents($root . '/Lib/RestAPI/Workers/Processor.php');
 $bindingServicePath = $root . '/Lib/Services/WorkerBindingDecision.php';
@@ -68,6 +69,11 @@ foreach (['lease_token=', 'worker_uid=', ':download', '/jobs/', 'API_BASE_PATH']
 }
 expectWorkerLeaseV2(!str_contains($jobsSchema, ':download?'), 'Schema exposes a legacy credential URL');
 expectWorkerLeaseV2(str_contains($workersProcessor, 'WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker()'), 'Legacy settings route must remain terminal 426');
+$claimModelStart = strpos($jobModel, 'public static function claimNextForWorker');
+$claimModelEnd = strpos($jobModel, 'public static function requeueStaleProcessing', $claimModelStart);
+$claimModel = substr($jobModel, $claimModelStart, $claimModelEnd - $claimModelStart);
+expectWorkerLeaseV2(!str_contains($claimModel, 'findFirstById('), 'Successful claim must return the selected hydrated job without fallible reload');
+expectWorkerLeaseV2(str_contains($claimModel, 'compensateUnknownClaim('), 'affectedRows failure must compensate internally by exact claim identity');
 
 $heartbeatStart = strpos($main, 'public static function heartbeatJob');
 $releaseStart = strpos($main, 'public static function releaseJob');

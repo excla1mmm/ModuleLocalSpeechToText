@@ -71,3 +71,11 @@ Core `_idFromRequestBody` accepts only a positive JSON integer or canonical posi
 Heartbeat/release CAS is authoritative. Liveness and release telemetry run best-effort after CAS; injected failures still return 200 with refreshed/pending state and unchanged attempts. An injected domain exception proves lifecycle release occurs in `finally`.
 
 RED began with `Canonical job ID parser is missing`. Updated executable tests cover the canonical-ID adversarial table, preparation failure before claim, successful pure payload, authoritative side-effect failures, and lifecycle-finally. The existing ambiguity, denial snapshots, compensation secrecy, and two-process claim coverage remains green.
+
+## Fix Round 3 — close the model post-CAS gap
+
+Two Important re-review findings were reproduced. RED was `Successful claim must return the selected hydrated job without fallible reload`. `STTJob::claimNextForWorker()` now populates and returns the already-selected model from the known CAS inputs once affected rows confirms success, eliminating the reload-null path.
+
+If `affectedRows()` throws after UPDATE, the model performs an exact job/worker/token conditional UPDATE back to pending, clearing ownership/start/lease/expiry/finished/error without changing attempts. Successful compensation rethrows the original failure; false/throw compensation surfaces the distinct sanitized `STT claim outcome is unknown and compensation failed` exception for caller logging, with no token text.
+
+The processor now uses `array_key_exists('_idFromRequestBody', $data)`. The executable Core-shaped table resets a fresh valid processing lease for every malformed value, verifies 409 `job_id_mismatch`, and proves zero lifecycle/domain dispatch. Positive integer and canonical decimal-string IDs both dispatch successfully. Normal and two-process claim tests remain green.

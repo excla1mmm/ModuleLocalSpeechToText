@@ -14,6 +14,7 @@ namespace MikoPBX\Modules\Models {
 
     final class LeaseSqliteConnection
     {
+        public static int $throwAffectedRows = 0;
         private int $affectedRows = 0;
 
         public function __construct(private readonly PDO $pdo)
@@ -31,6 +32,10 @@ namespace MikoPBX\Modules\Models {
 
         public function affectedRows(): int
         {
+            if (self::$throwAffectedRows > 0) {
+                self::$throwAffectedRows--;
+                throw new \RuntimeException('injected post-CAS affectedRows failure');
+            }
             return $this->affectedRows;
         }
     }
@@ -119,6 +124,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 
 namespace {
     use MikoPBX\Modules\Models\ModulesModelsBase;
+    use MikoPBX\Modules\Models\LeaseSqliteConnection;
     use Modules\ModuleLocalSpeechToText\Models\STTJob;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
@@ -219,6 +225,17 @@ namespace {
             && str_contains((string)$terminal?->error_msg, '3'),
         'Terminal timeout must keep a clear reason and attempt count'
     );
+
+    $statement->execute(['call_id' => 'affected-throw', 'file_path' => '/tmp/affected.wav', 'status' => STTJob::STATUS_PENDING, 'created_at' => $now, 'updated_at' => $now, 'cdr_endtime' => $now]);
+    LeaseSqliteConnection::$throwAffectedRows = 1;
+    try {
+        STTJob::claimNextForWorker($workerOne);
+        throw new RuntimeException('Injected affectedRows failure was swallowed');
+    } catch (RuntimeException $exception) {
+        expectLeaseBehavior($exception->getMessage() === 'injected post-CAS affectedRows failure', 'Original affectedRows failure must surface after compensation');
+    }
+    $compensated = STTJob::findFirstById(2);
+    expectLeaseBehavior($compensated?->status === STTJob::STATUS_PENDING && $compensated?->worker_id === null && $compensated?->lease_token === null && (int)$compensated?->attempts === 0, 'Post-CAS affectedRows failure must restore pending ownership without attempts');
 
     echo "STT job lease SQLite behavior OK\n";
 }
