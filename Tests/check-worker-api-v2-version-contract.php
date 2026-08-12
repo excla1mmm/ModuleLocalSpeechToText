@@ -188,9 +188,7 @@ namespace {
             $allowed = [
                 '/Lib/RestAPI/Common/WorkerRequestContext.php',
                 '/Lib/RestAPI/WorkerProcessingSettings/Processor.php',
-                '/Lib/RestAPI/JobLeases/Processor.php',
                 '/Lib/RestAPI/JobRecordings/Processor.php',
-                '/Lib/RestAPI/JobResults/Processor.php',
                 '/Lib/Services/JobSubmissionReceiptService.php',
                 '/Lib/Services/STTWorkerResourceService.php',
             ];
@@ -199,6 +197,19 @@ namespace {
                 "Only canonical v2 worker resources may reference internal ownership headers: {$file}"
             );
         }
+    }
+
+    function assertJsonWorkerWriteIdentity(string $source, string $resource): void
+    {
+        $code = codeWorkerApiV2Version($source);
+        expectWorkerApiV2Version(
+            !str_contains($code, '_worker_uid_header') && !str_contains($code, '_lease_token_header'),
+            "{$resource} must authorize JSON body identity and token without ownership headers"
+        );
+        expectWorkerApiV2Version(
+            str_contains($code, "['worker_uid']") && str_contains($code, "['lease_token']") && str_contains($code, 'WorkerBindingDecision::authorize('),
+            "{$resource} must bind body worker_uid and use body lease_token"
+        );
     }
 
     function assertCanonicalWorkerRequestContext(string $source): void
@@ -555,6 +566,8 @@ namespace {
             assertWorkerApiV2Gate($operation, $source, $resource === 'JobResults' ? 'dispatch' : 'callBack');
         }
     }
+    assertJsonWorkerWriteIdentity((string)file_get_contents($root . '/Lib/RestAPI/JobLeases/Processor.php'), 'JobLeases');
+    assertJsonWorkerWriteIdentity((string)file_get_contents($root . '/Lib/RestAPI/JobResults/Processor.php'), 'JobResults');
 
     $workersProcessor = $root . '/Lib/RestAPI/Workers/Processor.php';
     expectWorkerApiV2Version(is_file($workersProcessor), 'Workers resource must have a processor for restricted self-registration');

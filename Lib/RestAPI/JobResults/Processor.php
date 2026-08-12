@@ -16,9 +16,9 @@ class Processor extends Injectable
         $data = WorkerRequestContext::data($request); if (!WorkerRequestContext::isRestrictedWorkerKey($data)) return self::error(403, 'worker_authorization_forbidden');
         $jobId = (int)($data['id'] ?? 0); if (array_key_exists('_idFromRequestBody', $data) && !CanonicalJobId::matchesRoute($data['_idFromRequestBody'], $jobId)) return self::error(409, 'job_id_mismatch');
         $workerUid = trim(is_scalar($data['worker_uid'] ?? null) ? (string)$data['worker_uid'] : '');
-        $headerUid = trim((string)($data['_worker_uid_header'] ?? '')); $token = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
-        if ($workerUid === '' || $headerUid === '' || $workerUid !== $headerUid) return self::error(403, 'worker_identity_forbidden');
-        $bindingError = WorkerBindingDecision::authorize($headerUid, (int)($data['_api_key_id'] ?? 0)); if ($bindingError !== null) return $bindingError;
+        $token = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
+        if ($workerUid === '') return self::error(403, 'worker_identity_forbidden');
+        $bindingError = WorkerBindingDecision::authorize($workerUid, (int)($data['_api_key_id'] ?? 0)); if ($bindingError !== null) return $bindingError;
         $worker = STTWorker::findFirst(['conditions'=>'worker_uid = :uid:','bind'=>['uid'=>$workerUid]]);
         if (!$worker instanceof STTWorker || $token === '') return self::error(409, 'job_lease_required');
         $operation = $failure ? 'failure' : 'result';

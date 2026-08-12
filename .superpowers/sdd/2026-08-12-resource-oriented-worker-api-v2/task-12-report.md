@@ -13,3 +13,9 @@
 - Focused checks: all six assigned checks passed.
 - Mutation checks: `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` and `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` passed.
 - Full suite: `php Tests/run-all.php` exited 0 with `All module contract tests passed`.
+
+## Contract Fix 1 — JSON write identity
+
+- RED: executable lease and result regressions removed synthetic ownership headers while retaining only the version header and JSON `worker_uid` / `lease_token`; production processors denied the requests because they incorrectly required duplicated UID headers.
+- GREEN: JobLeases and JobResults now authorize their JSON body identity through the restricted API-key binding and preserve canonical route/body-ID and lease-token ownership preflight. Optional UID headers are ignored by these write resources, while JobRecordings remains the header-only body-less download path and settings remains caller-bound by its UID header.
+- Verification: focused lease/artifact/recording/version-mutation/negotiation/OpenAPI/authorization checks and the full module suite passed.

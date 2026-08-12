@@ -321,6 +321,7 @@ namespace {
     expectV2($context['_http_method'] === 'PATCH', 'request context must take the HTTP method from the envelope');
     expectV2($context['_worker_uid_header'] === 'header-worker', 'request context must use the canonical worker UID header');
     expectV2($context['_lease_token_header'] === 'header-token', 'request context must use the canonical lease token header');
+    expectV2($context['worker_uid'] === 'body-worker', 'JSON write callers must retain body worker_uid even when an optional UID header is present');
     expectV2(WorkerRequestContext::isRestrictedWorkerKey($context), 'configured bearer worker key must be restricted');
     expectV2(!WorkerRequestContext::isRestrictedWorkerKey(array_replace($context, ['_auth_type' => 'jwt'])), 'non-worker auth must not be restricted');
     expectV2(!WorkerRequestContext::isRestrictedWorkerKey(array_replace($context, ['_api_key_id' => 7])), 'unconfigured bearer key must not be restricted');

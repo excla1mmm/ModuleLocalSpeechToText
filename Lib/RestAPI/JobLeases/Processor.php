@@ -34,12 +34,11 @@ class Processor extends Injectable
         $action = JobLeaseAction::tryFrom((string)($request['action'] ?? ''));
         if (!$action instanceof JobLeaseAction) return self::forbidden('worker_action_forbidden');
 
-        $workerUidHeader = trim((string)($data['_worker_uid_header'] ?? ''));
         $bodyWorkerUid = trim(is_scalar($data['worker_uid'] ?? null) ? (string)$data['worker_uid'] : '');
-        if ($workerUidHeader === '' || $bodyWorkerUid === '' || $bodyWorkerUid !== $workerUidHeader) {
+        if ($bodyWorkerUid === '') {
             return self::forbidden('worker_identity_forbidden');
         }
-        $bindingError = WorkerBindingDecision::authorize($workerUidHeader, (int)($data['_api_key_id'] ?? 0));
+        $bindingError = WorkerBindingDecision::authorize($bodyWorkerUid, (int)($data['_api_key_id'] ?? 0));
         if ($bindingError !== null) return $bindingError;
         if ($action !== JobLeaseAction::CREATE) {
             $routeJobId = (int)($data['id'] ?? 0);
@@ -50,7 +49,7 @@ class Processor extends Injectable
             $data['id'] = $routeJobId;
             $leaseToken = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
             if ($leaseToken === '') return self::conflict('job_lease_required');
-            $ownershipError = JobLeaseOwnership::preflight($routeJobId, $workerUidHeader, $leaseToken);
+            $ownershipError = JobLeaseOwnership::preflight($routeJobId, $bodyWorkerUid, $leaseToken);
             if ($ownershipError !== null) return $ownershipError;
         }
 

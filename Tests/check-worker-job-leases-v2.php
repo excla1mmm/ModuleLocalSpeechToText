@@ -47,10 +47,9 @@ foreach ([$settingsProcessor, $leaseProcessor] as $source) {
     $gate = strpos($source, 'acquireWriteLease(');
     expectWorkerLeaseV2($version !== false && $context !== false && $gate !== false && $version < $context && $context < $gate, 'Version/auth preflight must precede lifecycle acquisition');
     expectWorkerLeaseV2(str_contains($source, 'WorkerRequestContext::isRestrictedWorkerKey($data)'), 'Resources must fail closed to restricted worker keys');
-    expectWorkerLeaseV2(str_contains($source, "['_worker_uid_header']"), 'Worker identity must use the UID header');
 }
 expectWorkerLeaseV2(str_contains($settingsProcessor, "unset(\$data['worker_uid'])") && str_contains($settingsProcessor, "\$data['worker_uid'] = \$workerUidHeader"), 'Body-only UID must not select settings');
-expectWorkerLeaseV2(str_contains($leaseProcessor, '$bodyWorkerUid !== $workerUidHeader') && str_contains($leaseProcessor, 'CanonicalJobId::matchesRoute('), 'Lease ownership mismatch preflight is missing');
+expectWorkerLeaseV2(!str_contains($leaseProcessor, "['_worker_uid_header']") && str_contains($leaseProcessor, '$bodyWorkerUid') && str_contains($leaseProcessor, 'CanonicalJobId::matchesRoute('), 'Lease JSON body identity and route-ID preflight are required');
 expectWorkerLeaseV2(str_contains($leaseProcessor, "['_idFromRequestBody']"), 'Real Core route/body ID metadata must be compared');
 expectWorkerLeaseV2(str_contains($leaseProcessor, 'CanonicalJobId::matchesRoute('), 'Core body ID must use exact canonical validation');
 expectWorkerLeaseV2(substr_count($settingsProcessor . $leaseProcessor, 'WorkerBindingDecision::authorize(') === 2, 'Both Task 5 processors must share exclusive binding authorization');
