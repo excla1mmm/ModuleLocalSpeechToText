@@ -281,7 +281,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'legacy database did not apply migrations 1-12');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 'legacy database did not apply migrations 1-13');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -364,7 +364,7 @@ foreach ($before['rows']['jobs'] as $jobBefore) {
     expectSttUpgrade($jobAfter === $expectedJob, "legacy processing job {$jobId} changed outside requeue fields");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
     'migration ledger is incomplete'
 );
 expectSttUpgrade(
@@ -392,8 +392,12 @@ expectSttUpgrade(
     'result processing timestamp index is missing after upgrade'
 );
 expectSttUpgrade(
-    in_array('i_m_STTWorker_api_key_id_unique', $after['indexes'], true),
+    in_array('i_m_STTWorker_api_key_id_v2_unique', $after['indexes'], true),
     'exclusive worker API-key index is missing after upgrade'
+);
+expectSttUpgrade(
+    !in_array('i_m_STTWorker_api_key_id_unique', $after['indexes'], true),
+    'obsolete all-version worker API-key index remains after upgrade'
 );
 foreach ([
     'i_m_STTJob_file_path',

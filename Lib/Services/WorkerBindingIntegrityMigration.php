@@ -16,27 +16,15 @@ final class WorkerBindingIntegrityMigration
             throw new RuntimeException('Worker binding integrity migration requires an active transaction');
         }
 
-        $duplicates = $connection->fetchAll(
-            'SELECT api_key_id, COUNT(*) AS binding_count
-               FROM m_STTWorker
-              WHERE api_key_id IS NOT NULL
-              GROUP BY api_key_id
-             HAVING COUNT(*) > 1
-              LIMIT 1',
-            PDO::FETCH_ASSOC
-        );
-        if ($duplicates !== []) {
-            throw new RuntimeException(
-                'Cannot migrate duplicate worker API-key binding #' . (int)$duplicates[0]['api_key_id']
-            );
+        if ($connection->execute('DROP INDEX IF EXISTS i_m_STTWorker_api_key_id_unique') !== true) {
+            throw new RuntimeException('Unable to remove obsolete worker API-key binding index');
         }
-
         if ($connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTWorker_api_key_id_unique
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTWorker_api_key_id_v2_unique
                  ON m_STTWorker(api_key_id)
-              WHERE api_key_id IS NOT NULL'
+              WHERE api_key_id IS NOT NULL AND api_version = 2'
         ) !== true) {
-            throw new RuntimeException('Unable to create exclusive worker API-key binding index');
+            throw new RuntimeException('Unable to create exclusive v2 worker API-key binding index');
         }
 
         $history = [];

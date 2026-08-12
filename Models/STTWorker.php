@@ -11,8 +11,7 @@ use RuntimeException;
 /**
  * @Indexes(
  *     [name='worker_uid', columns=['worker_uid'], type='UNIQUE'],
- *     [name='api_key_id', columns=['api_key_id'], type=''],
- *     [name='api_key_id_unique', columns=['api_key_id'], type='UNIQUE']
+ *     [name='api_key_id', columns=['api_key_id'], type='']
  * )
  */
 class STTWorker extends ModulesModelsBase

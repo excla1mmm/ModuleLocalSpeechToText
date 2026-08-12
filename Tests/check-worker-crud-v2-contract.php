@@ -501,7 +501,11 @@ namespace {
     expectWorkerCrud(LocalSpeechToTextMain::$registrationCalls === $beforeRegistration, 'Version denial must occur before registration');
 
     $wrongUid = Processor::callBack(requestForWorkerCrud('create', ['worker_uid' => 'worker-c'], true));
-    expectWorkerCrud($wrongUid->httpCode === 403, 'Restricted key must not claim a worker bound to another identity');
+    expectWorkerCrud(
+        $wrongUid->httpCode === 409
+            && ($wrongUid->data['error_code'] ?? null) === 'worker_api_key_already_bound',
+        'Restricted key must not claim a second worker identity'
+    );
     expectWorkerCrud(LocalSpeechToTextMain::$registrationCalls === $beforeRegistration, 'Binding denial must occur before registration');
 
     workerFixture(6, 'stale-bound-worker', 'offline', '1', '1.0.0', 88);
@@ -516,8 +520,52 @@ namespace {
 
     $exclusiveConflict = workerFixture(5, 'worker-key-owner', 'online', '2', '3.0.0', 77);
     $exclusive = Processor::callBack(requestForWorkerCrud('create', ['worker_uid' => 'new-uid'], true));
-    expectWorkerCrud($exclusive->httpCode === 403, 'Restricted key must not register a second worker_uid');
+    expectWorkerCrud($exclusive->httpCode === 409, 'Restricted key must not register a second worker_uid');
     unset(STTWorker::$rows[(int)$exclusiveConflict->id]);
+
+    workerFixture(22, 'legacy-clean', 'offline', '1', '1.0.0', 99);
+    $cleanLegacyUpgrade = Processor::callBack(requestForWorkerCrud(
+        'create',
+        ['worker_uid' => 'legacy-clean', 'app_version' => '2.0.0'],
+        true,
+        true,
+        99,
+    ));
+    expectWorkerCrud(
+        $cleanLegacyUpgrade->httpCode === 200
+            && ($cleanLegacyUpgrade->data['id'] ?? null) === 22
+            && (STTWorker::$rows[22]->api_version ?? null) === 2
+            && (STTWorker::$rows[22]->status ?? null) === STTWorker::STATUS_ONLINE,
+        'A clean single legacy binding must idempotently transition to v2',
+        [$cleanLegacyUpgrade->httpCode, $cleanLegacyUpgrade->data],
+    );
+    unset(STTWorker::$rows[22]);
+
+    workerFixture(20, 'legacy-ambiguous-a', 'offline', '1', '1.0.0', 99);
+    workerFixture(21, 'legacy-ambiguous-b', 'offline', '1', '1.0.0', 99);
+    $ambiguousRowsBefore = serialize(STTWorker::$rows);
+    $ambiguousCallsBefore = LocalSpeechToTextMain::$registrationCalls;
+    foreach (['legacy-ambiguous-a', 'legacy-ambiguous-b', 'legacy-ambiguous-new'] as $workerUid) {
+        $ambiguous = Processor::callBack(requestForWorkerCrud(
+            'create',
+            ['worker_uid' => $workerUid, 'app_version' => '2.0.0'],
+            true,
+            true,
+            99,
+        ));
+        expectWorkerCrud(
+            $ambiguous->httpCode === 409
+                && ($ambiguous->data['error_code'] ?? null) === 'worker_api_key_already_bound',
+            "Ambiguous legacy key must reject POST for {$workerUid} with 409",
+            [$ambiguous->httpCode, $ambiguous->data],
+        );
+    }
+    expectWorkerCrud(
+        serialize(STTWorker::$rows) === $ambiguousRowsBefore
+            && LocalSpeechToTextMain::$registrationCalls === $ambiguousCallsBefore,
+        'Ambiguous legacy key POST attempts must not mutate or dispatch registration',
+    );
+    unset(STTWorker::$rows[20], STTWorker::$rows[21]);
 
     foreach (['register', 'getProcessingSettings'] as $legacyAction) {
         $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;

@@ -135,7 +135,7 @@ class Processor extends Injectable
             'bind' => ['api_key_id' => $apiKeyId, 'other_worker_uid' => $workerUid],
         ]);
         if ($otherWorker instanceof STTWorker) {
-            return self::forbidden('worker_api_key_already_bound', 'This API key is already bound to another worker');
+            return self::conflict('worker_api_key_already_bound', 'This API key is already bound to another worker');
         }
 
         return null;
@@ -177,6 +177,14 @@ class Processor extends Injectable
         $result->httpCode = 422;
         $result->data = ['error' => 'validation_error', 'error_code' => 'validation_error'];
         $result->messages['error'][] = $message;
+
+        return $result;
+    }
+
+    private static function conflict(string $code, string $message): PBXApiResult
+    {
+        $result = self::forbidden($code, $message);
+        $result->httpCode = 409;
 
         return $result;
     }

@@ -64,7 +64,11 @@ function workerBindingDatabase(bool $duplicates = false): WorkerBindingSqliteCon
     $pdo->exec('CREATE TABLE m_STTWorker (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         worker_uid TEXT NOT NULL UNIQUE,
-        api_key_id INTEGER NULL
+        api_key_id INTEGER NULL,
+        status TEXT NOT NULL DEFAULT \'offline\',
+        api_version INTEGER NOT NULL DEFAULT 1,
+        app_version TEXT NOT NULL DEFAULT \'\',
+        updated_at INTEGER NOT NULL DEFAULT 0
     )');
     $pdo->exec('CREATE TABLE m_STTSetting (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,10 +77,14 @@ function workerBindingDatabase(bool $duplicates = false): WorkerBindingSqliteCon
     )');
     $pdo->exec("INSERT INTO m_STTSetting(key, value) VALUES
         ('worker_api_key_id', '77'),
-        ('worker_api_key_ids', '[77,42]')");
-    $pdo->exec("INSERT INTO m_STTWorker(worker_uid, api_key_id) VALUES ('worker-a', 41), ('worker-b', 42)");
+        ('worker_api_key_ids', '[77,42]'),
+        ('worker_api_contract_migration_v2', '1')");
+    $pdo->exec("INSERT INTO m_STTWorker(worker_uid, api_key_id, status, api_version, app_version, updated_at)
+        VALUES ('worker-a', 41, 'offline', 1, '', 1700000001),
+               ('worker-b', 42, 'offline', 1, '', 1700000002)");
     if ($duplicates) {
-        $pdo->exec("INSERT INTO m_STTWorker(worker_uid, api_key_id) VALUES ('worker-duplicate', 41)");
+        $pdo->exec("INSERT INTO m_STTWorker(worker_uid, api_key_id, status, api_version, app_version, updated_at)
+            VALUES ('worker-duplicate', 41, 'offline', 1, '', 1700000003)");
     }
 
     return new WorkerBindingSqliteConnection($pdo);
@@ -93,6 +101,14 @@ function workerBindingMigrator(): ModuleSchemaMigrator
             },
             'stt-schema-012-exclusive-worker-api-key-bindings'
         ),
+        new ModuleSchemaMigration(
+            13,
+            'repair v2-only worker API-key binding index',
+            static function (mixed $connection): void {
+                (new WorkerBindingIntegrityMigration())->migrate($connection);
+            },
+            'stt-schema-013-repair-v2-worker-api-key-index'
+        ),
     ]);
 }
 
@@ -107,17 +123,17 @@ require_once $migrationPath;
 
 $connection = workerBindingDatabase();
 expectWorkerBindingIntegrity(
-    workerBindingMigrator()->migrate($connection, static fn (): null => null) === [12],
-    'Production binding migration version 12 did not apply'
+    workerBindingMigrator()->migrate($connection, static fn (): null => null) === [12, 13],
+    'Production binding migrations 12-13 did not apply'
 );
 $index = $connection->pdo->query(
-    "SELECT sql FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_unique'"
+    "SELECT sql FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
 )->fetchColumn();
 expectWorkerBindingIntegrity(
     is_string($index)
         && str_contains(strtoupper($index), 'UNIQUE INDEX')
-        && str_contains($index, 'WHERE api_key_id IS NOT NULL'),
-    'api_key_id must have a partial unique non-null database invariant'
+        && preg_match('/WHERE\s+api_key_id\s+IS\s+NOT\s+NULL\s+AND\s+api_version\s*=\s*2/i', $index) === 1,
+    'api_key_id must have a partial unique v2-only database invariant'
 );
 $history = json_decode((string)$connection->pdo->query(
     "SELECT value FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
@@ -125,14 +141,21 @@ $history = json_decode((string)$connection->pdo->query(
 sort($history);
 expectWorkerBindingIntegrity($history === [41, 42, 77], 'Migration must preserve current and row-bound worker key history');
 
+$connection->pdo->exec(
+    "INSERT INTO m_STTWorker(worker_uid, api_key_id, status, api_version)
+     VALUES ('worker-v2-owner', 91, 'online', 2)"
+);
 $beforeRows = (int)$connection->pdo->query('SELECT COUNT(*) FROM m_STTWorker')->fetchColumn();
 $collisionRejected = false;
 try {
-    $connection->pdo->exec("INSERT INTO m_STTWorker(worker_uid, api_key_id) VALUES ('worker-race-loser', 41)");
+    $connection->pdo->exec(
+        "INSERT INTO m_STTWorker(worker_uid, api_key_id, status, api_version)
+         VALUES ('worker-race-loser', 91, 'online', 2)"
+    );
 } catch (PDOException) {
     $collisionRejected = true;
 }
-expectWorkerBindingIntegrity($collisionRejected, 'Database boundary accepted two worker UIDs for one API key');
+expectWorkerBindingIntegrity($collisionRejected, 'Database boundary accepted two v2 worker UIDs for one API key');
 expectWorkerBindingIntegrity(
     (int)$connection->pdo->query('SELECT COUNT(*) FROM m_STTWorker')->fetchColumn() === $beforeRows,
     'Rejected binding collision mutated worker rows'
@@ -151,34 +174,67 @@ expectWorkerBindingIntegrity($hashBeforeRepeat === $hashAfterRepeat, 'Repeated m
 
 $duplicateConnection = workerBindingDatabase(true);
 $duplicateRows = $duplicateConnection->pdo->query(
-    'SELECT id, worker_uid, api_key_id FROM m_STTWorker ORDER BY id'
+    'SELECT id, worker_uid, api_key_id, status, api_version, app_version, updated_at
+       FROM m_STTWorker ORDER BY id'
 )->fetchAll(PDO::FETCH_ASSOC);
-$duplicateRejected = false;
-try {
-    workerBindingMigrator()->migrate($duplicateConnection, static fn (): null => null);
-} catch (RuntimeException $exception) {
-    $duplicateRejected = str_contains($exception->getMessage(), 'duplicate worker API-key binding');
-}
-expectWorkerBindingIntegrity($duplicateRejected, 'Legacy duplicate bindings must fail migration explicitly');
 expectWorkerBindingIntegrity(
-    $duplicateConnection->pdo->query('SELECT id, worker_uid, api_key_id FROM m_STTWorker ORDER BY id')->fetchAll(PDO::FETCH_ASSOC)
+    workerBindingMigrator()->migrate($duplicateConnection, static fn (): null => null) === [12, 13],
+    'Duplicate legacy v1 bindings must migrate successfully'
+);
+expectWorkerBindingIntegrity(
+    $duplicateConnection->pdo->query(
+        'SELECT id, worker_uid, api_key_id, status, api_version, app_version, updated_at
+           FROM m_STTWorker ORDER BY id'
+    )->fetchAll(PDO::FETCH_ASSOC)
         === $duplicateRows,
-    'Duplicate-binding migration failure changed legacy worker rows'
+    'Migration changed duplicate legacy IDs, UIDs, bindings, v1/offline state, or metadata'
+);
+expectWorkerBindingIntegrity(
+    json_decode((string)$duplicateConnection->pdo->query(
+        "SELECT value FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
+    )->fetchColumn(), true) === [41, 42, 77],
+    'Duplicate legacy migration did not seed complete worker API-key history'
+);
+expectWorkerBindingIntegrity(
+    (string)$duplicateConnection->pdo->query(
+        "SELECT value FROM m_STTSetting WHERE key='worker_api_contract_migration_v2'"
+    )->fetchColumn() === '1',
+    'Duplicate legacy migration changed the worker API v2 marker'
 );
 expectWorkerBindingIntegrity(
     (int)$duplicateConnection->pdo->query(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_unique'"
-    )->fetchColumn() === 0,
-    'Duplicate-binding failure left a partial unique index behind'
+        "SELECT COUNT(*) FROM m_STTSchemaMigration WHERE version IN (12, 13)"
+    )->fetchColumn() === 2,
+    'Duplicate legacy migration did not record both schema ledger entries'
+);
+$duplicateV2Rejected = false;
+try {
+    $duplicateConnection->pdo->exec(
+        "INSERT INTO m_STTWorker(worker_uid, api_key_id, status, api_version)
+         VALUES ('v2-first', 100, 'online', 2), ('v2-second', 100, 'online', 2)"
+    );
+} catch (PDOException) {
+    $duplicateV2Rejected = true;
+}
+expectWorkerBindingIntegrity($duplicateV2Rejected, 'Unique v2 duplicate insertion must fail');
+$duplicateHash = hash('sha256', serialize($duplicateConnection->pdo->query(
+    'SELECT * FROM m_STTWorker ORDER BY id'
+)->fetchAll(PDO::FETCH_ASSOC)));
+expectWorkerBindingIntegrity(
+    workerBindingMigrator()->migrate($duplicateConnection, static fn (): null => null) === [],
+    'Repeated duplicate-legacy migration must be a no-op'
 );
 expectWorkerBindingIntegrity(
-    (int)$duplicateConnection->pdo->query(
-        "SELECT COUNT(*) FROM m_STTSchemaMigration WHERE version=12"
-    )->fetchColumn() === 0,
-    'Duplicate-binding failure recorded schema version 12'
+    hash('sha256', serialize($duplicateConnection->pdo->query(
+        'SELECT * FROM m_STTWorker ORDER BY id'
+    )->fetchAll(PDO::FETCH_ASSOC))) === $duplicateHash,
+    'Repeated setup changed preserved duplicate legacy workers'
 );
 
 $rollbackConnection = workerBindingDatabase();
+$rollbackRows = $rollbackConnection->pdo->query(
+    'SELECT * FROM m_STTWorker ORDER BY id'
+)->fetchAll(PDO::FETCH_ASSOC);
 $rollbackConnection->failLedger = true;
 $rollbackObserved = false;
 try {
@@ -189,12 +245,47 @@ try {
 expectWorkerBindingIntegrity($rollbackObserved, 'Injected migration ledger failure was not observed');
 expectWorkerBindingIntegrity(
     (int)$rollbackConnection->pdo->query(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_unique'"
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
     )->fetchColumn() === 0
         && (int)$rollbackConnection->pdo->query(
             "SELECT COUNT(*) FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
+        )->fetchColumn() === 0
+        && $rollbackConnection->pdo->query(
+            'SELECT * FROM m_STTWorker ORDER BY id'
+        )->fetchAll(PDO::FETCH_ASSOC) === $rollbackRows
+        && (int)$rollbackConnection->pdo->query(
+            'SELECT COUNT(*) FROM m_STTSchemaMigration'
         )->fetchColumn() === 0,
     'Migration ledger failure did not roll back schema and history changes'
+);
+
+$staleConnection = workerBindingDatabase();
+$staleConnection->pdo->exec(
+    'CREATE UNIQUE INDEX i_m_STTWorker_api_key_id_unique
+         ON m_STTWorker(api_key_id) WHERE api_key_id IS NOT NULL'
+);
+$staleConnection->pdo->exec('CREATE TABLE m_STTSchemaMigration (
+    version INTEGER PRIMARY KEY, name TEXT NOT NULL, checksum TEXT NOT NULL, applied_at INTEGER NOT NULL
+)');
+$staleStatement = $staleConnection->pdo->prepare(
+    'INSERT INTO m_STTSchemaMigration(version, name, checksum, applied_at) VALUES (12, :name, :checksum, 1)'
+);
+$staleStatement->execute([
+    'name' => 'exclusive worker API-key bindings',
+    'checksum' => hash('sha256', 'stt-schema-012-exclusive-worker-api-key-bindings'),
+]);
+expectWorkerBindingIntegrity(
+    workerBindingMigrator()->migrate($staleConnection, static fn (): null => null) === [13],
+    'Already-applied unshipped v12 index must be repaired deterministically by migration 13'
+);
+expectWorkerBindingIntegrity(
+    (int)$staleConnection->pdo->query(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_unique'"
+    )->fetchColumn() === 0
+        && (int)$staleConnection->pdo->query(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
+        )->fetchColumn() === 1,
+    'Stale non-null unique index was not replaced by the v2-only index'
 );
 
 $setup = (string)file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
@@ -206,8 +297,13 @@ expectWorkerBindingIntegrity(
     'Production setup must register migration 12 with stable identity'
 );
 expectWorkerBindingIntegrity(
-    str_contains($model, "[name='api_key_id_unique', columns=['api_key_id'], type='UNIQUE']"),
-    'Fresh annotation schema must declare the same unique API-key invariant'
+    str_contains($setup, "13,\n                'repair v2-only worker API-key binding index'")
+        && str_contains($setup, "'stt-schema-013-repair-v2-worker-api-key-index'"),
+    'Production setup must register deterministic repair migration 13'
+);
+expectWorkerBindingIntegrity(
+    !str_contains($model, "columns=['api_key_id'], type='UNIQUE'"),
+    'Model annotations must not recreate an all-version unique API-key constraint'
 );
 
 echo "STT worker binding integrity SQLite behavior OK\n";

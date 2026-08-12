@@ -347,6 +347,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyWorkerBindingIntegrityMigration($connection),
                 'stt-schema-012-exclusive-worker-api-key-bindings'
             ),
+            new ModuleSchemaMigration(
+                13,
+                'repair v2-only worker API-key binding index',
+                fn (mixed $connection): null => $this->applyWorkerBindingIntegrityMigration($connection),
+                'stt-schema-013-repair-v2-worker-api-key-index'
+            ),
         ];
     }
 

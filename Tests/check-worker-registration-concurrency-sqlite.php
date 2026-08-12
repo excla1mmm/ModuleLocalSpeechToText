@@ -75,7 +75,8 @@ if (($argv[1] ?? '') === '--child') {
                     throw new RuntimeException('concurrency barrier timeout');
                 }
                 $database->execute(
-                    'INSERT INTO m_STTWorker(worker_uid, api_key_id) VALUES (:worker_uid, :api_key_id)',
+                    'INSERT INTO m_STTWorker(worker_uid, api_key_id, api_version)
+                     VALUES (:worker_uid, :api_key_id, 2)',
                     ['worker_uid' => $workerUid, 'api_key_id' => 91]
                 );
             }
@@ -103,10 +104,11 @@ $pdo->exec('PRAGMA journal_mode=WAL');
 $pdo->exec('CREATE TABLE m_STTWorker (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_uid TEXT NOT NULL UNIQUE,
-    api_key_id INTEGER NULL
+    api_key_id INTEGER NULL,
+    api_version INTEGER NOT NULL DEFAULT 1
 )');
-$pdo->exec('CREATE UNIQUE INDEX i_m_STTWorker_api_key_id_unique
-    ON m_STTWorker(api_key_id) WHERE api_key_id IS NOT NULL');
+$pdo->exec('CREATE UNIQUE INDEX i_m_STTWorker_api_key_id_v2_unique
+    ON m_STTWorker(api_key_id) WHERE api_key_id IS NOT NULL AND api_version = 2');
 $pdo = null;
 
 $goPath = $directory . '/go';

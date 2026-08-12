@@ -124,8 +124,8 @@ Worker key IDs are retained in module-owned authorization history when created a
 ### Binding exclusivity and idempotency
 
 - Production migration 12, `exclusive worker API-key bindings`, is registered in the real setup migration list with checksum seed `stt-schema-012-exclusive-worker-api-key-bindings`.
-- Upgrade databases receive partial unique index `i_m_STTWorker_api_key_id_unique` on non-null `api_key_id`; fresh annotation bootstrap declares the equivalent unique column index. SQLite permits multiple null bindings.
-- Existing duplicate non-null bindings are not guessed at, reassigned, or discarded. Migration aborts with the conflicting key ID, and the transaction preserves rows, settings, index state, and the migration ledger for explicit administrator reconciliation.
+- Upgrade databases receive partial unique index `i_m_STTWorker_api_key_id_v2_unique` only for non-null `api_key_id` rows whose `api_version = 2`; model annotations intentionally retain only the non-unique lookup index so they cannot recreate an all-version constraint.
+- Existing duplicate v1 bindings are not guessed at, reassigned, nulled, or discarded. They migrate successfully with every numeric ID, UID, key binding, and v1/offline state preserved; runtime registration blocks the ambiguous key until explicit administrator reconciliation.
 - Migration tests prove success, exact history seeding, idempotent rerun, duplicate rollback, and injected post-operation/framework-ledger rollback.
 - Registration performs the binding preflight again inside a module transaction. The database unique index remains the final arbiter. A two-process WAL SQLite test releases two different `worker_uid` contenders for key 91 from the same post-preflight barrier and observes exactly `conflict` plus `ok`, with exactly one persisted row. The loser is mapped to HTTP 409 `worker_api_key_already_bound` and performs no mutation.
 - Existing repeated POST by the same `worker_uid` remains idempotent and returns the same numeric worker ID.
@@ -157,17 +157,57 @@ Passing focused and related commands:
 - `php Tests/check-rest-api-contract.php` — `REST API contract OK`
 - Direct real-Core permission rehearsal against `/Users/excla1m/Development/Core` proves Core `write` still admits Worker GET/POST/DELETE, so the module Processor gate remains load-bearing.
 - `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` and `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` both pass.
-- `php Tests/check-module-upgrade-integration-contract.php` passes the production migration-12 registration guards. The production-shaped Phalcon rehearsal reports its established host skip because `ext-phalcon` is unavailable.
+- `php Tests/check-module-upgrade-integration-contract.php` passes the production migration 12-13 registration guards. The production-shaped Phalcon rehearsal reports its established host skip because `ext-phalcon` is unavailable.
 
 Plain aggregate status remains progressive rather than green. The Task 4 CRUD/concurrency/migration/lease tests all pass. Remaining failures are later Job-resource route/version work, the superseded legacy processing-settings endpoint contract, and two linked-worktree Core-path assumptions in OpenAPI/API-key permission tests; the latter permission behavior was exercised directly against the actual read-only Core checkout.
 
 ### Fix files and self-review
 
 - Authorization/history: `WorkerRequestContext`, Workers `Processor`, `STTSetting`, and `WorkerApiKeyService` integration through the existing add/remove flow.
-- Database integrity: new `WorkerBindingIntegrityMigration`, migration 12 setup registration, fresh `STTWorker` annotation, and production upgrade registration contracts.
+- Database integrity: `WorkerBindingIntegrityMigration`, migration 12 plus deterministic repair migration 13 setup registration, `STTWorker` annotation safety, and production upgrade registration contracts.
 - Registration race: new `WorkerRegistrationTransaction` and `WorkerApiKeyBindingConflictException`; `LocalSpeechToTextMain::registerWorker()` maps conflicts to 409.
 - Delete/claim race: atomic `STTWorker` delete plus the `STTJob` worker-existence claim predicate.
 - Envelope compatibility: `STTWorkerResourceService` strips exact `httpMethod` while continuing to reject unknown public fields and body IDs.
 - No Core source, later resource controller, translation, API-key rotation/deletion behavior, job/result history, or unrelated user change was modified.
 
 Concern retained for release verification: run the production-shaped migration rehearsal in the project Phalcon/PBX environment. Host PHP cannot execute it, but the module-only SQLite migration, concurrency, rollback, and production registration guards are green.
+
+## Fix Round 2 — preserve ambiguous legacy bindings
+
+### Re-review finding and RED
+
+Re-review found one Important defect: the first migration-12 implementation rejected any duplicate non-null `api_key_id`, although the v1 schema historically allowed one key to be stored on multiple worker UIDs and the canonical migration must preserve those rows.
+
+The focused migration fixture was changed first to contain two offline v1 rows with distinct numeric IDs/UIDs and the same key. It now required successful migration, exact row preservation, history and v2 marker preservation, migration ledger completion, idempotency, and rejection only for duplicate v2 rows. Before the production change it failed at `api_key_id must have a partial unique v2-only database invariant`. The runtime CRUD test separately went RED when second-identity and ambiguous-key POST assertions were changed from 403 to the required clean 409.
+
+### Resolution
+
+- Migration 12 retains its already-recorded name and checksum seed, but its implementation no longer rejects duplicate v1 bindings.
+- The obsolete unshipped `i_m_STTWorker_api_key_id_unique` index is removed transactionally. The canonical index is `i_m_STTWorker_api_key_id_v2_unique ON m_STTWorker(api_key_id) WHERE api_key_id IS NOT NULL AND api_version = 2`.
+- Migration 13, `repair v2-only worker API-key binding index`, re-runs the idempotent integrity operation. A test database with the old v12 ledger checksum and obsolete index skips v12, applies v13, removes the obsolete index, and installs the v2-only definition without changing rows.
+- The migration fixture proves duplicate legacy IDs, UIDs, key bindings, timestamps, empty app versions, `api_version=1`, and offline state remain byte-for-byte unchanged. History is `[41,42,77]`, the v2 marker remains `1`, ledger versions 12 and 13 are present, and rerun is a no-op.
+- An attempted pair of v2 inserts with the same key fails at the database boundary. The existing two-process clean-key race remains exactly one `ok`, one `conflict`, and one persisted v2 row.
+- Runtime self-registration treats any second UID for a key as HTTP 409 `worker_api_key_already_bound`. For an ambiguous legacy key, both historical UIDs and a new UID receive 409 before lifecycle/domain mutation. No worker row changes and registration is not dispatched.
+- A single unambiguous legacy binding can idempotently POST its own UID and transitions the same numeric worker row to online API v2.
+
+### Fix Round 2 verification
+
+Passing before commit:
+
+- `php Tests/check-worker-binding-integrity-sqlite.php`
+- `php Tests/check-worker-crud-v2-contract.php`
+- `php Tests/check-worker-registration-concurrency-sqlite.php`
+- `php Tests/check-worker-registration-conflict-result.php`
+- `php Tests/check-worker-api-v2-migration-sqlite.php`
+- `php Tests/check-stt-job-lease-sqlite.php`
+- `php Tests/check-worker-delete-claim-race-sqlite.php`
+- `php Tests/check-worker-api-v2-negotiation.php`
+- `php Tests/check-worker-api-key-reconciliation.php`
+- `php Tests/check-settings-normalization.php`
+- `php Tests/check-queue-lifecycle-contract.php`
+- `php Tests/check-module-schema-migrator.php`
+- `php Tests/check-module-upgrade-integration-contract.php`
+- `php Tests/Integration/check-module-upgrade-sqlite.php` — established host skip: `ext-phalcon` unavailable
+- changed-file `php -l`, `git diff --check`, and clean scoped status verification.
+
+No Core source, credential rotation/deletion behavior, existing worker identity/binding data, later Job resource, or unrelated file was changed.
