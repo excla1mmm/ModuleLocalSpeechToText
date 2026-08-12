@@ -82,9 +82,9 @@ namespace {
         throw new RuntimeException("Processor {$function}() body is not balanced");
     }
 
-    function assertWorkerApiV2Gate(string $operation, string $source): void
+    function assertWorkerApiV2Gate(string $operation, string $source, string $function = 'callBack'): void
     {
-        $callback = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, 'callBack'));
+        $callback = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, $function));
         preg_match('/\$(?<versionError>[A-Za-z_][A-Za-z0-9_]*)=WorkerApiContract::requireVersion\(\$request\);/', $callback, $gateMatch);
         $gate = isset($gateMatch[0]) ? strpos($callback, $gateMatch[0]) : false;
         $dispatch = min(array_filter([
@@ -132,6 +132,10 @@ namespace {
                 'WorkerAction::CREATE===$action&&' . $restricted,
                 $restricted . '&&$action===WorkerAction::CREATE',
                 $restricted . '&&WorkerAction::CREATE===$action',
+                '$action===WorkerAction::CREATE&&$restricted',
+                'WorkerAction::CREATE===$action&&$restricted',
+                '$restricted&&$action===WorkerAction::CREATE',
+                '$restricted&&WorkerAction::CREATE===$action',
             ];
             if (!in_array($flatCondition, $allowedConditions, true)) {
                 continue;
@@ -150,10 +154,13 @@ namespace {
             'Administrator worker CRUD must remain outside the restricted-create version gate',
         );
         assertWorkerApiV2Gate('restricted POST /workers create', 'function callBack(array $request) {' . $scope['body'] . '}');
-        $registration = strpos($callback, 'LocalSpeechToTextMain::registerWorker(');
+        $registration = min(array_filter([
+            strpos($callback, 'WorkerAction::CREATE=>$service->create($data)'),
+            strpos($callback, 'WorkerAction::CREATE=>LocalSpeechToTextMain::registerWorker($data)'),
+        ], static fn(int|false $position): bool => $position !== false) ?: [PHP_INT_MAX]);
         expectWorkerApiV2Version(
-            $registration !== false && $registration > $scope['close'],
-            'Restricted POST /workers must require version 2 before registration mutation',
+            $registration !== PHP_INT_MAX && $registration > $scope['close'],
+            'Restricted POST /workers must require version 2 before the worker create mutation',
         );
     }
 
@@ -178,9 +185,19 @@ namespace {
             if (!str_contains($code, '_worker_uid_header') && !str_contains($code, '_lease_token_header')) {
                 continue;
             }
-            $allowed = str_ends_with($file, '/Lib/RestAPI/Common/WorkerRequestContext.php')
-                || str_ends_with($file, '/Lib/RestAPI/JobRecordings/Processor.php');
-            expectWorkerApiV2Version($allowed, "Only WorkerRequestContext and JobRecordings may reference internal ownership headers: {$file}");
+            $allowed = [
+                '/Lib/RestAPI/Common/WorkerRequestContext.php',
+                '/Lib/RestAPI/WorkerProcessingSettings/Processor.php',
+                '/Lib/RestAPI/JobLeases/Processor.php',
+                '/Lib/RestAPI/JobRecordings/Processor.php',
+                '/Lib/RestAPI/JobResults/Processor.php',
+                '/Lib/Services/JobSubmissionReceiptService.php',
+                '/Lib/Services/STTWorkerResourceService.php',
+            ];
+            expectWorkerApiV2Version(
+                array_reduce($allowed, static fn(bool $matches, string $path): bool => $matches || str_ends_with($file, $path), false),
+                "Only canonical v2 worker resources may reference internal ownership headers: {$file}"
+            );
         }
     }
 
@@ -313,8 +330,9 @@ namespace {
     {
         $recordingCode = codeWorkerApiV2Version($recordingSource);
         expectWorkerApiV2Version(
-            preg_match('/\$data\[[\'\"]worker_uid[\'\"]\]=\(string\)\(\$data\[[\'\"]_worker_uid_header[\'\"]\]\?\?[\'\"]{2}\);/', $recordingCode) === 1
-                && preg_match('/\$data\[[\'\"]lease_token[\'\"]\]=\(string\)\(\$data\[[\'\"]_lease_token_header[\'\"]\]\?\?[\'\"]{2}\);/', $recordingCode) === 1,
+            preg_match('/\$workerUid=trim\(\(string\)\(\$data\[[\'\"]_worker_uid_header[\'\"]\]\?\?[\'\"]{2}\)\);/', $recordingCode) === 1
+                && preg_match('/\$leaseToken=trim\(\(string\)\(\$data\[[\'\"]_lease_token_header[\'\"]\]\?\?[\'\"]{2}\)\);/', $recordingCode) === 1
+                && str_contains($recordingCode, "\$data['worker_uid']=\$workerUid;\$data['lease_token']=\$leaseToken;"),
             'Recording processor must overwrite ownership only from the canonical internal header values',
         );
         preg_match_all('/unset\((?<members>[^)]*)\)/', $recordingCode, $unsets);
@@ -331,8 +349,8 @@ namespace {
         foreach ($otherProcessorSources as $source) {
             $code = codeWorkerApiV2Version($source);
             expectWorkerApiV2Version(
-                !str_contains($code, '_worker_uid_header') && !str_contains($code, '_lease_token_header'),
-                'Only GET /job-recordings/{job_id} may reference canonical recording ownership headers',
+                !preg_match('/\$request\[[\'\"](?:query|queryParams)[\'\"]\].*(?:worker_uid|lease_token)/s', $code),
+                'Worker resources must not consume ownership query parameters',
             );
         }
     }
@@ -505,16 +523,16 @@ namespace {
         $sources[$file] = $source;
     }
 
-    $required = [
-        'WorkerApiContract::API_VERSION',
-        'X-MikoPBX-Worker-API-Version',
-        'X-MikoPBX-Worker-UID',
-        'X-MikoPBX-Job-Lease-Token',
-        'worker_upgrade_required',
-    ];
     $code = implode("\n", array_map('codeWorkerApiV2Version', $sources));
-    foreach ($required as $symbol) {
-        expectWorkerApiV2Version(str_contains($code, $symbol), "Required worker API v2 code symbol is missing: {$symbol}");
+    expectWorkerApiV2Version(str_contains($code, 'WorkerApiContract::API_VERSION'), 'Required worker API v2 code symbol is missing: WorkerApiContract::API_VERSION');
+    expectWorkerApiV2Version(str_contains($code, 'worker_upgrade_required'), 'Required worker API v2 code symbol is missing: worker_upgrade_required');
+    expectWorkerApiV2Version(
+        strtolower($contractClass::VERSION_HEADER) === strtolower('X-MikoPBX-Worker-API-Version')
+            && str_contains((string)file_get_contents($contractFile), '$headers[self::VERSION_HEADER]'),
+        'Worker API version header constant and lookup must match X-MikoPBX-Worker-API-Version case-insensitively'
+    );
+    foreach (['X-MikoPBX-Worker-UID', 'X-MikoPBX-Job-Lease-Token'] as $header) {
+        expectWorkerApiV2Version(str_contains(strtolower($code), strtolower($header)), "Required worker API v2 ownership header is missing: {$header}");
     }
 
     $workerOperationsByProcessor = [
@@ -529,8 +547,12 @@ namespace {
         expectWorkerApiV2Version(is_file($file), "Worker-only v2 resource {$resource} must have a processor");
         $source = file_get_contents($file);
         expectWorkerApiV2Version($source !== false, "Unable to read {$file}");
+        if ($resource === 'JobFailures') {
+            expectWorkerApiV2Version(str_contains($source, 'ResultProcessor::dispatch($request, true)'), 'JobFailures must delegate to the gate-first JobResults dispatch');
+            continue;
+        }
         foreach ($operations as $operation) {
-            assertWorkerApiV2Gate($operation, $source);
+            assertWorkerApiV2Gate($operation, $source, $resource === 'JobResults' ? 'dispatch' : 'callBack');
         }
     }
 

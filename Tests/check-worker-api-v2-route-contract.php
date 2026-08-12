@@ -215,11 +215,13 @@ namespace {
         $terminal = strpos($callback, 'returnmatch');
         expectWorkerApiV2Route($terminal !== false, 'Legacy dispatch must be an immediate terminal return match');
         $before = substr($callback, 0, $terminal);
-        expectWorkerApiV2Route(!str_contains($before, 'if('), 'Legacy terminal return must be top-level and unconditional');
+        $provenancePrelude = '\$data=WorkerRequestContext::data\(\$request\);if\(WorkerRequestContext::isRevokedWorkerKey\(\$data\)\)\{?returnself::(?:forbidden|error)\([^;]+\);\}?';
+        $harmlessPrelude = '\$actionString=\(string\)\(\$request\[[\'\"]action[\'\"]\]\?\?[\'\"]{2}\);\$action=\w+Action::tryFrom\(\$actionString\);';
         expectWorkerApiV2Route(
-            preg_match('/^(?:\$actionString=\(string\)\(\$request\[[\'\"]action[\'\"]\]\?\?[\'\"]{2}\);\$action=\w+Action::tryFrom\(\$actionString\);)?$/', $before) === 1,
-            'Legacy terminal dispatch must have only harmless action/request normalization before it',
+            preg_match('/^' . $harmlessPrelude . '(?:' . $provenancePrelude . ')?$/', $before) === 1,
+            'Legacy terminal dispatch may only perform revoked-key provenance rejection before its direct tombstone',
         );
+        expectWorkerApiV2Route(!str_contains($before, 'ModuleLifecycleGate') && !str_contains($before, 'ModuleDatabasePragmas'), 'Legacy tombstones must not acquire lifecycle or database setup before rejection');
         $open = strpos($callback, '{', $terminal);
         expectWorkerApiV2Route($open !== false, 'Legacy terminal match has no body');
         $depth = 0;

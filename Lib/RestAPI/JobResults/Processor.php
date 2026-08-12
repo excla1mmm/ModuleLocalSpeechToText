@@ -38,5 +38,5 @@ class Processor extends Injectable
         return self::decorate($result, $failure);
     }
     public static function decorate(PBXApiResult $result, bool $failure): PBXApiResult { $result->processor = $failure ? \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobFailures\Processor::class . '::callBack' : self::class . '::callBack'; $result->function = 'update'; return $result; }
-    private static function error(int $status, string $code): PBXApiResult { $r = new PBXApiResult(); $r->success=false; $r->httpCode=$status; $r->data=['error_code'=>$code]; return $r; }
+    private static function error(int $status, string $code): PBXApiResult { $r = new PBXApiResult(); $r->success=false; $r->httpCode=$status; $r->data=['error_code'=>$code]; if($status===503)$r->data['retry_after']=5; return $r; }
 }

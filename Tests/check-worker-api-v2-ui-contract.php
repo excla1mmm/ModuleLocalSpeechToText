@@ -11,15 +11,18 @@ function expectWorkerApiV2Ui(bool $condition, string $message): void
 
 $root = dirname(__DIR__);
 $controller = (string)file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$workerViewService = (string)file_get_contents($root . '/Lib/Services/WorkerViewService.php');
 $view = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/index.volt');
 
-expectWorkerApiV2Ui(str_contains($controller, 'use Modules\\ModuleLocalSpeechToText\\Lib\\Services\\WorkerApiContract;'), 'Controller must import WorkerApiContract');
+expectWorkerApiV2Ui(str_contains($controller, 'use Modules\\ModuleLocalSpeechToText\\Lib\\Services\\WorkerViewService;'), 'Controller must delegate worker view preparation to WorkerViewService');
+expectWorkerApiV2Ui($workerViewService !== '', 'WorkerViewService must exist');
 expectWorkerApiV2Ui(
-    str_contains($controller, '$this->view->workerApiVersion = WorkerApiContract::API_VERSION;'),
-    'Controller must pass the required worker API version from WorkerApiContract'
+    str_contains($controller, '(new WorkerViewService())->prepare($this->view);'),
+    'Controller must prepare the worker view through WorkerViewService'
 );
 expectWorkerApiV2Ui(
-    str_contains($controller, '(int)$worker->api_version === WorkerApiContract::API_VERSION'),
+    str_contains($workerViewService, '$view->workerApiVersion = WorkerApiContract::API_VERSION;')
+        && str_contains($workerViewService, '(int)$worker->api_version === WorkerApiContract::API_VERSION'),
     'Compatibility must require the exact WorkerApiContract API version'
 );
 
