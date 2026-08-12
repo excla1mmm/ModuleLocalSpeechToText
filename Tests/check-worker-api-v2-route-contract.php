@@ -195,7 +195,9 @@ namespace {
 
     function assertLegacyTerminalWorkerApiV2Route(string $callback, string $enumCase): void
     {
-        $terminal = strpos($callback, 'return match');
+        $callback = preg_replace('/\/\*.*?\*\/|\/\/[^\n]*/s', '', $callback) ?? $callback;
+        $callback = preg_replace('/\s+/', '', $callback) ?? $callback;
+        $terminal = strpos($callback, 'returnmatch');
         expectWorkerApiV2Route($terminal !== false, 'Legacy dispatch must be an immediate terminal return match');
         $before = substr($callback, 0, $terminal);
         expectWorkerApiV2Route(!str_contains($before, 'if('), 'Legacy terminal return must be top-level and unconditional');
@@ -216,9 +218,14 @@ namespace {
             }
         }
         expectWorkerApiV2Route($end !== null, 'Legacy terminal match body is not balanced');
+        expectWorkerApiV2Route(
+            substr($callback, $end + 1) === ';',
+            'Legacy terminal return match must end at the match close with only its semicolon',
+            substr($callback, $end + 1),
+        );
         $arms = substr($callback, $open + 1, $end - $open - 1);
         expectWorkerApiV2Route(
-            preg_match_all('/' . preg_quote($enumCase, '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/', $arms) === 1,
+            preg_match_all('/' . preg_quote($enumCase, '/') . '=>LegacyRouteRejector::worker\(\)(?=,|$)/', $arms) === 1,
             "{$enumCase} must have exactly one direct LegacyRouteRejector::worker() terminal arm",
         );
     }
@@ -285,6 +292,19 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'unknown legacy prelude mutation did not fail for the intended reason');
         }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()&&mutateDatabase()};', 'JobAction::GET_NEXT');
+            throw new RuntimeException('legacy arm suffix mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'legacy arm suffix mutation did not fail for the intended expression-boundary reason');
+        }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()}+mutateDatabase();', 'JobAction::GET_NEXT');
+            throw new RuntimeException('legacy return suffix mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'legacy return suffix mutation did not fail for the intended expression-boundary reason');
+        }
+        assertLegacyTerminalWorkerApiV2Route("\n // comment\n \$actionString = (string) (\$request['action'] ?? '');\n \$action = JobAction::tryFrom(\$actionString);\n return match (\$action) { JobAction::GET_NEXT => LegacyRouteRejector::worker(), };", 'JobAction::GET_NEXT');
         try {
             assertLegacyTerminalWorkerApiV2Route('return match($action) { JobAction::GET_NEXT => $result }; $later = match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');
             throw new RuntimeException('later-match legacy arm mutation was accepted');

@@ -115,6 +115,23 @@ namespace {
         }
     }
 
+    function assertCanonicalWorkerRequestContext(string $source): void
+    {
+        $code = codeWorkerApiV2Version($source);
+        expectWorkerApiV2Version(
+            preg_match('/\$data\[[\'\"]_worker_uid_header[\'\"]\]=\(string\)\(\$headers\[[\'\"]x-mikopbx-worker-uid[\'\"]\]\?\?[\'\"]{2}\);/', $code) === 1,
+            'WorkerRequestContext must assign _worker_uid_header only from x-mikopbx-worker-uid',
+        );
+        expectWorkerApiV2Version(
+            preg_match('/\$data\[[\'\"]_lease_token_header[\'\"]\]=\(string\)\(\$headers\[[\'\"]x-mikopbx-job-lease-token[\'\"]\]\?\?[\'\"]{2}\);/', $code) === 1,
+            'WorkerRequestContext must assign _lease_token_header only from x-mikopbx-job-lease-token',
+        );
+        expectWorkerApiV2Version(
+            substr_count($code, '_worker_uid_header') === 1 && substr_count($code, '_lease_token_header') === 1,
+            'WorkerRequestContext must contain only the two canonical internal-header assignments',
+        );
+    }
+
     /** @return list<string> */
     function fileUrlExpressionsWorkerApiV2Version(string $source): array
     {
@@ -304,6 +321,20 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'ownership Action forwarding mutation did not fail for the intended reason');
         }
+        $safeContext = '<?php $data[\'_worker_uid_header\'] = (string)($headers[\'x-mikopbx-worker-uid\'] ?? \'\'); $data[\'_lease_token_header\'] = (string)($headers[\'x-mikopbx-job-lease-token\'] ?? \'\');';
+        assertCanonicalWorkerRequestContext($safeContext);
+        foreach ([
+            '<?php $data[\'_worker_uid_header\'] = (string)($data[\'worker_uid\'] ?? \'\'); $data[\'_lease_token_header\'] = (string)($headers[\'x-mikopbx-job-lease-token\'] ?? \'\');',
+            '<?php $data[\'_worker_uid_header\'] = (string)($headers[\'x-mikopbx-job-lease-token\'] ?? \'\'); $data[\'_lease_token_header\'] = (string)($headers[\'x-mikopbx-worker-uid\'] ?? \'\');',
+            '<?php $data[\'_worker_uid_header\'] = (string)($headers[\'x-mikopbx-worker-uid\'] ?? \'\'); $data[\'_lease_token_header\'] = (string)($headers[\'x-mikopbx-job-lease-token\'] ?? \'\'); logIt($data[\'_worker_uid_header\']);',
+        ] as $unsafeContext) {
+            try {
+                assertCanonicalWorkerRequestContext($unsafeContext);
+                throw new RuntimeException('unsafe WorkerRequestContext producer mutation was accepted');
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'WorkerRequestContext producer mutation did not fail for the intended reason');
+            }
+        }
         try {
             assertSchemaWorkerApiV2FileUrls("['file_url' => '/job-recordings/42']", 'scalar-safe.php');
             assertSchemaWorkerApiV2FileUrls("['file_url' => '/jobs/42:download?lease_token=x']", 'scalar-unsafe.php');
@@ -392,6 +423,9 @@ namespace {
         }
     }
     assertOwnershipHeaderIsolation($sources);
+    $workerRequestContext = $root . '/Lib/RestAPI/Common/WorkerRequestContext.php';
+    expectWorkerApiV2Version(is_file($workerRequestContext), 'Canonical WorkerRequestContext producer must exist');
+    assertCanonicalWorkerRequestContext((string)file_get_contents($workerRequestContext));
     $jobLeaseSchema = $root . '/Lib/RestAPI/JobLeases/DataStructure.php';
     expectWorkerApiV2Version(is_file($jobLeaseSchema), 'JobLeases must expose the v2 file_url OpenAPI schema');
     assertSchemaWorkerApiV2FileUrls((string)file_get_contents($jobLeaseSchema), $jobLeaseSchema);

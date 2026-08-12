@@ -59,6 +59,14 @@ Round-6 mutation commands (each exits 0 only because its malformed fixture is re
 | `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | Rejects dead conditional/unknown-call legacy tombstones, pre-tombstone work, later-match arms, duplicate/hidden tuples, and null/wrong processor declarations. |
 | `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | Rejects dead/late/unknown-prelude version gates, unsafe runtime/PHP/Swift URLs, and Action-level ownership-header forwarding. |
 
+## Corrective round 7 (explicit continuation authorization)
+
+The user explicitly continued the exceptional corrective effort for round 7. Legacy validation now normalizes comments and whitespace, binds each required arm to the first terminal `return match` body, requires the arm expression to end exactly at `LegacyRouteRejector::worker()`, and requires the match close to be followed only by `;`. It rejects boolean/call arm suffixes and return-expression suffixes.
+
+WorkerRequestContext is now checked as the sole producer with exactly two internal-header assignments: `_worker_uid_header` from `x-mikopbx-worker-uid` and `_lease_token_header` from `x-mikopbx-job-lease-token`. The bounded production source scan still permits those names only in that producer and JobRecordings, rejecting all other `Lib/`, `Setup/`, and `App/` references. This is source-structural coverage, not a proof of runtime log sinks outside this module.
+
+Round-7 mutations are included in the existing two commands: the route mode rejects `&& mutateDatabase()` arm suffixes and `+ mutateDatabase()` return suffixes while accepting a formatted harmless prelude; the version mode accepts a canonical producer fixture and rejects body/query-equivalent, swapped-header, and extra logging/use fixtures. Both mutation commands exit 0 after observing the intended rejections.
+
 ## Files changed
 
 - `Tests/check-worker-api-v2-route-contract.php` (new)
