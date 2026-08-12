@@ -27,8 +27,10 @@ $jobsSchema = (string)file_get_contents($root . '/Lib/RestAPI/Jobs/DataStructure
 $workersProcessor = (string)file_get_contents($root . '/Lib/RestAPI/Workers/Processor.php');
 $bindingServicePath = $root . '/Lib/Services/WorkerBindingDecision.php';
 $ownershipServicePath = $root . '/Lib/Services/JobLeaseOwnership.php';
+$jobIdServicePath = $root . '/Lib/Services/CanonicalJobId.php';
 expectWorkerLeaseV2(is_file($bindingServicePath), 'Shared exclusive worker binding decision is missing');
 expectWorkerLeaseV2(is_file($ownershipServicePath), 'Read-only job lease ownership preflight is missing');
+expectWorkerLeaseV2(is_file($jobIdServicePath), 'Canonical job ID parser is missing');
 $bindingService = (string)file_get_contents($bindingServicePath);
 $ownershipService = (string)file_get_contents($ownershipServicePath);
 
@@ -47,8 +49,9 @@ foreach ([$settingsProcessor, $leaseProcessor] as $source) {
     expectWorkerLeaseV2(str_contains($source, "['_worker_uid_header']"), 'Worker identity must use the UID header');
 }
 expectWorkerLeaseV2(str_contains($settingsProcessor, "unset(\$data['worker_uid'])") && str_contains($settingsProcessor, "\$data['worker_uid'] = \$workerUidHeader"), 'Body-only UID must not select settings');
-expectWorkerLeaseV2(str_contains($leaseProcessor, '$bodyWorkerUid !== $workerUidHeader') && str_contains($leaseProcessor, '$routeJobId !== $bodyJobId'), 'Lease ownership mismatch preflight is missing');
+expectWorkerLeaseV2(str_contains($leaseProcessor, '$bodyWorkerUid !== $workerUidHeader') && str_contains($leaseProcessor, 'CanonicalJobId::matchesRoute('), 'Lease ownership mismatch preflight is missing');
 expectWorkerLeaseV2(str_contains($leaseProcessor, "['_idFromRequestBody']"), 'Real Core route/body ID metadata must be compared');
+expectWorkerLeaseV2(str_contains($leaseProcessor, 'CanonicalJobId::matchesRoute('), 'Core body ID must use exact canonical validation');
 expectWorkerLeaseV2(substr_count($settingsProcessor . $leaseProcessor, 'WorkerBindingDecision::authorize(') === 2, 'Both Task 5 processors must share exclusive binding authorization');
 expectWorkerLeaseV2(str_contains($bindingService, 'worker_api_key_already_bound') && str_contains($bindingService, '409'), 'Ambiguous bindings must return 409');
 expectWorkerLeaseV2(str_contains($leaseProcessor, 'JobLeaseOwnership::preflight('), 'PATCH/DELETE must perform read-only ownership preflight');
@@ -72,12 +75,14 @@ $formatStart = strpos($main, 'private static function formatJob');
 $heartbeat = substr($main, $heartbeatStart, $releaseStart - $heartbeatStart);
 $release = substr($main, $releaseStart, $formatStart - $releaseStart);
 foreach ([$heartbeat, $release] as $operation) {
-    expectWorkerLeaseV2(strpos($operation, 'validateAssignedJob(') < strpos($operation, 'touchOnline('), 'Denied ownership must not mutate worker liveness');
+    expectWorkerLeaseV2(strpos($operation, 'validateAssignedJob(') < strpos($operation, 'bestEffortWorkerTouch('), 'Denied ownership must not mutate worker liveness');
 }
 $getNextStart = strpos($main, 'public static function getNextJob');
 $settingsStart = strpos($main, 'public static function getWorkerProcessingSettings');
 $getNext = substr($main, $getNextStart, $settingsStart - $getNextStart);
-expectWorkerLeaseV2(str_contains($getNext, 'releaseForWorker(') && str_contains($getNext, 'catch (Throwable'), 'Post-claim failures must conditionally compensate the exact lease');
+expectWorkerLeaseV2(strpos($getNext, 'prepareJobSnapshot()') < strpos($getNext, 'claimNextForWorker('), 'All fallible claim settings must be snapshotted before CAS');
+expectWorkerLeaseV2(str_contains($getNext, 'releaseForWorker(') && str_contains($getNext, 'job_claim_compensated') && str_contains($getNext, 'job_claim_compensation_failed'), 'Defense compensation outcomes must be observable');
+expectWorkerLeaseV2(strpos($getNext, 'formatJob(') < strpos($getNext, "'job_claimed'"), 'job_claimed telemetry must follow payload construction');
 
 if (getenv('WORKER_JOB_LEASES_V2_MUTATION') === '1') {
     $mutated = str_replace('JobLeaseOwnership::preflight(', 'JobLeaseOwnership::bypass(', $leaseProcessor);

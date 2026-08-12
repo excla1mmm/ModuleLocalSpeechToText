@@ -12,6 +12,7 @@ $tests = [
     __DIR__ . '/check-worker-job-leases-v2-runtime.php',
     __DIR__ . '/check-worker-claim-compensation.php',
     __DIR__ . '/check-worker-claim-concurrency-sqlite.php',
+    __DIR__ . '/check-worker-lease-authoritative-side-effects.php',
 ];
 
 foreach (glob(__DIR__ . '/check-*.php') ?: [] as $test) {

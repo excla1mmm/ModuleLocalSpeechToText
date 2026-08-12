@@ -19,7 +19,7 @@ namespace {
     require_once __DIR__.'/../Lib/LocalSpeechToTextMain.php';
     $result=\Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain::getNextJob(['worker_uid'=>'worker']);
     $job=\Modules\ModuleLocalSpeechToText\Models\STTJob::$claimed;
-    if($result->httpCode!==500||!$job?->released||$job->attempts!==0||$job->status!=='pending'||$job->worker_id!==0||$job->lease_token!==''||$job->lease_expires_at!=='')throw new RuntimeException('Formatter failure did not compensate exact claim without attempt consumption');
+    if($result->httpCode!==500||$job!==null)throw new RuntimeException('Fallible payload preparation must fail before claim');
     $logs=implode(' ',\Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger::$messages);if(str_contains($logs,'secret-token'))throw new RuntimeException('Compensation logging leaked lease token');
     echo "STT post-claim formatter compensation behavior OK\n";
 }

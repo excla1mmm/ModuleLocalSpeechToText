@@ -61,3 +61,13 @@ Fresh RED evidence began with `Shared exclusive worker binding decision is missi
 Fix verification includes `check-worker-job-leases-v2.php`, `check-worker-job-leases-v2-runtime.php`, `check-worker-claim-compensation.php`, `check-worker-claim-concurrency-sqlite.php`, the existing lease/queue/settings/CRUD/binding/registration/delete-claim/migration suites, route/version mutation modes, PHP lint, and diff hygiene. Plain aggregates retain only the previously documented Task 6/7 deltas.
 
 Follow-up subject: `fix: harden STT worker lease ownership`.
+
+## Fix Round 2 — authoritative lease transitions
+
+Three Important re-review findings and the deferred event-ordering Minor were addressed. Every fallible settings/model/language/vocabulary lookup now occurs in an immutable snapshot before claim CAS. The post-CAS formatter reads only claimed scalar fields and that snapshot; `job_claimed` follows payload construction and is best-effort. Exact-token compensation remains catastrophic defense-in-depth, with sanitized success/failure events and explicit false/throw handling.
+
+Core `_idFromRequestBody` accepts only a positive JSON integer or canonical positive decimal string within `PHP_INT_MAX`, exactly equal to the normalized route ID. Booleans, floats, containers, null, zero/negative, leading zeros, whitespace/signs, suffix garbage, and overflow return 409 before lifecycle acquisition.
+
+Heartbeat/release CAS is authoritative. Liveness and release telemetry run best-effort after CAS; injected failures still return 200 with refreshed/pending state and unchanged attempts. An injected domain exception proves lifecycle release occurs in `finally`.
+
+RED began with `Canonical job ID parser is missing`. Updated executable tests cover the canonical-ID adversarial table, preparation failure before claim, successful pure payload, authoritative side-effect failures, and lifecycle-finally. The existing ambiguity, denial snapshots, compensation secrecy, and two-process claim coverage remains green.

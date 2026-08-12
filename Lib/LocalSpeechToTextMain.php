@@ -126,6 +126,7 @@ class LocalSpeechToTextMain
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
             self::syncWorkerModel($worker);
+            $jobSnapshot = self::prepareJobSnapshot();
             $job = STTJob::claimNextForWorker($worker);
             if ($job === null) {
                 return self::success([
@@ -136,7 +137,8 @@ class LocalSpeechToTextMain
             $claimedJob = $job;
             $claimedWorkerId = (int)$worker->id;
             $claimedLeaseToken = (string)$job->lease_token;
-            LocalSpeechToTextLogger::event(
+            $payload = self::formatJob($job, $jobSnapshot);
+            self::bestEffortEvent(
                 'queue',
                 'job_claimed',
                 'Transcription job claimed by a worker',
@@ -150,15 +152,16 @@ class LocalSpeechToTextMain
             );
 
             return self::success([
-                'job' => self::formatJob($job, $workerUid),
+                'job' => $payload,
                 'has_settings_changed' => $hasSettingsChanged,
             ]);
         } catch (Throwable $exception) {
             if ($claimedJob instanceof STTJob && $claimedWorkerId > 0 && $claimedLeaseToken !== '') {
                 try {
-                    $claimedJob->releaseForWorker($claimedWorkerId, $claimedLeaseToken);
+                    $compensated = $claimedJob->releaseForWorker($claimedWorkerId, $claimedLeaseToken);
+                    self::bestEffortEvent('queue', $compensated ? 'job_claim_compensated' : 'job_claim_compensation_failed', $compensated ? 'Unexpected post-claim failure was compensated' : 'Unexpected post-claim failure could not be compensated', $compensated ? LOG_WARNING : LOG_ERR, ['job_id' => (int)$claimedJob->id, 'worker_uid' => $workerUid]);
                 } catch (Throwable) {
-                    // The conditional release is best-effort; never expose the lease token in diagnostics.
+                    self::bestEffortEvent('queue', 'job_claim_compensation_failed', 'Unexpected post-claim failure compensation threw', LOG_ERR, ['job_id' => (int)$claimedJob->id, 'worker_uid' => $workerUid]);
                 }
             }
             self::logException(__METHOD__, $exception);
@@ -510,7 +513,7 @@ class LocalSpeechToTextMain
             if (!$job->refreshProcessingLeaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            $worker->touchOnline(self::clientIp($data));
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
             return self::success([
                 'status' => (string)$job->status,
@@ -559,8 +562,8 @@ class LocalSpeechToTextMain
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            $worker->touchOnline(self::clientIp($data));
-            LocalSpeechToTextLogger::event(
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
+            self::bestEffortEvent(
                 'queue',
                 'job_released',
                 'Worker released a transcription job',
@@ -581,15 +584,9 @@ class LocalSpeechToTextMain
         }
     }
 
-    private static function formatJob(STTJob $job, string $workerUid): array
+    private static function prepareJobSnapshot(): array
     {
         return [
-            'id' => (int)$job->id,
-            'call_id' => (string)$job->call_id,
-            'file_url' => '/job-recordings/'.(int)$job->id,
-            'lease_token' => (string)$job->lease_token,
-            'lease_expires_at' => (int)$job->lease_expires_at,
-            'duration_hint' => self::jobDurationSeconds($job),
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelRuntimeId(),
             'model_repo' => STTSetting::selectedModelRepo(),
@@ -600,6 +597,39 @@ class LocalSpeechToTextMain
             'model_source_url' => STTSetting::selectedModelSourceUrl(),
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
+    }
+
+    private static function formatJob(STTJob $job, array $snapshot): array
+    {
+        return [
+            'id' => (int)$job->id,
+            'call_id' => (string)$job->call_id,
+            'file_url' => '/job-recordings/'.(int)$job->id,
+            'lease_token' => (string)$job->lease_token,
+            'lease_expires_at' => (int)$job->lease_expires_at,
+            'duration_hint' => self::jobDurationSeconds($job),
+            'language_hint' => $snapshot['language_hint'],
+            'model_id' => $snapshot['model_id'],
+            'model_repo' => $snapshot['model_repo'],
+            'model_engine' => $snapshot['model_engine'],
+            'model_artifact_type' => $snapshot['model_artifact_type'],
+            'whisperkit_model' => $snapshot['whisperkit_model'],
+            'model_display_name' => $snapshot['model_display_name'],
+            'model_source_url' => $snapshot['model_source_url'],
+            'vocabulary_terms' => $snapshot['vocabulary_terms'],
+        ];
+    }
+
+    private static function bestEffortWorkerTouch(STTWorker $worker, string $ip, int $jobId, string $workerUid): void
+    {
+        try { $worker->touchOnline($ip); } catch (Throwable) {
+            self::bestEffortEvent('queue', 'worker_liveness_update_failed', 'Lease transition succeeded but worker liveness update failed', LOG_WARNING, ['job_id' => $jobId, 'worker_uid' => $workerUid]);
+        }
+    }
+
+    private static function bestEffortEvent(string $channel, string $event, string $message, int $priority, array $context): void
+    {
+        try { LocalSpeechToTextLogger::event($channel, $event, $message, $priority, $context); } catch (Throwable) {}
     }
 
     private static function jobDurationSeconds(STTJob $job): ?int

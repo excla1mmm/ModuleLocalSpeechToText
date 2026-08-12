@@ -7,6 +7,7 @@ use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CanonicalJobId;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\JobLeaseOwnership;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
@@ -42,8 +43,8 @@ class Processor extends Injectable
         if ($bindingError !== null) return $bindingError;
         if ($action !== JobLeaseAction::CREATE) {
             $routeJobId = (int)($data['id'] ?? 0);
-            $bodyJobId = array_key_exists('_idFromRequestBody', $data) ? (int)$data['_idFromRequestBody'] : $routeJobId;
-            if ($routeJobId <= 0 || $routeJobId !== $bodyJobId) return self::conflict('job_id_mismatch');
+            $bodyJobId = $data['_idFromRequestBody'] ?? $routeJobId;
+            if (!CanonicalJobId::matchesRoute($bodyJobId, $routeJobId)) return self::conflict('job_id_mismatch');
             $data['id'] = $routeJobId;
             $leaseToken = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
             if ($leaseToken === '') return self::conflict('job_lease_required');
