@@ -64,3 +64,11 @@ The file-backed synchronized race now invokes that production service inside the
 The recording runtime continues to execute actual `LocalSpeechToTextMain` containment/size/fpassthru code. Only Core proxy bytes and Range 206/416 remain live-only.
 
 Follow-up subject: `test: compose STT artifact production paths`.
+
+## Fix Round 5 — granular production result boundaries
+
+The final re-review again required literal granular composition and a complete recording processor chain. `LocalSpeechToTextMain::submitResult()` now calls `JobTerminalSubmissionService::result()` with five distinct real production callables: normalization/preparation, `STTResult::saveForJob`, `STTTranscriptEvent::ensureCompletedForResult`, authoritative `markDoneForWorker` CAS, and `CallTranscriptRevisionService::recordCompletedPart`. They execute under the ambient receipt transaction in exact order, and CAS false throws the existing assigned-job conflict. The opaque `transactionalResult` entry point was removed. Failure continues through `failure()` with the real CAS callable and false is propagated.
+
+The terminal focused test, receipt concurrency tests, artifact processor tests, transcript/time/technical tests, queue/lease/CRUD/migration regressions, and mutation modes are green. However, a literal actual `JobRecordings\\Processor` plus actual `downloadJobFile()` harness could not be completed within the final round without replacing production behavior under test; the prior actual recording-domain runtime remains. Core proxy Range bytes also remain live-only.
+
+Follow-up subject: `test: bind STT artifact tests to production`.

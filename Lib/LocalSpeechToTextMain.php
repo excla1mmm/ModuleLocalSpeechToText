@@ -323,49 +323,53 @@ class LocalSpeechToTextMain
             $model = null;
             $connection = $job->getWriteConnection();
             try {
-                $storeResult = static function () use (
-                        $data,
-                        $job,
-                        $worker,
-                        $leaseToken,
-                        &$completionEventId,
-                        &$segmentCount,
-                        &$language,
-                        &$model
-                    ): void {
+                $state = [];
+                $terminal = new JobTerminalSubmissionService();
+                $storeResult = static function () use ($terminal, $data, $job, $worker, $leaseToken, &$state, &$completionEventId, &$segmentCount, &$language, &$model): void {
+                    $terminal->result(
+                    static function () use ($data, &$state, &$language, &$model, &$segmentCount): void {
                         $technicalInfo = is_array($data['technical_info'] ?? null)
                             ? $data['technical_info']
                             : null;
-                        $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                         $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
                         $language = self::nullableStringField($data, 'language');
                         $filterLanguage = $language
                             ?? self::nullableStringField($data, 'language_hint')
                             ?? self::languageHintFromTechnicalInfo($technicalInfo);
                         $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
-                        $transcript = $filterResult['segments'];
-                        $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
-                        $result = STTResult::saveForJob(
-                            $job,
-                            self::encodeTranscript($transcript),
-                            $language,
-                            $duration,
-                            self::nullableStringField($data, 'model_used'),
-                            self::encodeTechnicalInfo($technicalInfo)
-                        );
-                        $completionEvent = STTTranscriptEvent::ensureCompletedForResult($result, $job);
-                        $completionEventId = (int)$completionEvent->id;
-                        $segmentCount = count($transcript);
+                        $state['transcript'] = $filterResult['segments'];
+                        $state['technical_info'] = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
+                        $state['duration'] = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                         $model = self::nullableStringField($data, 'model_used');
+                        $segmentCount = count($state['transcript']);
+                    },
+                    static function () use ($job, &$state, &$language, &$model): void {
+                        $state['result'] = STTResult::saveForJob(
+                            $job,
+                            self::encodeTranscript($state['transcript']),
+                            $language,
+                            $state['duration'],
+                            $model,
+                            self::encodeTechnicalInfo($state['technical_info'])
+                        );
+                    },
+                    static function () use ($job, &$state, &$completionEventId): void {
+                        $completionEvent = STTTranscriptEvent::ensureCompletedForResult($state['result'], $job);
+                        $completionEventId = (int)$completionEvent->id;
+                    },
+                    static function () use ($job, $worker, $leaseToken): void {
                         if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
                             throw new AssignedJobConflictException('Assigned STT job changed during result submission');
                         }
-                        (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
-                    };
+                    },
+                    static function () use ($job, &$state): void { (new CallTranscriptRevisionService())->recordCompletedPart($state['result'], $job); },
+                    static fn (): null => null,
+                    );
+                };
                 if ($connection->isUnderTransaction()) {
-                    (new JobTerminalSubmissionService())->transactionalResult($storeResult);
+                    $storeResult();
                 } else {
-                    (new ModuleTransaction())->run($connection, static fn () => (new JobTerminalSubmissionService())->transactionalResult($storeResult));
+                    (new ModuleTransaction())->run($connection, $storeResult);
                 }
             } catch (AssignedJobConflictException) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
