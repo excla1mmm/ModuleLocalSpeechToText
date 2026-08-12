@@ -157,3 +157,57 @@ Both failures are intentional RED results caused by production resources/helper 
 
 - The two focused tests are intentionally RED until later tasks add the v2 resources, legacy tombstones, and `WorkerApiContract` helper.
 - Source guards are bounded structural checks; later behavioral task tests must still prove authorization, ownership, and version-error responses at runtime.
+
+## Fix Round 1 (Important findings)
+
+### Fixes
+
+- Reflected `HttpMapping::idPattern` is now carried with every discovered operation. The four `/workers/{id}` CRUD operations require the reflected value to be exactly `[0-9]+`; a reflected fixture changed to `[A-Za-z0-9._-]+` and empty/null/array patterns are rejected.
+- `POST /workers` now has an action-scoped source contract: its single version gate must be inside a condition combining `WorkerAction::CREATE` and `WorkerRequestContext::isRestrictedWorkerKey($data)`, must return the exact version error, and must finish before `LocalSpeechToTextMain::registerWorker()`. This keeps administrator CRUD outside the gate. Ungated create and globally gated admin/create fixtures are rejected.
+- Once Task 2 creates `LegacyRouteRejector`, the test loads and executes `LegacyRouteRejector::worker()` and requires HTTP 426, `error_code=worker_upgrade_required`, and integer `required_worker_api_version=2`. Its `worker()` body must directly return `WorkerApiContract::upgradeRequired()` with no legacy/business dispatch. Mutations cover HTTP 200, wrong body/version, and a pre-return legacy job call.
+- The PHP source normalizer now prefixes PHP fragments before tokenization and omits `T_OPEN_TAG`, ensuring controlled source fixtures and extracted function bodies are normalized as executable PHP rather than whitespace-preserving inline text.
+- The reviewer’s Minor global arm-order coupling remains deferred as directed; this round does not alter that logic.
+
+### RED evidence
+
+| Command | Exit | Exact result / expected reason |
+| --- | ---: | --- |
+| `php Tests/check-worker-api-v2-route-contract.php` | 255 | `Reflected v2 ApiResource/HttpMapping operation set changed`; the module still reflects only the eight legacy operations instead of the corrected 21-operation v2 matrix. |
+| `php Tests/check-worker-api-v2-version-contract.php` | 255 | `WorkerApiContract.php must exist before v2 routes can run`; Task 2 has not created the executable contract/tombstone helpers yet. |
+
+These are the human-approved RED outcomes. No production or Core code was changed.
+
+### Mutation evidence
+
+| Command | Exit | Exact output / coverage |
+| --- | ---: | --- |
+| `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | `Worker API v2 route mutation checks OK`; includes rejection of the reflected nonnumeric worker `idPattern`. |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | `Worker API v2 version mutation checks OK`; includes rejection of ungated/globally gated restricted create and wrong/dispatching tombstone results. |
+
+### Syntax and diff evidence
+
+| Command | Exit | Exact output |
+| --- | ---: | --- |
+| `php -l Tests/check-worker-api-v2-route-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-route-contract.php` |
+| `php -l Tests/check-worker-api-v2-version-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-version-contract.php` |
+| `php -l Tests/run-all.php` | 0 | `No syntax errors detected in Tests/run-all.php` |
+| `git diff --check` | 0 | No output. |
+
+### Files changed
+
+- `Tests/check-worker-api-v2-route-contract.php`
+- `Tests/check-worker-api-v2-version-contract.php`
+- `.superpowers/sdd/2026-08-12-resource-oriented-worker-api-v2/task-1-report.md`
+
+### Self-review
+
+- Confirmed worker numeric routing now depends on reflected controller metadata, not only the test-owned placeholder map.
+- Confirmed the restricted-create gate assertion permits administrative CRUD without a version header and rejects both missing and unconditional global gates before any registration mutation.
+- Confirmed the tombstone contract combines an executed result assertion with a direct-return source boundary, so a correctly named helper call cannot mask a wrong status/body or legacy side effect.
+- Confirmed all expectations are literal and mutation fixtures fail for the named production breaks.
+- Confirmed `Tests/run-all.php` already registers both files and required no edit; no production/Core/unrelated file was modified.
+
+### Concerns
+
+- The focused suite intentionally remains RED until later tasks add the v2 resources and shared helpers.
+- The restricted-create test is a bounded source-structure contract; Task 4 behavioral tests remain responsible for proving restricted-key binding and administrator access at runtime.

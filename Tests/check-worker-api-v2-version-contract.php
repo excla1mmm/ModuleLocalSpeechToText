@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MikoPBX\PBXCoreREST\Lib {
     class PBXApiResult
     {
+        public bool $success = false;
         public int $httpCode = 0;
         public array $data = [];
+        public array $messages = [];
         public array $responseHeaders = [];
     }
 }
@@ -45,10 +47,13 @@ namespace {
 
     function codeWorkerApiV2Version(string $source): string
     {
+        if (!str_contains($source, '<?php')) {
+            $source = "<?php\n" . $source;
+        }
         $code = '';
         foreach (token_get_all($source) as $token) {
             if (is_array($token)) {
-                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                if (in_array($token[0], [T_OPEN_TAG, T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
                     continue;
                 }
                 $code .= $token[1];
@@ -98,6 +103,64 @@ namespace {
             isset($gateMatch['versionError'])
                 && preg_match('/^if\(\$' . preg_quote($gateMatch['versionError'], '/') . '!==null\)\{?return\$' . preg_quote($gateMatch['versionError'], '/') . ';?\}?/', substr($callback, $gate + strlen($gateMatch[0]))) === 1,
             "{$operation} must return the exact requireVersion() result instead of falling back to v1",
+        );
+    }
+
+    function closingBraceWorkerApiV2Version(string $source, int $open): int
+    {
+        $depth = 0;
+        for ($offset = $open, $length = strlen($source); $offset < $length; $offset++) {
+            if ($source[$offset] === '{') {
+                $depth++;
+            } elseif ($source[$offset] === '}' && --$depth === 0) {
+                return $offset;
+            }
+        }
+        throw new RuntimeException('Source guard block is not balanced');
+    }
+
+    function assertRestrictedWorkerCreateVersionScope(string $source): void
+    {
+        $callback = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, 'callBack'));
+        preg_match_all('/if\((?<condition>[^{}]+)\)\{/', $callback, $conditions, PREG_OFFSET_CAPTURE);
+        $scope = null;
+        foreach ($conditions['condition'] ?? [] as $index => [$condition, $conditionOffset]) {
+            $createOnly = preg_match('/(?:\$action===WorkerAction::CREATE|WorkerAction::CREATE===\$action)/', $condition) === 1;
+            $restrictedOnly = str_contains($condition, 'WorkerRequestContext::isRestrictedWorkerKey($data)');
+            if (!$createOnly || !$restrictedOnly || !str_contains($condition, '&&')) {
+                continue;
+            }
+            $ifOffset = $conditions[0][$index][1];
+            $open = strpos($callback, '{', $ifOffset);
+            expectWorkerApiV2Version($open !== false, 'Restricted worker create guard must have a block');
+            $close = closingBraceWorkerApiV2Version($callback, $open);
+            $scope = ['open' => $open, 'close' => $close, 'body' => substr($callback, $open + 1, $close - $open - 1)];
+            break;
+        }
+        expectWorkerApiV2Version($scope !== null, 'POST /workers must scope its version gate to restricted WorkerAction::CREATE callers');
+        expectWorkerApiV2Version(
+            substr_count($callback, 'WorkerApiContract::requireVersion($request)') === 1
+                && str_contains($scope['body'], 'WorkerApiContract::requireVersion($request)'),
+            'Administrator worker CRUD must remain outside the restricted-create version gate',
+        );
+        assertWorkerApiV2Gate('restricted POST /workers create', 'function callBack(array $request) {' . $scope['body'] . '}');
+        $registration = strpos($callback, 'LocalSpeechToTextMain::registerWorker(');
+        expectWorkerApiV2Version(
+            $registration !== false && $registration > $scope['close'],
+            'Restricted POST /workers must require version 2 before registration mutation',
+        );
+    }
+
+    function assertLegacyWorkerTombstoneContract(MikoPBX\PBXCoreREST\Lib\PBXApiResult $result, string $source): void
+    {
+        expectWorkerApiV2Version($result->httpCode === 426, 'Legacy worker tombstone must return HTTP 426', $result->httpCode);
+        expectWorkerApiV2Version(($result->data['error_code'] ?? null) === 'worker_upgrade_required', 'Legacy worker tombstone error_code changed', $result->data);
+        expectWorkerApiV2Version(($result->data['required_worker_api_version'] ?? null) === 2, 'Legacy worker tombstone must require worker API version 2', $result->data);
+        $body = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, 'worker'));
+        expectWorkerApiV2Version(
+            $body === 'returnWorkerApiContract::upgradeRequired();',
+            'LegacyRouteRejector::worker() must directly return the upgrade result without legacy or business dispatch',
+            $body,
         );
     }
 
@@ -300,6 +363,38 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'unknown prelude gate mutation did not fail for the intended reason');
         }
+        $scopedCreate = 'function callBack(array $request) { $data = WorkerRequestContext::data($request); if ($action === WorkerAction::CREATE && WorkerRequestContext::isRestrictedWorkerKey($data)) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data), WorkerAction::GET_LIST => $service->getList($data) }; }';
+        assertRestrictedWorkerCreateVersionScope($scopedCreate);
+        foreach ([
+            'function callBack(array $request) { $data = WorkerRequestContext::data($request); return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data) }; }',
+            'function callBack(array $request) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data), WorkerAction::GET_LIST => $service->getList($data) }; }',
+        ] as $unsafeCreate) {
+            try {
+                assertRestrictedWorkerCreateVersionScope($unsafeCreate);
+                throw new RuntimeException('unsafe restricted worker create mutation was accepted');
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'restricted create gate mutation did not fail for the intended reason');
+            }
+        }
+        $validTombstone = new MikoPBX\PBXCoreREST\Lib\PBXApiResult();
+        $validTombstone->httpCode = 426;
+        $validTombstone->data = ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2];
+        assertLegacyWorkerTombstoneContract($validTombstone, 'function worker() { return WorkerApiContract::upgradeRequired(); }');
+        foreach ([
+            [200, ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2], 'function worker() { return WorkerApiContract::upgradeRequired(); }'],
+            [426, ['error_code' => 'api_route_removed', 'required_worker_api_version' => 1], 'function worker() { return WorkerApiContract::upgradeRequired(); }'],
+            [426, ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2], 'function worker() { LocalSpeechToTextMain::getNextJob([]); return WorkerApiContract::upgradeRequired(); }'],
+        ] as [$status, $data, $source]) {
+            $mutatedTombstone = new MikoPBX\PBXCoreREST\Lib\PBXApiResult();
+            $mutatedTombstone->httpCode = $status;
+            $mutatedTombstone->data = $data;
+            try {
+                assertLegacyWorkerTombstoneContract($mutatedTombstone, $source);
+                throw new RuntimeException('invalid executable legacy tombstone mutation was accepted');
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'legacy tombstone result mutation did not fail for the intended reason');
+            }
+        }
         try {
             assertContractConstantsWorkerApiV2Version(['CONTRACT' => 'MikoPBX-Worker-API', 'API_VERSION' => '2', 'VERSION_HEADER' => 'X-MikoPBX-Worker-API-Version']);
             throw new RuntimeException('weak contract constants mutation was accepted');
@@ -367,6 +462,15 @@ namespace {
     expectWorkerApiV2Version(class_exists($contractClass), 'WorkerApiContract class must load from its service file');
     assertContractConstantsWorkerApiV2Version((new ReflectionClass($contractClass))->getConstants());
 
+    $legacyRejectorFile = $root . '/Lib/RestAPI/Common/LegacyRouteRejector.php';
+    expectWorkerApiV2Version(is_file($legacyRejectorFile), 'LegacyRouteRejector.php must exist before legacy v1 routes can run');
+    require_once $legacyRejectorFile;
+    $legacyRejectorClass = Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\LegacyRouteRejector::class;
+    expectWorkerApiV2Version(class_exists($legacyRejectorClass), 'LegacyRouteRejector class must load from its common helper file');
+    $legacyResult = $legacyRejectorClass::worker();
+    expectWorkerApiV2Version($legacyResult instanceof MikoPBX\PBXCoreREST\Lib\PBXApiResult, 'LegacyRouteRejector::worker() must return PBXApiResult');
+    assertLegacyWorkerTombstoneContract($legacyResult, (string)file_get_contents($legacyRejectorFile));
+
     $runtimeFileUrlSource = $root . '/Lib/LocalSpeechToTextMain.php';
     expectWorkerApiV2Version(is_file($runtimeFileUrlSource), 'LocalSpeechToTextMain runtime claim builder must exist');
     assertRuntimeWorkerApiV2FileUrl((string)file_get_contents($runtimeFileUrlSource));
@@ -415,6 +519,10 @@ namespace {
             assertWorkerApiV2Gate($operation, $source);
         }
     }
+
+    $workersProcessor = $root . '/Lib/RestAPI/Workers/Processor.php';
+    expectWorkerApiV2Version(is_file($workersProcessor), 'Workers resource must have a processor for restricted self-registration');
+    assertRestrictedWorkerCreateVersionScope((string)file_get_contents($workersProcessor));
 
     foreach ($sources as $file => $source) {
         if (str_contains($file, '/Lib/RestAPI/')) {

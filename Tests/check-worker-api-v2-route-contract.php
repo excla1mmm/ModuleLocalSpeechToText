@@ -67,6 +67,11 @@ namespace {
     use MikoPBX\PBXCoreREST\Attributes\ApiResource;
     use MikoPBX\PBXCoreREST\Attributes\HttpMapping;
 
+    #[HttpMapping(idPattern: '[A-Za-z0-9._-]+')]
+    final class WorkerIdPatternMutationFixture
+    {
+    }
+
     /** @param mixed $actual */
     function expectWorkerApiV2Route(bool $condition, string $message, mixed $actual = null): void
     {
@@ -109,7 +114,16 @@ namespace {
         expectWorkerApiV2Route($actual === $expected, 'Reflected v2 ApiResource/HttpMapping operation set changed', ['expected' => $expected, 'actual' => $actual]);
     }
 
-    /** @return list<array{method: string, path: string, action: string, controller: string, processor: string, operationCount: int, custom: bool}> */
+    function assertNumericWorkerItemPattern(string|array|null $idPattern): void
+    {
+        expectWorkerApiV2Route(
+            $idPattern === '[0-9]+',
+            'Worker item CRUD must use the reflected numeric idPattern [0-9]+',
+            $idPattern,
+        );
+    }
+
+    /** @return list<array{method: string, path: string, action: string, controller: string, processor: string, operationCount: int, custom: bool, idPattern: string|array|null}> */
     function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $legacyActions, array $nonWorkerResources): array
     {
         $before = get_declared_classes();
@@ -157,6 +171,7 @@ namespace {
                     'processor' => (string)$resource->processor,
                     'operationCount' => count($method->getAttributes(ApiOperation::class)),
                     'custom' => in_array($route['action'], $mapping->customMethods, true),
+                    'idPattern' => $mapping->idPattern,
                 ];
             }
         }
@@ -330,6 +345,16 @@ namespace {
                 expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), "{$label} did not fail for the intended reason");
             }
         }
+        assertNumericWorkerItemPattern('[0-9]+');
+        $fixtureMapping = (new ReflectionClass(WorkerIdPatternMutationFixture::class))->getAttributes(HttpMapping::class)[0]->newInstance();
+        foreach ([$fixtureMapping->idPattern, '', null, ['[0-9]+']] as $badPattern) {
+            try {
+                assertNumericWorkerItemPattern($badPattern);
+                throw new RuntimeException('non-numeric reflected worker idPattern mutation was accepted');
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'worker idPattern mutation did not fail for the intended reason');
+            }
+        }
         echo "Worker API v2 route mutation checks OK\n";
         exit(0);
     }
@@ -396,6 +421,14 @@ namespace {
         $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
         if (!in_array($key, $expected, true)) {
             continue;
+        }
+        if (in_array($key, [
+            'GET /workers/{id} getRecord',
+            'PUT /workers/{id} update',
+            'PATCH /workers/{id} patch',
+            'DELETE /workers/{id} delete',
+        ], true)) {
+            assertNumericWorkerItemPattern($operation['idPattern']);
         }
         expectWorkerApiV2Route(!$operation['custom'], "v2 tuple {$key} must not be routed as a custom action");
         expectWorkerApiV2Route($operation['operationCount'] === 1, "{$key} must expose exactly one ApiOperation");
