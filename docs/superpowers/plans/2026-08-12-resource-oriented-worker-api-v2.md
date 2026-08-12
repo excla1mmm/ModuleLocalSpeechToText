@@ -25,6 +25,15 @@
 
 ---
 
+## Sequential SDD Gate (applies to every task)
+
+- Dispatch a fresh implementer subagent for exactly one task with `fork_turns=none`; implementation subagents are always sequential, never parallel.
+- The implementer follows TDD: add/run the failing task test, implement the minimum production change, run every task command to green, and create the task-scoped commit.
+- After that commit, dispatch a separate task reviewer using the relevant project role. The reviewer must inspect the task diff and test evidence; it must not implement concurrently.
+- Return every Critical or Important finding to the same implementer, require a scoped fix commit and fresh focused tests, then send the fix back to the reviewer. Repeat until Critical/Important findings are zero.
+- Only then append `Task N COMPLETE — implementer <commit>; reviewer <role>; Critical/Important: 0` to `.superpowers/sdd/2026-08-12-resource-oriented-worker-api-v2/progress.md`.
+- Do not dispatch the next task until that completion line exists. Final project and cross-project review gates below are additional to this per-task gate.
+
 ### Task 1: Lock the v2 route, version, and sensitive-header contracts in failing tests
 
 **Files:**
@@ -75,7 +84,7 @@ $required = [
 ];
 ```
 
-Scan PHP and Swift-facing OpenAPI examples and fail if any v2 `file_url` contains `lease_token=`, `worker_uid=`, `:download`, or `/jobs/`.
+Scan PHP and Swift-facing OpenAPI examples and require every v2 `file_url` to begin exactly `/job-recordings/`. Fail if it contains a module/API prefix, `lease_token=`, `worker_uid=`, `:download`, or `/jobs/`.
 
 - [ ] **Step 3: Register and run the tests**
 
@@ -437,10 +446,10 @@ For create, pass body `worker_uid` to `getNextJob`. For patch/delete, inject rou
 Change every claimed job's `file_url` to:
 
 ```php
-LocalSpeechToTextMain::API_BASE_PATH . '/job-recordings/' . (int)$job->id
+'file_url' => '/job-recordings/' . (int)$job->id,
 ```
 
-with no query string.
+with no module/API prefix and no query string. The worker resolves this relative path against its configured PBX origin.
 
 - [ ] **Step 5: Run queue regression tests and commit**
 
@@ -743,6 +752,10 @@ git commit -m "feat: show STT worker API compatibility"
 
 Expected: PASS.
 
+- [ ] **Step 5: Run the required Volt/admin UI review**
+
+After the Task 10 commit, dispatch `admin-ui-reviewer` as the separate task reviewer required by the Sequential SDD Gate. Return every Critical/Important finding to the same implementer, rerun the UI/translation checks after fixes, and do not write the Task 10 completion ledger line until the reviewer is clean.
+
 ### Task 11: Bump compatibility/version metadata and document the breaking upgrade
 
 **Files:**
@@ -797,7 +810,7 @@ Expected: PASS.
 
 - [ ] **Step 0: Run sequential project reviews after implementation**
 
-After the implementer has completed Tasks 1-11, schedule reviewers one at a time and return every finding to the same implementer before invoking the next reviewer: `module-contract-guardian`, `queue-resilience-reviewer`, `worker-stt-quality-reviewer`, then `module-security-reviewer`. Re-run the focused checks for each fix. After all four component plans are implemented and their project reviews are clear, schedule one final cross-project `module-contract-guardian` review across both modules and both macOS workers; do not run implementer and reviewer concurrently.
+After the implementer has completed Tasks 1-11 and every per-task ledger line is clean, schedule whole-project reviewers one at a time and return every finding to the same implementer before invoking the next reviewer: `module-contract-guardian`, `queue-resilience-reviewer`, `worker-stt-quality-reviewer`, `module-security-reviewer`, then `module-code-reviewer` as the final whole-module review. `admin-ui-reviewer` must already have reviewed the Task 10 Volt changes. Re-run focused checks after every fix. After all four component plans are implemented and their project reviews are clear, schedule one final cross-project `module-contract-guardian` with `model=gpt-5.6-sol`; it must inspect both modules and both macOS workers and explicitly confirm there are no MikoPBX Core, Windows STT Worker, or Python STT Worker changes. Do not run implementer and reviewer concurrently.
 
 - [ ] **Step 1: Run the complete repository suite**
 
