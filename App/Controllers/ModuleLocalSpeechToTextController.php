@@ -15,6 +15,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\QueueViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -407,7 +408,14 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $skippedRecordings
         );
         $this->view->queueFileRows = $queueView->queueFileRows($delayedRecordings, $skippedRecordings);
-        $this->view->workers = STTWorker::find(['order' => 'last_seen DESC, id DESC']);
+        $workers = STTWorker::find(['order' => 'last_seen DESC, id DESC']);
+        $workerCompatibility = [];
+        foreach ($workers as $worker) {
+            $workerCompatibility[(int)$worker->id] = (int)$worker->api_version === WorkerApiContract::API_VERSION;
+        }
+        $this->view->workers = $workers;
+        $this->view->workerCompatibility = $workerCompatibility;
+        $this->view->workerApiVersion = WorkerApiContract::API_VERSION;
         $this->view->workerRuntimeModel = STTSetting::selectedModelDisplayName();
         $this->view->workerApiKeyRows = $this->workerApiKeyService()->workerApiKeyRows();
         $this->view->generatedApiKey = $generatedApiKey['apiKey'];

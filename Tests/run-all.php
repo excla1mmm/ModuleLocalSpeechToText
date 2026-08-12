@@ -6,6 +6,7 @@ $tests = [
     __DIR__ . '/check-worker-api-v2-route-contract.php',
     __DIR__ . '/check-worker-api-v2-negotiation.php',
     __DIR__ . '/check-worker-api-v2-version-contract.php',
+    __DIR__ . '/check-worker-api-v2-ui-contract.php',
     __DIR__ . '/check-worker-api-v2-migration-sqlite.php',
     __DIR__ . '/check-worker-crud-v2-contract.php',
     __DIR__ . '/check-worker-job-leases-v2.php',
