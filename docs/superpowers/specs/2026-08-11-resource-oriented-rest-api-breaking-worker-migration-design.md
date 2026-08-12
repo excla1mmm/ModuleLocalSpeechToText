@@ -399,7 +399,7 @@ Legacy rejection routes не публикуются как рабочие опе
    - диагностическая причина фиксируется как `worker_api_migration` без утечки token.
 4. Готовые, skipped и terminal jobs/results/transcripts не изменяются.
 5. Worker API key IDs сохраняются. Их path permissions пересобираются под v2 resources; executable allowlist полностью исключает выполнение v1 processors.
-6. В `m_STTSetting` записывается marker `worker_api_contract_migration_v2 = 1` только после успешного завершения транзакции.
+6. Внутри той же транзакции marker `worker_api_contract_migration_v2 = 1` записывается в `m_STTSetting` после всех worker/job schema/data изменений как последнее принадлежащее модулю migration statement. После возврата module migration framework `ModuleSchemaMigrator` записывает version-ledger row как bookkeeping и только затем выполняет commit. Marker становится видимым вне транзакции только при успешных ledger insert и commit; любая ошибка до commit откатывает marker, schema/data изменения и ledger row вместе.
 7. Повторный запуск setup после marker не изменяет уже мигрированные данные. Permissions могут быть идемпотентно пересобраны только module-кодом через существующий Core API.
 8. После commit планируется reload REST metadata/cache и перезапуск module workers стандартным lifecycle механизмом.
 

@@ -289,7 +289,7 @@ UPDATE m_STTJob
    AND (worker_id IS NULL OR worker_id IN (SELECT id FROM m_STTWorker WHERE api_version < 2));
 ```
 
-Do not modify `attempts`, terminal jobs, results, transcripts, transcript events, or cursors. Insert/update the marker only after every schema/data statement succeeds, immediately before commit.
+Do not modify `attempts`, terminal jobs, results, transcripts, transcript events, or cursors. Insert/update the marker only after every worker/job schema/data statement succeeds, as the final module-owned migration statement. The framework's `ModuleSchemaMigrator` version-ledger insert may follow as bookkeeping in the same transaction before commit. The marker becomes externally visible only when both the ledger insert and commit succeed; any failure before commit rolls back the marker, schema/data changes, and ledger row together.
 
 - [ ] **Step 4: Rebuild permissions without post-marker data reconciliation**
 
