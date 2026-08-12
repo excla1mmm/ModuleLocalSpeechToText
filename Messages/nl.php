@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Lokale spraak-naar-tekst (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT-werkers',
+    'rest_tag_LocalSTTJobs' => 'STT-taken',
+    'rest_tag_LocalSTTRecordings' => 'STT-opnamen',
+    'rest_tag_LocalSTTTranscripts' => 'STT-transcripties',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT-gesprekstranscripties',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Voltooide transcripties van afzonderlijke gespreksopnamen',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Gebeurtenisstroom voor voltooide transcripties van opnamen',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Samengevoegde transcripties van logische gesprekken met onveranderlijke revisies',

@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Yerel konuşmadan metne dönüştürme (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT çalışanları',
+    'rest_tag_LocalSTTJobs' => 'STT işleri',
+    'rest_tag_LocalSTTRecordings' => 'STT kayıtları',
+    'rest_tag_LocalSTTTranscripts' => 'STT dökümleri',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT çağrı dökümleri',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Tek tek çağrı kayıtlarının tamamlanmış dökümleri',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Tamamlanmış kayıt dökümleri için olay akışı',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Değiştirilemez revizyonlara sahip birleştirilmiş mantıksal çağrı dökümleri',

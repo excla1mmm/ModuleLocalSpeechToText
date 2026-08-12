@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Lokalna pretvorba govora u tekst (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT radnici',
+    'rest_tag_LocalSTTJobs' => 'STT zadaci',
+    'rest_tag_LocalSTTRecordings' => 'STT snimke',
+    'rest_tag_LocalSTTTranscripts' => 'STT prijepisi',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT prijepisi poziva',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Dovršene transkripcije pojedinačnih snimaka poziva',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Tok događaja za dovršene transkripcije snimaka',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Objedinjene transkripcije logičkih poziva s nepromjenjivim revizijama',

@@ -4,7 +4,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
 use MikoPBX\PBXCoreREST\Attributes\{ApiDataSchema,ApiOperation,ApiParameterRef,ApiResource,ApiResponse,HttpMapping,ResourceSecurity,SecurityType};
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
-#[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local Speech To Text'],description:'Administrative STT queue',processor:Processor::class)]
+#[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local STT Jobs'],description:'Administrative STT queue',processor:Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_jobs',requirements:[SecurityType::LOCALHOST,SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: [
     'GET' => ['getList', 'getRecord', 'getNext', 'download'],

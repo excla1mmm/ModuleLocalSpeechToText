@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Chuyển giọng nói thành văn bản cục bộ (STT)',
+    'rest_tag_LocalSTTWorkers' => 'Nhân viên STT',
+    'rest_tag_LocalSTTJobs' => 'Tác vụ STT',
+    'rest_tag_LocalSTTRecordings' => 'Bản ghi STT',
+    'rest_tag_LocalSTTTranscripts' => 'Bản chép lời STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'Bản chép lời cuộc gọi STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Bản chép lời đã hoàn tất của từng bản ghi cuộc gọi',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Luồng sự kiện cho các bản chép lời bản ghi đã hoàn tất',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Bản chép lời cuộc gọi logic tổng hợp với các bản sửa đổi bất biến',

@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => '本地语音转文字（STT）',
+    'rest_tag_LocalSTTWorkers' => 'STT 工作器',
+    'rest_tag_LocalSTTJobs' => 'STT 任务',
+    'rest_tag_LocalSTTRecordings' => 'STT 录音',
+    'rest_tag_LocalSTTTranscripts' => 'STT 转写',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT 通话转写',
     'module_local_speech_to_text_TranscriptsApiDescription' => '单个通话录音的已完成转录',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => '已完成录音转录的事件流',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => '具有不可变修订版本的汇总逻辑通话转录',

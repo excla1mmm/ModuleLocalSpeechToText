@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'ლოკალური მეტყველების ტექსტად გარდაქმნა (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT მუშაკები',
+    'rest_tag_LocalSTTJobs' => 'STT დავალებები',
+    'rest_tag_LocalSTTRecordings' => 'STT ჩანაწერები',
+    'rest_tag_LocalSTTTranscripts' => 'STT ტრანსკრიფციები',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT ზარების ტრანსკრიფციები',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'ცალკეული ზარის ჩანაწერების დასრულებული ტრანსკრიფციები',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'დასრულებული ჩანაწერების ტრანსკრიფციების მოვლენათა ნაკადი',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'ლოგიკური ზარების გაერთიანებული ტრანსკრიფციები უცვლელი რევიზიებით',

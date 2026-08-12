@@ -14,7 +14,7 @@ use MikoPBX\PBXCoreREST\Attributes\SecurityType;
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
-#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-leases', tags: ['Local STT Workers'], description: 'Worker job lease lifecycle', processor: Processor::class)]
+#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-leases', tags: ['Local STT Jobs'], description: 'Worker job lease lifecycle', processor: Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_job_leases', requirements: [SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: ['POST' => ['create'], 'PATCH' => ['patch'], 'DELETE' => ['delete']], resourceLevelMethods: ['patch', 'delete'], collectionLevelMethods: ['create'], idPattern: '[0-9]+')]
 class Controller extends BaseRestController

@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Recunoaștere vocală locală (STT)',
+    'rest_tag_LocalSTTWorkers' => 'Lucrători STT',
+    'rest_tag_LocalSTTJobs' => 'Sarcini STT',
+    'rest_tag_LocalSTTRecordings' => 'Înregistrări STT',
+    'rest_tag_LocalSTTTranscripts' => 'Transcrieri STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'Transcrieri apeluri STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Transcrieri finalizate ale înregistrărilor individuale de apel',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Flux de evenimente pentru transcrierile finalizate ale înregistrărilor',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Transcrieri agregate ale apelurilor logice cu revizii imuabile',

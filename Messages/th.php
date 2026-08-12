@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'การแปลงเสียงเป็นข้อความภายในเครื่อง (STT)',
+    'rest_tag_LocalSTTWorkers' => 'ผู้ปฏิบัติงาน STT',
+    'rest_tag_LocalSTTJobs' => 'งาน STT',
+    'rest_tag_LocalSTTRecordings' => 'การบันทึกเสียง STT',
+    'rest_tag_LocalSTTTranscripts' => 'การถอดเสียง STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'การถอดเสียงการโทร STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'การถอดเสียงที่เสร็จสมบูรณ์ของไฟล์บันทึกการโทรแต่ละรายการ',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'สตรีมเหตุการณ์สำหรับการถอดเสียงไฟล์บันทึกที่เสร็จสมบูรณ์',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'การถอดเสียงของการโทรเชิงตรรกะแบบรวม พร้อมรุ่นแก้ไขที่เปลี่ยนแปลงไม่ได้',

@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Τοπική μετατροπή ομιλίας σε κείμενο (STT)',
+    'rest_tag_LocalSTTWorkers' => 'Εργαζόμενοι STT',
+    'rest_tag_LocalSTTJobs' => 'Εργασίες STT',
+    'rest_tag_LocalSTTRecordings' => 'Ηχογραφήσεις STT',
+    'rest_tag_LocalSTTTranscripts' => 'Απομαγνητοφωνήσεις STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'Απομαγνητοφωνήσεις κλήσεων STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Ολοκληρωμένες απομαγνητοφωνήσεις μεμονωμένων εγγραφών κλήσεων',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Ροή συμβάντων για ολοκληρωμένες απομαγνητοφωνήσεις εγγραφών',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Ενοποιημένες απομαγνητοφωνήσεις λογικών κλήσεων με αμετάβλητες αναθεωρήσεις',

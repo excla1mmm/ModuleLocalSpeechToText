@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Орон нутгийн яриаг текст болгох (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT ажилчид',
+    'rest_tag_LocalSTTJobs' => 'STT даалгаврууд',
+    'rest_tag_LocalSTTRecordings' => 'STT бичлэгүүд',
+    'rest_tag_LocalSTTTranscripts' => 'STT буулгалтууд',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT дуудлагын буулгалтууд',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Тус тусын дуудлагын бичлэгийн дууссан транскрипцүүд',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Дууссан бичлэгийн транскрипцийн үйл явдлын урсгал',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Хувиршгүй хувилбаруудтай логик дуудлагын нэгтгэсэн транскрипцүүд',

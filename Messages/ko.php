@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => '로컬 음성 텍스트 변환(STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT 작업자',
+    'rest_tag_LocalSTTJobs' => 'STT 작업',
+    'rest_tag_LocalSTTRecordings' => 'STT 녹음',
+    'rest_tag_LocalSTTTranscripts' => 'STT 전사',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT 통화 전사',
     'module_local_speech_to_text_TranscriptsApiDescription' => '개별 통화 녹음의 완료된 전사본',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => '완료된 녹음 전사본 이벤트 스트림',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => '불변 리비전을 지원하는 논리적 통화의 통합 전사본',

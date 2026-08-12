@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Paikallinen puheentunnistus (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT-työntekijät',
+    'rest_tag_LocalSTTJobs' => 'STT-tehtävät',
+    'rest_tag_LocalSTTRecordings' => 'STT-tallenteet',
+    'rest_tag_LocalSTTTranscripts' => 'STT-litteroinnit',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT-puhelulitteroinnit',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Yksittäisten puhelutallenteiden valmiit litteroinnit',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Valmistuneiden tallennelitterointien tapahtumavirta',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Loogisten puhelujen yhdistetyt litteroinnit muuttumattomine revisioineen',

@@ -30,6 +30,8 @@ Task 2: controller-promoted explicit-constraint fix: remove the local PBXApiResu
 Task 2: minor (deferred): real-Core OpenAPI/controller integration remains for the established mounted read-only Core test environment; no Core change is permitted.
 Task 2: fix round 1/5 (3 addressed, 0 open — scalar-safe context/secrecy, corrected staged acceptance, and source-guarded body-only 426; commit 4cff31f..b14d0b8).
 Task 2: complete (commits 495417a..b14d0b8, scoped re-review clean; plain aggregate version guard intentionally progresses to Task 5 legacy file_url).
+
+Task 9: implementation complete pending the required separate reviewer. RED confirmed the shared Workers tag and missing Russian split key; focused OpenAPI and translation contracts are GREEN, all 29 message catalogs lint clean, and `git diff --check` is clean. Adjacent route/version aggregates retain their existing later-task failures and were not modified. Minor parked: native-speaker refinement of lower-traffic localized tag labels remains optional.
 Task 3: initial commit 663f598 (focused real-SQLite migration/rollback/idempotency/preservation green; production-shaped Phalcon rehearsal skipped on host). Review found no queue/data-loss defect but one Important wording conflict: the module marker is the last schema/data operation, while the framework migration ledger necessarily follows in the same transaction before commit.
 Task 3: minor (deferred): seed non-empty linked rows in every protected call-transcript aggregate/part/revision/event table for preservation hashing.
 Task 3: minor (deferred): add a lightweight production migration registration/version/name/checksum contract because the focused harness reconstructs migration 11 and Phalcon rehearsal skips locally.

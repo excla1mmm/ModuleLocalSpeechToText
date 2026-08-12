@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Helyi beszédátírás (STT)',
+    'rest_tag_LocalSTTWorkers' => 'STT-munkatársak',
+    'rest_tag_LocalSTTJobs' => 'STT-feladatok',
+    'rest_tag_LocalSTTRecordings' => 'STT-felvételek',
+    'rest_tag_LocalSTTTranscripts' => 'STT-átiratok',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT-hívásátiratok',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Egyedi hívásfelvételek elkészült átiratai',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Az elkészült felvételátiratok eseményfolyama',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Logikai hívások összesített átiratai megváltoztathatatlan revíziókkal',

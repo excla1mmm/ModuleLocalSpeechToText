@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Místní převod řeči na text (STT)',
+    'rest_tag_LocalSTTWorkers' => 'Pracovníci STT',
+    'rest_tag_LocalSTTJobs' => 'Úlohy STT',
+    'rest_tag_LocalSTTRecordings' => 'Nahrávky STT',
+    'rest_tag_LocalSTTTranscripts' => 'Přepisy STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'Přepisy hovorů STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Dokončené přepisy jednotlivých záznamů hovorů',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Proud událostí dokončených přepisů záznamů',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Agregované přepisy logických hovorů s neměnnými revizemi',

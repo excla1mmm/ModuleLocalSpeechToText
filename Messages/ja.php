@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'ローカル音声文字起こし（STT）',
+    'rest_tag_LocalSTTWorkers' => 'STTワーカー',
+    'rest_tag_LocalSTTJobs' => 'STTジョブ',
+    'rest_tag_LocalSTTRecordings' => 'STT録音',
+    'rest_tag_LocalSTTTranscripts' => 'STT文字起こし',
+    'rest_tag_LocalSTTCallTranscripts' => 'STT通話文字起こし',
     'module_local_speech_to_text_TranscriptsApiDescription' => '個別の通話録音の完了済み文字起こし',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => '完了した録音文字起こしのイベントストリーム',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => '不変のリビジョンを持つ論理通話の集約文字起こし',

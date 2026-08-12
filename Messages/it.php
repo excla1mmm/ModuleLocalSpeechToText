@@ -318,7 +318,11 @@ return [
     'module_local_speech_to_text_No' => 'No',
     'module_local_speech_to_text_SecondsShort' => 'sec.',
     // OpenAPI documentation
-    'rest_tag_LocalSpeechToText' => 'Conversione locale da voce a testo (STT)',
+    'rest_tag_LocalSTTWorkers' => 'Operatori STT',
+    'rest_tag_LocalSTTJobs' => 'Attività STT',
+    'rest_tag_LocalSTTRecordings' => 'Registrazioni STT',
+    'rest_tag_LocalSTTTranscripts' => 'Trascrizioni STT',
+    'rest_tag_LocalSTTCallTranscripts' => 'Trascrizioni chiamate STT',
     'module_local_speech_to_text_TranscriptsApiDescription' => 'Trascrizioni completate di singole registrazioni di chiamate',
     'module_local_speech_to_text_TranscriptEventsApiDescription' => 'Flusso di eventi per le trascrizioni completate delle registrazioni',
     'module_local_speech_to_text_CallTranscriptsApiDescription' => 'Trascrizioni aggregate delle chiamate logiche con revisioni immutabili',

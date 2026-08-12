@@ -17,7 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/transcripts/events',
-    tags: ['Local Speech To Text'],
+    tags: ['Local STT Transcripts'],
     description: 'module_local_speech_to_text_TranscriptEventsApiDescription',
     processor: Processor::class
 )]
