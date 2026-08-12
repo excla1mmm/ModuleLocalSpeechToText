@@ -387,7 +387,7 @@ namespace {
         'POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete',
         'GET /job-recordings/{job_id} getRecord', 'PUT /job-results/{job_id} update', 'PUT /job-failures/{job_id} update',
         'GET /jobs getList', 'GET /jobs/{id} getRecord', 'POST /jobs create', 'PATCH /jobs/{id} patch',
-        'PATCH /jobs patch', 'DELETE /jobs/{id} delete', 'DELETE /jobs delete',
+        'PATCH /jobs patchCollection', 'DELETE /jobs/{id} delete', 'DELETE /jobs deleteCollection',
     ];
     $legacy = [
         'POST /workers register', 'GET /workers getProcessingSettings', 'GET /jobs getNext',
