@@ -81,3 +81,5 @@ Task 7: re-review after fix round 2 NEEDS FIX (1 exact-input Important): Core re
 Task 7: fix round 3/5 ready for re-review (raw merged/query/JSON body snapshot before sanitize, allowlisted type-sensitive restoration, exact query-only DELETE provenance, Core merge/raw-body harness and adversarial scalar/container table; follow-up subject `fix: preserve raw STT Jobs input types`).
 Task 7: re-review after fix round 3 NEEDS FIX (test-only Important): the Core stub did not coerce numerics and raw restoration assertions were not bound through actual Processor/service validation.
 Task 7: fix round 4/5 ready for re-review (faithful recursive numeric coercion, actual Controller-to-Processor/service rejection paths, and raw-id/priority/ids production-fixture mutations alongside prior modes; follow-up subject `test: bind STT Jobs raw input validation`).
+Task 7: final re-review PASS (0 Critical/Important; routing, query provenance, history/path/pagination/concurrency/auth/raw-input guarantees verified).
+Task 7: complete (commits efdca72..7823ede; plain route aggregate and mutation green).
