@@ -457,8 +457,9 @@ class STTJob extends ModulesModelsBase
 
     public function refreshProcessingLeaseForWorker(int $workerId, string $leaseToken): bool
     {
-        $leaseExpiresAt = (string)(time() + self::processingTimeoutSeconds());
-        $updatedAt = (string)time();
+        $now = time();
+        $leaseExpiresAt = (string)($now + self::processingTimeoutSeconds());
+        $updatedAt = (string)$now;
         $connection = $this->getWriteConnection();
         $connection->execute(
             'UPDATE m_STTJob
@@ -467,7 +468,8 @@ class STTJob extends ModulesModelsBase
               WHERE id = :id
                 AND status = :processing
                 AND worker_id = :worker_id
-                AND lease_token = :lease_token',
+                AND lease_token = :lease_token
+                AND lease_expires_at >= :now',
             [
                 'lease_expires_at' => $leaseExpiresAt,
                 'updated_at' => $updatedAt,
@@ -475,6 +477,7 @@ class STTJob extends ModulesModelsBase
                 'processing' => self::STATUS_PROCESSING,
                 'worker_id' => $workerId,
                 'lease_token' => $leaseToken,
+                'now' => $now,
             ]
         );
 

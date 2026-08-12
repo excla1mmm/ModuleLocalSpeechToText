@@ -19,3 +19,9 @@
 - RED: executable lease and result regressions removed synthetic ownership headers while retaining only the version header and JSON `worker_uid` / `lease_token`; production processors denied the requests because they incorrectly required duplicated UID headers.
 - GREEN: JobLeases and JobResults now authorize their JSON body identity through the restricted API-key binding and preserve canonical route/body-ID and lease-token ownership preflight. Optional UID headers are ignored by these write resources, while JobRecordings remains the header-only body-less download path and settings remains caller-bound by its UID header.
 - Verification: focused lease/artifact/recording/version-mutation/negotiation/OpenAPI/authorization checks and the full module suite passed.
+
+## Queue Fix 1 — heartbeat CAS expiry
+
+- RED: the SQLite lease test set a valid owned lease expired after conceptual preflight but before heartbeat CAS; the old UPDATE revived it.
+- GREEN: `refreshProcessingLeaseForWorker()` now requires `lease_expires_at >= :now` in its authoritative UPDATE, matching the timeout-boundary policy. A zero-row CAS leaves the lease untouched, so the existing conflict path produces no liveness or telemetry side effect.
+- Verification: lease SQLite/runtime, authoritative-side-effects, queue, claim, migration, and full suite passed.

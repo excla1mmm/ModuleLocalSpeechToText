@@ -203,6 +203,20 @@ namespace {
         'The old worker must not complete a job after it is reissued'
     );
 
+    // The processor may have passed ownership preflight immediately before this CAS;
+    // expiry at the authoritative UPDATE must still prevent lease resurrection.
+    $expiredBeforeCas = time() - 1;
+    $pdo->exec('UPDATE m_STTJob SET lease_expires_at = ' . $expiredBeforeCas . ' WHERE id = 1');
+    expectLeaseBehavior(
+        !$secondClaim->refreshProcessingLeaseForWorker(2, (string)$secondClaim->lease_token),
+        'Heartbeat must not revive a lease that expires between preflight and CAS'
+    );
+    $afterExpiredCas = STTJob::findFirstById(1);
+    expectLeaseBehavior(
+        (int)$afterExpiredCas?->lease_expires_at === $expiredBeforeCas,
+        'Rejected heartbeat must not extend the expired lease or create a side effect'
+    );
+
     $pdo->exec('UPDATE m_STTJob SET lease_expires_at = ' . time() . ' WHERE id = 1');
     expectLeaseBehavior(
         $secondClaim->refreshProcessingLeaseForWorker(2, (string)$secondClaim->lease_token),
