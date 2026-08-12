@@ -107,3 +107,53 @@ The two non-zero contract checks are intentional. Production v2 resources and th
 
 - The worktree has no `Core` sibling at the path described in the brief; the new reflection test intentionally does not need Core files because it declares only the attribute stubs required for reflection.
 - Both checks must turn green only after later tasks add the v2 resources, legacy tombstones, and contract helper.
+
+## Corrected-plan restart / final report (2026-08-12)
+
+This restart audits the complete existing Task 1 tests against the corrected architecture. Worker item routes now use numeric `{id}`, processing settings is the caller-bound collection singleton `GET /worker-processing-settings`, and the shared administrative `Workers` processor is no longer incorrectly required to apply an unconditional worker-version gate. The runtime `file_url` contract remains the exact path-only expression `'/job-recordings/' . (int)$job->id`. Superseded round-8 parser constraints were removed rather than extended.
+
+### RED evidence
+
+| Command | Exit | Output and intended reason |
+| --- | ---: | --- |
+| `php Tests/check-worker-api-v2-route-contract.php` | 255 | `Reflected v2 ApiResource/HttpMapping operation set changed`; actual reflected operations are the eight legacy actions, while the independently defined expected set is the 21-operation v2 matrix with numeric worker IDs and singleton processing settings. |
+| `php Tests/check-worker-api-v2-version-contract.php` | 255 | `WorkerApiContract.php must exist before v2 routes can run`; the corrected failure is the missing shared v2 contract helper, before later runtime/schema guards execute. |
+
+Both failures are intentional RED results caused by production resources/helper that later tasks will add. No production code was changed in this task.
+
+### Mutation evidence
+
+| Command | Exit | Output and coverage |
+| --- | ---: | --- |
+| `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | `Worker API v2 route mutation checks OK`; rejects an extra GET lease mutation, duplicate/hidden tuples, invalid legacy tombstones, `{worker_uid}` worker item routes, and an item-scoped processing-settings route. |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | `Worker API v2 version mutation checks OK`; rejects missing/late/bypassed version gates, weak constants, ownership-header leakage, and credential-bearing or legacy PHP/Swift `file_url` values while accepting `/job-recordings/42`. |
+
+### Syntax and diff checks
+
+| Command | Exit | Output |
+| --- | ---: | --- |
+| `php -l Tests/check-worker-api-v2-route-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-route-contract.php` |
+| `php -l Tests/check-worker-api-v2-version-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-version-contract.php` |
+| `php -l Tests/run-all.php` | 0 | `No syntax errors detected in Tests/run-all.php` |
+| `git diff --check` | 0 | No output. |
+
+### Files changed in the corrected restart
+
+- `Tests/check-worker-api-v2-route-contract.php`
+- `Tests/check-worker-api-v2-version-contract.php`
+- `.superpowers/sdd/2026-08-12-resource-oriented-worker-api-v2/task-1-report.md`
+
+`Tests/run-all.php` already explicitly registered both checks in the prior Task 1 commit and required no correction.
+
+### Self-review
+
+- Re-read the corrected brief and the approved module plan; the expectations are literal and independent of production builders.
+- Confirmed the route test reflects controller attributes, checks exact methods/paths, keeps legacy routes routable without `ApiOperation`, and rejects GET mappings to mutation actions.
+- Confirmed version source guards apply to dedicated worker-protocol processors, not administrative CRUD; controlled mutation fixtures prove missing, late, and bypassed gates are rejected.
+- Confirmed runtime/schema/Swift `file_url` checks reject module/API prefixes, `/jobs/`, `:download`, `lease_token`, and `worker_uid`, and accept only path-only `/job-recordings/` values.
+- Confirmed the diff is confined to the two owned tests and this tracked report; no production or Core file was read as an implementation dependency or modified.
+
+### Concerns
+
+- The two focused tests are intentionally RED until later tasks add the v2 resources, legacy tombstones, and `WorkerApiContract` helper.
+- Source guards are bounded structural checks; later behavioral task tests must still prove authorization, ownership, and version-error responses at runtime.

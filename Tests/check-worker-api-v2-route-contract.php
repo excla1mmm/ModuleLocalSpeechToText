@@ -311,14 +311,33 @@ namespace {
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'later-match mutation did not fail for the intended reason');
         }
+        foreach ([
+            [
+                'GET /workers/{worker_uid} getRecord',
+                'GET /workers/{id} getRecord',
+                'worker item identifier mutation',
+            ],
+            [
+                'GET /worker-processing-settings/{worker_uid} getRecord',
+                'GET /worker-processing-settings getList',
+                'processing-settings item-route mutation',
+            ],
+        ] as [$mutated, $canonical, $label]) {
+            try {
+                assertExactWorkerApiV2Routes([$canonical], [$mutated]);
+                throw new RuntimeException("{$label} was accepted");
+            } catch (RuntimeException $error) {
+                expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), "{$label} did not fail for the intended reason");
+            }
+        }
         echo "Worker API v2 route mutation checks OK\n";
         exit(0);
     }
 
     $v2Resources = [
         '/worker-api-contract' => 'id',
-        '/workers' => 'worker_uid',
-        '/worker-processing-settings' => 'worker_uid',
+        '/workers' => 'id',
+        '/worker-processing-settings' => 'id',
         '/job-leases' => 'job_id',
         '/job-recordings' => 'job_id',
         '/job-results' => 'job_id',
@@ -337,9 +356,9 @@ namespace {
     ];
     $expected = [
         'GET /worker-api-contract getList',
-        'GET /workers getList', 'POST /workers create', 'GET /workers/{worker_uid} getRecord',
-        'PUT /workers/{worker_uid} update', 'PATCH /workers/{worker_uid} patch', 'DELETE /workers/{worker_uid} delete',
-        'GET /worker-processing-settings/{worker_uid} getRecord',
+        'GET /workers getList', 'POST /workers create', 'GET /workers/{id} getRecord',
+        'PUT /workers/{id} update', 'PATCH /workers/{id} patch', 'DELETE /workers/{id} delete',
+        'GET /worker-processing-settings getList',
         'POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete',
         'GET /job-recordings/{job_id} getRecord', 'PUT /job-results/{job_id} update', 'PUT /job-failures/{job_id} update',
         'GET /jobs getList', 'GET /jobs/{id} getRecord', 'POST /jobs create', 'PATCH /jobs/{id} patch',

@@ -360,16 +360,16 @@ namespace {
     }
 
     $root = dirname(__DIR__);
-    $runtimeFileUrlSource = $root . '/Lib/LocalSpeechToTextMain.php';
-    expectWorkerApiV2Version(is_file($runtimeFileUrlSource), 'LocalSpeechToTextMain runtime claim builder must exist');
-    assertRuntimeWorkerApiV2FileUrl((string)file_get_contents($runtimeFileUrlSource));
-
     $contractFile = $root . '/Lib/Services/WorkerApiContract.php';
     expectWorkerApiV2Version(is_file($contractFile), 'WorkerApiContract.php must exist before v2 routes can run');
     require_once $contractFile;
     $contractClass = Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract::class;
     expectWorkerApiV2Version(class_exists($contractClass), 'WorkerApiContract class must load from its service file');
     assertContractConstantsWorkerApiV2Version((new ReflectionClass($contractClass))->getConstants());
+
+    $runtimeFileUrlSource = $root . '/Lib/LocalSpeechToTextMain.php';
+    expectWorkerApiV2Version(is_file($runtimeFileUrlSource), 'LocalSpeechToTextMain runtime claim builder must exist');
+    assertRuntimeWorkerApiV2FileUrl((string)file_get_contents($runtimeFileUrlSource));
 
     $phpFiles = phpFilesWorkerApiV2Version($root . '/Lib');
     foreach (['/Setup', '/App'] as $productionDirectory) {
@@ -400,8 +400,7 @@ namespace {
     }
 
     $workerOperationsByProcessor = [
-        'Workers' => ['PUT /workers/{worker_uid} update'],
-        'WorkerProcessingSettings' => ['GET /worker-processing-settings/{worker_uid} getRecord'],
+        'WorkerProcessingSettings' => ['GET /worker-processing-settings getList'],
         'JobLeases' => ['POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete'],
         'JobRecordings' => ['GET /job-recordings/{job_id} getRecord'],
         'JobResults' => ['PUT /job-results/{job_id} update'],
