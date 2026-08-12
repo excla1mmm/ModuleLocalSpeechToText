@@ -22,14 +22,22 @@ class Controller extends BaseRestController {
  ]; }
  public function handleCRUDRequest(?string $id=null): void {
   if($this->request->getMethod()==='POST'&&$id!==null&&$id!==''){$this->sendErrorResponse('POST is not allowed for an individual STT job',405);return;}
-  $requestData=self::sanitizeData($this->request->getData(),$this->filter);
-  if(array_key_exists('id',$requestData))$requestData['_idFromRequestBody']=$requestData['id'];
+  $rawMerged=$this->request->getData();$rawQuery=$this->request->getQuery();$rawQuery=is_array($rawQuery)?$rawQuery:[];$rawBody=$this->rawBodyData($rawMerged,$rawQuery);
+  $requestData=self::sanitizeData($rawMerged,$this->filter);
+  if(array_key_exists('id',$rawBody))$requestData['_idFromRequestBody']=$rawBody['id'];
   if($id!==null&&$id!=='')$requestData['id']=$id;
   $httpMethod=$this->request->getMethod();$action=$this->mapHttpMethodToAction($httpMethod,$id!==null);
   if($action===null){$this->sendErrorResponse("Invalid HTTP method: $httpMethod",405);return;}
+  if($httpMethod==='POST'&&array_key_exists('priority',$rawMerged))$requestData['priority']=$rawMerged['priority'];
+  if($httpMethod==='PATCH'&&$id===null){foreach(['ids','action']as$field)if(array_key_exists($field,$rawMerged))$requestData[$field]=$rawMerged[$field];}
   if(in_array($httpMethod,['POST','PUT','PATCH'],true))$requestData['httpMethod']=$httpMethod;
-  if($httpMethod==='DELETE'&&$id===null){$query=$this->request->getQuery();$requestData['_query_status_present']=is_array($query)&&array_key_exists('status',$query);$requestData['_query_status']=$requestData['_query_status_present']?$query['status']:null;}
+  if($httpMethod==='DELETE'&&$id===null){$requestData['_query_status_present']=array_key_exists('status',$rawQuery);$requestData['_query_status']=$requestData['_query_status_present']?$rawQuery['status']:null;}
   $this->sendRequestToBackendWorker($this->processorClass,$action,$requestData);
+ }
+ private function rawBodyData(array $merged,array $query):array {
+  $contentType=(string)$this->request->getContentType();
+  if(str_contains(strtolower($contentType),'application/json')){$decoded=json_decode((string)$this->request->getRawBody(),true);return is_array($decoded)?$decoded:[];}
+  return array_diff_key($merged,$query);
  }
  #[ApiDataSchema(schemaClass:DataStructure::class,type:'list',isArray:true)] #[ApiOperation(summary:'List STT jobs',operationId:'getLocalSTTJobs')] #[ApiParameterRef('status')] #[ApiParameterRef('call_id')] #[ApiParameterRef('limit')] #[ApiParameterRef('offset')] public function getList():void{}
  #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Get STT job',operationId:'getLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function getRecord(string $id):void{}

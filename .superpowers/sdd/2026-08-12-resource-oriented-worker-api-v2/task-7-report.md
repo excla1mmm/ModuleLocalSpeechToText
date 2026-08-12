@@ -37,3 +37,11 @@ Re-review found that Core's `resource ?? collection` fallback still made `POST /
 The runtime harness now implements Core's exact action fallback and merged-data behavior, executes the actual controller for all seven management route/action pairs, and proves item POST has no dispatch. It preserves raw body ID, float/bool/noncanonical priority/ID collections for downstream exact validation, and separately records query status when merged body data conflicts. Three controller-fixture mutations remove item-POST rejection, replace query provenance, or change collection PATCH routing; ordinary assertions fail in every mode.
 
 Follow-up subject: `fix: enforce STT Jobs collection routing`.
+
+## Fix Round 3 — preserve exact raw input types
+
+Core's recursive sanitizer converts numeric values to integers, which could erase invalid JSON types before Task 7 validation. The controller now snapshots raw merged input and raw query before sanitization, decodes the original JSON body for body-ID provenance, and restores only the type-sensitive fields required by the management contract: item body `id`, effective POST `priority`, and effective collection PATCH `ids`/`action`. No arbitrary internal fields are copied. DELETE status provenance continues to come exclusively from raw query; Core query precedence remains intact.
+
+The Core-shaped controller fixture now merges body then query and exposes JSON raw-body methods. Executable cases reject float, boolean, numeric-string, array, and noncanonical priority/IDs while valid integers remain accepted. Body-only DELETE status is explicitly untrusted. The query mutation now changes both presence and value provenance so that the ordinary body-only assertion catches it; POST, query, and routing mutation modes all fail.
+
+Follow-up subject: `fix: preserve raw STT Jobs input types`.
