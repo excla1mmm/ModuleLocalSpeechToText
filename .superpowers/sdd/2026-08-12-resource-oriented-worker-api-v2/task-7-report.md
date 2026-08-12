@@ -45,3 +45,11 @@ Core's recursive sanitizer converts numeric values to integers, which could eras
 The Core-shaped controller fixture now merges body then query and exposes JSON raw-body methods. Executable cases reject float, boolean, numeric-string, array, and noncanonical priority/IDs while valid integers remain accepted. Body-only DELETE status is explicitly untrusted. The query mutation now changes both presence and value provenance so that the ordinary body-only assertion catches it; POST, query, and routing mutation modes all fail.
 
 Follow-up subject: `fix: preserve raw STT Jobs input types`.
+
+## Fix Round 4 — bind raw validation through production
+
+The runtime Core stub now recursively coerces numeric scalars to integers exactly where Core's `FILTER_INT` branch does. Controller dispatch payloads are no longer merely inspected: adversarial priority, bulk IDs, and item body IDs flow through the actual production Controller into the actual Processor and management service, and their 422/409 responses are asserted.
+
+Three new modified-production controller fixtures remove raw body-ID, priority, or IDs restoration. Each ordinary end-to-end rejection assertion fails; the existing POST, query-provenance, and collection-routing mutations remain detected.
+
+Follow-up subject: `test: bind STT Jobs raw input validation`.
