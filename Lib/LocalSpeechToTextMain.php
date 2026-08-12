@@ -231,12 +231,12 @@ class LocalSpeechToTextMain
             if ($bindingError !== null) {
                 return $bindingError;
             }
-            $worker->touchOnline(self::clientIp($data));
-
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
+            // Ownership must be established before this best-effort liveness mutation.
+            self::touchWorkerOnlineBestEffort($worker, self::clientIp($data));
 
             if (!STTSetting::recordingDurationAllowed(self::jobDurationSeconds($job))) {
                 $message = 'Recording duration exceeds configured maximum';

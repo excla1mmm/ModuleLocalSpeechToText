@@ -54,3 +54,4 @@ Task 5: fix round 3/5 (2 addressed, 0 open — selected hydrated job returned di
 Task 5: re-review after fix round 3 PASS (0 Critical/Important; exact claim compensation and Core body-ID validation verified).
 Task 5: minor (deferred): unsupported external `PRAGMA count_changes=ON` can make PDO report zero affected rows after a committed CAS; no repository path enables it. Enforce `count_changes=OFF` or add a real-Phalcon SQLite contract before release.
 Task 5: complete (commits 4fae131..1ca21e6; executable processor, queue ownership, compensation, concurrency, lifecycle, route/version mutation, lint, and diff checks green).
+Task 6: implementation ready for review (subject `feat: split STT job artifact resources`; RED missing JobRecordings controller; focused artifact/recording/time/technical/lease/queue checks and route/version mutation modes green; plain route/version aggregates retain documented Task 7/staged deltas).
