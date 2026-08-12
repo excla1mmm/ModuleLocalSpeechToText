@@ -31,3 +31,12 @@
 - RED: out-of-order timed segments were integer-normalized but persisted in worker arrival order.
 - GREEN: timed segments are now stably ordered by `(start_ms, end_ms, original_index)` before filtering, persistence, events, and call-revision composition. Existing untimed compatibility is retained: untimed segments follow all timed segments while preserving their original relative order.
 - Verification: normalizer regression covers integer conversion, stable equal timestamps, and untimed ordering; the production terminal submission fixture now supplies out-of-order input and verifies normalized stored/result/event/revision flow. Focused quality/terminal/assembler/revision/receipt/migration and full suite passed.
+
+## Whole-module review closure
+
+- Contract review found and closed JSON identity/header duplication (`e34cf00`).
+- Queue review found and closed the heartbeat-expiry CAS race (`0ffd042`).
+- STT quality review found and closed non-canonical segment ordering (`f8ad77c`).
+- Security review: PASS, 0 Critical/Important.
+- Final module code review: PASS, 0 Critical/Important.
+- Parked Minors: unified authorization harness consolidation, native-speaker locale polish, live PBX visual/Range matrix, optional request-size and fd-based local-file hardening.
