@@ -198,8 +198,9 @@ namespace {
         $terminal = strpos($callback, 'return match');
         expectWorkerApiV2Route($terminal !== false, 'Legacy dispatch must be an immediate terminal return match');
         $before = substr($callback, 0, $terminal);
+        expectWorkerApiV2Route(!str_contains($before, 'if('), 'Legacy terminal return must be top-level and unconditional');
         expectWorkerApiV2Route(
-            !preg_match('/(?:STT\w+::|new\s+|->|::(?!tryFrom)|ModuleLifecycleGate|ModuleDatabasePragmas|Service|\$\w+\s*=\s*(?!\(string\)|\w+::tryFrom))/', $before),
+            preg_match('/^(?:\$actionString=\(string\)\(\$request\[[\'\"]action[\'\"]\]\?\?[\'\"]{2}\);\$action=\w+Action::tryFrom\(\$actionString\);)?$/', $before) === 1,
             'Legacy terminal dispatch must have only harmless action/request normalization before it',
         );
         $open = strpos($callback, '{', $terminal);
@@ -271,6 +272,18 @@ namespace {
             throw new RuntimeException('pre-tombstone work mutation was accepted');
         } catch (RuntimeException $error) {
             expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'pre-tombstone work mutation did not fail for the intended reason');
+        }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('if(false){return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()};}mutateDatabase();', 'JobAction::GET_NEXT');
+            throw new RuntimeException('dead conditional tombstone mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'dead conditional tombstone mutation did not fail for the intended reason');
+        }
+        try {
+            assertLegacyTerminalWorkerApiV2Route('auditRequest($request);return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()};', 'JobAction::GET_NEXT');
+            throw new RuntimeException('unknown legacy prelude call mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'unknown legacy prelude mutation did not fail for the intended reason');
         }
         try {
             assertLegacyTerminalWorkerApiV2Route('return match($action) { JobAction::GET_NEXT => $result }; $later = match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');

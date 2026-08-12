@@ -80,24 +80,39 @@ namespace {
     function assertWorkerApiV2Gate(string $operation, string $source): void
     {
         $callback = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, 'callBack'));
-        preg_match('/\$(?<versionError>[A-Za-z_][A-Za-z0-9_]*)=WorkerApiContract::requireVersion\([^;]+\);/', $callback, $gateMatch);
+        preg_match('/\$(?<versionError>[A-Za-z_][A-Za-z0-9_]*)=WorkerApiContract::requireVersion\(\$request\);/', $callback, $gateMatch);
         $gate = isset($gateMatch[0]) ? strpos($callback, $gateMatch[0]) : false;
         $dispatch = min(array_filter([
             strpos($callback, 'match('),
             strpos($callback, 'switch('),
         ], static fn(int|false $position): bool => $position !== false) ?: [PHP_INT_MAX]);
         expectWorkerApiV2Version($gate !== false, "{$operation} processor must require worker API v2");
+        $prelude = substr($callback, 0, $gate);
+        expectWorkerApiV2Version(
+            preg_match('/^(?:\$actionString=\(string\)\(\$request\[[\'\"]action[\'\"]\]\?\?[\'\"]{2}\);\$action=\w+Action::tryFrom\(\$actionString\);)?$/', $prelude) === 1,
+            "{$operation} must reach requireVersion() unconditionally with only harmless action normalization before it",
+            $prelude,
+        );
         expectWorkerApiV2Version($gate < $dispatch, "{$operation} must require v2 before its action dispatch");
         expectWorkerApiV2Version(
             isset($gateMatch['versionError'])
                 && preg_match('/^if\(\$' . preg_quote($gateMatch['versionError'], '/') . '!==null\)\{?return\$' . preg_quote($gateMatch['versionError'], '/') . ';?\}?/', substr($callback, $gate + strlen($gateMatch[0]))) === 1,
             "{$operation} must return the exact requireVersion() result instead of falling back to v1",
         );
-        $beforeGate = substr($callback, 0, $gate);
-        expectWorkerApiV2Version(
-            !preg_match('/(?:::main\(|LocalSpeechToTextMain::|ModuleLifecycleGate|ModuleDatabasePragmas|newSTT(?:Job|Worker)|STT\w+Service)/', $beforeGate),
-            "{$operation} must gate before business or write-lease work",
-        );
+    }
+
+    /** @param array<string, string> $sources */
+    function assertOwnershipHeaderIsolation(array $sources): void
+    {
+        foreach ($sources as $file => $source) {
+            $code = codeWorkerApiV2Version($source);
+            if (!str_contains($code, '_worker_uid_header') && !str_contains($code, '_lease_token_header')) {
+                continue;
+            }
+            $allowed = str_ends_with($file, '/Lib/RestAPI/Common/WorkerRequestContext.php')
+                || str_ends_with($file, '/Lib/RestAPI/JobRecordings/Processor.php');
+            expectWorkerApiV2Version($allowed, "Only WorkerRequestContext and JobRecordings may reference internal ownership headers: {$file}");
+        }
     }
 
     /** @return list<string> */
@@ -257,6 +272,18 @@ namespace {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'dispatch-order mutation check did not fail for the intended reason');
         }
         try {
+            assertWorkerApiV2Gate('dead-conditional gate mutation', 'function callBack(array $request) { if (false) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match($action) {}; }');
+            throw new RuntimeException('dead conditional gate mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'dead conditional gate mutation did not fail for the intended reason');
+        }
+        try {
+            assertWorkerApiV2Gate('unknown-prelude gate mutation', 'function callBack(array $request) { claimJob($request); $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } return match($action) {}; }');
+            throw new RuntimeException('unknown prelude gate mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'unknown prelude gate mutation did not fail for the intended reason');
+        }
+        try {
             assertContractConstantsWorkerApiV2Version(['CONTRACT' => 'MikoPBX-Worker-API', 'API_VERSION' => '2', 'VERSION_HEADER' => 'X-MikoPBX-Worker-API-Version']);
             throw new RuntimeException('weak contract constants mutation was accepted');
         } catch (RuntimeException $error) {
@@ -270,6 +297,12 @@ namespace {
             throw new RuntimeException('ownership-header scope mutation was accepted');
         } catch (RuntimeException $error) {
             expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'ownership-header mutation check did not fail for the intended reason');
+        }
+        try {
+            assertOwnershipHeaderIsolation(['Lib/RestAPI/JobLeases/Actions/ClaimAction.php' => '<?php $owner = $data[\'_worker_uid_header\']; forward($owner);']);
+            throw new RuntimeException('ownership Action forwarding mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'ownership Action forwarding mutation did not fail for the intended reason');
         }
         try {
             assertSchemaWorkerApiV2FileUrls("['file_url' => '/job-recordings/42']", 'scalar-safe.php');
@@ -308,6 +341,14 @@ namespace {
     assertContractConstantsWorkerApiV2Version((new ReflectionClass($contractClass))->getConstants());
 
     $phpFiles = phpFilesWorkerApiV2Version($root . '/Lib');
+    foreach (['/Setup', '/App'] as $productionDirectory) {
+        $directory = $root . $productionDirectory;
+        if (is_dir($directory)) {
+            $phpFiles = array_merge($phpFiles, phpFilesWorkerApiV2Version($directory));
+        }
+    }
+    $phpFiles = array_values(array_unique($phpFiles));
+    sort($phpFiles);
     $sources = [];
     foreach ($phpFiles as $file) {
         $source = file_get_contents($file);
@@ -350,6 +391,7 @@ namespace {
             assertSchemaWorkerApiV2FileUrls($source, $file);
         }
     }
+    assertOwnershipHeaderIsolation($sources);
     $jobLeaseSchema = $root . '/Lib/RestAPI/JobLeases/DataStructure.php';
     expectWorkerApiV2Version(is_file($jobLeaseSchema), 'JobLeases must expose the v2 file_url OpenAPI schema');
     assertSchemaWorkerApiV2FileUrls((string)file_get_contents($jobLeaseSchema), $jobLeaseSchema);

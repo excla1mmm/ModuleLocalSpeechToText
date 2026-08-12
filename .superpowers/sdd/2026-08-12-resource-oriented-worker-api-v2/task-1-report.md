@@ -46,6 +46,19 @@ PHP schema checks now validate each value structurally associated with a `file_u
 
 Reflected worker resources now require their declared processor to be the exact expected non-null class and require that processor file to exist; a null or unused/wrong processor mutation is rejected. The legacy parser identifies the first terminal `return match` and checks required arms only in that match body, with pre-terminal work checks and mutations for model deletion and later unrelated matches. Swift key-value extraction also supports typed assignments such as `file_url: String = "..."`; typed safe and unsafe fixtures were exercised.
 
+## Corrective round 6 (explicit user authorization)
+
+The user explicitly authorized this exceptional sixth corrective round after the five-round cap. Legacy and v2 version checks now require their gate/tombstone dispatch to be reached through a narrowly whitelisted top-level prelude only: legacy requires an unconditional early `return match`, and v2 requires the exact `WorkerApiContract::requireVersion($request)` assignment followed immediately by its same-variable return guard. Controlled dead-conditional and unknown-call bypasses are rejected.
+
+Ownership isolation now examines PHP production sources under `Lib/`, `Setup/`, and `App/`. Internal ownership headers are permitted only in the planned WorkerRequestContext producer and JobRecordings processor consumer; all other source references, including Actions/helpers that forward aliases, are rejected. This remains a bounded source-contract check rather than a runtime data-flow proof.
+
+Round-6 mutation commands (each exits 0 only because its malformed fixture is rejected):
+
+| Command | Exit | Evidence |
+| --- | ---: | --- |
+| `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | Rejects dead conditional/unknown-call legacy tombstones, pre-tombstone work, later-match arms, duplicate/hidden tuples, and null/wrong processor declarations. |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | Rejects dead/late/unknown-prelude version gates, unsafe runtime/PHP/Swift URLs, and Action-level ownership-header forwarding. |
+
 ## Files changed
 
 - `Tests/check-worker-api-v2-route-contract.php` (new)
