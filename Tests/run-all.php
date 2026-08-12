@@ -18,6 +18,7 @@ $tests = [
     __DIR__ . '/check-worker-job-artifact-processors-runtime.php',
     __DIR__ . '/check-job-submission-receipt-concurrency.php',
     __DIR__ . '/check-recording-runtime-security.php',
+    __DIR__ . '/check-job-terminal-submission-service.php',
 ];
 
 foreach (glob(__DIR__ . '/check-*.php') ?: [] as $test) {

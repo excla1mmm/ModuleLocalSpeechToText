@@ -18,6 +18,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobTerminalSubmissionService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -362,9 +363,9 @@ class LocalSpeechToTextMain
                         (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
                     };
                 if ($connection->isUnderTransaction()) {
-                    $storeResult();
+                    (new JobTerminalSubmissionService())->transactionalResult($storeResult);
                 } else {
-                    (new ModuleTransaction())->run($connection, $storeResult);
+                    (new ModuleTransaction())->run($connection, static fn () => (new JobTerminalSubmissionService())->transactionalResult($storeResult));
                 }
             } catch (AssignedJobConflictException) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
@@ -444,11 +445,15 @@ class LocalSpeechToTextMain
                 return $ownershipError;
             }
 
-            if (!$job->markFailedForWorker(
-                (int)$worker->id,
-                $leaseToken,
-                self::stringField($data, 'error_msg', 'Worker failed to process audio')
-            )) {
+            $failureAccepted = (new JobTerminalSubmissionService())->failure(
+                static fn (): bool => $job->markFailedForWorker(
+                    (int)$worker->id,
+                    $leaseToken,
+                    self::stringField($data, 'error_msg', 'Worker failed to process audio')
+                ),
+                static fn (): bool => true,
+            );
+            if (!$failureAccepted) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             $failed = (string)$job->status === STTJob::STATUS_ERROR;

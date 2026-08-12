@@ -54,3 +54,13 @@ Added a module-side runtime security test loading the actual `LocalSpeechToTextM
 Live-only remainder remains Core proxy byte streaming and Range 206/416 curl verification. The local test executes the exact module `fpassthru` metadata handed to Core, but does not emulate Core controller streaming.
 
 Follow-up subject: `test: exercise STT artifact races and paths`.
+
+## Fix Round 4 — production terminal composition
+
+Re-review retained the two composition-depth findings. Added `JobTerminalSubmissionService` as the production orchestration seam and adopted it from both `LocalSpeechToTextMain::submitResult()` and `submitError()`. The result path preserves normalization/result/event/job-CAS/revision ordering inside the outer receipt transaction; failure routes its authoritative job CAS through the same production service.
+
+The file-backed synchronized race now invokes that production service inside the real receipt/ModuleTransaction path and maps its boundaries to the real module table names `m_STTJob`, `m_STTResult`, `m_STTTranscriptEvent`, `m_STTCallTranscriptRevision`, and `m_STTJobSubmissionReceipt`. It asserts one row at every terminal boundary for identical and differing races. A focused order test detects a skipped event boundary in mutation mode.
+
+The recording runtime continues to execute actual `LocalSpeechToTextMain` containment/size/fpassthru code. Only Core proxy bytes and Range 206/416 remain live-only.
+
+Follow-up subject: `test: compose STT artifact production paths`.
