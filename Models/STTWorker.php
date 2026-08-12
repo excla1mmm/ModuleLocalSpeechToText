@@ -64,6 +64,16 @@ class STTWorker extends ModulesModelsBase
     public ?int $has_settings_changed = 1;
 
     /**
+     * @Column(type="integer", default="1", nullable=false)
+     */
+    public ?int $api_version = 1;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
+    public ?string $app_version = '';
+
+    /**
      * @Column(type="integer", nullable=true)
      */
     public ?string $last_seen = null;
@@ -72,6 +82,11 @@ class STTWorker extends ModulesModelsBase
      * @Column(type="integer", nullable=false)
      */
     public ?string $created_at = '0';
+
+    /**
+     * @Column(type="integer", nullable=false)
+     */
+    public ?string $updated_at = '0';
 
     public function initialize(): void
     {

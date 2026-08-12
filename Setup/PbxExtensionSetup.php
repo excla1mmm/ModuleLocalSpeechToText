@@ -27,6 +27,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiV2Migration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -333,6 +334,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyTranscriptRetentionMigration($connection),
                 'stt-schema-010-transcript-retention'
             ),
+            new ModuleSchemaMigration(
+                11,
+                'worker API v2 contract',
+                fn (mixed $connection): null => $this->applyWorkerApiV2Migration($connection),
+                'stt-schema-011-worker-api-v2'
+            ),
         ];
     }
 
@@ -473,6 +480,13 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             ]
         );
         (new ModuleDatabaseIndexService())->ensure($connection);
+
+        return null;
+    }
+
+    private function applyWorkerApiV2Migration(mixed $connection): null
+    {
+        (new WorkerApiV2Migration())->migrate($connection);
 
         return null;
     }

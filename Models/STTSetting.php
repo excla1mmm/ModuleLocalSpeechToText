@@ -35,6 +35,7 @@ class STTSetting extends ModulesModelsBase
     public const string CDR_BACKFILL_DONE_HISTORY_AT = 'cdr_backfill_done_history_at';
     public const string WORKER_API_KEY_ID = 'worker_api_key_id';
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
+    public const string WORKER_API_CONTRACT_MIGRATION_V2 = 'worker_api_contract_migration_v2';
     public const string CUSTOM_MODELS = 'custom_models';
     public const string TEMPERATURE = 'temperature';
     public const string TEMPERATURE_FALLBACK_STEP = 'temperature_fallback_step';
