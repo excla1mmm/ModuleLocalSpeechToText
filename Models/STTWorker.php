@@ -112,7 +112,9 @@ class STTWorker extends ModulesModelsBase
         string $name,
         string $modelName,
         ?string $ip,
-        ?int $apiKeyId = null
+        ?int $apiKeyId = null,
+        int $apiVersion = 1,
+        string $appVersion = ''
     ): self
     {
         $worker = self::findFirst([
@@ -136,6 +138,9 @@ class STTWorker extends ModulesModelsBase
         }
         $worker->status = self::STATUS_ONLINE;
         $worker->last_seen = (string)time();
+        $worker->api_version = $apiVersion;
+        $worker->app_version = $appVersion;
+        $worker->updated_at = (string)time();
 
         if ($worker->id === null) {
             self::saveNewWorker($worker);
@@ -146,7 +151,8 @@ class STTWorker extends ModulesModelsBase
         if (!$connection->execute(
             'UPDATE m_STTWorker
              SET name = :name, model = :model, ip = :ip, api_key_id = :api_key_id,
-                 status = :status, last_seen = :last_seen
+                 status = :status, last_seen = :last_seen, api_version = :api_version,
+                 app_version = :app_version, updated_at = :updated_at
              WHERE id = :id',
             [
                 'name' => $worker->name,
@@ -155,6 +161,9 @@ class STTWorker extends ModulesModelsBase
                 'api_key_id' => $worker->api_key_id,
                 'status' => $worker->status,
                 'last_seen' => $worker->last_seen,
+                'api_version' => $worker->api_version,
+                'app_version' => $worker->app_version,
+                'updated_at' => $worker->updated_at,
                 'id' => (int)$worker->id,
             ]
         )) {

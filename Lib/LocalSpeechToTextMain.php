@@ -13,6 +13,8 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -40,6 +42,9 @@ class LocalSpeechToTextMain
         if ($workerUid === '') {
             return self::error('validation_error', 'worker_uid is required', 422);
         }
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/', $workerUid) !== 1) {
+            return self::error('validation_error', 'worker_uid format is invalid', 422);
+        }
 
         $apiKeyError = self::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
@@ -57,7 +62,9 @@ class LocalSpeechToTextMain
                 self::stringField($data, 'name', $workerUid),
                 self::currentWorkerModelName(),
                 self::clientIp($data),
-                self::requestApiKeyId($data)
+                self::requestApiKeyId($data),
+                WorkerApiContract::API_VERSION,
+                self::stringField($data, 'app_version')
             );
             LocalSpeechToTextLogger::event(
                 'worker',
@@ -70,10 +77,7 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success([
-                'worker_id' => (int)$worker->id,
-                'poll_interval' => (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
-            ]);
+            return self::success(STTWorkerResourceService::formatWorker($worker));
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
