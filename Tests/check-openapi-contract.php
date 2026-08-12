@@ -269,19 +269,66 @@ namespace {
     }
 
     $generatedPaths = [];
+    $generatedTuples = [];
     foreach (array_keys($resourceContracts) as $resource) {
         $class = $controller($resource);
         $apiResource = oneClassAttribute($class, ApiResource::class);
         $mapping = oneClassAttribute($class, HttpMapping::class);
-        foreach ($mapping->mapping as $methods) {
+        foreach ($mapping->mapping as $httpMethod => $methods) {
             foreach ($methods as $method) {
                 if (!(new ReflectionClass($class))->hasMethod($method) || methodAttributes($class, $method, ApiOperation::class) === []) {
                     continue;
                 }
-                $generatedPaths[] = $apiResource->path . (in_array($method, $mapping->resourceLevelMethods, true) ? '/{id}' : '');
+                $path = $apiResource->path . (in_array($method, $mapping->resourceLevelMethods, true) ? '/{id}' : '');
+                $operation = methodAttributes($class, $method, ApiOperation::class)[0];
+                $generatedPaths[] = $path;
+                $generatedTuples[] = strtoupper($httpMethod) . ' ' . $path . ' ' . $operation->operationId;
             }
         }
     }
+
+    if (getenv('LOCAL_STT_OPENAPI_MUTATION') === 'job-leases-patch-put') {
+        $generatedTuples = array_map(
+            static fn(string $tuple): string => str_replace('PATCH /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id}', 'PUT /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id}', $tuple),
+            $generatedTuples
+        );
+    }
+    $expectedGeneratedTuples = [
+        'GET /pbxcore/api/v3/module-local-speech-to-text/worker-api-contract getLocalSTTWorkerApiContract',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/worker-processing-settings getLocalSTTWorkerProcessingSettings',
+        'POST /pbxcore/api/v3/module-local-speech-to-text/job-leases createLocalSTTJobLease',
+        'PATCH /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id} patchLocalSTTJobLease',
+        'DELETE /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id} deleteLocalSTTJobLease',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/job-recordings/{id} getLocalSTTJobRecording',
+        'PUT /pbxcore/api/v3/module-local-speech-to-text/job-results/{id} updateLocalSTTJobResult',
+        'PUT /pbxcore/api/v3/module-local-speech-to-text/job-failures/{id} updateLocalSTTJobFailure',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts listLocalSpeechToTextTranscripts',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/{id} getLocalSpeechToTextTranscript',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/events listLocalSpeechToTextTranscriptEvents',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/{id} getLocalSpeechToTextCallTranscript',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events listLocalSpeechToTextCallTranscriptEvents',
+    ];
+    sort($generatedTuples);
+    sort($expectedGeneratedTuples);
+    $selectedGeneratedTuples = array_values(array_filter(
+        $generatedTuples,
+        static fn(string $tuple): bool => in_array($tuple, $expectedGeneratedTuples, true)
+            || str_ends_with($tuple, ' getLocalSTTWorkerApiContract')
+            || str_ends_with($tuple, ' getLocalSTTWorkerProcessingSettings')
+            || str_ends_with($tuple, ' createLocalSTTJobLease')
+            || str_ends_with($tuple, ' patchLocalSTTJobLease')
+            || str_ends_with($tuple, ' deleteLocalSTTJobLease')
+            || str_ends_with($tuple, ' getLocalSTTJobRecording')
+            || str_ends_with($tuple, ' updateLocalSTTJobResult')
+            || str_ends_with($tuple, ' updateLocalSTTJobFailure')
+            || str_ends_with($tuple, ' listLocalSpeechToTextTranscripts')
+            || str_ends_with($tuple, ' getLocalSpeechToTextTranscript')
+            || str_ends_with($tuple, ' listLocalSpeechToTextTranscriptEvents')
+            || str_ends_with($tuple, ' getLocalSpeechToTextCallTranscript')
+            || str_ends_with($tuple, ' listLocalSpeechToTextCallTranscriptEvents')
+    ));
+    sort($selectedGeneratedTuples);
+    expectOpenApi($selectedGeneratedTuples === $expectedGeneratedTuples, 'Generated OpenAPI method/path tuple map changed');
     foreach ([':register', ':getProcessingSettings', ':getNext', ':download', ':submitResult', ':submitError', ':heartbeat', ':release'] as $suffix) {
         expectOpenApi(!in_array($suffix, $generatedPaths, true) && !str_contains(implode("\n", $generatedPaths), $suffix), "Generated OpenAPI must not contain {$suffix}");
     }

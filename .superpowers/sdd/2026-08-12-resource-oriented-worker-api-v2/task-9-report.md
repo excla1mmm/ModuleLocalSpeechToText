@@ -26,3 +26,9 @@ The focused contract again verifies current resource operations rather than the 
 Transcript, event, and call-transcript contracts again protect list wrappers, pagination and cursor constraints, revision constraints, schema structures, and detail/event example linkage. Tombstone coverage now derives generated paths from `ApiResource` plus `HttpMapping` metadata and checks all eight custom suffixes, including `Workers::getProcessingSettings`.
 
 RED: `LOCAL_STT_OPENAPI_MUTATION=drop-transcript-pagination php Tests/check-openapi-contract.php` exited 255 with `Transcript tag mutation must be detected by the OpenAPI contract`. GREEN: both focused OpenAPI checks and all changed PHP lint checks pass; `git diff --check` is clean. The translation check dynamically collects annotation keys across current REST controllers/data structures and validates them in every catalog; the recording binary-response description is an explicitly documented renderer-owned literal.
+
+## Fix round 2 — bind OpenAPI methods to generated paths
+
+The OpenAPI contract now derives method/path/operation-ID tuples from the reflected `ApiResource` and `HttpMapping` attributes, then exactly compares the current v2 resource tuple subset. It covers the compatibility and processing-settings singletons, all lease verbs and item routing, recording/result/failure item resources, and retained transcript/event/call-transcript resources.
+
+RED: `LOCAL_STT_OPENAPI_MUTATION=job-leases-patch-put php Tests/check-openapi-contract.php` exits 255 at `Generated OpenAPI method/path tuple map changed`; this mutates the production-derived tuple fixture before its ordinary exact assertion. GREEN: focused OpenAPI and translation contracts pass, test lint and diff hygiene pass. The existing route aggregate and its built-in mutation checks remain blocked before their mutation phase by the unrelated legacy terminal-shape assertion; no route or production controller was changed.
