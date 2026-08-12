@@ -19,3 +19,13 @@ POST requires `call_id`, a canonical readable regular file contained under the m
 No Core, AI, client, worker, permission, version, or translation file was changed. `min_pbx_version` remains `2025.1.1`. Core proxy Range behavior remains the accepted Task 6 live-PBX deferral. The Task 7 focused check protects routing/schema/service composition; related executable SQLite and processor suites supply the existing lifecycle, transaction, receipt, and authorization regression coverage.
 
 Commit subject: `feat: add STT management jobs resource`.
+
+## Fix Round 1 — Core routing, provenance, preservation, and runtime evidence
+
+The review's three Important production findings were reproduced. RED first failed on the absent Core action-map override: collection PATCH/DELETE would dispatch to item actions. The Jobs controller now overrides the existing Core-compatible `getActionMapping()` seam, registers POST only for collection create, and captures DELETE `status` directly from `request->getQuery()` into trusted provenance fields before the merged request reaches the Processor.
+
+Item PATCH/DELETE apply exact `CanonicalJobId` body/route validation before lifecycle acquisition. Collection DELETE ignores merged/body `status` and accepts only the trusted query value. Deletion checks result, terminal receipt, transcript event, and call-transcript part job references in the same transaction before deleting. Lists expose Core pagination metadata. POST rejects lexical traversal and every symlink component before canonical containment/readability checks; duplicate creation is serialized through the module transaction and database unique invariant.
+
+The new executable runtime harness loads actual Controller, Processor, management service, CanonicalJobId, and ModuleTransaction with only Core/Phalcon plumbing stubbed. Its file-backed SQLite and temporary monitor fixture covers exact action mapping/no item POST, valid and rejected paths, three-run stability, two-process duplicate creation, pagination, retry/reset and atomic bulk denial, all four history tables, query-only collection deletion, restricted/revoked/ambiguous/cached denial before lifecycle, admin access, canonical body IDs, and tombstone 426 without lifecycle dispatch.
+
+Follow-up subject: `fix: harden STT management jobs`.

@@ -50,4 +50,25 @@ foreach (['call_id', 'file_path', 'priority', 'ids', 'action', 'status', 'limit'
     }
 }
 
+foreach ([
+    "'collection' => 'patchCollection'",
+    "'collection' => 'deleteCollection'",
+    "'_query_status_present'",
+] as $routingContract) {
+    if (!str_contains($controller, $routingContract)) {
+        throw new RuntimeException("Core-shaped management routing/provenance contract is missing: {$routingContract}");
+    }
+}
+foreach ([
+    'CanonicalJobId::matchesRoute(',
+    'm_STTTranscriptEvent',
+    'm_STTCallTranscriptPart',
+    'lstat(',
+    'pagination',
+] as $behaviorContract) {
+    if (!str_contains($processor . $serviceSource, $behaviorContract)) {
+        throw new RuntimeException("Management behavior contract is missing: {$behaviorContract}");
+    }
+}
+
 echo "STT management Jobs v2 contract OK\n";

@@ -14,6 +14,22 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 ], resourceLevelMethods: ['getRecord','patch','delete','download','submitResult','submitError','heartbeat','release'], collectionLevelMethods: ['getList','create','patchCollection','deleteCollection','getNext'], customMethods: ['getNext','download','submitResult','submitError','heartbeat','release'], idPattern: '[0-9]+')]
 class Controller extends BaseRestController {
  protected string $processorClass=Processor::class;
+ protected function getActionMapping(): array { return [
+  'GET' => ['collection' => 'getList', 'resource' => 'getRecord'],
+  'POST' => ['collection' => 'create'],
+  'PATCH' => ['collection' => 'patchCollection', 'resource' => 'patch'],
+  'DELETE' => ['collection' => 'deleteCollection', 'resource' => 'delete'],
+ ]; }
+ public function handleCRUDRequest(?string $id=null): void {
+  $requestData=self::sanitizeData($this->request->getData(),$this->filter);
+  if(array_key_exists('id',$requestData))$requestData['_idFromRequestBody']=$requestData['id'];
+  if($id!==null&&$id!=='')$requestData['id']=$id;
+  $httpMethod=$this->request->getMethod();$action=$this->mapHttpMethodToAction($httpMethod,$id!==null);
+  if($action===null){$this->sendErrorResponse("Invalid HTTP method: $httpMethod",405);return;}
+  if(in_array($httpMethod,['POST','PUT','PATCH'],true))$requestData['httpMethod']=$httpMethod;
+  if($httpMethod==='DELETE'&&$id===null){$query=$this->request->getQuery();$requestData['_query_status_present']=is_array($query)&&array_key_exists('status',$query);$requestData['_query_status']=$requestData['_query_status_present']?$query['status']:null;}
+  $this->sendRequestToBackendWorker($this->processorClass,$action,$requestData);
+ }
  #[ApiDataSchema(schemaClass:DataStructure::class,type:'list',isArray:true)] #[ApiOperation(summary:'List STT jobs',operationId:'getLocalSTTJobs')] #[ApiParameterRef('status')] #[ApiParameterRef('call_id')] #[ApiParameterRef('limit')] #[ApiParameterRef('offset')] public function getList():void{}
  #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Get STT job',operationId:'getLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function getRecord(string $id):void{}
  #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Create STT job',operationId:'createLocalSTTJob')] #[ApiParameterRef('call_id',required:true)] #[ApiParameterRef('file_path',required:true)] #[ApiParameterRef('priority')] public function create():void{}
