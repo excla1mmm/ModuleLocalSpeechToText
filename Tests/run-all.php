@@ -16,6 +16,8 @@ $tests = [
     __DIR__ . '/check-worker-job-artifacts-v2.php',
     __DIR__ . '/check-job-submission-receipts-sqlite.php',
     __DIR__ . '/check-worker-job-artifact-processors-runtime.php',
+    __DIR__ . '/check-job-terminal-production-callsite.php',
+    __DIR__ . '/check-job-recording-production-composition.php',
     __DIR__ . '/check-job-submission-receipt-concurrency.php',
     __DIR__ . '/check-recording-runtime-security.php',
     __DIR__ . '/check-job-terminal-submission-service.php',
