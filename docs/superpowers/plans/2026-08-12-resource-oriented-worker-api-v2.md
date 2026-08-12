@@ -160,7 +160,7 @@ final class WorkerApiContract
 }
 ```
 
-Read `module.json` from `dirname(__DIR__, 2) . '/module.json'`, require scalar `version`, and return `1.45` from the packaged file. `requireVersion()` must inspect only the lower-case filtered header key and must run before a lifecycle write lease or model/service call.
+Read `module.json` from `dirname(__DIR__, 2) . '/module.json'`, require the current packaged `version` to be scalar, and return it dynamically. Task 11 owns the `module.json` release bump; only after Task 11 must the dynamically reported module version equal `1.45`. `requireVersion()` must inspect only the lower-case filtered header key and must run before a lifecycle write lease or model/service call.
 
 Build errors with:
 
@@ -185,6 +185,8 @@ $data['_worker_uid_header'] = (string)($headers['x-mikopbx-worker-uid'] ?? '');
 $data['_lease_token_header'] = (string)($headers['x-mikopbx-job-lease-token'] ?? '');
 ```
 
+Before those assignments, discard non-scalar filtered-header values so arrays or objects cannot be stringified, warn, throw, or leak their contents. Likewise, `isRestrictedWorkerKey()` must normalize a non-scalar `_api_key_id` to integer `0` before consulting `STTSetting`.
+
 `isRestrictedWorkerKey()` returns true only when `_auth_type === 'bearer_token'` and `STTSetting::isWorkerApiKeyIdAllowed((int)_api_key_id)` is true. Never include `_lease_token_header` in logs or error messages.
 
 - [ ] **Step 4: Add the singleton REST resource and legacy result factory**
@@ -197,12 +199,22 @@ Do not set `responseHeaders`. `LegacyRouteRejector::removed()` returns status 41
 
 ```bash
 php Tests/check-worker-api-v2-negotiation.php
-php Tests/check-worker-api-v2-version-contract.php
+WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php
+php Tests/check-rest-api-contract.php
+php -l Lib/Services/WorkerApiContract.php
+php -l Lib/RestAPI/Common/WorkerRequestContext.php
+php -l Lib/RestAPI/Common/LegacyRouteRejector.php
+php -l Lib/RestAPI/WorkerApiContract/Controller.php
+php -l Lib/RestAPI/WorkerApiContract/Processor.php
+php -l Lib/RestAPI/WorkerApiContract/DataStructure.php
+php -l Tests/check-worker-api-v2-negotiation.php
+php -l Tests/run-all.php
+git diff --check
 git add Lib/Services/WorkerApiContract.php Lib/RestAPI/Common Lib/RestAPI/WorkerApiContract Tests/check-worker-api-v2-negotiation.php Tests/run-all.php
 git commit -m "feat: add STT worker API v2 negotiation"
 ```
 
-Expected: both tests pass.
+Expected: the Task 2 negotiation test, version-source mutation mode, REST contract, syntax checks, and diff check pass. The plain version and route aggregates are progressive: after Task 2 they must reach the next unmet later-task contract (initially the legacy credential-bearing `file_url` and missing resource routes), and become fully green in their owning later tasks and the final suite. Do not expand Task 2 into `LocalSpeechToTextMain` or future resource processors merely to advance those aggregate failures.
 
 ### Task 3: Perform the real idempotent v1-to-v2 database migration
 

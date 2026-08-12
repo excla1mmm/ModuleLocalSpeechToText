@@ -16,6 +16,7 @@ final class WorkerRequestContext
         $data = is_array($request['data'] ?? null) ? $request['data'] : [];
         $sessionContext = is_array($request['sessionContext'] ?? null) ? $request['sessionContext'] : [];
         $headers = is_array($request['httpHeaders'] ?? null) ? $request['httpHeaders'] : [];
+        $headers = array_filter($headers, static fn(mixed $value): bool => is_scalar($value));
 
         $data['_remote_addr'] = is_scalar($sessionContext['remote_addr'] ?? null)
             ? (string)$sessionContext['remote_addr']
@@ -40,7 +41,9 @@ final class WorkerRequestContext
      */
     public static function isRestrictedWorkerKey(array $data): bool
     {
+        $apiKeyId = $data['_api_key_id'] ?? null;
+
         return ($data['_auth_type'] ?? null) === 'bearer_token'
-            && STTSetting::isWorkerApiKeyIdAllowed((int)($data['_api_key_id'] ?? 0));
+            && STTSetting::isWorkerApiKeyIdAllowed(is_scalar($apiKeyId) ? (int)$apiKeyId : 0);
     }
 }

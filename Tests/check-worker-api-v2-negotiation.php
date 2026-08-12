@@ -9,7 +9,6 @@ namespace MikoPBX\PBXCoreREST\Lib {
         public int $httpCode = 0;
         public array $data = [];
         public array $messages = [];
-        public array $responseHeaders = [];
         public string $processor = '';
         public string $function = '';
     }
@@ -124,8 +123,12 @@ namespace Modules\ModuleLocalSpeechToText\Lib {
 namespace Modules\ModuleLocalSpeechToText\Models {
     final class STTSetting
     {
+        public static int $lastCheckedId = -1;
+
         public static function isWorkerApiKeyIdAllowed(int $id): bool
         {
+            self::$lastCheckedId = $id;
+
             return $id === 42;
         }
     }
@@ -152,6 +155,43 @@ namespace {
         }
     }
 
+    /**
+     * @return array{result: mixed, output: string, exception: ?Throwable}
+     */
+    function captureMalformedV2(callable $operation): array
+    {
+        $result = null;
+        $exception = null;
+        ob_start();
+        set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
+            throw new ErrorException($message, 0, $severity, $file, $line);
+        });
+
+        try {
+            $result = $operation();
+        } catch (Throwable $error) {
+            $exception = $error;
+        } finally {
+            restore_error_handler();
+            $output = (string)ob_get_clean();
+        }
+
+        return ['result' => $result, 'output' => $output, 'exception' => $exception];
+    }
+
+    function expectBodyOnlyWorkerApiV2Source(string $source, string $label): void
+    {
+        expectV2(!str_contains($source, 'responseHeaders'), "{$label} must not depend on PBXApiResult response headers");
+        expectV2(
+            preg_match('/[\'\"]Upgrade(?:[\'\"]|\s*:)/i', $source) !== 1,
+            "{$label} must not emit or depend on an Upgrade header",
+        );
+        expectV2(
+            preg_match('/[\'\"]Cache-Control(?:[\'\"]|\s*:)/i', $source) !== 1,
+            "{$label} must not emit or depend on a Cache-Control header",
+        );
+    }
+
     $root = dirname(__DIR__);
     $requiredFiles = [
         '/Lib/Services/WorkerApiContract.php',
@@ -163,7 +203,25 @@ namespace {
     ];
     foreach ($requiredFiles as $relativeFile) {
         expectV2(is_file($root . $relativeFile), "Missing Task 2 production file: {$relativeFile}");
+        $productionSource = (string)file_get_contents($root . $relativeFile);
+        expectBodyOnlyWorkerApiV2Source($productionSource, $relativeFile);
         require_once $root . $relativeFile;
+    }
+
+    foreach ([
+        '$result->responseHeaders = [];',
+        "header('Upgrade: MikoPBX-Worker-API/2');",
+        "header('Cache-Control: no-store');",
+    ] as $forbiddenSource) {
+        try {
+            expectBodyOnlyWorkerApiV2Source($forbiddenSource, 'mutation fixture');
+            throw new RuntimeException('forbidden body-only source mutation was accepted');
+        } catch (RuntimeException $error) {
+            expectV2(
+                !str_contains($error->getMessage(), 'accepted'),
+                'body-only production source guard did not reject the intended mutation',
+            );
+        }
     }
 
     $moduleMetadata = json_decode((string)file_get_contents($root . '/module.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -186,7 +244,6 @@ namespace {
             'job-failures',
         ],
     ], 'contract response shape changed', $contract->data);
-    expectV2($contract->responseHeaders === [], 'contract response must not depend on Core response-header forwarding');
 
     expectV2(
         WorkerApiContract::requireVersion(['httpHeaders' => ['x-mikopbx-worker-api-version' => '2']]) === null,
@@ -209,7 +266,6 @@ namespace {
         expectV2(($error?->data['module'] ?? '') === 'ModuleLocalSpeechToText', 'upgrade error module changed', $error?->data);
         expectV2(($error?->data['module_version'] ?? '') === $packagedVersion, 'upgrade error module version changed', $error?->data);
         expectV2(($error?->data['required_worker_api_version'] ?? null) === 2, 'required version missing', $error?->data);
-        expectV2($error?->responseHeaders === [], 'upgrade errors must not depend on Core response-header forwarding');
     }
 
     $context = WorkerRequestContext::data([
@@ -244,6 +300,57 @@ namespace {
     expectV2(WorkerRequestContext::isRestrictedWorkerKey($context), 'configured bearer worker key must be restricted');
     expectV2(!WorkerRequestContext::isRestrictedWorkerKey(array_replace($context, ['_auth_type' => 'jwt'])), 'non-worker auth must not be restricted');
     expectV2(!WorkerRequestContext::isRestrictedWorkerKey(array_replace($context, ['_api_key_id' => 7])), 'unconfigured bearer key must not be restricted');
+
+    $headerMalformations = [
+        [
+            'headers' => [
+                'x-mikopbx-worker-uid' => ['secret-worker-array-sentinel'],
+                'x-mikopbx-job-lease-token' => ['secret-lease-array-sentinel'],
+            ],
+            'sentinels' => ['secret-worker-array-sentinel', 'secret-lease-array-sentinel'],
+        ],
+        [
+            'headers' => [
+                'x-mikopbx-worker-uid' => (object)['secret' => 'secret-worker-object-sentinel'],
+                'x-mikopbx-job-lease-token' => (object)['secret' => 'secret-lease-object-sentinel'],
+            ],
+            'sentinels' => ['secret-worker-object-sentinel', 'secret-lease-object-sentinel'],
+        ],
+    ];
+    foreach ($headerMalformations as $malformation) {
+        $outcome = captureMalformedV2(static fn(): array => WorkerRequestContext::data([
+            'httpHeaders' => $malformation['headers'],
+        ]));
+        $diagnostics = $outcome['output'] . ($outcome['exception']?->getMessage() ?? '');
+        foreach ($malformation['sentinels'] as $sentinel) {
+            expectV2(!str_contains($diagnostics, $sentinel), 'malformed ownership header secret leaked into diagnostics');
+        }
+        expectV2($outcome['exception'] === null, 'malformed ownership headers must not warn or throw', $outcome['exception']?->getMessage());
+        expectV2($outcome['output'] === '', 'malformed ownership headers must not emit output');
+        expectV2(($outcome['result']['_worker_uid_header'] ?? null) === '', 'non-scalar worker UID header must normalize to empty string');
+        expectV2(($outcome['result']['_lease_token_header'] ?? null) === '', 'non-scalar lease token header must normalize to empty string');
+    }
+
+    foreach ([
+        ['value' => ['secret-api-key-array-sentinel'], 'sentinel' => 'secret-api-key-array-sentinel'],
+        ['value' => (object)['secret' => 'secret-api-key-object-sentinel'], 'sentinel' => 'secret-api-key-object-sentinel'],
+    ] as $malformation) {
+        \Modules\ModuleLocalSpeechToText\Models\STTSetting::$lastCheckedId = -1;
+        $outcome = captureMalformedV2(static fn(): bool => WorkerRequestContext::isRestrictedWorkerKey([
+            '_auth_type' => 'bearer_token',
+            '_api_key_id' => $malformation['value'],
+        ]));
+        $diagnostics = $outcome['output'] . ($outcome['exception']?->getMessage() ?? '');
+        expectV2(!str_contains($diagnostics, $malformation['sentinel']), 'malformed API key secret leaked into diagnostics');
+        expectV2($outcome['exception'] === null, 'malformed API key id must not warn or throw', $outcome['exception']?->getMessage());
+        expectV2($outcome['output'] === '', 'malformed API key id must not emit output');
+        expectV2($outcome['result'] === false, 'malformed API key id must never identify a restricted worker key');
+        expectV2(
+            \Modules\ModuleLocalSpeechToText\Models\STTSetting::$lastCheckedId === 0,
+            'malformed API key id must normalize to integer zero',
+            \Modules\ModuleLocalSpeechToText\Models\STTSetting::$lastCheckedId,
+        );
+    }
 
     $stripped = WorkerRequestContext::data(['data' => $context]);
     foreach (['_remote_addr', '_auth_type', '_api_key_id', '_http_method'] as $field) {
