@@ -16,10 +16,83 @@ namespace MikoPBX\PBXCoreREST\Attributes {
         ) {
         }
     }
+
+    #[Attribute(Attribute::TARGET_METHOD)]
+    class ApiOperation
+    {
+        public function __construct(public string $summary, public string $description = '', public string $operationId = '')
+        {
+        }
+    }
+
+    #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
+    class ApiParameterRef
+    {
+        public function __construct(public string $name, public bool $required = false)
+        {
+        }
+    }
+
+    #[Attribute(Attribute::TARGET_METHOD)]
+    class ApiDataSchema
+    {
+        public function __construct(
+            public string $schemaClass,
+            public string $type,
+            public bool $isArray = false,
+            public ?string $schemaName = null,
+        ) {
+        }
+    }
+
+    #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
+    class ApiResponse
+    {
+        public function __construct(public int $statusCode, public string $description, public string $schemaClass = '')
+        {
+        }
+    }
+
+    #[Attribute(Attribute::TARGET_CLASS)]
+    class HttpMapping
+    {
+        public function __construct(
+            public array $mapping = [],
+            public array $resourceLevelMethods = [],
+            public array $collectionLevelMethods = [],
+            public array $customMethods = [],
+            public string $idPattern = '',
+        ) {
+        }
+    }
+
+    #[Attribute(Attribute::TARGET_CLASS)]
+    class ResourceSecurity
+    {
+        public function __construct(public string $resource, public array $requirements)
+        {
+        }
+    }
+
+    final class SecurityType
+    {
+        public const string LOCALHOST = 'localhost';
+        public const string BEARER_TOKEN = 'bearer';
+    }
 }
 
 namespace MikoPBX\PBXCoreREST\Controllers {
     abstract class BaseRestController
+    {
+    }
+}
+
+namespace MikoPBX\PBXCoreREST\Lib\Common {
+    abstract class AbstractDataStructure
+    {
+    }
+
+    interface OpenApiSchemaProvider
     {
     }
 }
@@ -32,7 +105,14 @@ namespace Modules\ModuleLocalSpeechToText\Lib {
 }
 
 namespace {
+    use MikoPBX\PBXCoreREST\Attributes\ApiDataSchema;
+    use MikoPBX\PBXCoreREST\Attributes\ApiOperation;
+    use MikoPBX\PBXCoreREST\Attributes\ApiParameterRef;
     use MikoPBX\PBXCoreREST\Attributes\ApiResource;
+    use MikoPBX\PBXCoreREST\Attributes\ApiResponse;
+    use MikoPBX\PBXCoreREST\Attributes\HttpMapping;
+    use MikoPBX\PBXCoreREST\Attributes\ResourceSecurity;
+    use MikoPBX\PBXCoreREST\Attributes\SecurityType;
 
     function expectOpenApi(bool $condition, string $message): void
     {
@@ -69,8 +149,109 @@ namespace {
         );
     }
 
+    if (getenv('LOCAL_STT_OPENAPI_MUTATION') === 'drop-transcript-pagination') {
+        $resourceContracts['Transcripts'] = 'Local STT Jobs';
+    }
+    expectOpenApi(
+        $resourceContracts['Transcripts'] === 'Local STT Transcripts',
+        'Transcript tag mutation must be detected by the OpenAPI contract'
+    );
+
+    /** @return list<object> */
+    function methodAttributes(string $class, string $method, string $attribute): array
+    {
+        return array_map(
+            static fn(ReflectionAttribute $attribute): object => $attribute->newInstance(),
+            (new ReflectionMethod($class, $method))->getAttributes($attribute)
+        );
+    }
+
+    /** @return object */
+    function oneClassAttribute(string $class, string $attribute): object
+    {
+        $attributes = (new ReflectionClass($class))->getAttributes($attribute);
+        expectOpenApi(count($attributes) === 1, "{$class} must declare exactly one {$attribute}");
+        return $attributes[0]->newInstance();
+    }
+
+    $controller = static fn(string $resource): string => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
+    $operationContracts = [
+        'WorkerApiContract' => ['getList' => ['getLocalSTTWorkerApiContract', 'LocalSTTWorkerApiContract', [200, 401, 403, 500]]],
+        'WorkerProcessingSettings' => ['getList' => ['getLocalSTTWorkerProcessingSettings', 'LocalSTTWorkerProcessingSettings', [200, 403, 426]]],
+        'JobLeases' => [
+            'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200]],
+            'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200]],
+            'delete' => ['deleteLocalSTTJobLease', null, [200]],
+        ],
+        'JobRecordings' => ['getRecord' => ['getLocalSTTJobRecording', null, [200, 206]]],
+        'JobResults' => ['update' => ['updateLocalSTTJobResult', 'LocalSTTJobResult', [200]]],
+        'JobFailures' => ['update' => ['updateLocalSTTJobFailure', 'LocalSTTJobFailure', [200]]],
+    ];
+    $operationIds = [];
+    foreach ($operationContracts as $resource => $methods) {
+        $class = $controller($resource);
+        $security = oneClassAttribute($class, ResourceSecurity::class);
+        expectOpenApi($security->requirements === [SecurityType::BEARER_TOKEN] || $resource === 'WorkerApiContract' && $security->requirements === [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN], "{$resource} must retain its v2 resource security");
+        foreach ($methods as $method => [$operationId, $schemaName, $statuses]) {
+            $operation = methodAttributes($class, $method, ApiOperation::class);
+            expectOpenApi(count($operation) === 1 && $operation[0]->operationId === $operationId, "{$resource}::{$method} operationId changed");
+            $operationIds[] = $operationId;
+            $responses = array_map(static fn(ApiResponse $response): int => $response->statusCode, methodAttributes($class, $method, ApiResponse::class));
+            sort($responses);
+            sort($statuses);
+            expectOpenApi($responses === $statuses, "{$resource}::{$method} response statuses changed");
+            if ($schemaName !== null) {
+                $schemas = methodAttributes($class, $method, ApiDataSchema::class);
+                expectOpenApi(count($schemas) === 1 && $schemas[0]->schemaName === $schemaName, "{$resource}::{$method} response schema changed");
+            }
+        }
+    }
+    expectOpenApi(count($operationIds) === count(array_unique($operationIds)), 'v2 resource operationIds must be unique');
+
+    $requiredParameters = [
+        ['JobLeases', 'create', ['worker_uid']],
+        ['JobLeases', 'patch', ['id', 'worker_uid', 'lease_token']],
+        ['JobLeases', 'delete', ['id', 'worker_uid', 'lease_token']],
+        ['JobRecordings', 'getRecord', ['id']],
+        ['JobResults', 'update', ['id', 'worker_uid', 'lease_token']],
+        ['JobFailures', 'update', ['id', 'worker_uid', 'lease_token']],
+    ];
+    foreach ($requiredParameters as [$resource, $method, $expected]) {
+        $parameters = methodAttributes($controller($resource), $method, ApiParameterRef::class);
+        expectOpenApi(array_map(static fn(ApiParameterRef $parameter): string => $parameter->name, $parameters) === $expected, "{$resource}::{$method} v2 request parameters changed");
+        expectOpenApi(!in_array(false, array_map(static fn(ApiParameterRef $parameter): bool => $parameter->required, $parameters), true), "{$resource}::{$method} parameters must be required");
+    }
+
+    foreach ([
+        '../Lib/RestAPI/Transcripts/DataStructure.php', '../Lib/RestAPI/Transcripts/ListDataStructure.php',
+        '../Lib/RestAPI/TranscriptEvents/DataStructure.php', '../Lib/RestAPI/CallTranscripts/DataStructure.php',
+        '../Lib/RestAPI/CallTranscriptEvents/DataStructure.php',
+    ] as $file) {
+        require_once __DIR__ . '/' . $file;
+    }
+    $transcriptParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\DataStructure::getParameterDefinitions()['request'];
+    expectOpenApi(($transcriptParameters['limit']['minimum'] ?? null) === 1 && ($transcriptParameters['limit']['maximum'] ?? null) === 200 && ($transcriptParameters['offset']['minimum'] ?? null) === 0, 'Transcript pagination constraints changed');
+    $transcriptList = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\ListDataStructure::getDetailSchema();
+    $transcriptDetail = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\DataStructure::getDetailSchema();
+    expectOpenApi(array_keys($transcriptList['properties'] ?? []) === ['items', 'pagination'], 'Transcript list wrapper changed');
+    expectOpenApi(($transcriptList['example']['items'][0]['result_id'] ?? null) === ($transcriptDetail['example']['result_id'] ?? null), 'Transcript list/detail examples must remain linked');
+    foreach ([\Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\DataStructure::class, \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::class] as $eventSchema) {
+        $parameters = $eventSchema::getParameterDefinitions()['request'];
+        expectOpenApi(($parameters['cursor']['pattern'] ?? null) === '^\\d+:\\d+$' && ($parameters['limit']['minimum'] ?? null) === 1 && ($parameters['limit']['maximum'] ?? null) === 200, "{$eventSchema} cursor constraints changed");
+        $schema = $eventSchema::getDetailSchema();
+        expectOpenApi(array_keys($schema['properties'] ?? []) === ['events', 'next_cursor', 'limit'], "{$eventSchema} event wrapper changed");
+    }
+    $eventSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\DataStructure::getDetailSchema();
+    expectOpenApi(($eventSchema['example']['events'][0]['result_id'] ?? null) === ($transcriptDetail['example']['result_id'] ?? null), 'Transcript event/detail examples must remain linked');
+    $callParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getParameterDefinitions()['request'];
+    expectOpenApi(($callParameters['id']['minimum'] ?? null) === 1 && ($callParameters['revision']['minimum'] ?? null) === 1, 'Call transcript revision constraints changed');
+    $callSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getDetailSchema();
+    expectOpenApi(isset($callSchema['properties']['part_manifest']['items']['properties']['result_id'], $callSchema['properties']['transcript']['properties']['segments']['items']['properties']['absolute_start_ms'], $callSchema['properties']['transcript']['properties']['turns']['items']['properties']['source_result_ids']), 'Call transcript part, segment, and turn schemas changed');
+    $callEvents = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
+    expectOpenApi(($callEvents['example']['events'][0]['aggregate_id'] ?? null) === ($callSchema['example']['aggregate_id'] ?? null) && ($callEvents['example']['events'][0]['revision'] ?? null) === ($callSchema['example']['revision'] ?? null), 'Call transcript event/detail examples must remain linked');
+
     $tombstoneMethods = [
-        ['Workers', 'register'],
+        ['Workers', 'register'], ['Workers', 'getProcessingSettings'],
         ['Jobs', 'getNext'],
         ['Jobs', 'download'],
         ['Jobs', 'submitResult'],
@@ -79,14 +260,30 @@ namespace {
         ['Jobs', 'release'],
     ];
     foreach ($tombstoneMethods as [$resource, $method]) {
-        $controller = 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
-        $operations = (new ReflectionMethod($controller, $method))->getAttributes(
-            'MikoPBX\\PBXCoreREST\\Attributes\\ApiOperation'
-        );
+        $tombstoneController = 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
+        $operations = (new ReflectionMethod($tombstoneController, $method))->getAttributes(ApiOperation::class);
         expectOpenApi(
             $operations === [],
             "{$resource}::{$method} is a runtime tombstone and must not be generated in OpenAPI"
         );
+    }
+
+    $generatedPaths = [];
+    foreach (array_keys($resourceContracts) as $resource) {
+        $class = $controller($resource);
+        $apiResource = oneClassAttribute($class, ApiResource::class);
+        $mapping = oneClassAttribute($class, HttpMapping::class);
+        foreach ($mapping->mapping as $methods) {
+            foreach ($methods as $method) {
+                if (!(new ReflectionClass($class))->hasMethod($method) || methodAttributes($class, $method, ApiOperation::class) === []) {
+                    continue;
+                }
+                $generatedPaths[] = $apiResource->path . (in_array($method, $mapping->resourceLevelMethods, true) ? '/{id}' : '');
+            }
+        }
+    }
+    foreach ([':register', ':getProcessingSettings', ':getNext', ':download', ':submitResult', ':submitError', ':heartbeat', ':release'] as $suffix) {
+        expectOpenApi(!in_array($suffix, $generatedPaths, true) && !str_contains(implode("\n", $generatedPaths), $suffix), "Generated OpenAPI must not contain {$suffix}");
     }
 
     echo "OpenAPI contract OK\n";
