@@ -44,3 +44,13 @@ Added an executable Core-shaped processor harness covering actual JobResults/Job
 Live-only remainder: full recording byte delivery through Core controller/proxy, especially Range 206/416 and monitor symlink behavior, still requires the isolated PBX curl matrix because the host has no Phalcon/Core controller runtime. Existing module domain contract tests cover duration, timestamps, and technical info.
 
 Follow-up subject: `test: verify STT artifact resource integration`.
+
+## Fix Round 3 — durable races and recording path execution
+
+Re-review retained two Important verification gaps. Added a committed file-backed WAL-compatible two-process harness using the production `JobSubmissionReceiptService`, `ModuleTransaction`, and receipt migration. A start-file barrier releases simultaneous identical and differing payloads. Repeated runs prove one domain mutation and one receipt; identical callers receive equivalent responses, while differing callers produce one decorated conflict without overwriting the winner. Child exit codes and stderr are asserted.
+
+Added a module-side runtime security test loading the actual `LocalSpeechToTextMain` private recording containment, size, MIME, and `fileResponse` implementations with only Core/Phalcon plumbing stubbed. It executes a temporary monitor tree and proves inside-file success, traversal/outside regular-file/outside-symlink rejection, oversize rejection, and the exact `fpassthru` filename/delete/download/content-type envelope. Its mutation mode fails explicitly.
+
+Live-only remainder remains Core proxy byte streaming and Range 206/416 curl verification. The local test executes the exact module `fpassthru` metadata handed to Core, but does not emulate Core controller streaming.
+
+Follow-up subject: `test: exercise STT artifact races and paths`.
