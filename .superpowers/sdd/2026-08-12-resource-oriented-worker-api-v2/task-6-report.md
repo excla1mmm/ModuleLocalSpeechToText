@@ -82,3 +82,13 @@ Added exactly two executable harnesses. `check-job-terminal-production-callsite.
 RED: both new commands exited 255 with `Task 6V ... harness is not implemented`. GREEN: each command passed three consecutive executions. Both production-fixture mutation modes exited 255 at their ordinary assertions. All available Task 6/receipt/recording/Task 5/queue/Task 4 focused regressions passed except `check-worker-api-key-permissions.php`, which cannot load the absent relative Core `ActionType.php` on this host. The plain route aggregate remains staged on Task 7 management Jobs/legacy mappings, and the plain version aggregate retains the established missing literal symbol; both mutation modes pass. Core is unchanged and `min_pbx_version` remains `2025.1.1`.
 
 Task 6V subject: `test: unblock STT artifact verification`.
+
+### Task 6V fix round 1 — load-bearing production utilities and cleanup
+
+The Task 6V review was BLOCKED with 2 Important findings and 1 Minor: the terminal harness replaced `CallTranscriptRevisionService`, normalization/quality were not load-bearing, and recording temporary files were not removed. RED reproduced both structural defects: the terminal harness failed `actual CallTranscriptRevisionService is not loaded`, and one recording run increased the `stt-composed-*` temporary-directory count.
+
+Harness A now loads the actual `CallTranscriptAssembler`, `CallTranscriptRevisionPolicy`, and `CallTranscriptRevisionService`. A real non-empty `call_id` fixture includes an existing aggregate, current part, and published revision; actual `recordCompletedPart()` creates a new current part with asserted result/job/CDR/fingerprint/source/segment metadata and stages the aggregate's next pending revision. Receipt-insert and commit failures roll back the new part and aggregate state together with result, event, job CAS, and receipt boundaries.
+
+The result payload uses string millisecond timestamps and duration plus one deterministic empty-text quality rejection. Exact normalized/filtered transcript, numeric duration, merged `technical_info.quality` and `server_quality` output, and normalize/quality/result/event/CAS/revision-part order are asserted. Separate modified production fixtures bypass event, revision, normalizer, and quality callsites; each fails an ordinary order or stored-output assertion. Harness B removes the inside file, outside file, symlink, and monitor tree in `finally`, including mutation/failure exits. Both harnesses passed three consecutive runs; all five mutation variants were detected.
+
+Fix round 1 subject: `test: harden STT terminal production harness`.
