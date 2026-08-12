@@ -125,9 +125,15 @@ namespace {
         preg_match_all('/if\((?<condition>[^{}]+)\)\{/', $callback, $conditions, PREG_OFFSET_CAPTURE);
         $scope = null;
         foreach ($conditions['condition'] ?? [] as $index => [$condition, $conditionOffset]) {
-            $createOnly = preg_match('/(?:\$action===WorkerAction::CREATE|WorkerAction::CREATE===\$action)/', $condition) === 1;
-            $restrictedOnly = str_contains($condition, 'WorkerRequestContext::isRestrictedWorkerKey($data)');
-            if (!$createOnly || !$restrictedOnly || !str_contains($condition, '&&')) {
+            $flatCondition = str_replace(['(', ')'], '', $condition);
+            $restricted = 'WorkerRequestContext::isRestrictedWorkerKey$data';
+            $allowedConditions = [
+                '$action===WorkerAction::CREATE&&' . $restricted,
+                'WorkerAction::CREATE===$action&&' . $restricted,
+                $restricted . '&&$action===WorkerAction::CREATE',
+                $restricted . '&&WorkerAction::CREATE===$action',
+            ];
+            if (!in_array($flatCondition, $allowedConditions, true)) {
                 continue;
             }
             $ifOffset = $conditions[0][$index][1];
@@ -368,6 +374,8 @@ namespace {
         foreach ([
             'function callBack(array $request) { $data = WorkerRequestContext::data($request); return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data) }; }',
             'function callBack(array $request) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data), WorkerAction::GET_LIST => $service->getList($data) }; }',
+            'function callBack(array $request) { $data = WorkerRequestContext::data($request); if (($action === WorkerAction::CREATE && WorkerRequestContext::isRestrictedWorkerKey($data)) || $action === WorkerAction::GET_LIST) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data), WorkerAction::GET_LIST => $service->getList($data) }; }',
+            'function callBack(array $request) { $data = WorkerRequestContext::data($request); if ($action === WorkerAction::GET_RECORD || ($action === WorkerAction::CREATE && WorkerRequestContext::isRestrictedWorkerKey($data))) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data), WorkerAction::GET_RECORD => $service->getRecord($data) }; }',
         ] as $unsafeCreate) {
             try {
                 assertRestrictedWorkerCreateVersionScope($unsafeCreate);
@@ -376,6 +384,7 @@ namespace {
                 expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'restricted create gate mutation did not fail for the intended reason');
             }
         }
+        assertRestrictedWorkerCreateVersionScope('function callBack(array $request) { $data = WorkerRequestContext::data($request); if (((WorkerRequestContext::isRestrictedWorkerKey(($data)))) && (($action) === (WorkerAction::CREATE))) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data) }; }');
         $validTombstone = new MikoPBX\PBXCoreREST\Lib\PBXApiResult();
         $validTombstone->httpCode = 426;
         $validTombstone->data = ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2];

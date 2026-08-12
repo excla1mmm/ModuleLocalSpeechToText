@@ -211,3 +211,36 @@ These are the human-approved RED outcomes. No production or Core code was change
 
 - The focused suite intentionally remains RED until later tasks add the v2 resources and shared helpers.
 - The restricted-create test is a bounded source-structure contract; Task 4 behavioral tests remain responsible for proving restricted-key binding and administrator access at runtime.
+
+## Fix Round 2 (exclusive restricted-create gate)
+
+### Fix
+
+`assertRestrictedWorkerCreateVersionScope()` now accepts only the two required semantic operands—`$action === WorkerAction::CREATE` and `WorkerRequestContext::isRestrictedWorkerKey($data)`—joined exclusively by `&&`. Operand order, reversed strict equality, whitespace, and harmless parentheses remain allowed after token/parenthesis normalization. Any `||`, extra `WorkerAction`, admin branch, or third condition is rejected.
+
+The mutation set now includes both `(restricted CREATE) || GET_LIST` and `GET_RECORD || (restricted CREATE)`. Before the assertion change, `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` exited 255 with `restricted create gate mutation did not fail for the intended reason`, proving the prior guard accepted the broadened condition. After the change, the same command exits 0 with `Worker API v2 version mutation checks OK`.
+
+### Verification evidence
+
+| Command | Exit | Exact output / expected reason |
+| --- | ---: | --- |
+| `php Tests/check-worker-api-v2-route-contract.php` | 255 | Expected RED: `Reflected v2 ApiResource/HttpMapping operation set changed`; v2 resources remain unimplemented. |
+| `php Tests/check-worker-api-v2-version-contract.php` | 255 | Expected RED: `WorkerApiContract.php must exist before v2 routes can run`; Task 2 helpers remain unimplemented. |
+| `WORKER_API_V2_ROUTE_MUTATION=1 php Tests/check-worker-api-v2-route-contract.php` | 0 | `Worker API v2 route mutation checks OK` |
+| `WORKER_API_V2_VERSION_MUTATION=1 php Tests/check-worker-api-v2-version-contract.php` | 0 | `Worker API v2 version mutation checks OK` |
+| `php -l Tests/check-worker-api-v2-route-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-route-contract.php` |
+| `php -l Tests/check-worker-api-v2-version-contract.php` | 0 | `No syntax errors detected in Tests/check-worker-api-v2-version-contract.php` |
+| `php -l Tests/run-all.php` | 0 | `No syntax errors detected in Tests/run-all.php` |
+| `git diff --check` | 0 | No output. |
+
+### Files changed and self-review
+
+- Changed only `Tests/check-worker-api-v2-version-contract.php` and this tracked report.
+- Confirmed the two previously addressed Important findings were not reworked.
+- Confirmed the existing safe restricted-CREATE fixture still passes, including formatting and parentheses.
+- Confirmed both broadened admin-action mutations are rejected by the production assertion rather than by fixture/setup errors.
+- No production, Core, runner, route-test, or unrelated file was modified.
+
+### Concerns
+
+- The source contract intentionally fixes the gate to the planned `WorkerAction::CREATE` and `WorkerRequestContext::isRestrictedWorkerKey($data)` shape; Task 4 runtime tests must still prove administrative requests remain ungated in execution.
