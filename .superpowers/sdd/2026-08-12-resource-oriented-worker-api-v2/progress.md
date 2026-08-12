@@ -83,3 +83,4 @@ Task 7: re-review after fix round 3 NEEDS FIX (test-only Important): the Core st
 Task 7: fix round 4/5 ready for re-review (faithful recursive numeric coercion, actual Controller-to-Processor/service rejection paths, and raw-id/priority/ids production-fixture mutations alongside prior modes; follow-up subject `test: bind STT Jobs raw input validation`).
 Task 7: final re-review PASS (0 Critical/Important; routing, query provenance, history/path/pagination/concurrency/auth/raw-input guarantees verified).
 Task 7: complete (commits efdca72..7823ede; plain route aggregate and mutation green).
+Task 8: implementation ready for review (exact eight-path map; transactional current+historical reconciliation with rollback/cache ordering; real-Core permission rehearsal and executable Task4–7 authorization matrix; RED old map, focused/mutation/regression checks green; subject `feat: restrict STT worker API v2 permissions`).

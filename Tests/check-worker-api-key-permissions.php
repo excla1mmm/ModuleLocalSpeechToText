@@ -5,8 +5,11 @@ declare(strict_types=1);
 use MikoPBX\PBXCoreREST\Services\ApiKeyPermissionChecker;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 
-require_once dirname(__DIR__, 2) . '/../Core/src/PBXCoreREST/Attributes/ActionType.php';
-require_once dirname(__DIR__, 2) . '/../Core/src/PBXCoreREST/Services/ApiKeyPermissionChecker.php';
+$core = is_file(dirname(__DIR__, 2) . '/../Core/src/PBXCoreREST/Services/ApiKeyPermissionChecker.php')
+    ? dirname(__DIR__, 2) . '/../Core'
+    : '/Users/excla1m/Development/Core';
+require_once $core . '/src/PBXCoreREST/Attributes/ActionType.php';
+require_once $core . '/src/PBXCoreREST/Services/ApiKeyPermissionChecker.php';
 require_once __DIR__ . '/../Lib/Services/WorkerApiKeyService.php';
 
 function expectWorkerPermission(bool $condition, string $message): void
@@ -17,7 +20,13 @@ function expectWorkerPermission(bool $condition, string $message): void
 }
 
 $expectedPaths = [
+    '/api/v3/module-local-speech-to-text/worker-api-contract' => 'read',
     '/api/v3/module-local-speech-to-text/workers' => 'write',
+    '/api/v3/module-local-speech-to-text/worker-processing-settings' => 'read',
+    '/api/v3/module-local-speech-to-text/job-leases' => 'write',
+    '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
+    '/api/v3/module-local-speech-to-text/job-results' => 'write',
+    '/api/v3/module-local-speech-to-text/job-failures' => 'write',
     '/api/v3/module-local-speech-to-text/jobs' => 'write',
 ];
 
@@ -30,7 +39,7 @@ expectWorkerPermission(
 $allowedPaths = WorkerApiKeyService::WORKER_ALLOWED_PATHS;
 expectWorkerPermission(
     $allowedPaths === $expectedPaths,
-    'Worker credentials must contain only the workers and jobs resources'
+    'Worker credentials must contain the exact eight worker API v2 paths'
 );
 
 $key = (object)[
@@ -41,6 +50,15 @@ $key = (object)[
 $checker = new ApiKeyPermissionChecker();
 
 foreach ([
+    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/worker-api-contract'],
+    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/workers'],
+    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/worker-processing-settings'],
+    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/job-leases'],
+    ['PATCH', '/pbxcore/api/v3/module-local-speech-to-text/job-leases/42'],
+    ['DELETE', '/pbxcore/api/v3/module-local-speech-to-text/job-leases/42'],
+    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/job-recordings/42'],
+    ['PUT', '/pbxcore/api/v3/module-local-speech-to-text/job-results/42'],
+    ['PUT', '/pbxcore/api/v3/module-local-speech-to-text/job-failures/42'],
     ['POST', '/pbxcore/api/v3/module-local-speech-to-text/workers:register'],
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/workers:getProcessingSettings?worker_uid=worker-a'],
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/jobs:getNext?worker_uid=worker-a'],
@@ -71,9 +89,7 @@ foreach ([
 $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
 expectWorkerPermission($setup !== false, 'Cannot read PbxExtensionSetup.php');
 expectWorkerPermission(
-    str_contains($setup, 'WorkerApiKeyService::WORKER_ALLOWED_PATHS')
-        && str_contains($setup, "full_permissions = '0'")
-        && str_contains($setup, '$apiKey->allowed_paths = json_encode('),
+    str_contains($setup, 'reconcileStoredWorkerApiKeys()'),
     'Upgrade reconciliation must replace legacy worker permissions and clear full access'
 );
 

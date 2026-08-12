@@ -23,6 +23,7 @@ $tests = [
     __DIR__ . '/check-job-terminal-submission-service.php',
     __DIR__ . '/check-management-jobs-v2.php',
     __DIR__ . '/check-management-jobs-v2-runtime.php',
+    __DIR__ . '/check-worker-api-v2-authorization-matrix.php',
 ];
 
 foreach (glob(__DIR__ . '/check-*.php') ?: [] as $test) {

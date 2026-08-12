@@ -14,7 +14,13 @@ use Throwable;
 class WorkerApiKeyService
 {
     public const array WORKER_ALLOWED_PATHS = [
+        '/api/v3/module-local-speech-to-text/worker-api-contract' => 'read',
         '/api/v3/module-local-speech-to-text/workers' => 'write',
+        '/api/v3/module-local-speech-to-text/worker-processing-settings' => 'read',
+        '/api/v3/module-local-speech-to-text/job-leases' => 'write',
+        '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
+        '/api/v3/module-local-speech-to-text/job-results' => 'write',
+        '/api/v3/module-local-speech-to-text/job-failures' => 'write',
         '/api/v3/module-local-speech-to-text/jobs' => 'write',
     ];
 
@@ -151,6 +157,39 @@ class WorkerApiKeyService
     public function clearCoreApiKeyCache(): void
     {
         TokenValidationService::clearCache();
+    }
+
+    public function reconcileStoredWorkerApiKeys(): void
+    {
+        $ids = array_values(array_unique(array_merge(
+            STTSetting::workerApiKeyIds(),
+            STTSetting::workerApiKeyHistoryIds()
+        )));
+        $changed = false;
+        $snapshots = [];
+        $this->beginCoreApiKeyTransaction();
+        try {
+            foreach ($ids as $apiKeyId) {
+                $apiKey = ApiKeys::findFirstById((int)$apiKeyId);
+                if (!$apiKey instanceof ApiKeys) continue;
+                $allowedPaths = json_decode((string)$apiKey->allowed_paths, true);
+                if ((string)$apiKey->full_permissions === '0' && $allowedPaths === self::WORKER_ALLOWED_PATHS) continue;
+                $snapshots[] = [$apiKey, (string)$apiKey->full_permissions, (string)$apiKey->allowed_paths];
+                $apiKey->full_permissions = '0';
+                $apiKey->allowed_paths = json_encode(self::WORKER_ALLOWED_PATHS, JSON_THROW_ON_ERROR);
+                if (!$apiKey->save()) throw new RuntimeException(implode(', ', $apiKey->getMessages()));
+                $changed = true;
+            }
+            $this->commitCoreApiKeyTransaction();
+        } catch (Throwable $exception) {
+            $this->rollBackCoreApiKeyTransaction();
+            foreach ($snapshots as [$apiKey, $fullPermissions, $allowedPaths]) {
+                $apiKey->full_permissions = $fullPermissions;
+                $apiKey->allowed_paths = $allowedPaths;
+            }
+            throw $exception;
+        }
+        if ($changed) $this->clearCoreApiKeyCache();
     }
 
     public function unbindWorkersFromApiKey(int $apiKeyId): void

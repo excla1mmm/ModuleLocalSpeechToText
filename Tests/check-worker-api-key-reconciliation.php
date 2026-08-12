@@ -11,6 +11,14 @@ namespace MikoPBX\Common\Models {
         public string $full_permissions = '0';
         public string $allowed_paths = '{}';
         public int $saveCalls = 0;
+        public bool $failSave = false;
+        public string $key_hash = 'hash';
+        public string $key_suffix = '1234';
+        public string $key_display = 'display';
+        public string $description = 'description';
+        public static object $connection;
+
+        public function getWriteConnection(): object { return self::$connection; }
 
         public static function findFirstById(int $id): ?self
         {
@@ -20,6 +28,7 @@ namespace MikoPBX\Common\Models {
         public function save(): bool
         {
             $this->saveCalls++;
+            if ($this->failSave) return false;
             self::$rows[$this->id] = $this;
 
             return true;
@@ -59,11 +68,13 @@ namespace Modules\ModuleLocalSpeechToText\Models {
     {
         /** @var list<int> */
         public static array $workerApiKeyIds = [];
+        public static array $workerApiKeyHistoryIds = [];
 
         public static function workerApiKeyIds(): array
         {
             return self::$workerApiKeyIds;
         }
+        public static function workerApiKeyHistoryIds(): array { return self::$workerApiKeyHistoryIds; }
     }
 
     final class STTWorker
@@ -88,6 +99,14 @@ namespace {
     require_once __DIR__ . '/../Lib/Services/WorkerApiKeyService.php';
     require_once __DIR__ . '/../Setup/PbxExtensionSetup.php';
 
+    ApiKeys::$connection = new class {
+        private bool $transaction = false;
+        public function isUnderTransaction(): bool { return $this->transaction; }
+        public function begin(): bool { $this->transaction = true; return true; }
+        public function commit(): bool { $this->transaction = false; return true; }
+        public function rollback(): bool { $this->transaction = false; return true; }
+    };
+
     $legacy = new ApiKeys();
     $legacy->id = 1;
     $legacy->full_permissions = '1';
@@ -106,7 +125,14 @@ namespace {
     $minimal->allowed_paths = json_encode(WorkerApiKeyService::WORKER_ALLOWED_PATHS, JSON_THROW_ON_ERROR);
     ApiKeys::$rows[$minimal->id] = $minimal;
 
+    $historical = new ApiKeys();
+    $historical->id = 3;
+    $historical->full_permissions = '1';
+    $historical->allowed_paths = '{}';
+    ApiKeys::$rows[$historical->id] = $historical;
+
     STTSetting::$workerApiKeyIds = [1, 2, 999];
+    STTSetting::$workerApiKeyHistoryIds = [3, 999];
     $setup = (new ReflectionClass(PbxExtensionSetup::class))->newInstanceWithoutConstructor();
     $reconcile = new ReflectionMethod(PbxExtensionSetup::class, 'ensureWorkerApiKeyPermissions');
     $reconcile->invoke($setup);
@@ -118,11 +144,28 @@ namespace {
     );
     expectWorkerReconciliation($legacy->saveCalls === 1, 'Changed legacy key must be persisted once');
     expectWorkerReconciliation($minimal->saveCalls === 0, 'Already-minimal worker key must not be rewritten');
+    expectWorkerReconciliation($historical->full_permissions === '0' && $historical->saveCalls === 1, 'Existing historical key must be reconciled without recreation');
+    expectWorkerReconciliation($historical->key_hash === 'hash' && $historical->key_suffix === '1234' && $historical->key_display === 'display' && $historical->description === 'description', 'Reconciliation must preserve credential identity and display fields');
     expectWorkerReconciliation(TokenValidationService::$clearCalls === 1, 'Changed permissions must invalidate token cache once');
 
     $reconcile->invoke($setup);
     expectWorkerReconciliation($legacy->saveCalls === 1, 'Repeated reconciliation must be idempotent');
     expectWorkerReconciliation(TokenValidationService::$clearCalls === 1, 'No-op reconciliation must not clear cache again');
+
+    $legacy->full_permissions = '1';
+    $legacy->allowed_paths = '{}';
+    $historical->full_permissions = '1';
+    $historical->allowed_paths = '{}';
+    $historical->failSave = true;
+    try {
+        $reconcile->invoke($setup);
+        throw new RuntimeException('Injected reconciliation failure was swallowed');
+    } catch (RuntimeException) {
+        expectWorkerReconciliation([$legacy->full_permissions, $legacy->allowed_paths] === ['1', '{}'], 'Partial failure must restore the first Core key object');
+        expectWorkerReconciliation([$historical->full_permissions, $historical->allowed_paths] === ['1', '{}'], 'Partial failure must restore the failing Core key object');
+        expectWorkerReconciliation(TokenValidationService::$clearCalls === 1, 'Failed reconciliation must not invalidate token cache');
+        expectWorkerReconciliation(STTSetting::$workerApiKeyIds === [1, 2, 999] && STTSetting::$workerApiKeyHistoryIds === [3, 999], 'Failed reconciliation must preserve module bindings/history');
+    }
 
     echo "Worker API-key reconciliation behavior OK\n";
 }

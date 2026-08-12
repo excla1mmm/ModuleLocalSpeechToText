@@ -222,6 +222,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 namespace Modules\ModuleLocalSpeechToText\Lib {
     use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
     use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+    use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
     use Modules\ModuleLocalSpeechToText\Models\STTSetting;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
@@ -286,6 +287,7 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
     use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
     use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+    use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
     use Modules\ModuleLocalSpeechToText\Models\STTJob;
     use Modules\ModuleLocalSpeechToText\Models\STTSetting;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
@@ -372,10 +374,7 @@ namespace {
     foreach ([77, 99] as $workerApiKeyId) {
         $workerApiKey = new ApiKeys();
         $workerApiKey->id = $workerApiKeyId;
-        $workerApiKey->allowed_paths = json_encode([
-            '/api/v3/module-local-speech-to-text/workers' => 'write',
-            '/api/v3/module-local-speech-to-text/jobs' => 'write',
-        ]);
+        $workerApiKey->allowed_paths = json_encode(WorkerApiKeyService::WORKER_ALLOWED_PATHS);
         ApiKeys::$rows[$workerApiKeyId] = $workerApiKey;
     }
     $service = new STTWorkerResourceService();

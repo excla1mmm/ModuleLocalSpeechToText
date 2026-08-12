@@ -797,37 +797,6 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
     private function ensureWorkerApiKeyPermissions(): void
     {
-        $changed = false;
-
-        foreach (STTSetting::workerApiKeyIds() as $apiKeyId) {
-            $apiKey = ApiKeys::findFirstById($apiKeyId);
-            if (!$apiKey instanceof ApiKeys) {
-                continue;
-            }
-
-            $allowedPaths = json_decode((string)$apiKey->allowed_paths, true);
-            if (!is_array($allowedPaths)) {
-                $allowedPaths = [];
-            }
-
-            $apiKeyChanged = $allowedPaths !== WorkerApiKeyService::WORKER_ALLOWED_PATHS
-                || (string)$apiKey->full_permissions !== '0';
-
-            if ($apiKeyChanged) {
-                $apiKey->full_permissions = '0';
-                $apiKey->allowed_paths = json_encode(
-                    WorkerApiKeyService::WORKER_ALLOWED_PATHS,
-                    JSON_THROW_ON_ERROR
-                );
-                if (!$apiKey->save()) {
-                    throw new \RuntimeException(implode(', ', $apiKey->getMessages()));
-                }
-                $changed = true;
-            }
-        }
-
-        if ($changed) {
-            TokenValidationService::clearCache();
-        }
+        (new WorkerApiKeyService())->reconcileStoredWorkerApiKeys();
     }
 }
