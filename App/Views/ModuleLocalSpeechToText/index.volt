@@ -476,7 +476,7 @@
                         {% endif %}
                     </td>
                     <td class="center aligned">
-                        {% if worker.status === 'online' %}
+                        {% if workerCompatibility[worker.id] && worker.status === 'online' %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Online') }}</span>
                         {% else %}
                             <span class="ui tiny grey label">{{ t._('module_local_speech_to_text_Offline') }}</span>
@@ -486,7 +486,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
+                    <td colspan="9" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
                 </tr>
             {% endfor %}
             </tbody>

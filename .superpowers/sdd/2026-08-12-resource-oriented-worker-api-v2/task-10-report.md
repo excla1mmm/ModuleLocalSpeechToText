@@ -19,3 +19,9 @@ All 29 `Messages/*.php` catalogs preserve the exact Russian-source key order and
 ## Minor
 
 The existing Volt source contracts validate rendered-template structure rather than booting a full PBX/Phalcon renderer; the compatibility branch and escaping are directly source-checked.
+
+## Fix round 1 — incompatible workers are offline
+
+The status label now uses `workerCompatibility` as an authoritative gate: only a compatible worker with persisted `online` status receives the Online label. An incompatible v1 worker is rendered Offline even when its stale row still says online. The empty-state row now spans all nine headers.
+
+RED: the strengthened `check-worker-api-v2-ui-contract.php` failed at `Workers view must render online status only for compatible online workers`. GREEN: the Task10 UI contract, worker processing-settings UI contract, worker-download UI contract, OpenAPI translation contract, template/test lint, and diff hygiene pass.

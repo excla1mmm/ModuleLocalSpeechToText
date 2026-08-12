@@ -36,6 +36,14 @@ foreach ([
 }
 
 expectWorkerApiV2Ui(str_contains($view, 'workerCompatibility[worker.id]'), 'Workers view must render controller-calculated compatibility');
+expectWorkerApiV2Ui(
+    str_contains($view, "{% if workerCompatibility[worker.id] && worker.status === 'online' %}"),
+    'Workers view must render online status only for compatible online workers'
+);
+expectWorkerApiV2Ui(
+    str_contains($view, 'colspan="9"'),
+    'Workers empty row must span all nine worker columns'
+);
 expectWorkerApiV2Ui(str_contains($view, 'worker.worker_uid|e'), 'Workers view must display an escaped worker UID');
 expectWorkerApiV2Ui(str_contains($view, 'worker.app_version|e'), 'Workers view must display an escaped app version');
 expectWorkerApiV2Ui(str_contains($view, 'worker.api_version|e'), 'Workers view must display an escaped API version');
