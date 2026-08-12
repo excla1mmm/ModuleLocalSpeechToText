@@ -9,6 +9,7 @@ use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingDecision;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Phalcon\Di\Injectable;
 
@@ -23,7 +24,9 @@ class Processor extends Injectable
         if (($request['action'] ?? null) !== 'getList') return self::forbidden();
         $workerUidHeader = trim((string)($data['_worker_uid_header'] ?? ''));
         unset($data['worker_uid']);
-        if ($workerUidHeader === '' || !self::isBoundWorker($workerUidHeader, (int)($data['_api_key_id'] ?? 0))) return self::forbidden();
+        if ($workerUidHeader === '') return self::forbidden();
+        $bindingError = WorkerBindingDecision::authorize($workerUidHeader, (int)($data['_api_key_id'] ?? 0));
+        if ($bindingError !== null) return $bindingError;
         $data['worker_uid'] = $workerUidHeader;
 
         $gate = new ModuleLifecycleGate();
@@ -38,12 +41,6 @@ class Processor extends Injectable
         $result->processor = __METHOD__;
         $result->function = 'getList';
         return $result;
-    }
-
-    private static function isBoundWorker(string $uid, int $keyId): bool
-    {
-        $worker = STTWorker::findFirst(['conditions' => 'worker_uid = :worker_uid:', 'bind' => ['worker_uid' => $uid]]);
-        return $worker instanceof STTWorker && $keyId > 0 && (int)$worker->api_key_id === $keyId;
     }
 
     private static function forbidden(): PBXApiResult

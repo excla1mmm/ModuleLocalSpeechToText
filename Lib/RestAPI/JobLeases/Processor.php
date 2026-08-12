@@ -8,7 +8,9 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobLeaseOwnership;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingDecision;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Phalcon\Di\Injectable;
@@ -33,15 +35,20 @@ class Processor extends Injectable
 
         $workerUidHeader = trim((string)($data['_worker_uid_header'] ?? ''));
         $bodyWorkerUid = trim(is_scalar($data['worker_uid'] ?? null) ? (string)$data['worker_uid'] : '');
-        if ($workerUidHeader === '' || $bodyWorkerUid === '' || $bodyWorkerUid !== $workerUidHeader || !self::isBoundWorker($workerUidHeader, (int)($data['_api_key_id'] ?? 0))) {
+        if ($workerUidHeader === '' || $bodyWorkerUid === '' || $bodyWorkerUid !== $workerUidHeader) {
             return self::forbidden('worker_identity_forbidden');
         }
+        $bindingError = WorkerBindingDecision::authorize($workerUidHeader, (int)($data['_api_key_id'] ?? 0));
+        if ($bindingError !== null) return $bindingError;
         if ($action !== JobLeaseAction::CREATE) {
-            $routeJobId = (int)($request['id'] ?? $data['id'] ?? 0);
-            $bodyJobId = array_key_exists('id', $data) ? (int)$data['id'] : $routeJobId;
+            $routeJobId = (int)($data['id'] ?? 0);
+            $bodyJobId = array_key_exists('_idFromRequestBody', $data) ? (int)$data['_idFromRequestBody'] : $routeJobId;
             if ($routeJobId <= 0 || $routeJobId !== $bodyJobId) return self::conflict('job_id_mismatch');
             $data['id'] = $routeJobId;
-            if (trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '') === '') return self::conflict('job_lease_required');
+            $leaseToken = trim(is_scalar($data['lease_token'] ?? null) ? (string)$data['lease_token'] : '');
+            if ($leaseToken === '') return self::conflict('job_lease_required');
+            $ownershipError = JobLeaseOwnership::preflight($routeJobId, $workerUidHeader, $leaseToken);
+            if ($ownershipError !== null) return $ownershipError;
         }
 
         $gate = new ModuleLifecycleGate();
@@ -60,12 +67,6 @@ class Processor extends Injectable
         $result->processor = __METHOD__;
         $result->function = $action->value;
         return $result;
-    }
-
-    private static function isBoundWorker(string $uid, int $keyId): bool
-    {
-        $worker = STTWorker::findFirst(['conditions' => 'worker_uid = :worker_uid:', 'bind' => ['worker_uid' => $uid]]);
-        return $worker instanceof STTWorker && $keyId > 0 && (int)$worker->api_key_id === $keyId;
     }
 
     private static function forbidden(string $code): PBXApiResult

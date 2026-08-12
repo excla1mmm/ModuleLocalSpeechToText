@@ -100,6 +100,9 @@ class LocalSpeechToTextMain
 
     public static function getNextJob(array $data): PBXApiResult
     {
+        $claimedJob = null;
+        $claimedWorkerId = 0;
+        $claimedLeaseToken = '';
         $workerUid = self::stringField($data, 'worker_uid');
         if ($workerUid === '') {
             return self::error('validation_error', 'worker_uid is required', 422);
@@ -130,6 +133,9 @@ class LocalSpeechToTextMain
                     'has_settings_changed' => $hasSettingsChanged,
                 ]);
             }
+            $claimedJob = $job;
+            $claimedWorkerId = (int)$worker->id;
+            $claimedLeaseToken = (string)$job->lease_token;
             LocalSpeechToTextLogger::event(
                 'queue',
                 'job_claimed',
@@ -148,6 +154,13 @@ class LocalSpeechToTextMain
                 'has_settings_changed' => $hasSettingsChanged,
             ]);
         } catch (Throwable $exception) {
+            if ($claimedJob instanceof STTJob && $claimedWorkerId > 0 && $claimedLeaseToken !== '') {
+                try {
+                    $claimedJob->releaseForWorker($claimedWorkerId, $claimedLeaseToken);
+                } catch (Throwable) {
+                    // The conditional release is best-effort; never expose the lease token in diagnostics.
+                }
+            }
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
@@ -295,7 +308,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -422,7 +434,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -491,7 +502,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -500,6 +510,7 @@ class LocalSpeechToTextMain
             if (!$job->refreshProcessingLeaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
+            $worker->touchOnline(self::clientIp($data));
 
             return self::success([
                 'status' => (string)$job->status,
@@ -540,7 +551,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -549,6 +559,7 @@ class LocalSpeechToTextMain
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
+            $worker->touchOnline(self::clientIp($data));
             LocalSpeechToTextLogger::event(
                 'queue',
                 'job_released',

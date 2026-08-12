@@ -25,6 +25,12 @@ $leaseProcessor = (string)file_get_contents($paths['leaseProcessor']);
 $main = (string)file_get_contents($root . '/Lib/LocalSpeechToTextMain.php');
 $jobsSchema = (string)file_get_contents($root . '/Lib/RestAPI/Jobs/DataStructure.php');
 $workersProcessor = (string)file_get_contents($root . '/Lib/RestAPI/Workers/Processor.php');
+$bindingServicePath = $root . '/Lib/Services/WorkerBindingDecision.php';
+$ownershipServicePath = $root . '/Lib/Services/JobLeaseOwnership.php';
+expectWorkerLeaseV2(is_file($bindingServicePath), 'Shared exclusive worker binding decision is missing');
+expectWorkerLeaseV2(is_file($ownershipServicePath), 'Read-only job lease ownership preflight is missing');
+$bindingService = (string)file_get_contents($bindingServicePath);
+$ownershipService = (string)file_get_contents($ownershipServicePath);
 
 expectWorkerLeaseV2(str_contains($settingsController, "'/worker-processing-settings'") && str_contains($settingsController, "'GET' => ['getList']") && str_contains($settingsController, "collectionLevelMethods: ['getList']"), 'Settings must be a GET collection singleton');
 expectWorkerLeaseV2(!str_contains($settingsController, 'resourceLevelMethods:'), 'Settings must have no item route');
@@ -42,6 +48,12 @@ foreach ([$settingsProcessor, $leaseProcessor] as $source) {
 }
 expectWorkerLeaseV2(str_contains($settingsProcessor, "unset(\$data['worker_uid'])") && str_contains($settingsProcessor, "\$data['worker_uid'] = \$workerUidHeader"), 'Body-only UID must not select settings');
 expectWorkerLeaseV2(str_contains($leaseProcessor, '$bodyWorkerUid !== $workerUidHeader') && str_contains($leaseProcessor, '$routeJobId !== $bodyJobId'), 'Lease ownership mismatch preflight is missing');
+expectWorkerLeaseV2(str_contains($leaseProcessor, "['_idFromRequestBody']"), 'Real Core route/body ID metadata must be compared');
+expectWorkerLeaseV2(substr_count($settingsProcessor . $leaseProcessor, 'WorkerBindingDecision::authorize(') === 2, 'Both Task 5 processors must share exclusive binding authorization');
+expectWorkerLeaseV2(str_contains($bindingService, 'worker_api_key_already_bound') && str_contains($bindingService, '409'), 'Ambiguous bindings must return 409');
+expectWorkerLeaseV2(str_contains($leaseProcessor, 'JobLeaseOwnership::preflight('), 'PATCH/DELETE must perform read-only ownership preflight');
+expectWorkerLeaseV2(strpos($leaseProcessor, 'JobLeaseOwnership::preflight(') < strpos($leaseProcessor, 'acquireWriteLease('), 'Ownership preflight must precede lifecycle acquisition');
+expectWorkerLeaseV2(str_contains($ownershipService, 'hash_equals(') && str_contains($ownershipService, 'lease_expires_at'), 'Ownership preflight must check exact token and freshness');
 expectWorkerLeaseV2(str_contains($leaseProcessor, 'allowDuringDrain: $action !== JobLeaseAction::CREATE'), 'Drain lifecycle policy changed');
 
 $start = strpos($main, 'private static function formatJob');
@@ -54,7 +66,21 @@ foreach (['lease_token=', 'worker_uid=', ':download', '/jobs/', 'API_BASE_PATH']
 expectWorkerLeaseV2(!str_contains($jobsSchema, ':download?'), 'Schema exposes a legacy credential URL');
 expectWorkerLeaseV2(str_contains($workersProcessor, 'WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker()'), 'Legacy settings route must remain terminal 426');
 
+$heartbeatStart = strpos($main, 'public static function heartbeatJob');
+$releaseStart = strpos($main, 'public static function releaseJob');
+$formatStart = strpos($main, 'private static function formatJob');
+$heartbeat = substr($main, $heartbeatStart, $releaseStart - $heartbeatStart);
+$release = substr($main, $releaseStart, $formatStart - $releaseStart);
+foreach ([$heartbeat, $release] as $operation) {
+    expectWorkerLeaseV2(strpos($operation, 'validateAssignedJob(') < strpos($operation, 'touchOnline('), 'Denied ownership must not mutate worker liveness');
+}
+$getNextStart = strpos($main, 'public static function getNextJob');
+$settingsStart = strpos($main, 'public static function getWorkerProcessingSettings');
+$getNext = substr($main, $getNextStart, $settingsStart - $getNextStart);
+expectWorkerLeaseV2(str_contains($getNext, 'releaseForWorker(') && str_contains($getNext, 'catch (Throwable'), 'Post-claim failures must conditionally compensate the exact lease');
+
 if (getenv('WORKER_JOB_LEASES_V2_MUTATION') === '1') {
-    throw new RuntimeException('Mutation mode: version/auth ordering or ownership weakened');
+    $mutated = str_replace('JobLeaseOwnership::preflight(', 'JobLeaseOwnership::bypass(', $leaseProcessor);
+    expectWorkerLeaseV2(str_contains($mutated, 'JobLeaseOwnership::preflight('), 'Mutation detected: ownership preflight was bypassed');
 }
 echo "STT worker processing settings and job leases v2 contract OK\n";

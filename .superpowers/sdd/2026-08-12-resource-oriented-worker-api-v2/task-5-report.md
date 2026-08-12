@@ -45,3 +45,19 @@ Expected progressive failures:
 Created both resource directories and the focused test; moved the settings schema; updated claim URL/schema examples and the aggregate mutation fixture. No Core, AI, worker client, version metadata, or unrelated file was changed. `min_pbx_version` remains `2025.1.1`.
 
 Commit subject: `feat: expose STT worker lease resources`. The exact SHA is recorded in the task handoff and ledger completion update by the coordinating agent after review.
+
+## Fix Round 1 — binding, ownership, compensation, and executable coverage
+
+The queue-resilience review reported five Important findings. All were reproduced and addressed:
+
+- A shared `WorkerBindingDecision` now requires exactly one row for the key/UID decision. Duplicate legacy bindings return 409 `worker_api_key_already_bound` before lifecycle acquisition or domain mutation for settings and every lease action.
+- `JobLeaseOwnership` performs read-only job/worker/status/assignment/constant-time-token/freshness checks for PATCH and DELETE before lifecycle acquisition. Domain CAS checks remain authoritative against TOCTOU. Worker liveness is updated only after heartbeat/release CAS succeeds.
+- Route/body mismatch uses Core's real `_idFromRequestBody` envelope field against the normalized route `data['id']` and returns 409.
+- A post-claim exception conditionally releases only the exact claimed worker/token lease, leaves attempts unchanged, and never logs the token. An injected formatter failure proves the job returns to pending with ownership/start/lease state cleared.
+- The focused suite now includes an executable processor harness with denial snapshots and lifecycle counters, the injected compensation harness, and a two-process WAL SQLite race proving exactly one contender claims a single pending row.
+
+Fresh RED evidence began with `Shared exclusive worker binding decision is missing`. The first concurrency harness run then exposed test-fixture hydration rather than production behavior (`Cannot assign int to ... STTJob::$priority`); matching the existing string-backed model hydration resolved the harness and produced the intended two-process result.
+
+Fix verification includes `check-worker-job-leases-v2.php`, `check-worker-job-leases-v2-runtime.php`, `check-worker-claim-compensation.php`, `check-worker-claim-concurrency-sqlite.php`, the existing lease/queue/settings/CRUD/binding/registration/delete-claim/migration suites, route/version mutation modes, PHP lint, and diff hygiene. Plain aggregates retain only the previously documented Task 6/7 deltas.
+
+Follow-up subject: `fix: harden STT worker lease ownership`.
