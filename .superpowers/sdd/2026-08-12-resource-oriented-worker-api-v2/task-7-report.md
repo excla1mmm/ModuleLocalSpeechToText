@@ -29,3 +29,11 @@ Item PATCH/DELETE apply exact `CanonicalJobId` body/route validation before life
 The new executable runtime harness loads actual Controller, Processor, management service, CanonicalJobId, and ModuleTransaction with only Core/Phalcon plumbing stubbed. Its file-backed SQLite and temporary monitor fixture covers exact action mapping/no item POST, valid and rejected paths, three-run stability, two-process duplicate creation, pagination, retry/reset and atomic bulk denial, all four history tables, query-only collection deletion, restricted/revoked/ambiguous/cached denial before lifecycle, admin access, canonical body IDs, and tombstone 426 without lifecycle dispatch.
 
 Follow-up subject: `fix: harden STT management jobs`.
+
+## Fix Round 2 — enforce collection routing at execution
+
+Re-review found that Core's `resource ?? collection` fallback still made `POST /jobs/{id}` execute collection create. RED was `POST item reached fallback create dispatch`. The production controller now rejects every non-empty item POST with Core's 405 response path before sanitization or backend dispatch; collection POST remains create.
+
+The runtime harness now implements Core's exact action fallback and merged-data behavior, executes the actual controller for all seven management route/action pairs, and proves item POST has no dispatch. It preserves raw body ID, float/bool/noncanonical priority/ID collections for downstream exact validation, and separately records query status when merged body data conflicts. Three controller-fixture mutations remove item-POST rejection, replace query provenance, or change collection PATCH routing; ordinary assertions fail in every mode.
+
+Follow-up subject: `fix: enforce STT Jobs collection routing`.

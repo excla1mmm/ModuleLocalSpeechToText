@@ -21,6 +21,7 @@ class Controller extends BaseRestController {
   'DELETE' => ['collection' => 'deleteCollection', 'resource' => 'delete'],
  ]; }
  public function handleCRUDRequest(?string $id=null): void {
+  if($this->request->getMethod()==='POST'&&$id!==null&&$id!==''){$this->sendErrorResponse('POST is not allowed for an individual STT job',405);return;}
   $requestData=self::sanitizeData($this->request->getData(),$this->filter);
   if(array_key_exists('id',$requestData))$requestData['_idFromRequestBody']=$requestData['id'];
   if($id!==null&&$id!=='')$requestData['id']=$id;
