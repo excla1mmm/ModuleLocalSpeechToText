@@ -40,7 +40,7 @@ foreach ([
 
 expectWorkerApiV2Ui(str_contains($view, 'workerCompatibility[worker.id]'), 'Workers view must render controller-calculated compatibility');
 expectWorkerApiV2Ui(
-    str_contains($view, "{% if workerCompatibility[worker.id] && worker.status === 'online' %}"),
+    str_contains($view, "{% if workerCompatibility[worker.id] and worker.status === 'online' %}"),
     'Workers view must render online status only for compatible online workers'
 );
 expectWorkerApiV2Ui(

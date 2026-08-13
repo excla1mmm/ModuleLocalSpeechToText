@@ -25,6 +25,8 @@ MODULE_ID="$(printf '%s\n' "${MODULE_META}" | sed -n '1p')"
 MODULE_VERSION="$(printf '%s\n' "${MODULE_META}" | sed -n '2p')"
 PACKAGE_VERSION="${VERSION:-${MODULE_VERSION}}"
 
+php "${MODULE_DIR}/Tests/check-volt-template-syntax.php"
+
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/${MODULE_ID}.package.XXXXXX")"
 TMP_MODULE_DIR="${TMP_ROOT}/module"
 trap 'rm -rf "${TMP_ROOT}"' EXIT
