@@ -4,7 +4,57 @@ namespace MikoPBX\PBXCoreREST\Lib { class PBXApiResult {public bool $success=fal
 namespace {
 use Modules\ModuleLocalSpeechToText\Lib\Services\{JobSubmissionReceiptMigration,JobSubmissionReceiptService,JobTerminalSubmissionService};
 require_once __DIR__.'/../Lib/Services/TransactionRecoveryException.php';require_once __DIR__.'/../Lib/Services/ModuleTransaction.php';require_once __DIR__.'/../Lib/Services/JobSubmissionReceiptMigration.php';require_once __DIR__.'/../Lib/Services/JobSubmissionReceiptService.php';require_once __DIR__.'/../Lib/Services/JobTerminalSubmissionService.php';
-final class Db {public function __construct(public PDO $p){}public function isUnderTransaction():bool{return$this->p->inTransaction();}public function begin():bool{return$this->p->exec('BEGIN IMMEDIATE')!==false;}public function commit():bool{return$this->p->commit();}public function rollback():bool{return$this->p->rollBack();}public function execute(string $s,array $b=[]):bool{$q=$this->p->prepare($s);return$q->execute($b);}public function fetchAll(string $s,int $m=PDO::FETCH_ASSOC,array $b=[]):array{$q=$this->p->prepare($s);$q->execute($b);return$q->fetchAll($m);}}
+final class Db
+{
+    private bool $underTransaction = false;
+
+    public function __construct(public PDO $p) {}
+
+    public function isUnderTransaction(): bool
+    {
+        return $this->underTransaction;
+    }
+
+    public function begin(): bool
+    {
+        $began = $this->p->exec('BEGIN IMMEDIATE') !== false;
+        if ($began) {
+            $this->underTransaction = true;
+        }
+        return $began;
+    }
+
+    public function commit(): bool
+    {
+        $committed = $this->p->exec('COMMIT') !== false;
+        if ($committed) {
+            $this->underTransaction = false;
+        }
+        return $committed;
+    }
+
+    public function rollback(): bool
+    {
+        $rolledBack = $this->p->exec('ROLLBACK') !== false;
+        if ($rolledBack) {
+            $this->underTransaction = false;
+        }
+        return $rolledBack;
+    }
+
+    public function execute(string $s, array $b = []): bool
+    {
+        $q = $this->p->prepare($s);
+        return $q->execute($b);
+    }
+
+    public function fetchAll(string $s, int $m = PDO::FETCH_ASSOC, array $b = []): array
+    {
+        $q = $this->p->prepare($s);
+        $q->execute($b);
+        return $q->fetchAll($m);
+    }
+}
 function db(string $f):Db{$p=new PDO('sqlite:'.$f);$p->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p->exec('PRAGMA busy_timeout=5000');return new Db($p);} function e(bool$c,string$m):void{if(!$c)throw new RuntimeException($m);}
 if(($argv[1]??'')==='child'){$d=db($argv[2]);while(!is_file($argv[3]))usleep(1000);$svc=new JobSubmissionReceiptService();$payload=$argv[4];$digest=JobSubmissionReceiptService::digest('result',['transcript'=>[['text'=>$payload]]]);$r=$svc->executeOnConnection($d,1,1,'same-lease','result',$digest,function()use($d,$payload){return(new JobTerminalSubmissionService())->result(fn()=>null,fn()=>$d->execute('INSERT INTO m_STTResult(payload) VALUES (:p)',['p'=>$payload]),fn()=>$d->execute('INSERT INTO m_STTTranscriptEvent(payload) VALUES (:p)',['p'=>$payload]),fn()=>$d->execute("UPDATE m_STTJob SET status='done' WHERE id=1"),fn()=>$d->execute('INSERT INTO m_STTCallTranscriptRevision(payload) VALUES (:p)',['p'=>$payload]),function()use($payload){$r=new \MikoPBX\PBXCoreREST\Lib\PBXApiResult();$r->success=true;$r->httpCode=200;$r->data=['winner'=>$payload];$r->processor='result';$r->function='update';return$r;});});echo json_encode(['code'=>$r->httpCode,'data'=>$r->data]);exit;}
 $dir=sys_get_temp_dir().'/stt-receipt-race-'.bin2hex(random_bytes(4));mkdir($dir);$file=$dir.'/db.sqlite';$d=db($file);$d->execute("CREATE TABLE m_STTJob(id INTEGER PRIMARY KEY,status TEXT)");$d->execute("INSERT INTO m_STTJob VALUES(1,'processing')");foreach(['m_STTResult','m_STTTranscriptEvent','m_STTCallTranscriptRevision']as$t)$d->execute("CREATE TABLE $t(id INTEGER PRIMARY KEY,payload TEXT)");$d->begin();(new JobSubmissionReceiptMigration())->migrate($d);$d->commit();

@@ -5,11 +5,8 @@ declare(strict_types=1);
 use MikoPBX\PBXCoreREST\Services\ApiKeyPermissionChecker;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 
-$core = is_file(dirname(__DIR__, 2) . '/../Core/src/PBXCoreREST/Services/ApiKeyPermissionChecker.php')
-    ? dirname(__DIR__, 2) . '/../Core'
-    : '/Users/excla1m/Development/Core';
-require_once $core . '/src/PBXCoreREST/Attributes/ActionType.php';
-require_once $core . '/src/PBXCoreREST/Services/ApiKeyPermissionChecker.php';
+require_once __DIR__ . '/fixtures/core/ActionType.php';
+require_once __DIR__ . '/fixtures/core/ApiKeyPermissionChecker.php';
 require_once __DIR__ . '/../Lib/Services/WorkerApiKeyService.php';
 
 function expectWorkerPermission(bool $condition, string $message): void

@@ -39,32 +39,14 @@ test:
     - apt-get update
     - apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev ca-certificates
     - php -m | grep -qi '^mbstring$' || docker-php-ext-install mbstring
+    - php -m | grep -qi '^pcntl$' || docker-php-ext-install pcntl
     - php -m | grep -qi '^pdo_sqlite$' || docker-php-ext-install pdo_sqlite
     - php -m | grep -qi '^sqlite3$' || docker-php-ext-install sqlite3
     - php -v
   script:
-    - |
-      set -euo pipefail
-      found=0
-      skipped=0
-      for test in Tests/check-*.php; do
-        [ -e "${test}" ] || continue
-        if grep -Eq '\.\./\.\./|/Users/|Development/|LocalSTTWorkerMac|Core/' "${test}"; then
-          echo "SKIP external dependency: $(basename "${test}")"
-          skipped=$((skipped + 1))
-          continue
-        fi
-        found=1
-        echo "==> $(basename "${test}")"
-        php "${test}"
-      done
-      if [ "${found}" -eq 0 ]; then
-        echo "No standalone Tests/check-*.php found" >&2
-        exit 1
-      fi
-      if [ "${skipped}" -gt 0 ]; then
-        echo "Skipped ${skipped} test(s) with external workspace dependencies"
-      fi
+    - test -f Tests/run-all.php
+    - test -f Tests/fixtures/core/ApiKeyPermissionChecker.php
+    - php Tests/run-all.php
 
 package:
   stage: package
