@@ -448,8 +448,12 @@
             <thead>
             <tr>
                 <th>{{ t._('module_local_speech_to_text_Worker') }}</th>
+                <th>{{ t._('module_local_speech_to_text_WorkerUid') }}</th>
                 <th>{{ t._('module_local_speech_to_text_IP') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
+                <th>{{ t._('module_local_speech_to_text_AppVersion') }}</th>
+                <th>{{ t._('module_local_speech_to_text_ApiVersion') }}</th>
+                <th class="center aligned">{{ t._('module_local_speech_to_text_Compatible') }}</th>
                 <th class="center aligned">{{ t._('module_local_speech_to_text_Status') }}</th>
                 <th>{{ t._('module_local_speech_to_text_LastSeen') }}</th>
             </tr>
@@ -458,10 +462,21 @@
             {% for worker in workers %}
                 <tr>
                     <td>{{ worker.name|e }}</td>
+                    <td>{{ worker.worker_uid|e }}</td>
                     <td>{{ worker.ip|e }}</td>
                     <td><span class="stt-model-text">{{ workerRuntimeModel|e }}</span></td>
+                    <td>{{ worker.app_version|e }}</td>
+                    <td>{{ worker.api_version|e }}</td>
                     <td class="center aligned">
-                        {% if worker.status === 'online' %}
+                        {% if workerCompatibility[worker.id] %}
+                            <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Compatible') }}</span>
+                        {% else %}
+                            <span class="ui tiny red label">{{ t._('module_local_speech_to_text_Incompatible') }}</span>
+                            <div class="stt-table-muted">{{ t._('module_local_speech_to_text_WorkerUpdateRequired') }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="center aligned">
+                        {% if workerCompatibility[worker.id] && worker.status === 'online' %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Online') }}</span>
                         {% else %}
                             <span class="ui tiny grey label">{{ t._('module_local_speech_to_text_Offline') }}</span>
@@ -471,11 +486,14 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="5" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
+                    <td colspan="9" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
+        <div class="stt-table-muted stt-worker-api-update-help">
+            <a href="https://docs.mikopbx.com/extensions/ModuleLocalSpeechToText/worker-update" target="_blank" rel="noopener noreferrer">{{ t._('module_local_speech_to_text_WorkerUpdateHelp') }}</a>
+        </div>
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">

@@ -106,6 +106,17 @@ function sqliteTableExists(SQLite3 $database, string $table): bool
     return (int)($row[0] ?? 0) === 1;
 }
 
+function sqliteColumnExists(SQLite3 $database, string $table, string $column): bool
+{
+    foreach (sqliteRows($database, 'PRAGMA table_info("' . str_replace('"', '""', $table) . '")') as $row) {
+        if (($row['name'] ?? null) === $column) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /** @return array<string, mixed> */
 function sttUpgradeState(string $path): array
 {
@@ -130,6 +141,9 @@ function sttUpgradeState(string $path): array
             : -1;
     }
 
+    $workerVersionFields = sqliteColumnExists($database, 'm_STTWorker', 'api_version')
+        ? 'api_version, app_version, updated_at'
+        : "1 AS api_version, '' AS app_version, 0 AS updated_at";
     $hashQueries = [
         'jobs' => 'SELECT id, call_id, file_path, status, worker_id, attempts, created_at, updated_at,
                           started_at, lease_token, lease_expires_at, finished_at, error_msg
@@ -137,7 +151,7 @@ function sttUpgradeState(string $path): array
         'results' => 'SELECT id, job_id, transcript, language, duration, model_used, technical_info, created_at
                         FROM m_STTResult ORDER BY id',
         'workers' => 'SELECT id, worker_uid, name, ip, status, model, api_key_id, last_seen, created_at,
-                            has_settings_changed
+                            has_settings_changed, ' . $workerVersionFields . '
                        FROM m_STTWorker ORDER BY id',
         'settings' => 'SELECT key, value FROM m_STTSetting ORDER BY key',
         'events' => 'SELECT id, event_type, event_key, result_id, job_id, call_id, update_type, payload, created_at
@@ -151,6 +165,10 @@ function sttUpgradeState(string $path): array
     foreach ($hashQueries as $name => $sql) {
         $hashes[$name] = hash('sha256', json_encode(sqliteRows($database, $sql), JSON_THROW_ON_ERROR));
     }
+    $dataRows = [
+        'jobs' => sqliteRows($database, $hashQueries['jobs']),
+        'workers' => sqliteRows($database, $hashQueries['workers']),
+    ];
 
     $schemaRows = sqliteRows(
         $database,
@@ -173,6 +191,7 @@ function sttUpgradeState(string $path): array
     return [
         'counts' => $counts,
         'hashes' => $hashes,
+        'rows' => $dataRows,
         'schema_hash' => hash('sha256', json_encode($schemaRows, JSON_THROW_ON_ERROR)),
         'migrations' => $migrations,
         'event_keys_unique' => $eventCount === $distinctEventKeys,
@@ -262,7 +281,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'legacy database did not apply migrations 1-10');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], 'legacy database did not apply migrations 1-14');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -280,18 +299,80 @@ expectSttUpgrade($after['integrity'] === 'ok', 'upgraded database failed integri
 expectSttUpgrade($after['journal_mode'] === 'wal', 'upgraded database is not in WAL mode');
 expectSttUpgrade($after['event_keys_unique'], 'event keys lost uniqueness');
 foreach ($before['counts'] as $table => $count) {
-    $expectedCount = $table === 'm_STTSetting' ? $count + 2 : $count;
+    $expectedCount = $table === 'm_STTSetting' ? $count + 4 : $count;
     expectSttUpgrade($after['counts'][$table] === $expectedCount, "unexpected row count for {$table}");
 }
 foreach ($before['hashes'] as $name => $hash) {
-    if ($name === 'settings') {
+    if (in_array($name, ['settings', 'workers', 'jobs'], true)) {
         continue;
     }
     expectSttUpgrade($after['hashes'][$name] === $hash, "existing {$name} data changed");
 }
+
+$beforeWorkers = [];
+foreach ($before['rows']['workers'] as $worker) {
+    $beforeWorkers[(int)$worker['id']] = $worker;
+}
+$afterWorkers = [];
+foreach ($after['rows']['workers'] as $worker) {
+    $afterWorkers[(int)$worker['id']] = $worker;
+}
+foreach ($beforeWorkers as $workerId => $workerBefore) {
+    $workerAfter = $afterWorkers[$workerId] ?? null;
+    expectSttUpgrade(is_array($workerAfter), "worker {$workerId} disappeared during migration");
+    if ((int)$workerBefore['api_version'] >= 2) {
+        expectSttUpgrade($workerAfter === $workerBefore, "already-v2 worker {$workerId} changed");
+        continue;
+    }
+
+    $expectedWorker = $workerBefore;
+    $expectedWorker['api_version'] = 1;
+    $expectedWorker['status'] = 'offline';
+    $expectedWorker['has_settings_changed'] = 1;
+    if ((int)$workerBefore['updated_at'] === 0) {
+        expectSttUpgrade((int)$workerAfter['updated_at'] > 0, "legacy worker {$workerId} timestamp was not populated");
+        $expectedWorker['updated_at'] = $workerAfter['updated_at'];
+    }
+    expectSttUpgrade($workerAfter === $expectedWorker, "legacy worker {$workerId} changed outside the v2 contract");
+}
+
+$afterJobs = [];
+foreach ($after['rows']['jobs'] as $job) {
+    $afterJobs[(int)$job['id']] = $job;
+}
+foreach ($before['rows']['jobs'] as $jobBefore) {
+    $jobId = (int)$jobBefore['id'];
+    $jobAfter = $afterJobs[$jobId] ?? null;
+    expectSttUpgrade(is_array($jobAfter), "job {$jobId} disappeared during migration");
+    $workerId = $jobBefore['worker_id'] === null ? null : (int)$jobBefore['worker_id'];
+    $legacyLease = $workerId === null
+        || (isset($beforeWorkers[$workerId]) && (int)$beforeWorkers[$workerId]['api_version'] < 2);
+    if ($jobBefore['status'] !== 'processing' || !$legacyLease) {
+        expectSttUpgrade($jobAfter === $jobBefore, "terminal or v2-owned job {$jobId} changed");
+        continue;
+    }
+
+    $expectedJob = $jobBefore;
+    $expectedJob['status'] = 'pending';
+    $expectedJob['worker_id'] = null;
+    $expectedJob['started_at'] = null;
+    $expectedJob['lease_token'] = null;
+    $expectedJob['lease_expires_at'] = null;
+    $expectedJob['error_msg'] = 'worker_api_migration';
+    $expectedJob['updated_at'] = $jobAfter['updated_at'];
+    expectSttUpgrade((int)$jobAfter['updated_at'] > 0, "legacy job {$jobId} timestamp was not populated");
+    expectSttUpgrade($jobAfter === $expectedJob, "legacy processing job {$jobId} changed outside requeue fields");
+}
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
     'migration ledger is incomplete'
+);
+expectSttUpgrade(
+    json_decode((string)sqliteRows(
+        new SQLite3($resolvedDatabase, SQLITE3_OPEN_READONLY),
+        "SELECT value FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
+    )[0]['value'], true) === [41],
+    'worker API-key history was not preserved'
 );
 expectSttUpgrade(
     sqliteRows(
@@ -309,6 +390,14 @@ expectSttUpgrade(
 expectSttUpgrade(
     in_array('m_STTResult_created_at', $after['indexes'], true),
     'result processing timestamp index is missing after upgrade'
+);
+expectSttUpgrade(
+    in_array('i_m_STTWorker_api_key_id_v2_unique', $after['indexes'], true),
+    'exclusive worker API-key index is missing after upgrade'
+);
+expectSttUpgrade(
+    !in_array('i_m_STTWorker_api_key_id_unique', $after['indexes'], true),
+    'obsolete all-version worker API-key index remains after upgrade'
 );
 foreach ([
     'i_m_STTJob_file_path',
@@ -443,7 +532,7 @@ expectSttUpgrade($afterSecondRun === $after, 'same-version reinstall changed sch
 
 $failingMigrations = productionSttMigrations();
 $failingMigrations[] = new ModuleSchemaMigration(
-    10,
+    12,
     'injected rehearsal failure',
     static function (mixed $connection): void {
         $connection->execute('CREATE TABLE injected_partial_schema(id INTEGER PRIMARY KEY)');

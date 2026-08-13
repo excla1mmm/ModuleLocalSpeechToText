@@ -15,6 +15,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobSubmissionReceiptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
@@ -27,6 +28,8 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiV2Migration;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingIntegrityMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -333,6 +336,30 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyTranscriptRetentionMigration($connection),
                 'stt-schema-010-transcript-retention'
             ),
+            new ModuleSchemaMigration(
+                11,
+                'worker API v2 contract',
+                fn (mixed $connection): null => $this->applyWorkerApiV2Migration($connection),
+                'stt-schema-011-worker-api-v2'
+            ),
+            new ModuleSchemaMigration(
+                12,
+                'exclusive worker API-key bindings',
+                fn (mixed $connection): null => $this->applyWorkerBindingIntegrityMigration($connection),
+                'stt-schema-012-exclusive-worker-api-key-bindings'
+            ),
+            new ModuleSchemaMigration(
+                13,
+                'repair v2-only worker API-key binding index',
+                fn (mixed $connection): null => $this->applyWorkerBindingIntegrityMigration($connection),
+                'stt-schema-013-repair-v2-worker-api-key-index'
+            ),
+            new ModuleSchemaMigration(
+                14,
+                'terminal job submission receipts',
+                fn (mixed $connection): null => $this->applyJobSubmissionReceiptMigration($connection),
+                'stt-schema-014-job-submission-receipts'
+            ),
         ];
     }
 
@@ -368,6 +395,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             STTSetting::CDR_BACKFILL_CURSOR_ID => '0',
             STTSetting::WORKER_API_KEY_ID => '',
             STTSetting::WORKER_API_KEY_IDS => '[]',
+            STTSetting::WORKER_API_KEY_HISTORY_IDS => '[]',
         ] as $key => $value) {
             $this->setDefaultSetting($connection, $key, $value);
         }
@@ -474,6 +502,26 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         );
         (new ModuleDatabaseIndexService())->ensure($connection);
 
+        return null;
+    }
+
+    private function applyWorkerApiV2Migration(mixed $connection): null
+    {
+        (new WorkerApiV2Migration())->migrate($connection);
+
+        return null;
+    }
+
+    private function applyWorkerBindingIntegrityMigration(mixed $connection): null
+    {
+        (new WorkerBindingIntegrityMigration())->migrate($connection);
+
+        return null;
+    }
+
+    private function applyJobSubmissionReceiptMigration(mixed $connection): null
+    {
+        (new JobSubmissionReceiptMigration())->migrate($connection);
         return null;
     }
 
@@ -749,37 +797,6 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
 
     private function ensureWorkerApiKeyPermissions(): void
     {
-        $changed = false;
-
-        foreach (STTSetting::workerApiKeyIds() as $apiKeyId) {
-            $apiKey = ApiKeys::findFirstById($apiKeyId);
-            if (!$apiKey instanceof ApiKeys) {
-                continue;
-            }
-
-            $allowedPaths = json_decode((string)$apiKey->allowed_paths, true);
-            if (!is_array($allowedPaths)) {
-                $allowedPaths = [];
-            }
-
-            $apiKeyChanged = $allowedPaths !== WorkerApiKeyService::WORKER_ALLOWED_PATHS
-                || (string)$apiKey->full_permissions !== '0';
-
-            if ($apiKeyChanged) {
-                $apiKey->full_permissions = '0';
-                $apiKey->allowed_paths = json_encode(
-                    WorkerApiKeyService::WORKER_ALLOWED_PATHS,
-                    JSON_THROW_ON_ERROR
-                );
-                if (!$apiKey->save()) {
-                    throw new \RuntimeException(implode(', ', $apiKey->getMessages()));
-                }
-                $changed = true;
-            }
-        }
-
-        if ($changed) {
-            TokenValidationService::clearCache();
-        }
+        (new WorkerApiKeyService())->reconcileStoredWorkerApiKeys();
     }
 }

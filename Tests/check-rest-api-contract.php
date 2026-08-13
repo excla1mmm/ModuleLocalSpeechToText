@@ -37,17 +37,15 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\Processor as TranscriptEventsProcessor;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\DataStructure as TranscriptsDataStructure;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\Processor as TranscriptsProcessor;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\DataStructure as WorkersDataStructure;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\ProcessingSettingsResponseDataStructure;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Processor as WorkersProcessor;
+    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
+    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerProcessingSettings\DataStructure as WorkerProcessingSettingsDataStructure;
 
     require_once __DIR__ . '/../Lib/RestAPI/Jobs/DataStructure.php';
-    require_once __DIR__ . '/../Lib/RestAPI/Workers/DataStructure.php';
-    require_once __DIR__ . '/../Lib/RestAPI/Workers/ProcessingSettingsResponseDataStructure.php';
+    require_once __DIR__ . '/../Lib/RestAPI/Common/WorkerRequestContext.php';
+    require_once __DIR__ . '/../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Transcripts/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/TranscriptEvents/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Jobs/Processor.php';
-    require_once __DIR__ . '/../Lib/RestAPI/Workers/Processor.php';
     require_once __DIR__ . '/../Lib/RestAPI/Transcripts/Processor.php';
     require_once __DIR__ . '/../Lib/RestAPI/TranscriptEvents/Processor.php';
 
@@ -70,78 +68,7 @@ namespace {
     /**
      * @return array<string, mixed>
      */
-    function privateRequestDataRestApiContract(string $processorClass, array $request): array
-    {
-        $method = new ReflectionMethod($processorClass, 'requestData');
-
-        $result = $method->invoke(null, $request);
-        if (!is_array($result)) {
-            throw new RuntimeException($processorClass . '::requestData must return an array');
-        }
-
-        return $result;
-    }
-
-    $jobParameters = JobsDataStructure::getParameterDefinitions();
-    expectSameRestApiContract('integer', $jobParameters['request']['duration_ms']['type'] ?? null, 'Jobs API must accept duration_ms as an integer');
-    expectSameRestApiContract(false, $jobParameters['request']['duration_ms']['required'] ?? null, 'duration_ms must be optional');
-    expectTrueRestApiContract(!isset($jobParameters['request']['duration']), 'Jobs API must not document legacy duration seconds input');
-    expectSameRestApiContract('array', $jobParameters['request']['transcript']['type'] ?? null, 'Jobs API must accept transcript arrays');
-    $transcriptDescriptionKey = (string)($jobParameters['request']['transcript']['description'] ?? '');
-    expectSameRestApiContract(
-        'module_local_speech_to_text_ApiParamTranscript',
-        $transcriptDescriptionKey,
-        'Jobs API transcript description must use the localized OpenAPI key'
-    );
-    $russianMessages = include __DIR__ . '/../Messages/ru.php';
-    $englishMessages = include __DIR__ . '/../Messages/en.php';
-    $transcriptDescriptions = [
-        $russianMessages[$transcriptDescriptionKey] ?? '',
-        $englishMessages[$transcriptDescriptionKey] ?? '',
-    ];
-    expectTrueRestApiContract(
-        array_reduce(
-            $transcriptDescriptions,
-            static fn(bool $valid, string $description): bool => $valid
-                && str_contains($description, 'start_ms')
-                && str_contains($description, 'end_ms'),
-            true
-        ),
-        'Jobs API RU/EN transcript docs must require millisecond segment timestamps'
-    );
-    expectSameRestApiContract('object', $jobParameters['request']['technical_info']['type'] ?? null, 'Jobs API must accept worker technical_info objects');
-
-    $jobSchema = JobsDataStructure::getDetailSchema();
-    expectSameRestApiContract(
-        'boolean',
-        $jobSchema['properties']['has_settings_changed']['type'] ?? null,
-        'Next-job responses must expose has_settings_changed'
-    );
-    $jobProperties = $jobSchema['properties']['job']['oneOf'][0]['properties'] ?? [];
-    foreach ([
-        'id',
-        'call_id',
-        'file_url',
-        'lease_token',
-        'lease_expires_at',
-        'language_hint',
-        'model_id',
-        'model_repo',
-        'model_engine',
-        'model_artifact_type',
-        'whisperkit_model',
-        'model_display_name',
-        'model_source_url',
-        'vocabulary_terms',
-    ] as $property) {
-        expectTrueRestApiContract(isset($jobProperties[$property]), "Claimed job schema must expose {$property}");
-    }
-
-    $workerParameters = WorkersDataStructure::getParameterDefinitions();
-    expectSameRestApiContract(true, $workerParameters['request']['worker_uid']['required'] ?? null, 'Worker registration must require worker_uid');
-    expectSameRestApiContract('integer', $workerParameters['response']['poll_interval']['type'] ?? null, 'Worker registration must return poll_interval');
-
-    $processingSchema = ProcessingSettingsResponseDataStructure::getDetailSchema();
+    $processingSchema = WorkerProcessingSettingsDataStructure::getDetailSchema();
     expectSameRestApiContract('integer', $processingSchema['properties']['schema_version']['type'] ?? null, 'Processing settings schema version must be an integer');
     expectSameRestApiContract('object', $processingSchema['properties']['processing_settings']['type'] ?? null, 'Processing settings must be an object');
     $processingProperties = $processingSchema['properties']['processing_settings']['properties'] ?? [];
@@ -201,32 +128,15 @@ namespace {
             'token_id' => '42',
         ],
     ];
-    foreach ([JobsProcessor::class, WorkersProcessor::class, TranscriptsProcessor::class, TranscriptEventsProcessor::class] as $processorClass) {
-        $data = privateRequestDataRestApiContract($processorClass, $trustedRequest);
-        expectSameRestApiContract('worker-a', $data['worker_uid'] ?? null, $processorClass . ' must preserve request data fields');
-        expectSameRestApiContract('10.0.0.5', $data['_remote_addr'] ?? null, $processorClass . ' must trust remote_addr only from sessionContext');
-        expectSameRestApiContract('BearerToken', $data['_auth_type'] ?? null, $processorClass . ' must trust auth_type only from sessionContext');
-        expectSameRestApiContract(42, $data['_api_key_id'] ?? null, $processorClass . ' must trust token_id only from sessionContext');
-
-        $stripped = privateRequestDataRestApiContract($processorClass, ['data' => $trustedRequest['data']]);
-        expectTrueRestApiContract(!isset($stripped['_remote_addr']), $processorClass . ' must strip spoofed _remote_addr without sessionContext');
-        expectTrueRestApiContract(!isset($stripped['_auth_type']), $processorClass . ' must strip spoofed _auth_type without sessionContext');
-        expectTrueRestApiContract(!isset($stripped['_api_key_id']), $processorClass . ' must strip spoofed _api_key_id without sessionContext');
-    }
-
-    $unknownJobAction = JobsProcessor::callBack(['action' => 'unknownAction']);
-    expectSameRestApiContract('unknownAction', $unknownJobAction->function, 'Unknown job action result must preserve the requested function name');
-    expectTrueRestApiContract(
-        str_contains((string)($unknownJobAction->messages['error'][0] ?? ''), 'Unknown action - unknownAction'),
-        'Unknown job action must report a clear processor error'
-    );
-
-    foreach ([JobsProcessor::class, WorkersProcessor::class] as $processorClass) {
-        expectTrueRestApiContract(
-            !(new ReflectionClass($processorClass))->hasMethod('moduleUnavailable'),
-            $processorClass . ' must not synthesize lifecycle HTTP 503 responses'
-        );
-    }
+    $data = WorkerRequestContext::data($trustedRequest);
+    expectSameRestApiContract('worker-a', $data['worker_uid'] ?? null, 'Canonical request data must preserve request data fields');
+    expectSameRestApiContract('10.0.0.5', $data['_remote_addr'] ?? null, 'Canonical request data must trust remote_addr only from sessionContext');
+    expectSameRestApiContract('BearerToken', $data['_auth_type'] ?? null, 'Canonical request data must trust auth_type only from sessionContext');
+    expectSameRestApiContract(42, $data['_api_key_id'] ?? null, 'Canonical request data must trust token_id only from sessionContext');
+    $stripped = WorkerRequestContext::data(['data' => $trustedRequest['data']]);
+    expectSameRestApiContract('', $stripped['_remote_addr'] ?? null, 'Canonical request data must strip spoofed _remote_addr without sessionContext');
+    expectSameRestApiContract('', $stripped['_auth_type'] ?? null, 'Canonical request data must strip spoofed _auth_type without sessionContext');
+    expectSameRestApiContract(0, $stripped['_api_key_id'] ?? null, 'Canonical request data must strip spoofed _api_key_id without sessionContext');
 
     echo "REST API contract OK\n";
 }

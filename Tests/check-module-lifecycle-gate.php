@@ -150,8 +150,15 @@ try {
 }
 
 $scanner = (string)file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
-$jobsProcessor = (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/Jobs/Processor.php');
-$workersProcessor = (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/Workers/Processor.php');
+$gatedProcessors = [
+    'Jobs' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/Jobs/Processor.php'),
+    'Workers' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/Workers/Processor.php'),
+    'WorkerProcessingSettings' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/WorkerProcessingSettings/Processor.php'),
+    'JobLeases' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/JobLeases/Processor.php'),
+    'JobRecordings' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/JobRecordings/Processor.php'),
+    'JobResults' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/JobResults/Processor.php'),
+    'JobFailures' => (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/JobFailures/Processor.php'),
+];
 $config = (string)file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextConf.php');
 $adminBase = (string)file_get_contents(__DIR__ . '/../App/Controllers/LocalSpeechToTextBaseController.php');
 
@@ -165,16 +172,25 @@ expectLifecycleGate(
         && !str_contains($scanner, 'Worker stopped accepting database work because the module is changing state'),
     'scanner must pause silently without the legacy exit-loop behavior'
 );
+foreach ($gatedProcessors as $resource => $processor) {
+    if ($resource === 'JobFailures') {
+        expectLifecycleGate(
+            str_contains($processor, 'ResultProcessor::dispatch'),
+            'JobFailures must delegate its lifecycle-gated maintenance behavior to JobResults'
+        );
+        continue;
+    }
+    expectLifecycleGate(
+        str_contains($processor, 'ModuleLifecycleGate')
+            && str_contains($processor, 'acquireWriteLease')
+            && str_contains($processor, '503')
+            && str_contains($processor, 'retry_after'),
+        "{$resource} must return a retryable maintenance response after acquiring its lifecycle gate"
+    );
+}
 expectLifecycleGate(
-    str_contains($jobsProcessor, 'httpCode = 503')
-        && str_contains($workersProcessor, 'httpCode = 503')
-        && str_contains($jobsProcessor, "['retry_after'] = 5")
-        && str_contains($workersProcessor, "['retry_after'] = 5"),
-    'worker REST processors must return a retryable maintenance response'
-);
-expectLifecycleGate(
-    str_contains($jobsProcessor, 'allowDuringDrain: $action !== JobAction::GET_NEXT'),
-    'getNext must stop during drain while existing lease completion actions retain a bounded grace period'
+    str_contains($gatedProcessors['JobLeases'], 'allowDuringDrain: $action !== JobLeaseAction::CREATE'),
+    'new lease claims must stop during drain while existing lease completion actions retain a bounded grace period'
 );
 expectLifecycleGate(
     str_contains($config, 'onBeforeModuleDisable')

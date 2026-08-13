@@ -14,6 +14,7 @@ namespace MikoPBX\Modules\Models {
 
     final class LeaseSqliteConnection
     {
+        public static int $throwAffectedRows = 0;
         private int $affectedRows = 0;
 
         public function __construct(private readonly PDO $pdo)
@@ -31,6 +32,10 @@ namespace MikoPBX\Modules\Models {
 
         public function affectedRows(): int
         {
+            if (self::$throwAffectedRows > 0) {
+                self::$throwAffectedRows--;
+                throw new \RuntimeException('injected post-CAS affectedRows failure');
+            }
             return $this->affectedRows;
         }
     }
@@ -119,6 +124,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 
 namespace {
     use MikoPBX\Modules\Models\ModulesModelsBase;
+    use MikoPBX\Modules\Models\LeaseSqliteConnection;
     use Modules\ModuleLocalSpeechToText\Models\STTJob;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
@@ -157,6 +163,8 @@ namespace {
             error_msg TEXT
         )'
     );
+    $pdo->exec('CREATE TABLE m_STTWorker (id INTEGER PRIMARY KEY, worker_uid TEXT NOT NULL)');
+    $pdo->exec("INSERT INTO m_STTWorker(id, worker_uid) VALUES (1, 'worker-one'), (2, 'worker-two')");
     ModulesModelsBase::useTestPdo($pdo);
     $now = time();
     $statement = $pdo->prepare(
@@ -195,6 +203,20 @@ namespace {
         'The old worker must not complete a job after it is reissued'
     );
 
+    // The processor may have passed ownership preflight immediately before this CAS;
+    // expiry at the authoritative UPDATE must still prevent lease resurrection.
+    $expiredBeforeCas = time() - 1;
+    $pdo->exec('UPDATE m_STTJob SET lease_expires_at = ' . $expiredBeforeCas . ' WHERE id = 1');
+    expectLeaseBehavior(
+        !$secondClaim->refreshProcessingLeaseForWorker(2, (string)$secondClaim->lease_token),
+        'Heartbeat must not revive a lease that expires between preflight and CAS'
+    );
+    $afterExpiredCas = STTJob::findFirstById(1);
+    expectLeaseBehavior(
+        (int)$afterExpiredCas?->lease_expires_at === $expiredBeforeCas,
+        'Rejected heartbeat must not extend the expired lease or create a side effect'
+    );
+
     $pdo->exec('UPDATE m_STTJob SET lease_expires_at = ' . time() . ' WHERE id = 1');
     expectLeaseBehavior(
         $secondClaim->refreshProcessingLeaseForWorker(2, (string)$secondClaim->lease_token),
@@ -217,6 +239,17 @@ namespace {
             && str_contains((string)$terminal?->error_msg, '3'),
         'Terminal timeout must keep a clear reason and attempt count'
     );
+
+    $statement->execute(['call_id' => 'affected-throw', 'file_path' => '/tmp/affected.wav', 'status' => STTJob::STATUS_PENDING, 'created_at' => $now, 'updated_at' => $now, 'cdr_endtime' => $now]);
+    LeaseSqliteConnection::$throwAffectedRows = 1;
+    try {
+        STTJob::claimNextForWorker($workerOne);
+        throw new RuntimeException('Injected affectedRows failure was swallowed');
+    } catch (RuntimeException $exception) {
+        expectLeaseBehavior($exception->getMessage() === 'injected post-CAS affectedRows failure', 'Original affectedRows failure must surface after compensation');
+    }
+    $compensated = STTJob::findFirstById(2);
+    expectLeaseBehavior($compensated?->status === STTJob::STATUS_PENDING && $compensated?->worker_id === null && $compensated?->lease_token === null && (int)$compensated?->attempts === 0, 'Post-CAS affectedRows failure must restore pending ownership without attempts');
 
     echo "STT job lease SQLite behavior OK\n";
 }

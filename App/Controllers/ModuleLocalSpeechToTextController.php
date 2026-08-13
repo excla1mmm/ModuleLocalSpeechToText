@@ -16,10 +16,10 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerViewService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
-use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
 
 class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
@@ -407,8 +407,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $skippedRecordings
         );
         $this->view->queueFileRows = $queueView->queueFileRows($delayedRecordings, $skippedRecordings);
-        $this->view->workers = STTWorker::find(['order' => 'last_seen DESC, id DESC']);
-        $this->view->workerRuntimeModel = STTSetting::selectedModelDisplayName();
+        (new WorkerViewService())->prepare($this->view);
         $this->view->workerApiKeyRows = $this->workerApiKeyService()->workerApiKeyRows();
         $this->view->generatedApiKey = $generatedApiKey['apiKey'];
         $this->view->transcriptRows = $transcripts->transcriptRows(100, $transcriptFilter);

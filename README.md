@@ -81,18 +81,26 @@ Base path:
 /pbxcore/api/v3/module-local-speech-to-text
 ```
 
-Endpoints:
+Worker API v2 is a breaking change in module `1.45`. New worker requests use the numeric database `{id}` or `{job_id}` shown below; `worker_uid` remains the worker's stable identity and is sent in the appropriate JSON body. Processing settings are a caller-bound singleton: `GET /worker-processing-settings`, with no worker ID in the path.
 
-- `POST /workers:register`
-- `GET /jobs:getNext?worker_uid=...`
-- `GET /jobs/{job_id}:download?worker_uid=...`
-- `POST /jobs/{job_id}:heartbeat`
-- `POST /jobs/{job_id}:submitResult`
-- `POST /jobs/{job_id}:submitError`
+| Previous v1 route | v2 route |
+| --- | --- |
+| `POST /workers:register` | `POST /workers` |
+| `GET /workers:getProcessingSettings` | `GET /worker-processing-settings` |
+| `GET /jobs:getNext` | `POST /job-leases` |
+| `GET /jobs/{id}:download` | `GET /job-recordings/{job_id}` |
+| `POST /jobs/{id}:submitResult` | `PUT /job-results/{job_id}` |
+| `POST /jobs/{id}:submitError` | `PUT /job-failures/{job_id}` |
+| `POST /jobs/{id}:heartbeat` | `PATCH /job-leases/{job_id}` |
+| `POST /jobs/{id}:release` | `DELETE /job-leases/{job_id}` |
 
-All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and are protected by localhost or Bearer-token security rules.
+New workers first call `GET /worker-api-contract`, then send `X-MikoPBX-Worker-API-Version: 2` on every worker request other than that contract call. All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and Bearer-token security rules.
 
-`jobs:getNext` returns:
+The eight former worker routes are retained only as module tombstones. They return HTTP 426 with `error_code: worker_upgrade_required` and numeric `required_worker_api_version: 2`; this module response has no `Upgrade` response header. A v2 worker talking to an older module receives `404` or `405` from `/worker-api-contract`, classifies it locally as `module_upgrade_required`, and must not fall back to v1 registration or polling.
+
+Update in this order: update this module to `1.45`; the previous macOS worker becomes incompatible/offline; update `LocalSTTWorkerMac` to `1.7` build `34`; then retry contract negotiation and a job claim. Existing worker API keys are preserved and are not rotated. Windows and Python workers are outside this migration and are not release artifacts. The Core floor remains `2025.1.1`; no Core prerequisite is required. See [the migration guide](docs/worker-api-v2-migration.md) for data preservation and rollback limits.
+
+`POST /job-leases` returns:
 
 - `id`
 - `call_id`
@@ -109,11 +117,11 @@ All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and 
 
 The external worker should use `whisperkit_model` or `model_id` as the WhisperKit model name and `model_repo` as the Core ML repository for lazy local model download, then include `vocabulary_terms` in its recognition context. Marketplace entries keep the real Hugging Face repository and model folder names in the job payload. Custom marketplace entries must point to WhisperKit/Core ML compatible Hugging Face repositories.
 
-`download`, `heartbeat`, `submitResult`, and `submitError` validate that the job is still in `processing` state and assigned to the requesting worker.
+Recording download, lease heartbeat/release, and final result/failure submission validate that the job remains assigned to the requesting worker.
 
 ## Result Payload
 
-`submitResult` requires:
+`PUT /job-results/{job_id}` requires:
 
 - `worker_uid`
 - `lease_token`

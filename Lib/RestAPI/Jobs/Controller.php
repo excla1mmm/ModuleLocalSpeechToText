@@ -1,205 +1,55 @@
 <?php
-
 declare(strict_types=1);
-
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
-
-use MikoPBX\PBXCoreREST\Attributes\ApiDataSchema;
-use MikoPBX\PBXCoreREST\Attributes\ApiOperation;
-use MikoPBX\PBXCoreREST\Attributes\ApiParameterRef;
-use MikoPBX\PBXCoreREST\Attributes\ApiResource;
-use MikoPBX\PBXCoreREST\Attributes\ApiResponse;
-use MikoPBX\PBXCoreREST\Attributes\HttpMapping;
-use MikoPBX\PBXCoreREST\Attributes\ResourceSecurity;
-use MikoPBX\PBXCoreREST\Attributes\SecurityType;
+use MikoPBX\PBXCoreREST\Attributes\{ApiDataSchema,ApiOperation,ApiParameterRef,ApiResource,ApiResponse,HttpMapping,ResourceSecurity,SecurityType};
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
-
-#[ApiResource(
-    path: LocalSpeechToTextMain::API_BASE_PATH . '/jobs',
-    tags: ['Local Speech To Text'],
-    description: 'module_local_speech_to_text_JobsApiDescription',
-    processor: Processor::class
-)]
-#[ResourceSecurity('module_local_speech_to_text_jobs', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
-#[HttpMapping(
-    mapping: [
-        'GET' => ['getNext', 'download'],
-        'POST' => ['submitResult', 'submitError', 'heartbeat', 'release'],
-    ],
-    resourceLevelMethods: ['download', 'submitResult', 'submitError', 'heartbeat', 'release'],
-    collectionLevelMethods: ['getNext'],
-    customMethods: ['getNext', 'download', 'submitResult', 'submitError', 'heartbeat', 'release'],
-    idPattern: '[0-9]+'
-)]
-class Controller extends BaseRestController
-{
-    private const array DOWNLOAD_BINARY_CONTENT = [
-        'audio/ogg' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-        'audio/webm' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-        'audio/wav' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-        'audio/mpeg' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-        'application/octet-stream' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-    ];
-
-    private const array PARTIAL_CONTENT_HEADERS = [
-        'Accept-Ranges' => [
-            'description' => 'Supported byte range unit.',
-            'schema' => ['type' => 'string', 'example' => 'bytes'],
-        ],
-        'Content-Range' => [
-            'description' => 'Byte range included in this response.',
-            'schema' => ['type' => 'string', 'example' => 'bytes 0-1023/4096'],
-        ],
-    ];
-
-    protected string $processorClass = Processor::class;
-
-    /**
-     * @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs:getNext
-     */
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJob')]
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_GetNextJob',
-        description: 'module_local_speech_to_text_GetNextJobDesc',
-        operationId: 'getNextLocalSpeechToTextJob'
-    )]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobClaimed')]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function getNext(): void
-    {
-        // Implementation handled by BaseRestController.
-    }
-
-    /**
-     * @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:download
-     */
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_DownloadJobFile',
-        description: 'module_local_speech_to_text_DownloadJobFileDesc',
-        operationId: 'downloadLocalSpeechToTextJobFile'
-    )]
-    #[ApiParameterRef('id', required: true)]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'rest_response_200_stream', content: self::DOWNLOAD_BINARY_CONTENT)]
-    #[ApiResponse(206, 'rest_response_206_partial_content', content: self::DOWNLOAD_BINARY_CONTENT, headers: self::PARTIAL_CONTENT_HEADERS)]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
-    #[ApiResponse(413, 'module_local_speech_to_text_ApiResponseRecordingRejected', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function download(string $id): void
-    {
-        // Implementation handled by BaseRestController.
-    }
-
-    /**
-     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitResult
-     */
-    #[ApiDataSchema(schemaClass: SubmitResultResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTSubmitResultResponse')]
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_SubmitResult',
-        description: 'module_local_speech_to_text_SubmitResultDesc',
-        operationId: 'submitLocalSpeechToTextResult'
-    )]
-    #[ApiParameterRef('id', required: true)]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiParameterRef('lease_token', required: true)]
-    #[ApiParameterRef('transcript', required: true)]
-    #[ApiParameterRef('language')]
-    #[ApiParameterRef('duration_ms')]
-    #[ApiParameterRef('model_used')]
-    #[ApiParameterRef('technical_info')]
-    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseResultAccepted')]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function submitResult(string $id): void
-    {
-        // Implementation handled by BaseRestController.
-    }
-
-    /**
-     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitError
-     */
-    #[ApiDataSchema(schemaClass: SubmitErrorResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTSubmitErrorResponse')]
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_SubmitError',
-        description: 'module_local_speech_to_text_SubmitErrorDesc',
-        operationId: 'submitLocalSpeechToTextError'
-    )]
-    #[ApiParameterRef('id', required: true)]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiParameterRef('lease_token', required: true)]
-    #[ApiParameterRef('error_msg')]
-    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseErrorAccepted')]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function submitError(string $id): void
-    {
-        // Implementation handled by BaseRestController.
-    }
-
-    /**
-     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:heartbeat
-     */
-    #[ApiDataSchema(schemaClass: HeartbeatResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTHeartbeatResponse')]
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_HeartbeatJob',
-        description: 'module_local_speech_to_text_HeartbeatJobDesc',
-        operationId: 'heartbeatLocalSpeechToTextJob'
-    )]
-    #[ApiParameterRef('id', required: true)]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseLeaseExtended')]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function heartbeat(string $id): void
-    {
-        // Implementation handled by BaseRestController.
-    }
-
-    /**
-     * @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:release
-     */
-    #[ApiDataSchema(schemaClass: ReleaseResponseDataStructure::class, type: 'custom', schemaName: 'LocalSTTReleaseResponse')]
-    #[ApiOperation(
-        summary: 'module_local_speech_to_text_ReleaseJob',
-        description: 'module_local_speech_to_text_ReleaseJobDesc',
-        operationId: 'releaseLocalSpeechToTextJob'
-    )]
-    #[ApiParameterRef('id', required: true)]
-    #[ApiParameterRef('worker_uid', required: true)]
-    #[ApiParameterRef('lease_token', required: true)]
-    #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobReleased')]
-    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
-    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
-    #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
-    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
-    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
-    public function release(string $id): void
-    {
-        // Implementation handled by BaseRestController.
-    }
+#[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local STT Jobs'],description:'Administrative STT queue',processor:Processor::class)]
+#[ResourceSecurity('module_local_speech_to_text_jobs',requirements:[SecurityType::LOCALHOST,SecurityType::BEARER_TOKEN])]
+#[HttpMapping(mapping: [
+    'GET' => ['getList', 'getRecord', 'getNext', 'download'],
+    'POST' => ['create', 'submitResult', 'submitError', 'heartbeat', 'release'],
+    'PATCH' => ['patch', 'patchCollection'],
+    'DELETE' => ['delete', 'deleteCollection'],
+], resourceLevelMethods: ['getRecord','patch','delete','download','submitResult','submitError','heartbeat','release'], collectionLevelMethods: ['getList','create','patchCollection','deleteCollection','getNext'], customMethods: ['getNext','download','submitResult','submitError','heartbeat','release'], idPattern: '[0-9]+')]
+class Controller extends BaseRestController {
+ protected string $processorClass=Processor::class;
+ protected function getActionMapping(): array { return [
+  'GET' => ['collection' => 'getList', 'resource' => 'getRecord'],
+  'POST' => ['collection' => 'create'],
+  'PATCH' => ['collection' => 'patchCollection', 'resource' => 'patch'],
+  'DELETE' => ['collection' => 'deleteCollection', 'resource' => 'delete'],
+ ]; }
+ public function handleCRUDRequest(?string $id=null): void {
+  if($this->request->getMethod()==='POST'&&$id!==null&&$id!==''){$this->sendErrorResponse('POST is not allowed for an individual STT job',405);return;}
+  $rawMerged=$this->request->getData();$rawQuery=$this->request->getQuery();$rawQuery=is_array($rawQuery)?$rawQuery:[];$rawBody=$this->rawBodyData($rawMerged,$rawQuery);
+  $requestData=self::sanitizeData($rawMerged,$this->filter);
+  if(array_key_exists('id',$rawBody))$requestData['_idFromRequestBody']=$rawBody['id'];
+  if($id!==null&&$id!=='')$requestData['id']=$id;
+  $httpMethod=$this->request->getMethod();$action=$this->mapHttpMethodToAction($httpMethod,$id!==null);
+  if($action===null){$this->sendErrorResponse("Invalid HTTP method: $httpMethod",405);return;}
+  if($httpMethod==='POST'&&array_key_exists('priority',$rawMerged))$requestData['priority']=$rawMerged['priority'];
+  if($httpMethod==='PATCH'&&$id===null){foreach(['ids','action']as$field)if(array_key_exists($field,$rawMerged))$requestData[$field]=$rawMerged[$field];}
+  if(in_array($httpMethod,['POST','PUT','PATCH'],true))$requestData['httpMethod']=$httpMethod;
+  if($httpMethod==='DELETE'&&$id===null){$requestData['_query_status_present']=array_key_exists('status',$rawQuery);$requestData['_query_status']=$requestData['_query_status_present']?$rawQuery['status']:null;}
+  $this->sendRequestToBackendWorker($this->processorClass,$action,$requestData);
+ }
+ private function rawBodyData(array $merged,array $query):array {
+  $contentType=(string)$this->request->getContentType();
+  if(str_contains(strtolower($contentType),'application/json')){$decoded=json_decode((string)$this->request->getRawBody(),true);return is_array($decoded)?$decoded:[];}
+  return array_diff_key($merged,$query);
+ }
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'list',isArray:true)] #[ApiOperation(summary:'List STT jobs',operationId:'getLocalSTTJobs')] #[ApiParameterRef('status')] #[ApiParameterRef('call_id')] #[ApiParameterRef('limit')] #[ApiParameterRef('offset')] public function getList():void{}
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Get STT job',operationId:'getLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function getRecord(string $id):void{}
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Create STT job',operationId:'createLocalSTTJob')] #[ApiParameterRef('call_id',required:true)] #[ApiParameterRef('file_path',required:true)] #[ApiParameterRef('priority')] public function create():void{}
+ #[ApiOperation(summary:'Retry or reset STT job',operationId:'patchLocalSTTJob')] #[ApiParameterRef('id',required:true)] #[ApiParameterRef('action',required:true)] public function patch(string $id):void{}
+ #[ApiOperation(summary:'Retry or reset STT jobs',operationId:'patchLocalSTTJobs')] #[ApiParameterRef('ids',required:true)] #[ApiParameterRef('action',required:true)] public function patchCollection():void{}
+ #[ApiOperation(summary:'Delete STT job',operationId:'deleteLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function delete(string $id):void{}
+ #[ApiOperation(summary:'Delete filtered STT jobs',operationId:'deleteLocalSTTJobs')] #[ApiParameterRef('status',required:true)] public function deleteCollection():void{}
+ /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs:getNext */ public function getNext(): void { /* Undocumented API v1 tombstone. */ }
+ /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:download */ public function download(string $id): void { /* Undocumented API v1 tombstone. */ }
+ /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitResult */ public function submitResult(string $id): void { /* Undocumented API v1 tombstone. */ }
+ /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitError */ public function submitError(string $id): void { /* Undocumented API v1 tombstone. */ }
+ /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:heartbeat */ public function heartbeat(string $id): void { /* Undocumented API v1 tombstone. */ }
+ /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:release */ public function release(string $id): void { /* Undocumented API v1 tombstone. */ }
 }

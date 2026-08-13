@@ -5,15 +5,23 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
-use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\GetProcessingSettingsAction;
-use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers\Actions\RegisterAction;
+use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\LegacyRouteRejector;
+use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
-use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Phalcon\Di\Injectable;
 
 enum WorkerAction: string
 {
+    case GET_LIST = 'getList';
+    case CREATE = 'create';
+    case GET_RECORD = 'getRecord';
+    case UPDATE = 'update';
+    case PATCH = 'patch';
+    case DELETE = 'delete';
     case REGISTER = 'register';
     case GET_PROCESSING_SETTINGS = 'getProcessingSettings';
 }
@@ -22,61 +30,172 @@ class Processor extends Injectable
 {
     public static function callBack(array $request): PBXApiResult
     {
-        $result = new PBXApiResult();
-        $result->processor = self::class . '::callBack';
-
         $actionString = (string)($request['action'] ?? '');
         $action = WorkerAction::tryFrom($actionString);
-        if ($action === null) {
-            $result->messages['error'][] = "Unknown action - $actionString in " . __CLASS__;
-            $result->function = $actionString;
-            return $result;
+        $data = WorkerRequestContext::data($request);
+        if (WorkerRequestContext::isRevokedWorkerKey($data)) {
+            return self::forbidden('worker_api_key_forbidden', 'Worker API key is no longer authorized');
         }
 
-        $gate = new ModuleLifecycleGate();
-        $writeLease = $gate->acquireWriteLease();
-        if ($writeLease === null) {
-            $result->success = false;
-            $result->httpCode = 503;
-            $result->function = $actionString;
-            $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
-            $result->data['retry_after'] = 5;
-            return $result;
+        return match ($action) {
+            WorkerAction::REGISTER => LegacyRouteRejector::worker(),
+            WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker(),
+            default => (static function () use ($request, $action, $actionString, $data): PBXApiResult {
+                $restricted = WorkerRequestContext::isRestrictedWorkerKey($data);
+                if (!$restricted && !WorkerRequestContext::isAdministrator($data)) {
+                    return self::forbidden('worker_authorization_forbidden', 'Worker resource authorization is not valid');
+                }
+                if ($action === WorkerAction::CREATE && $restricted) {
+                    $versionError = WorkerApiContract::requireVersion($request);
+                    if ($versionError !== null) {
+                        return $versionError;
+                    }
+                }
+
+                if ($restricted) {
+                    if ($action !== WorkerAction::CREATE) {
+                        return self::forbidden('worker_resource_forbidden', 'Worker credentials may only self-register');
+                    }
+                    $bindingError = self::restrictedCreateError($data);
+                    if ($bindingError !== null) {
+                        return $bindingError;
+                    }
+                } elseif ($action === WorkerAction::CREATE) {
+                    unset(
+                        $data['_auth_type'],
+                        $data['_api_key_id'],
+                        $data['_auth_user_name'],
+                        $data['_auth_session_id']
+                    );
+                }
+
+                if (!$action instanceof WorkerAction) {
+                    return self::unknownAction($actionString);
+                }
+
+                $gate = new ModuleLifecycleGate();
+                $writeLease = $gate->acquireWriteLease();
+                if ($writeLease === null) {
+                    $result = new PBXApiResult();
+                    $result->success = false;
+                    $result->httpCode = 503;
+                    $result->function = $actionString;
+                    $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
+                    $result->data['retry_after'] = 5;
+
+                    return $result;
+                }
+
+                try {
+                    (new ModuleDatabasePragmas())->configureRuntime((new STTWorker())->getWriteConnection());
+                    $service = new STTWorkerResourceService();
+                    $id = (int)($data['id'] ?? 0);
+                    $result = match ($action) {
+                        WorkerAction::GET_LIST => $service->getList($data),
+                        WorkerAction::CREATE => $service->create($data),
+                        WorkerAction::GET_RECORD => $service->getRecord($id),
+                        WorkerAction::UPDATE => $service->update($id, $data),
+                        WorkerAction::PATCH => $service->patch($id, $data),
+                        WorkerAction::DELETE => $service->delete($id),
+                        default => self::unknownAction($actionString),
+                    };
+                } finally {
+                    $gate->releaseWriteLease($writeLease);
+                }
+
+                $result->processor = self::class . '::callBack';
+                $result->function = $actionString;
+
+                return $result;
+            })(),
+        };
+    }
+
+    private static function restrictedCreateError(array $data): ?PBXApiResult
+    {
+        $workerUid = is_scalar($data['worker_uid'] ?? null) ? trim((string)$data['worker_uid']) : '';
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/', $workerUid) !== 1) {
+            return self::validationError('worker_uid format is invalid');
         }
 
-        try {
-            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-            $data = self::requestData($request);
-            $result = match ($action) {
-                WorkerAction::REGISTER => RegisterAction::main($data),
-                WorkerAction::GET_PROCESSING_SETTINGS => GetProcessingSettingsAction::main($data),
-            };
-        } finally {
-            $gate->releaseWriteLease($writeLease);
+        $apiKeyId = (int)($data['_api_key_id'] ?? 0);
+        $worker = STTWorker::findFirst([
+            'conditions' => 'worker_uid = :worker_uid:',
+            'bind' => ['worker_uid' => $workerUid],
+        ]);
+        if ($worker instanceof STTWorker) {
+            $boundApiKeyId = (int)$worker->api_key_id;
+            if ($boundApiKeyId > 0 && $boundApiKeyId !== $apiKeyId) {
+                return self::forbidden('worker_api_key_mismatch', 'Worker is bound to another API key');
+            }
         }
 
-        $result->processor = __METHOD__;
-        $result->function = $actionString;
+        $otherWorker = STTWorker::findFirst([
+            'conditions' => 'api_key_id = :api_key_id: AND worker_uid <> :other_worker_uid:',
+            'bind' => ['api_key_id' => $apiKeyId, 'other_worker_uid' => $workerUid],
+        ]);
+        if ($otherWorker instanceof STTWorker) {
+            return self::conflict('worker_api_key_already_bound', 'This API key is already bound to another worker');
+        }
 
-        return $result;
+        return null;
     }
 
     private static function requestData(array $request): array
     {
-        $data = $request['data'] ?? [];
-        $data = is_array($data) ? $data : [];
+        $data = is_array($request['data'] ?? null) ? $request['data'] : [];
         unset($data['_remote_addr'], $data['_auth_type'], $data['_api_key_id']);
-
-        if (isset($request['sessionContext']['remote_addr']) && is_scalar($request['sessionContext']['remote_addr'])) {
-            $data['_remote_addr'] = (string)$request['sessionContext']['remote_addr'];
+        $sessionContext = is_array($request['sessionContext'] ?? null) ? $request['sessionContext'] : [];
+        if (isset($sessionContext['remote_addr']) && is_scalar($sessionContext['remote_addr'])) {
+            $data['_remote_addr'] = (string)$sessionContext['remote_addr'];
         }
-        if (isset($request['sessionContext']['auth_type']) && is_scalar($request['sessionContext']['auth_type'])) {
-            $data['_auth_type'] = (string)$request['sessionContext']['auth_type'];
+        if (isset($sessionContext['auth_type']) && is_scalar($sessionContext['auth_type'])) {
+            $data['_auth_type'] = (string)$sessionContext['auth_type'];
         }
-        if (isset($request['sessionContext']['token_id']) && is_scalar($request['sessionContext']['token_id'])) {
-            $data['_api_key_id'] = (int)$request['sessionContext']['token_id'];
+        if (isset($sessionContext['token_id']) && is_scalar($sessionContext['token_id'])) {
+            $data['_api_key_id'] = (int)$sessionContext['token_id'];
         }
 
         return $data;
+    }
+
+    private static function forbidden(string $code, string $message): PBXApiResult
+    {
+        $result = new PBXApiResult();
+        $result->success = false;
+        $result->httpCode = 403;
+        $result->data = ['error' => $code, 'error_code' => $code];
+        $result->messages['error'][] = $message;
+
+        return $result;
+    }
+
+    private static function validationError(string $message): PBXApiResult
+    {
+        $result = new PBXApiResult();
+        $result->success = false;
+        $result->httpCode = 422;
+        $result->data = ['error' => 'validation_error', 'error_code' => 'validation_error'];
+        $result->messages['error'][] = $message;
+
+        return $result;
+    }
+
+    private static function conflict(string $code, string $message): PBXApiResult
+    {
+        $result = self::forbidden($code, $message);
+        $result->httpCode = 409;
+
+        return $result;
+    }
+
+    private static function unknownAction(string $actionString): PBXApiResult
+    {
+        $result = new PBXApiResult();
+        $result->processor = self::class . '::callBack';
+        $result->function = $actionString;
+        $result->messages['error'][] = "Unknown action - {$actionString} in " . __CLASS__;
+
+        return $result;
     }
 }

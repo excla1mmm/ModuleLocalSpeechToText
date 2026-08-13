@@ -9,11 +9,16 @@ use InvalidArgumentException;
 use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\AssignedJobConflictException;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\WorkerApiKeyBindingConflictException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobTerminalSubmissionService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -40,6 +45,9 @@ class LocalSpeechToTextMain
         if ($workerUid === '') {
             return self::error('validation_error', 'worker_uid is required', 422);
         }
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/', $workerUid) !== 1) {
+            return self::error('validation_error', 'worker_uid format is invalid', 422);
+        }
 
         $apiKeyError = self::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
@@ -52,12 +60,21 @@ class LocalSpeechToTextMain
         }
 
         try {
-            $worker = STTWorker::registerWorker(
+            $apiKeyId = self::requestApiKeyId($data);
+            $connection = (new STTWorker())->getWriteConnection();
+            $worker = (new WorkerRegistrationTransaction())->run(
+                $connection,
+                $apiKeyId,
                 $workerUid,
-                self::stringField($data, 'name', $workerUid),
-                self::currentWorkerModelName(),
-                self::clientIp($data),
-                self::requestApiKeyId($data)
+                static fn (): STTWorker => STTWorker::registerWorker(
+                    $workerUid,
+                    self::stringField($data, 'name', $workerUid),
+                    self::currentWorkerModelName(),
+                    self::clientIp($data),
+                    $apiKeyId,
+                    WorkerApiContract::API_VERSION,
+                    self::stringField($data, 'app_version')
+                )
             );
             LocalSpeechToTextLogger::event(
                 'worker',
@@ -70,10 +87,12 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success([
-                'worker_id' => (int)$worker->id,
-                'poll_interval' => (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
-            ]);
+            return self::success(STTWorkerResourceService::formatWorker($worker));
+        } catch (WorkerApiKeyBindingConflictException $exception) {
+            $result = self::error($exception->errorCode, $exception->getMessage(), 409);
+            $result->data['error_code'] = $exception->errorCode;
+
+            return $result;
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
@@ -82,6 +101,9 @@ class LocalSpeechToTextMain
 
     public static function getNextJob(array $data): PBXApiResult
     {
+        $claimedJob = null;
+        $claimedWorkerId = 0;
+        $claimedLeaseToken = '';
         $workerUid = self::stringField($data, 'worker_uid');
         if ($workerUid === '') {
             return self::error('validation_error', 'worker_uid is required', 422);
@@ -105,6 +127,7 @@ class LocalSpeechToTextMain
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
             self::syncWorkerModel($worker);
+            $jobSnapshot = self::prepareJobSnapshot();
             $job = STTJob::claimNextForWorker($worker);
             if ($job === null) {
                 return self::success([
@@ -112,7 +135,11 @@ class LocalSpeechToTextMain
                     'has_settings_changed' => $hasSettingsChanged,
                 ]);
             }
-            LocalSpeechToTextLogger::event(
+            $claimedJob = $job;
+            $claimedWorkerId = (int)$worker->id;
+            $claimedLeaseToken = (string)$job->lease_token;
+            $payload = self::formatJob($job, $jobSnapshot);
+            self::bestEffortEvent(
                 'queue',
                 'job_claimed',
                 'Transcription job claimed by a worker',
@@ -126,10 +153,18 @@ class LocalSpeechToTextMain
             );
 
             return self::success([
-                'job' => self::formatJob($job, $workerUid),
+                'job' => $payload,
                 'has_settings_changed' => $hasSettingsChanged,
             ]);
         } catch (Throwable $exception) {
+            if ($claimedJob instanceof STTJob && $claimedWorkerId > 0 && $claimedLeaseToken !== '') {
+                try {
+                    $compensated = $claimedJob->releaseForWorker($claimedWorkerId, $claimedLeaseToken);
+                    self::bestEffortEvent('queue', $compensated ? 'job_claim_compensated' : 'job_claim_compensation_failed', $compensated ? 'Unexpected post-claim failure was compensated' : 'Unexpected post-claim failure could not be compensated', $compensated ? LOG_WARNING : LOG_ERR, ['job_id' => (int)$claimedJob->id, 'worker_uid' => $workerUid]);
+                } catch (Throwable) {
+                    self::bestEffortEvent('queue', 'job_claim_compensation_failed', 'Unexpected post-claim failure compensation threw', LOG_ERR, ['job_id' => (int)$claimedJob->id, 'worker_uid' => $workerUid]);
+                }
+            }
             self::logException(__METHOD__, $exception);
             return self::error('internal_error', 'Internal server error', 500);
         }
@@ -197,12 +232,12 @@ class LocalSpeechToTextMain
             if ($bindingError !== null) {
                 return $bindingError;
             }
-            $worker->touchOnline(self::clientIp($data));
-
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
+            // Ownership must be established before this best-effort liveness mutation.
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
             if (!STTSetting::recordingDurationAllowed(self::jobDurationSeconds($job))) {
                 $message = 'Recording duration exceeds configured maximum';
@@ -277,7 +312,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -289,48 +323,54 @@ class LocalSpeechToTextMain
             $model = null;
             $connection = $job->getWriteConnection();
             try {
-                (new ModuleTransaction())->run(
-                    $connection,
-                    static function () use (
-                        $data,
-                        $job,
-                        $worker,
-                        $leaseToken,
-                        &$completionEventId,
-                        &$segmentCount,
-                        &$language,
-                        &$model
-                    ): void {
+                $state = [];
+                $terminal = new JobTerminalSubmissionService();
+                $storeResult = static function () use ($terminal, $data, $job, $worker, $leaseToken, &$state, &$completionEventId, &$segmentCount, &$language, &$model): void {
+                    $terminal->result(
+                    static function () use ($data, &$state, &$language, &$model, &$segmentCount): void {
                         $technicalInfo = is_array($data['technical_info'] ?? null)
                             ? $data['technical_info']
                             : null;
-                        $duration = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                         $transcript = TranscriptTimeNormalizer::normalizeTranscriptSegments($data['transcript']);
                         $language = self::nullableStringField($data, 'language');
                         $filterLanguage = $language
                             ?? self::nullableStringField($data, 'language_hint')
                             ?? self::languageHintFromTechnicalInfo($technicalInfo);
                         $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
-                        $transcript = $filterResult['segments'];
-                        $technicalInfo = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
-                        $result = STTResult::saveForJob(
-                            $job,
-                            self::encodeTranscript($transcript),
-                            $language,
-                            $duration,
-                            self::nullableStringField($data, 'model_used'),
-                            self::encodeTechnicalInfo($technicalInfo)
-                        );
-                        $completionEvent = STTTranscriptEvent::ensureCompletedForResult($result, $job);
-                        $completionEventId = (int)$completionEvent->id;
-                        $segmentCount = count($transcript);
+                        $state['transcript'] = $filterResult['segments'];
+                        $state['technical_info'] = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
+                        $state['duration'] = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                         $model = self::nullableStringField($data, 'model_used');
+                        $segmentCount = count($state['transcript']);
+                    },
+                    static function () use ($job, &$state, &$language, &$model): void {
+                        $state['result'] = STTResult::saveForJob(
+                            $job,
+                            self::encodeTranscript($state['transcript']),
+                            $language,
+                            $state['duration'],
+                            $model,
+                            self::encodeTechnicalInfo($state['technical_info'])
+                        );
+                    },
+                    static function () use ($job, &$state, &$completionEventId): void {
+                        $completionEvent = STTTranscriptEvent::ensureCompletedForResult($state['result'], $job);
+                        $completionEventId = (int)$completionEvent->id;
+                    },
+                    static function () use ($job, $worker, $leaseToken): void {
                         if (!$job->markDoneForWorker((int)$worker->id, $leaseToken)) {
                             throw new AssignedJobConflictException('Assigned STT job changed during result submission');
                         }
-                        (new CallTranscriptRevisionService())->recordCompletedPart($result, $job);
-                    }
-                );
+                    },
+                    static function () use ($job, &$state): void { (new CallTranscriptRevisionService())->recordCompletedPart($state['result'], $job); },
+                    static fn (): null => null,
+                    );
+                };
+                if ($connection->isUnderTransaction()) {
+                    $storeResult();
+                } else {
+                    (new ModuleTransaction())->run($connection, $storeResult);
+                }
             } catch (AssignedJobConflictException) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
@@ -404,17 +444,20 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
 
-            if (!$job->markFailedForWorker(
-                (int)$worker->id,
-                $leaseToken,
-                self::stringField($data, 'error_msg', 'Worker failed to process audio')
-            )) {
+            $failureAccepted = (new JobTerminalSubmissionService())->failure(
+                static fn (): bool => $job->markFailedForWorker(
+                    (int)$worker->id,
+                    $leaseToken,
+                    self::stringField($data, 'error_msg', 'Worker failed to process audio')
+                ),
+                static fn (): bool => true,
+            );
+            if (!$failureAccepted) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             $failed = (string)$job->status === STTJob::STATUS_ERROR;
@@ -473,7 +516,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -482,6 +524,7 @@ class LocalSpeechToTextMain
             if (!$job->refreshProcessingLeaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
             return self::success([
                 'status' => (string)$job->status,
@@ -522,7 +565,6 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
-            $worker->touchOnline(self::clientIp($data));
             $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
@@ -531,7 +573,8 @@ class LocalSpeechToTextMain
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
                 return self::assignedJobConflict($jobId, $worker, $leaseToken);
             }
-            LocalSpeechToTextLogger::event(
+            self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
+            self::bestEffortEvent(
                 'queue',
                 'job_released',
                 'Worker released a transcription job',
@@ -552,16 +595,9 @@ class LocalSpeechToTextMain
         }
     }
 
-    private static function formatJob(STTJob $job, string $workerUid): array
+    private static function prepareJobSnapshot(): array
     {
         return [
-            'id' => (int)$job->id,
-            'call_id' => (string)$job->call_id,
-            'file_url' => self::API_BASE_PATH . '/jobs/' . $job->id . ':download?worker_uid=' . rawurlencode($workerUid)
-                . '&lease_token=' . rawurlencode((string)$job->lease_token),
-            'lease_token' => (string)$job->lease_token,
-            'lease_expires_at' => (int)$job->lease_expires_at,
-            'duration_hint' => self::jobDurationSeconds($job),
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => STTSetting::selectedModelRuntimeId(),
             'model_repo' => STTSetting::selectedModelRepo(),
@@ -572,6 +608,39 @@ class LocalSpeechToTextMain
             'model_source_url' => STTSetting::selectedModelSourceUrl(),
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
+    }
+
+    private static function formatJob(STTJob $job, array $snapshot): array
+    {
+        return [
+            'id' => (int)$job->id,
+            'call_id' => (string)$job->call_id,
+            'file_url' => '/job-recordings/'.(int)$job->id,
+            'lease_token' => (string)$job->lease_token,
+            'lease_expires_at' => (int)$job->lease_expires_at,
+            'duration_hint' => self::jobDurationSeconds($job),
+            'language_hint' => $snapshot['language_hint'],
+            'model_id' => $snapshot['model_id'],
+            'model_repo' => $snapshot['model_repo'],
+            'model_engine' => $snapshot['model_engine'],
+            'model_artifact_type' => $snapshot['model_artifact_type'],
+            'whisperkit_model' => $snapshot['whisperkit_model'],
+            'model_display_name' => $snapshot['model_display_name'],
+            'model_source_url' => $snapshot['model_source_url'],
+            'vocabulary_terms' => $snapshot['vocabulary_terms'],
+        ];
+    }
+
+    private static function bestEffortWorkerTouch(STTWorker $worker, string $ip, int $jobId, string $workerUid): void
+    {
+        try { $worker->touchOnline($ip); } catch (Throwable) {
+            self::bestEffortEvent('queue', 'worker_liveness_update_failed', 'Lease transition succeeded but worker liveness update failed', LOG_WARNING, ['job_id' => $jobId, 'worker_uid' => $workerUid]);
+        }
+    }
+
+    private static function bestEffortEvent(string $channel, string $event, string $message, int $priority, array $context): void
+    {
+        try { LocalSpeechToTextLogger::event($channel, $event, $message, $priority, $context); } catch (Throwable) {}
     }
 
     private static function jobDurationSeconds(STTJob $job): ?int

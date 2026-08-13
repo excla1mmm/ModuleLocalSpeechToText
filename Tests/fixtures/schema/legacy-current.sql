@@ -147,7 +147,21 @@ INSERT INTO m_STTSetting(key, value) VALUES
     ('poll_interval_sec', '17'),
     ('cdr_history_days', '730'),
     ('processing_timeout_sec', '1800'),
-    ('call_transcript_stability_sec', '30');
+    ('call_transcript_stability_sec', '30'),
+    ('cdr_scan_cursor_endtime', '2026-08-11 10:20:30'),
+    ('cdr_scan_cursor_id', '701'),
+    ('cdr_backfill_cursor_endtime', '2026-07-01 01:02:03'),
+    ('cdr_backfill_cursor_id', '509');
+INSERT INTO m_STTWorker(id, worker_uid, name, status, api_key_id, has_settings_changed, last_seen, created_at)
+VALUES (1, 'legacy-worker', 'Legacy Mac', 'online', 41, 0, 1700000000, 1690000000);
+INSERT INTO m_STTJob(
+    id, call_id, file_path, status, worker_id, attempts, created_at, updated_at,
+    started_at, lease_token, lease_expires_at, error_msg
+) VALUES
+    (10, 'active', '/tmp/active.wav', 'processing', 1, 1, 1690000000, 1700000000,
+     1700000000, 'secret-lease', 1800000000, ''),
+    (11, 'done', '/tmp/done.wav', 'done', 1, 2, 1690000000, 1700000000,
+     1700000000, NULL, NULL, '');
 INSERT INTO m_STTJob(id, call_id, file_path, status, created_at, updated_at)
 VALUES (41, 'legacy-call', '/storage/legacy.wav', 'done', 1700000000, 1700000100);
 INSERT INTO m_STTResult(id, job_id, transcript, created_at)

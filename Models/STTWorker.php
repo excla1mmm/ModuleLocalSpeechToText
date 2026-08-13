@@ -64,6 +64,16 @@ class STTWorker extends ModulesModelsBase
     public ?int $has_settings_changed = 1;
 
     /**
+     * @Column(type="integer", default="1", nullable=false)
+     */
+    public ?int $api_version = 1;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
+    public ?string $app_version = '';
+
+    /**
      * @Column(type="integer", nullable=true)
      */
     public ?string $last_seen = null;
@@ -72,6 +82,11 @@ class STTWorker extends ModulesModelsBase
      * @Column(type="integer", nullable=false)
      */
     public ?string $created_at = '0';
+
+    /**
+     * @Column(type="integer", nullable=false)
+     */
+    public ?string $updated_at = '0';
 
     public function initialize(): void
     {
@@ -97,7 +112,9 @@ class STTWorker extends ModulesModelsBase
         string $name,
         string $modelName,
         ?string $ip,
-        ?int $apiKeyId = null
+        ?int $apiKeyId = null,
+        int $apiVersion = 1,
+        string $appVersion = ''
     ): self
     {
         $worker = self::findFirst([
@@ -121,6 +138,9 @@ class STTWorker extends ModulesModelsBase
         }
         $worker->status = self::STATUS_ONLINE;
         $worker->last_seen = (string)time();
+        $worker->api_version = $apiVersion;
+        $worker->app_version = $appVersion;
+        $worker->updated_at = (string)time();
 
         if ($worker->id === null) {
             self::saveNewWorker($worker);
@@ -131,7 +151,8 @@ class STTWorker extends ModulesModelsBase
         if (!$connection->execute(
             'UPDATE m_STTWorker
              SET name = :name, model = :model, ip = :ip, api_key_id = :api_key_id,
-                 status = :status, last_seen = :last_seen
+                 status = :status, last_seen = :last_seen, api_version = :api_version,
+                 app_version = :app_version, updated_at = :updated_at
              WHERE id = :id',
             [
                 'name' => $worker->name,
@@ -140,6 +161,9 @@ class STTWorker extends ModulesModelsBase
                 'api_key_id' => $worker->api_key_id,
                 'status' => $worker->status,
                 'last_seen' => $worker->last_seen,
+                'api_version' => $worker->api_version,
+                'app_version' => $worker->app_version,
+                'updated_at' => $worker->updated_at,
                 'id' => (int)$worker->id,
             ]
         )) {
@@ -217,6 +241,30 @@ class STTWorker extends ModulesModelsBase
         )) {
             throw new RuntimeException('Unable to mark stale workers offline');
         }
+    }
+
+    public static function deleteIfNoActiveLease(int $workerId): bool
+    {
+        if ($workerId <= 0) {
+            return false;
+        }
+        $connection = (new self())->getWriteConnection();
+        if (!$connection->execute(
+            'DELETE FROM m_STTWorker
+              WHERE id = :worker_id
+                AND NOT EXISTS (
+                    SELECT 1
+                      FROM m_STTJob
+                     WHERE worker_id = :worker_id
+                       AND status = :processing
+                       AND lease_token IS NOT NULL
+                )',
+            ['worker_id' => $workerId, 'processing' => STTJob::STATUS_PROCESSING]
+        )) {
+            throw new RuntimeException('Unable to delete worker');
+        }
+
+        return (int)$connection->affectedRows() === 1;
     }
 
     private static function saveNewWorker(self $worker): void
