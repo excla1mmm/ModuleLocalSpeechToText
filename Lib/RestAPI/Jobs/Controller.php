@@ -4,7 +4,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
 use MikoPBX\PBXCoreREST\Attributes\{ApiDataSchema,ApiOperation,ApiParameterRef,ApiResource,ApiResponse,HttpMapping,ResourceSecurity,SecurityType};
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
-#[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local STT Jobs'],description:'Administrative STT queue',processor:Processor::class)]
+#[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local STT Jobs'],description:'module_local_speech_to_text_AdminJobsApiDescription',processor:Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_jobs',requirements:[SecurityType::LOCALHOST,SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: [
     'GET' => ['getList', 'getRecord', 'getNext', 'download'],
@@ -39,13 +39,13 @@ class Controller extends BaseRestController {
   if(str_contains(strtolower($contentType),'application/json')){$decoded=json_decode((string)$this->request->getRawBody(),true);return is_array($decoded)?$decoded:[];}
   return array_diff_key($merged,$query);
  }
- #[ApiDataSchema(schemaClass:DataStructure::class,type:'list',isArray:true)] #[ApiOperation(summary:'List STT jobs',operationId:'getLocalSTTJobs')] #[ApiParameterRef('status')] #[ApiParameterRef('call_id')] #[ApiParameterRef('limit')] #[ApiParameterRef('offset')] public function getList():void{}
- #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Get STT job',operationId:'getLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function getRecord(string $id):void{}
- #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'Create STT job',operationId:'createLocalSTTJob')] #[ApiParameterRef('call_id',required:true)] #[ApiParameterRef('file_path',required:true)] #[ApiParameterRef('priority')] public function create():void{}
- #[ApiOperation(summary:'Retry or reset STT job',operationId:'patchLocalSTTJob')] #[ApiParameterRef('id',required:true)] #[ApiParameterRef('action',required:true)] public function patch(string $id):void{}
- #[ApiOperation(summary:'Retry or reset STT jobs',operationId:'patchLocalSTTJobs')] #[ApiParameterRef('ids',required:true)] #[ApiParameterRef('action',required:true)] public function patchCollection():void{}
- #[ApiOperation(summary:'Delete STT job',operationId:'deleteLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function delete(string $id):void{}
- #[ApiOperation(summary:'Delete filtered STT jobs',operationId:'deleteLocalSTTJobs')] #[ApiParameterRef('status',required:true)] public function deleteCollection():void{}
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'list',isArray:true)] #[ApiOperation(summary:'module_local_speech_to_text_ListJobs',description:'module_local_speech_to_text_ListJobsDesc',operationId:'getLocalSTTJobs')] #[ApiParameterRef('status')] #[ApiParameterRef('call_id')] #[ApiParameterRef('limit')] #[ApiParameterRef('offset')] public function getList():void{}
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'module_local_speech_to_text_GetJob',description:'module_local_speech_to_text_GetJobDesc',operationId:'getLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function getRecord(string $id):void{}
+ #[ApiDataSchema(schemaClass:DataStructure::class,type:'detail')] #[ApiOperation(summary:'module_local_speech_to_text_CreateJob',description:'module_local_speech_to_text_CreateJobDesc',operationId:'createLocalSTTJob')] #[ApiParameterRef('call_id',required:true)] #[ApiParameterRef('file_path',required:true)] #[ApiParameterRef('priority')] public function create():void{}
+ #[ApiOperation(summary:'module_local_speech_to_text_RetryJob',description:'module_local_speech_to_text_RetryJobDesc',operationId:'patchLocalSTTJob')] #[ApiParameterRef('id',required:true)] #[ApiParameterRef('action',required:true)] public function patch(string $id):void{}
+ #[ApiOperation(summary:'module_local_speech_to_text_RetryJobs',description:'module_local_speech_to_text_RetryJobsDesc',operationId:'patchLocalSTTJobs')] #[ApiParameterRef('ids',required:true)] #[ApiParameterRef('action',required:true)] public function patchCollection():void{}
+ #[ApiOperation(summary:'module_local_speech_to_text_DeleteJob',description:'module_local_speech_to_text_DeleteJobDesc',operationId:'deleteLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function delete(string $id):void{}
+ #[ApiOperation(summary:'module_local_speech_to_text_DeleteJobs',description:'module_local_speech_to_text_DeleteJobsDesc',operationId:'deleteLocalSTTJobs')] #[ApiParameterRef('status',required:true)] public function deleteCollection():void{}
  /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs:getNext */ public function getNext(): void { /* Undocumented API v1 tombstone. */ }
  /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:download */ public function download(string $id): void { /* Undocumented API v1 tombstone. */ }
  /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitResult */ public function submitResult(string $id): void { /* Undocumented API v1 tombstone. */ }

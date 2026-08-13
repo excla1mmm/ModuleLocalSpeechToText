@@ -18,7 +18,7 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 #[ApiResource(
     path: LocalSpeechToTextMain::API_BASE_PATH . '/worker-api-contract',
     tags: ['Local STT Workers'],
-    description: 'Worker API compatibility contract',
+    description: 'module_local_speech_to_text_WorkerApiContractApiDescription',
     processor: Processor::class,
 )]
 #[ResourceSecurity(
@@ -42,8 +42,8 @@ final class Controller extends BaseRestController
         schemaName: 'LocalSTTWorkerApiContract',
     )]
     #[ApiOperation(
-        summary: 'Get worker API compatibility contract',
-        description: 'Returns the worker API version and supported resource capabilities',
+        summary: 'module_local_speech_to_text_GetWorkerApiContract',
+        description: 'module_local_speech_to_text_GetWorkerApiContractDesc',
         operationId: 'getLocalSTTWorkerApiContract',
     )]
     #[ApiResponse(200, 'rest_response_200_get', PBXApiResult::class)]

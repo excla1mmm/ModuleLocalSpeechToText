@@ -16,6 +16,7 @@ $paths = [
     'logger' => $root . '/Lib/Services/LocalSpeechToTextLogger.php',
     'reader' => $root . '/Lib/Services/ModuleLogReader.php',
     'migration' => $root . '/Lib/Services/LocalSpeechToTextLegacyLogMigration.php',
+    'journalMigration' => $root . '/Lib/Services/LocalSpeechToTextJournalFormatMigration.php',
     'main' => $root . '/Lib/LocalSpeechToTextMain.php',
     'worker' => $root . '/bin/WorkerLocalSpeechToTextJobs.php',
     'baseController' => $root . '/App/Controllers/LocalSpeechToTextBaseController.php',
@@ -102,8 +103,11 @@ foreach (['entries', 'logText', 'lineCount', 'fileCount', 'generatedAt', 'period
 
 expectTrueModuleLogging(
     str_contains($sources['setup'], 'LocalSpeechToTextLegacyLogMigration')
+        && str_contains($sources['setup'], 'LocalSpeechToTextJournalFormatMigration')
+        && strpos($sources['setup'], 'new LocalSpeechToTextJournalFormatMigration')
+            < strpos($sources['setup'], 'new LocalSpeechToTextLegacyLogMigration')
         && str_contains($sources['setup'], 'legacy_logs_migrated'),
-    'setup must run and summarize safe legacy migration'
+    'setup must migrate canonical JSONL before importing and summarizing safe legacy logs'
 );
 
 echo "Module logging contract OK\n";

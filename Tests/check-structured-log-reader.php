@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextSyslogFormatter;
 
 function expectStructuredReader(bool $condition, string $message): void
 {
@@ -13,6 +14,24 @@ function expectStructuredReader(bool $condition, string $message): void
 
 function structuredReaderLine(int $sequence, int $timestamp): string
 {
+    if ($sequence === 1200) {
+        return date('Y-m-d H:i:s', $timestamp)
+            . ' daemon.warning ModuleLocalSpeechToText[2200]: [queue.sequence_1200] Event 1200 '
+            . 'context={"api_key":"plain-secret","sequence":1200}' . "\n";
+    }
+    if ($sequence > 600) {
+        return LocalSpeechToTextSyslogFormatter::format(
+            $sequence % 2 === 0 ? 'queue' : 'worker',
+            'sequence_' . $sequence,
+            'Event ' . $sequence,
+            $sequence % 10 === 0 ? LOG_WARNING : LOG_INFO,
+            ['sequence' => $sequence],
+            $timestamp,
+            1000 + $sequence
+        ) . "\n";
+    }
+
+    // Retain legacy JSONL coverage for direct upgrades from older versions.
     return json_encode([
         'ts' => date(DATE_RFC3339, $timestamp),
         'level' => $sequence % 10 === 0 ? 'warning' : 'info',
@@ -45,6 +64,9 @@ function removeStructuredReaderFixture(string $directory): void
 $root = dirname(__DIR__);
 $readerPath = $root . '/Lib/Services/ModuleLogReader.php';
 expectStructuredReader(is_file($readerPath), 'ModuleLogReader is missing');
+require_once $root . '/Lib/Services/LocalSpeechToTextLogSanitizer.php';
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
 require_once $readerPath;
 
 $fixtureRoot = sys_get_temp_dir() . '/local-stt-log-reader-' . bin2hex(random_bytes(6));
@@ -80,15 +102,36 @@ try {
     expectStructuredReader($payload['entries'][0]['context']['sequence'] === 201, 'reader must keep the newest 1000 events');
     expectStructuredReader($payload['entries'][999]['context']['sequence'] === 1200, 'newest event must be last chronologically');
     expectStructuredReader($payload['truncated'] === true, 'entry limit must mark the result truncated');
-    expectStructuredReader($payload['malformedCount'] === 1, 'malformed JSONL lines must be counted');
+    expectStructuredReader($payload['invalidLineCount'] === 1, 'malformed journal lines must be counted');
+    expectStructuredReader($payload['malformedCount'] === 1, 'legacy malformedCount alias must remain compatible');
     expectStructuredReader($payload['sourceStatus'] === 'partial', 'mixed valid and corrupt data must be partial');
     expectStructuredReader($payload['fileCount'] === 2, 'only the two journal generations may be counted');
     expectStructuredReader($payload['period'] === 0, 'period=0 must mean all stored data');
-    expectStructuredReader($payload['availableFrom'] === $payload['entries'][0]['ts'], 'availableFrom must match oldest returned event');
+    expectStructuredReader($payload['availableFrom'] === $payload['entries'][0]['timestamp'], 'availableFrom must match oldest returned event');
+    expectStructuredReader(
+        preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/', $payload['entries'][0]['timestamp']) === 1,
+        'entry timestamps must retain RFC 3339 timezone semantics'
+    );
+    expectStructuredReader(
+        preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/', $payload['generatedAt']) === 1,
+        'generatedAt must retain RFC 3339 timezone semantics'
+    );
+    expectStructuredReader(
+        $payload['entries'][999]['context']['api_key'] === '[REDACTED]',
+        'canonical journal context must be sanitized before returning REST entries'
+    );
+    expectStructuredReader(
+        $payload['entries'][0]['ts'] === $payload['entries'][0]['timestamp'],
+        'legacy ts alias must remain compatible during the transition'
+    );
     expectStructuredReader(str_contains($payload['logText'], 'Event 1200'), 'compatibility logText must remain available');
     expectStructuredReader(!str_contains($payload['logText'], 'Event 9999'), 'reader scanned an administrator log');
     expectStructuredReader(!str_contains($payload['logText'], 'Event 9998'), 'reader scanned module.log.2');
     expectStructuredReader(!str_contains($payload['logText'], 'Event 10000'), 'reader scanned a nested journal');
+    expectStructuredReader(
+        str_contains($payload['logText'], ' daemon.warning ModuleLocalSpeechToText[2200]:'),
+        'compatibility logText must expose canonical syslog lines'
+    );
 
     $oneHour = (new ModuleLogReader($journalDir))->recentForPeriod(3600);
     expectStructuredReader($oneHour['period'] === 3600, 'one-hour period must be accepted');

@@ -98,33 +98,71 @@ final class LocalSpeechToTextLogWriter
     public function replacePrevious(array $jsonLines): bool
     {
         try {
-            return $this->replacePreviousInternal($jsonLines);
+            return $this->replacePreviousInternal($jsonLines, false);
         } catch (Throwable) {
             return false;
         }
     }
 
     /** @param array<int, string> $jsonLines */
-    private function replacePreviousInternal(array $jsonLines): bool
+    public function mergePrevious(array $jsonLines): bool
     {
-        $bounded = [];
-        $bytes = 0;
-        for ($index = count($jsonLines) - 1; $index >= 0; $index--) {
-            $line = rtrim((string)$jsonLines[$index], "\r\n") . "\n";
-            $lineBytes = strlen($line);
-            if ($lineBytes > $this->maxBytes || $bytes + $lineBytes > $this->maxBytes) {
-                continue;
-            }
-            array_unshift($bounded, $line);
-            $bytes += $lineBytes;
+        try {
+            return $this->replacePreviousInternal($jsonLines, true);
+        } catch (Throwable) {
+            return false;
         }
-        $content = implode('', $bounded);
+    }
 
-        return $this->withLock(function (string $realDirectory) use ($content): bool {
+    /** @param array<int, string> $jsonLines */
+    private function replacePreviousInternal(array $jsonLines, bool $merge): bool
+    {
+        return $this->withLock(function (string $realDirectory) use ($jsonLines, $merge): bool {
             $previousPath = $realDirectory . '/' . self::PREVIOUS_FILE;
             if (!$this->isSafeJournalPath($previousPath, $realDirectory)) {
                 return false;
             }
+
+            if ($merge && is_file($previousPath)) {
+                $handle = $this->openRegularFile($previousPath, 'rb', $realDirectory);
+                if (!is_resource($handle)) {
+                    return false;
+                }
+                try {
+                    $existingStat = fstat($handle);
+                    if (!is_array($existingStat) || (int)$existingStat['size'] > $this->maxBytes) {
+                        return false;
+                    }
+                    $existingContent = stream_get_contents($handle);
+                } finally {
+                    fclose($handle);
+                }
+                if (!is_string($existingContent)) {
+                    return false;
+                }
+                $existing = preg_split('/\r?\n/', trim($existingContent));
+                $existing = is_array($existing) ? array_values(array_filter(
+                    $existing,
+                    static fn (string $line): bool => LocalSpeechToTextSyslogParser::parse($line) !== null
+                )) : [];
+                $merged = $existing;
+                $seen = array_fill_keys($existing, true);
+                foreach ($jsonLines as $line) {
+                    if (!isset($seen[$line])) {
+                        $merged[] = $line;
+                        $seen[$line] = true;
+                    }
+                }
+                $jsonLines = $merged;
+                usort($jsonLines, static function (string $left, string $right): int {
+                    $leftEntry = LocalSpeechToTextSyslogParser::parse($left);
+                    $rightEntry = LocalSpeechToTextSyslogParser::parse($right);
+
+                    return strcmp((string)($leftEntry['timestamp'] ?? ''), (string)($rightEntry['timestamp'] ?? ''));
+                });
+            }
+
+            $content = $this->boundedContent($jsonLines);
 
             try {
                 $suffix = bin2hex(random_bytes(6));
@@ -174,6 +212,24 @@ final class LocalSpeechToTextLogWriter
 
             return true;
         });
+    }
+
+    /** @param array<int, string> $lines */
+    private function boundedContent(array $lines): string
+    {
+        $bounded = [];
+        $bytes = 0;
+        for ($index = count($lines) - 1; $index >= 0; $index--) {
+            $line = rtrim((string)$lines[$index], "\r\n") . "\n";
+            $lineBytes = strlen($line);
+            if ($lineBytes > $this->maxBytes || $bytes + $lineBytes > $this->maxBytes) {
+                continue;
+            }
+            array_unshift($bounded, $line);
+            $bytes += $lineBytes;
+        }
+
+        return implode('', $bounded);
     }
 
     /** @param callable(string): bool $callback */
@@ -229,6 +285,16 @@ final class LocalSpeechToTextLogWriter
             return null;
         }
         if (!chmod($realDirectory, 0750)) {
+            return null;
+        }
+        clearstatcache(true, $realDirectory);
+        $updatedStat = @lstat($realDirectory);
+        $effectiveUid = function_exists('posix_geteuid') ? posix_geteuid() : null;
+        if (!is_array($updatedStat)
+            || (($updatedStat['mode'] & 0170000) !== 0040000)
+            || (($updatedStat['mode'] & 0022) !== 0)
+            || ($effectiveUid !== null && (int)$updatedStat['uid'] !== $effectiveUid)
+        ) {
             return null;
         }
 

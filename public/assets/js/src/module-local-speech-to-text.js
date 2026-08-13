@@ -525,6 +525,8 @@
                     entry.message,
                     entry.component,
                     entry.event,
+                    entry.severity,
+                    entry.pid,
                     JSON.stringify(entry.context || {})
                 ].join(' ').toLowerCase();
 
@@ -549,6 +551,8 @@
                 ));
                 var detailText = translation('module_local_speech_to_text_LogsEvent', 'Event')
                     + ': ' + (entry.event || '—');
+                detailText += '\nseverity: ' + (entry.severity || '—');
+                detailText += '\npid: ' + (entry.pid === undefined ? '—' : entry.pid);
                 if (entry.context && Object.keys(entry.context).length > 0) {
                     detailText += '\n' + JSON.stringify(entry.context, null, 2);
                 }

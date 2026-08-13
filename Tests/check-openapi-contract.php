@@ -179,13 +179,13 @@ namespace {
         'WorkerApiContract' => ['getList' => ['getLocalSTTWorkerApiContract', 'LocalSTTWorkerApiContract', [200, 401, 403, 500]]],
         'WorkerProcessingSettings' => ['getList' => ['getLocalSTTWorkerProcessingSettings', 'LocalSTTWorkerProcessingSettings', [200, 403, 426]]],
         'JobLeases' => [
-            'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200]],
-            'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200]],
-            'delete' => ['deleteLocalSTTJobLease', null, [200]],
+            'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200, 426]],
+            'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200, 426]],
+            'delete' => ['deleteLocalSTTJobLease', null, [200, 426]],
         ],
-        'JobRecordings' => ['getRecord' => ['getLocalSTTJobRecording', null, [200, 206]]],
-        'JobResults' => ['update' => ['updateLocalSTTJobResult', 'LocalSTTJobResult', [200]]],
-        'JobFailures' => ['update' => ['updateLocalSTTJobFailure', 'LocalSTTJobFailure', [200]]],
+        'JobRecordings' => ['getRecord' => ['getLocalSTTJobRecording', null, [200, 206, 426]]],
+        'JobResults' => ['update' => ['updateLocalSTTJobResult', 'LocalSTTJobResult', [200, 426]]],
+        'JobFailures' => ['update' => ['updateLocalSTTJobFailure', 'LocalSTTJobFailure', [200, 426]]],
     ];
     $operationIds = [];
     foreach ($operationContracts as $resource => $methods) {
@@ -209,18 +209,66 @@ namespace {
     expectOpenApi(count($operationIds) === count(array_unique($operationIds)), 'v2 resource operationIds must be unique');
 
     $requiredParameters = [
-        ['JobLeases', 'create', ['worker_uid']],
-        ['JobLeases', 'patch', ['id', 'worker_uid', 'lease_token']],
-        ['JobLeases', 'delete', ['id', 'worker_uid', 'lease_token']],
-        ['JobRecordings', 'getRecord', ['id']],
-        ['JobResults', 'update', ['id', 'worker_uid', 'lease_token']],
-        ['JobFailures', 'update', ['id', 'worker_uid', 'lease_token']],
+        ['WorkerProcessingSettings', 'getList', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID']],
+        ['JobLeases', 'create', ['X-MikoPBX-Worker-API-Version', 'worker_uid']],
+        ['JobLeases', 'patch', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['JobLeases', 'delete', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['JobRecordings', 'getRecord', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID', 'X-MikoPBX-Job-Lease-Token', 'id']],
+        ['JobResults', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['JobFailures', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
     ];
     foreach ($requiredParameters as [$resource, $method, $expected]) {
         $parameters = methodAttributes($controller($resource), $method, ApiParameterRef::class);
         expectOpenApi(array_map(static fn(ApiParameterRef $parameter): string => $parameter->name, $parameters) === $expected, "{$resource}::{$method} v2 request parameters changed");
         expectOpenApi(!in_array(false, array_map(static fn(ApiParameterRef $parameter): bool => $parameter->required, $parameters), true), "{$resource}::{$method} parameters must be required");
     }
+
+    foreach ([
+        '../Lib/RestAPI/Jobs/DataStructure.php',
+        '../Lib/RestAPI/JobRecordings/DataStructure.php',
+        '../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php',
+    ] as $file) {
+        require_once __DIR__ . '/' . $file;
+    }
+    $headerContracts = [
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobRecordings\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+            'X-MikoPBX-Worker-UID' => ['string', 'module_local_speech_to_text_ApiParamWorkerUid', null, 'mac-mini-stt-01'],
+            'X-MikoPBX-Job-Lease-Token' => ['string', 'module_local_speech_to_text_ApiParamLeaseToken', null, 'lease-token'],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerProcessingSettings\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+            'X-MikoPBX-Worker-UID' => ['string', 'module_local_speech_to_text_ApiParamWorkerUid', null, 'mac-mini-stt-01'],
+        ],
+    ];
+    foreach ($headerContracts as $dataStructure => $expectedHeaders) {
+        $definitions = $dataStructure::getParameterDefinitions()['request'] ?? [];
+        foreach ($expectedHeaders as $name => [$type, $description, $enum, $example]) {
+            $definition = $definitions[$name] ?? null;
+            expectOpenApi(is_array($definition), "{$dataStructure} must define the {$name} header");
+            expectOpenApi(($definition['in'] ?? null) === 'header', "{$dataStructure} {$name} must be an OpenAPI header");
+            expectOpenApi(($definition['type'] ?? null) === $type, "{$dataStructure} {$name} type changed");
+            expectOpenApi(($definition['description'] ?? null) === $description, "{$dataStructure} {$name} description changed");
+            expectOpenApi(($definition['enum'] ?? null) === $enum, "{$dataStructure} {$name} enum changed");
+            expectOpenApi(($definition['example'] ?? null) === $example, "{$dataStructure} {$name} example changed");
+        }
+    }
+
+    $english = include __DIR__ . '/../Messages/en.php';
+    $russian = include __DIR__ . '/../Messages/ru.php';
+    expectOpenApi(
+        ($english['module_local_speech_to_text_DeleteWorkerDesc'] ?? null)
+            === 'Deletes an STT worker only when it has no active job lease. Historical job and result rows are retained.',
+        'English worker delete description must match the active-lease guard'
+    );
+    expectOpenApi(
+        ($russian['module_local_speech_to_text_DeleteWorkerDesc'] ?? null)
+            === 'Удаляет STT-обработчик только при отсутствии активного закрепления задания. История заданий и результатов сохраняется.',
+        'Russian worker delete description must match the active-lease guard'
+    );
 
     foreach ([
         '../Lib/RestAPI/Transcripts/DataStructure.php', '../Lib/RestAPI/Transcripts/ListDataStructure.php',

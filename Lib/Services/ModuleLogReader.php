@@ -70,7 +70,7 @@ final class ModuleLogReader
                         continue;
                     }
 
-                    $timestamp = strtotime($entry['ts']);
+                    $timestamp = strtotime($entry['timestamp']);
                     if ($cutoff !== null && is_int($timestamp) && $timestamp < $cutoff) {
                         break 2;
                     }
@@ -217,9 +217,22 @@ final class ModuleLogReader
         }
     }
 
-    /** @return array{ts:string,level:string,component:string,event:string,message:string,context:array<string, scalar|null>}|null */
+    /** @return array<string, mixed>|null */
     private function decodeEntry(string $line): ?array
     {
+        $syslogEntry = LocalSpeechToTextSyslogParser::parse($line);
+        if ($syslogEntry !== null) {
+            $timestamp = strtotime($syslogEntry['timestamp']);
+            if (!is_int($timestamp)) {
+                return null;
+            }
+            $syslogEntry['timestamp'] = date(DATE_RFC3339, $timestamp);
+            $syslogEntry['ts'] = $syslogEntry['timestamp'];
+            $syslogEntry['message'] = LocalSpeechToTextLogSanitizer::message($syslogEntry['message']);
+            $syslogEntry['context'] = LocalSpeechToTextLogSanitizer::context($syslogEntry['context']);
+            return $syslogEntry;
+        }
+
         try {
             $decoded = json_decode($line, true, 64, JSON_THROW_ON_ERROR);
         } catch (Throwable) {
@@ -249,8 +262,26 @@ final class ModuleLogReader
             }
         }
 
-        /** @var array{ts:string,level:string,component:string,event:string,message:string,context:array<string, scalar|null>} $decoded */
-        return $decoded;
+        $timestamp = strtotime($decoded['ts']);
+        if (!is_int($timestamp)) {
+            return null;
+        }
+        $level = strtolower($decoded['level']);
+        $severity = $level === 'error' ? 'err' : $level;
+
+        return [
+            'timestamp' => date(DATE_RFC3339, $timestamp),
+            'ts' => date(DATE_RFC3339, $timestamp),
+            'facility' => 'daemon',
+            'severity' => $severity,
+            'level' => $level,
+            'tag' => LocalSpeechToTextSyslogFormatter::MODULE_TAG,
+            'pid' => 0,
+            'component' => $decoded['component'],
+            'event' => $decoded['event'],
+            'message' => LocalSpeechToTextLogSanitizer::message($decoded['message']),
+            'context' => LocalSpeechToTextLogSanitizer::context($decoded['context']),
+        ];
     }
 
     /**
@@ -266,25 +297,15 @@ final class ModuleLogReader
         string $sourceStatus
     ): array {
         $lines = array_map(static function (array $entry): string {
-            $line = sprintf(
-                '[%s] %s %s.%s: %s',
-                $entry['ts'],
-                strtoupper($entry['level']),
+            return LocalSpeechToTextSyslogFormatter::formatSeverity(
                 $entry['component'],
                 $entry['event'],
-                $entry['message']
+                $entry['message'],
+                $entry['severity'],
+                $entry['context'],
+                strtotime($entry['timestamp']) ?: 0,
+                $entry['pid']
             );
-            if ($entry['context'] !== []) {
-                $context = json_encode(
-                    $entry['context'],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-                );
-                if (is_string($context)) {
-                    $line .= ' ' . $context;
-                }
-            }
-
-            return $line;
         }, $entries);
 
         return [
@@ -292,11 +313,12 @@ final class ModuleLogReader
             'logText' => implode("\n", $lines),
             'lineCount' => count($entries),
             'fileCount' => $fileCount,
-            'generatedAt' => date('Y-m-d H:i:s'),
+            'generatedAt' => date(DATE_RFC3339),
             'period' => $period,
-            'availableFrom' => $entries[0]['ts'] ?? null,
+            'availableFrom' => $entries[0]['timestamp'] ?? null,
             'truncated' => $truncated,
             'sourceStatus' => $sourceStatus,
+            'invalidLineCount' => $malformedCount,
             'malformedCount' => $malformedCount,
         ];
     }

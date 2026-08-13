@@ -32,6 +32,12 @@ foreach ([
 ] as $needle) {
     expectStructuredLogUi(str_contains($view, $needle), 'structured log view control/state is missing: ' . $needle);
 }
+foreach (['entry.severity', 'entry.pid'] as $syslogField) {
+    expectStructuredLogUi(
+        substr_count($sourceJs, $syslogField) >= 2,
+        'syslog field must participate in search and technical details: ' . $syslogField
+    );
+}
 foreach (['data-period="3600"', 'data-period="10800"', 'data-period="43200"', 'data-period="86400"'] as $period) {
     expectStructuredLogUi(str_contains($view, $period), 'supported period button is missing: ' . $period);
 }

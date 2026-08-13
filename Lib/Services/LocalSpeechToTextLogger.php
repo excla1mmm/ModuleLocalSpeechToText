@@ -64,20 +64,8 @@ final class LocalSpeechToTextLogger
         int $level,
         array $context
     ): void {
-        $safeContext = LocalSpeechToTextLogSanitizer::context($context);
-        $record = [
-            'ts' => date(DATE_RFC3339),
-            'level' => self::levelName($level),
-            'component' => self::machineKey($component, 'system'),
-            'event' => self::machineKey($event, 'event'),
-            'message' => LocalSpeechToTextLogSanitizer::message($message),
-            'context' => $safeContext === [] ? (object)[] : $safeContext,
-        ];
-        $encoded = json_encode(
-            $record,
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-        );
-        if (!is_string($encoded) || !$this->writer->append($encoded)) {
+        $line = LocalSpeechToTextSyslogFormatter::format($component, $event, $message, $level, $context);
+        if (!$this->writer->append($line)) {
             self::fallbackFailure('structured log write failed');
         }
 
@@ -85,16 +73,8 @@ final class LocalSpeechToTextLogger
             return;
         }
 
-        $summary = sprintf('[%s.%s] %s', $record['component'], $record['event'], $record['message']);
-        if ($safeContext !== []) {
-            $encodedContext = json_encode(
-                $safeContext,
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-            );
-            if (is_string($encodedContext)) {
-                $summary .= ' ' . $encodedContext;
-            }
-        }
+        $separator = strpos($line, ']: ');
+        $summary = $separator === false ? $line : substr($line, $separator + 3);
 
         try {
             ($this->syslogMirror)(self::MODULE_UNIQUE_ID, $summary, $level);
@@ -130,26 +110,6 @@ final class LocalSpeechToTextLogger
         }
 
         return self::$default;
-    }
-
-    private static function machineKey(string $value, string $fallback): string
-    {
-        $value = strtolower(trim($value));
-        $value = preg_replace('/[^a-z0-9_]+/', '_', $value) ?? '';
-        $value = trim($value, '_');
-
-        return $value === '' ? $fallback : substr($value, 0, 64);
-    }
-
-    private static function levelName(int $level): string
-    {
-        return match ($level) {
-            LOG_DEBUG => 'debug',
-            LOG_NOTICE => 'notice',
-            LOG_WARNING => 'warning',
-            LOG_ERR, LOG_CRIT, LOG_ALERT, LOG_EMERG => 'error',
-            default => 'info',
-        };
     }
 
     private static function mustMirror(int $level): bool

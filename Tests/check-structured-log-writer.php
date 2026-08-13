@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextSyslogParser;
 
 function expectStructuredWriter(bool $condition, string $message): void
 {
@@ -49,6 +50,8 @@ expectStructuredWriter(
 );
 
 require_once $sanitizerPath;
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
 require_once $writerPath;
 require_once $loggerPath;
 
@@ -104,22 +107,25 @@ try {
     ]);
 
     $activeLines = file($journalDir . '/module.log', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    expectStructuredWriter(is_array($activeLines) && count($activeLines) === 4, 'each event must be one JSONL record');
+    expectStructuredWriter(is_array($activeLines) && count($activeLines) === 4, 'each event must be one syslog record');
     foreach ($activeLines as $line) {
-        $entry = json_decode($line, true, 64, JSON_THROW_ON_ERROR);
+        $entry = LocalSpeechToTextSyslogParser::parse($line);
         expectStructuredWriter(
-            array_keys($entry) === ['ts', 'level', 'component', 'event', 'message', 'context'],
-            'JSONL record must expose exactly the required fields in stable order'
+            is_array($entry),
+            'module journal record must follow the canonical syslog grammar'
         );
-        expectStructuredWriter(strtotime((string)$entry['ts']) !== false, 'event timestamp must be RFC3339-compatible');
+        expectStructuredWriter(strtotime((string)$entry['timestamp']) !== false, 'event timestamp must be parseable');
         expectStructuredWriter(
             in_array($entry['level'], ['debug', 'info', 'notice', 'warning', 'error'], true),
             'event level must belong to the allowed set'
         );
         expectStructuredWriter(is_array($entry['context']), 'event context must always be an object-like array');
     }
-    expectStructuredWriter($activeLines[0][0] === '{', 'record must not have a plaintext prefix');
-    expectStructuredWriter(str_contains($activeLines[0], '"context":{}'), 'empty context must be a JSON object');
+    expectStructuredWriter(
+        str_contains($activeLines[0], ' daemon.notice ModuleLocalSpeechToText['),
+        'record must expose the MikoPBX syslog header'
+    );
+    expectStructuredWriter(!str_contains($activeLines[0], ' context='), 'empty context must be omitted');
     expectStructuredWriter(
         LocalSpeechToTextLogSanitizer::errorCode(new RuntimeException('secret detail')) === 'runtime_exception',
         'exception class names must become stable snake-case error codes'
@@ -249,7 +255,10 @@ try {
         $concurrentLines = file($concurrentDir . '/module.log', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         expectStructuredWriter(is_array($concurrentLines) && count($concurrentLines) === 160, 'concurrent append lost or merged records');
         foreach ($concurrentLines as $line) {
-            json_decode($line, true, 64, JSON_THROW_ON_ERROR);
+            expectStructuredWriter(
+                LocalSpeechToTextSyslogParser::parse($line) !== null,
+                'concurrent append produced a malformed syslog record'
+            );
         }
     }
 

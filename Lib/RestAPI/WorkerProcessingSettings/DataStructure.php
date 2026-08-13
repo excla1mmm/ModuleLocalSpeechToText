@@ -11,7 +11,24 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
 {
     public static function getParameterDefinitions(): array
     {
-        return [];
+        return [
+            'request' => [
+                'X-MikoPBX-Worker-API-Version' => [
+                    'type' => 'integer',
+                    'in' => 'header',
+                    'description' => 'module_local_speech_to_text_ApiVersion',
+                    'enum' => [2],
+                    'example' => 2,
+                ],
+                'X-MikoPBX-Worker-UID' => [
+                    'type' => 'string',
+                    'in' => 'header',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerUid',
+                    'example' => 'mac-mini-stt-01',
+                ],
+            ],
+            'response' => [],
+        ];
     }
 
     public static function getListItemSchema(): array

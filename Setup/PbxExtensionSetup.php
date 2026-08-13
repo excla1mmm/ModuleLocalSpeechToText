@@ -11,6 +11,7 @@ use MikoPBX\Core\System\Directories;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextJournalFormatMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
@@ -194,10 +195,27 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         try {
             $directory = rtrim(Directories::getDir(Directories::CORE_LOGS_DIR), '/')
                 . '/ModuleLocalSpeechToText';
-            $summary = (new LocalSpeechToTextLegacyLogMigration(
-                $directory,
-                new LocalSpeechToTextLogWriter($directory)
-            ))->run();
+            $formatSummary = (new LocalSpeechToTextJournalFormatMigration($directory))->run();
+            $summary = ['imported' => 0, 'removed' => 0, 'skipped' => 0];
+            if ($formatSummary['failed'] === 0) {
+                $summary = (new LocalSpeechToTextLegacyLogMigration(
+                    $directory,
+                    new LocalSpeechToTextLogWriter($directory)
+                ))->run();
+            }
+            if ($formatSummary['files'] > 0) {
+                LocalSpeechToTextLogger::event(
+                    'setup',
+                    'log_format_migrated',
+                    'Module journal format was upgraded',
+                    LOG_NOTICE,
+                    [
+                        'converted_count' => $formatSummary['converted'],
+                        'invalid_count' => $formatSummary['invalid'],
+                        'truncated_count' => $formatSummary['truncated'],
+                    ]
+                );
+            }
             if ($summary['imported'] > 0 || $summary['removed'] > 0 || $summary['skipped'] > 0) {
                 LocalSpeechToTextLogger::event(
                     'setup',

@@ -39,11 +39,18 @@ final class LocalSpeechToTextLegacyLogMigration
         $limitReached = false;
         foreach ($candidates as $candidate) {
             $readCompleted = false;
+            $sourceLineFromEnd = 0;
             foreach ($this->linesNewestFirst($candidate, $readCompleted) as $line) {
+                $sourceLineFromEnd++;
                 if ($limitReached) {
                     continue;
                 }
-                $encoded = $this->convertLine($line, $candidate['basename'], $candidate['modifiedAt']);
+                $encoded = $this->convertLine(
+                    $line,
+                    $candidate['basename'],
+                    $candidate['modifiedAt'],
+                    $sourceLineFromEnd
+                );
                 if ($encoded === null) {
                     continue;
                 }
@@ -63,8 +70,8 @@ final class LocalSpeechToTextLegacyLogMigration
         if ($newestFirst === []) {
             return ['imported' => 0, 'removed' => 0, 'skipped' => count($candidates)];
         }
-        $lines = array_reverse($newestFirst);
-        if (!$this->writer->replacePrevious($lines)) {
+        $importedCount = count($newestFirst);
+        if (!$this->writer->mergePrevious(array_reverse($newestFirst))) {
             return ['imported' => 0, 'removed' => 0, 'skipped' => count($candidates)];
         }
 
@@ -81,7 +88,7 @@ final class LocalSpeechToTextLegacyLogMigration
             $removed++;
         }
 
-        return ['imported' => count($lines), 'removed' => $removed, 'skipped' => $skipped];
+        return ['imported' => $importedCount, 'removed' => $removed, 'skipped' => $skipped];
     }
 
     private function validatedDirectory(): ?string
@@ -203,15 +210,23 @@ final class LocalSpeechToTextLegacyLogMigration
         }
     }
 
-    private function convertLine(string $line, string $source, int $fallbackTimestamp): ?string
+    private function convertLine(
+        string $line,
+        string $source,
+        int $fallbackTimestamp,
+        int $sourceLineFromEnd
+    ): ?string
     {
         $message = LocalSpeechToTextLogSanitizer::message($line);
         if ($message === '') {
             return null;
         }
         $timestamp = $this->lineTimestamp($line) ?? $fallbackTimestamp;
-        $level = match (true) {
-            preg_match('/\b(?:error|fatal|critical|emergency)\b/i', $line) === 1 => 'error',
+        $severity = match (true) {
+            preg_match('/\b(?:error|fatal)\b/i', $line) === 1 => 'err',
+            preg_match('/\bcritical\b/i', $line) === 1 => 'crit',
+            preg_match('/\bemergency\b/i', $line) === 1 => 'emerg',
+            preg_match('/\balert\b/i', $line) === 1 => 'alert',
             preg_match('/\bwarn(?:ing)?\b/i', $line) === 1 => 'warning',
             preg_match('/\bnotice\b/i', $line) === 1 => 'notice',
             preg_match('/\bdebug\b/i', $line) === 1 => 'debug',
@@ -221,16 +236,15 @@ final class LocalSpeechToTextLegacyLogMigration
         $component = strtolower(preg_replace('/[^a-z0-9]+/i', '_', $component) ?? '');
         $component = trim($component, '_') ?: 'system';
 
-        $encoded = json_encode([
-            'ts' => date(DATE_RFC3339, $timestamp),
-            'level' => $level,
-            'component' => substr($component, 0, 64),
-            'event' => 'legacy_log_imported',
-            'message' => $message,
-            'context' => LocalSpeechToTextLogSanitizer::context(['source' => basename($source)]),
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-
-        return is_string($encoded) ? $encoded : null;
+        return LocalSpeechToTextSyslogFormatter::formatSeverity(
+            substr($component, 0, 64),
+            'legacy_log_imported',
+            $message,
+            $severity,
+            ['source' => basename($source), 'source_line_from_end' => $sourceLineFromEnd],
+            $timestamp,
+            0
+        );
     }
 
     private function lineTimestamp(string $line): ?int

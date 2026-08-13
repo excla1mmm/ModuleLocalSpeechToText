@@ -14,7 +14,7 @@ use MikoPBX\PBXCoreREST\Attributes\SecurityType;
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
-#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-leases', tags: ['Local STT Jobs'], description: 'Worker job lease lifecycle', processor: Processor::class)]
+#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-leases', tags: ['Local STT Jobs'], description: 'module_local_speech_to_text_JobLeasesApiDescription', processor: Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_job_leases', requirements: [SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: ['POST' => ['create'], 'PATCH' => ['patch'], 'DELETE' => ['delete']], resourceLevelMethods: ['patch', 'delete'], collectionLevelMethods: ['create'], idPattern: '[0-9]+')]
 class Controller extends BaseRestController
@@ -22,23 +22,29 @@ class Controller extends BaseRestController
     protected string $processorClass = Processor::class;
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJobLease')]
-    #[ApiOperation(summary: 'Claim the next STT job', description: 'Creates one processing lease or returns job null.', operationId: 'createLocalSTTJobLease')]
+    #[ApiOperation(summary: 'module_local_speech_to_text_GetNextJob', description: 'module_local_speech_to_text_GetNextJobDesc', operationId: 'createLocalSTTJobLease')]
+    #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobClaimed')]
+    #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function create(): void {}
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJobLeaseHeartbeat')]
-    #[ApiOperation(summary: 'Heartbeat an STT job lease', description: 'Idempotently extends the current processing lease.', operationId: 'patchLocalSTTJobLease')]
+    #[ApiOperation(summary: 'module_local_speech_to_text_HeartbeatJob', description: 'module_local_speech_to_text_HeartbeatJobDesc', operationId: 'patchLocalSTTJobLease')]
+    #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseLeaseExtended')]
+    #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function patch(string $job_id): void {}
 
-    #[ApiOperation(summary: 'Release an STT job lease', description: 'Returns the job to pending without consuming an attempt.', operationId: 'deleteLocalSTTJobLease')]
+    #[ApiOperation(summary: 'module_local_speech_to_text_ReleaseJob', description: 'module_local_speech_to_text_ReleaseJobDesc', operationId: 'deleteLocalSTTJobLease')]
+    #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobReleased')]
+    #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function delete(string $job_id): void {}
 }

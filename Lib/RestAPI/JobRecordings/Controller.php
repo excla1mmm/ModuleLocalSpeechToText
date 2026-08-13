@@ -12,15 +12,19 @@ use MikoPBX\PBXCoreREST\Attributes\SecurityType;
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
-#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-recordings', tags: ['Local STT Recordings'], description: 'Worker-owned STT recording', processor: Processor::class)]
+#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-recordings', tags: ['Local STT Recordings'], description: 'module_local_speech_to_text_JobRecordingsApiDescription', processor: Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_job_recordings', requirements: [SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: ['GET' => ['getRecord']], resourceLevelMethods: ['getRecord'], collectionLevelMethods: [], idPattern: '[0-9]+')]
 class Controller extends BaseRestController
 {
     protected string $processorClass = Processor::class;
-    #[ApiOperation(summary: 'Download an assigned STT recording', description: 'Returns the recording for the current worker lease.', operationId: 'getLocalSTTJobRecording')]
+    #[ApiOperation(summary: 'module_local_speech_to_text_DownloadJobFile', description: 'module_local_speech_to_text_DownloadJobFileDesc', operationId: 'getLocalSTTJobRecording')]
+    #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
+    #[ApiParameterRef('X-MikoPBX-Worker-UID', required: true)]
+    #[ApiParameterRef('X-MikoPBX-Job-Lease-Token', required: true)]
     #[ApiParameterRef('id', required: true)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseRecordingDownloaded')]
     #[ApiResponse(206, 'module_local_speech_to_text_ApiResponseRecordingDownloaded')]
+    #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function getRecord(string $job_id): void {}
 }

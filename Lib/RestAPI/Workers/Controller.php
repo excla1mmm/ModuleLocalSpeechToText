@@ -41,8 +41,8 @@ class Controller extends BaseRestController
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list', isArray: true)]
     #[ApiOperation(
-        summary: 'List STT workers',
-        description: 'Returns registered STT workers with filters and pagination.',
+        summary: 'module_local_speech_to_text_ListWorkers',
+        description: 'module_local_speech_to_text_ListWorkersDesc',
         operationId: 'getLocalSTTWorkers'
     )]
     #[ApiParameterRef('status')]
@@ -61,8 +61,8 @@ class Controller extends BaseRestController
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
     #[ApiOperation(
-        summary: 'Get an STT worker',
-        description: 'Returns one STT worker by its numeric identifier.',
+        summary: 'module_local_speech_to_text_GetWorker',
+        description: 'module_local_speech_to_text_GetWorkerDesc',
         operationId: 'getLocalSTTWorker'
     )]
     #[ApiParameterRef('id', required: true)]
@@ -77,8 +77,8 @@ class Controller extends BaseRestController
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
     #[ApiOperation(
-        summary: 'Register an STT worker',
-        description: 'Idempotently creates or refreshes an STT worker by worker_uid.',
+        summary: 'module_local_speech_to_text_RegisterWorker',
+        description: 'module_local_speech_to_text_RegisterWorkerDesc',
         operationId: 'createLocalSTTWorker'
     )]
     #[ApiParameterRef('worker_uid', required: true)]
@@ -96,8 +96,8 @@ class Controller extends BaseRestController
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
     #[ApiOperation(
-        summary: 'Replace an STT worker',
-        description: 'Replaces all administrator-mutable fields of an STT worker.',
+        summary: 'module_local_speech_to_text_UpdateWorker',
+        description: 'module_local_speech_to_text_UpdateWorkerDesc',
         operationId: 'updateLocalSTTWorker'
     )]
     #[ApiParameterRef('id', required: true)]
@@ -115,8 +115,8 @@ class Controller extends BaseRestController
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
     #[ApiOperation(
-        summary: 'Patch an STT worker',
-        description: 'Updates selected administrator-mutable fields of an STT worker.',
+        summary: 'module_local_speech_to_text_PatchWorker',
+        description: 'module_local_speech_to_text_PatchWorkerDesc',
         operationId: 'patchLocalSTTWorker'
     )]
     #[ApiParameterRef('id', required: true)]
@@ -133,8 +133,8 @@ class Controller extends BaseRestController
     }
 
     #[ApiOperation(
-        summary: 'Delete an STT worker',
-        description: 'Deletes an inactive worker while retaining historical job and result rows.',
+        summary: 'module_local_speech_to_text_DeleteWorker',
+        description: 'module_local_speech_to_text_DeleteWorkerDesc',
         operationId: 'deleteLocalSTTWorker'
     )]
     #[ApiParameterRef('id', required: true)]

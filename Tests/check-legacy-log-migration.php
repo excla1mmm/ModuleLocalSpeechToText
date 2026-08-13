@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextSyslogParser;
 
 function expectLegacyLogMigration(bool $condition, string $message): void
 {
@@ -35,6 +36,8 @@ expectLegacyLogMigration(is_file($sanitizerPath), 'Structured sanitizer is missi
 expectLegacyLogMigration(is_file($writerPath), 'Structured writer is missing');
 expectLegacyLogMigration(is_file($migrationPath), 'Legacy log migration is missing');
 require_once $sanitizerPath;
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
+require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
 require_once $writerPath;
 require_once $migrationPath;
 
@@ -55,6 +58,16 @@ try {
         'context' => [],
     ], JSON_THROW_ON_ERROR) . "\n";
     file_put_contents($journalDir . '/module.log', $active);
+    $existingPrevious = \Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextSyslogFormatter::format(
+        'queue',
+        'existing_history',
+        'Existing history',
+        LOG_INFO,
+        ['sequence' => 1],
+        strtotime('2026-07-19 07:59:00 UTC'),
+        44
+    );
+    file_put_contents($journalDir . '/module.log.1', $existingPrevious . "\n" . $existingPrevious . "\n");
 
     $knownSources = [
         'api.log',
@@ -68,7 +81,7 @@ try {
         file_put_contents(
             $journalDir . '/' . $source,
             sprintf(
-                "2026-07-19 08:%02d:00 WARNING source=%s token=legacy-secret /Users/operator/call.wav +79991234567 "
+                "2026-07-19 08:%02d:00 %s source=%s token=legacy-secret /Users/operator/call.wav +79991234567 "
                     . 'password="two word secret"; secret: two word value; '
                     . '{"credential":"escaped \\"quote\\" secret"}; src_num=1234; '
                     . "/srv/private/call.wav; /Library/Application Support/private call.wav; "
@@ -77,6 +90,7 @@ try {
                     . 'open(/srv/open-call/private.wav); {"payload":{"text":"nested private transcript"}}; '
                     . "worker=trusted\u{202E}spoof\n",
                 $index,
+                $index === 0 ? 'ALERT' : 'WARNING',
                 $source
             )
         );
@@ -107,12 +121,18 @@ try {
     expectLegacyLogMigration(file_get_contents($outsideTarget) === "outside target\n", 'migration followed a source symlink');
 
     $previousLines = file($journalDir . '/module.log.1', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    expectLegacyLogMigration(is_array($previousLines) && count($previousLines) === 6, 'previous generation must receive every migrated event');
+    expectLegacyLogMigration(is_array($previousLines) && count($previousLines) === 8, 'previous generation must merge existing and migrated events');
+    $events = [];
+    $severities = [];
     foreach ($previousLines as $line) {
-        $entry = json_decode($line, true, 64, JSON_THROW_ON_ERROR);
-        expectLegacyLogMigration($entry['event'] === 'legacy_log_imported', 'migrated event name must be stable');
-        expectLegacyLogMigration(in_array($entry['context']['source'] ?? '', $knownSources, true), 'source must be a known basename');
-        expectLegacyLogMigration(!str_contains((string)$entry['context']['source'], '/'), 'source context leaked a path');
+        $entry = LocalSpeechToTextSyslogParser::parse($line);
+        expectLegacyLogMigration(is_array($entry), 'legacy channel line must migrate directly to syslog format');
+        $events[] = $entry['event'];
+        $severities[] = $entry['severity'];
+        if ($entry['event'] === 'legacy_log_imported') {
+            expectLegacyLogMigration(in_array($entry['context']['source'] ?? '', $knownSources, true), 'source must be a known basename');
+            expectLegacyLogMigration(!str_contains((string)$entry['context']['source'], '/'), 'source context leaked a path');
+        }
         expectLegacyLogMigration(!str_contains($line, 'legacy-secret'), 'migration leaked a legacy token');
         expectLegacyLogMigration(!str_contains($line, '/Users/operator'), 'migration leaked a legacy path');
         expectLegacyLogMigration(!str_contains($line, '79991234567'), 'migration leaked a full phone number');
@@ -124,6 +144,12 @@ try {
             expectLegacyLogMigration(!str_contains($line, $forbidden), 'migration leaked adversarial legacy data: ' . $forbidden);
         }
     }
+    expectLegacyLogMigration(
+        count(array_filter($events, static fn (string $event): bool => $event === 'existing_history')) === 2,
+        'legacy import must preserve repeated existing audit events'
+    );
+    expectLegacyLogMigration(count(array_filter($events, static fn (string $event): bool => $event === 'legacy_log_imported')) === 6, 'legacy event count must remain stable');
+    expectLegacyLogMigration(in_array('alert', $severities, true), 'legacy ALERT severity must remain alert');
     expectLegacyLogMigration(
         $migration->run() === ['imported' => 0, 'removed' => 0, 'skipped' => 0],
         'successful migration must be idempotent'
