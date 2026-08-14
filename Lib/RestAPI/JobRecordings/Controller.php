@@ -12,7 +12,7 @@ use MikoPBX\PBXCoreREST\Attributes\SecurityType;
 use MikoPBX\PBXCoreREST\Controllers\BaseRestController;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
-#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-recordings', tags: ['Local STT Recordings'], description: 'module_local_speech_to_text_JobRecordingsApiDescription', processor: Processor::class)]
+#[ApiResource(path: LocalSpeechToTextMain::API_BASE_PATH . '/job-recordings', tags: ['Local STT Jobs'], description: 'module_local_speech_to_text_JobRecordingsApiDescription', processor: Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_job_recordings', requirements: [SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: ['GET' => ['getRecord']], resourceLevelMethods: ['getRecord'], collectionLevelMethods: [], idPattern: '[0-9]+')]
 class Controller extends BaseRestController

@@ -129,7 +129,7 @@ namespace {
         'JobLeases' => 'Local STT Jobs',
         'JobResults' => 'Local STT Jobs',
         'JobFailures' => 'Local STT Jobs',
-        'JobRecordings' => 'Local STT Recordings',
+        'JobRecordings' => 'Local STT Jobs',
         'Transcripts' => 'Local STT Transcripts',
         'TranscriptEvents' => 'Local STT Transcripts',
         'CallTranscripts' => 'Local STT Call Transcripts',

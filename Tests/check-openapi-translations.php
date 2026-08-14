@@ -71,14 +71,12 @@ function isOpenApiTranslationKey(string $value): bool
 $expectedRussian = [
     'rest_tag_LocalSTTWorkers' => 'STT-воркеры',
     'rest_tag_LocalSTTJobs' => 'Задания STT',
-    'rest_tag_LocalSTTRecordings' => 'Записи STT',
     'rest_tag_LocalSTTTranscripts' => 'Транскрипции STT',
     'rest_tag_LocalSTTCallTranscripts' => 'Транскрипции звонков STT',
 ];
 $expectedEnglish = [
     'rest_tag_LocalSTTWorkers' => 'STT Workers',
     'rest_tag_LocalSTTJobs' => 'STT Jobs',
-    'rest_tag_LocalSTTRecordings' => 'STT Recordings',
     'rest_tag_LocalSTTTranscripts' => 'STT Transcripts',
     'rest_tag_LocalSTTCallTranscripts' => 'STT Call Transcripts',
 ];
@@ -162,6 +160,23 @@ foreach (glob($root . '/Messages/*.php') ?: [] as $messageFile) {
 
 foreach (array_keys($openApiKeys) as $key) {
     expectOpenApiTranslation(isset($russian[$key], $english[$key]), "OpenAPI key is missing from the source catalogs: {$key}");
+}
+
+/*
+ * Reverse coverage: a catalog key that only looks like OpenAPI copy but is
+ * referenced nowhere is retired worker-API v1 residue. It must either be
+ * supplied by an annotation/resource reference collected above or be listed
+ * here with a justification.
+ */
+$rendererOwnedCatalogKeys = [];
+foreach (array_keys($english) as $key) {
+    $isOpenApiShaped = (bool)preg_match(
+        '/^(?:module_local_speech_to_text_Api[A-Za-z0-9_]*|module_local_speech_to_text_[A-Za-z0-9_]*ApiDescription)$/',
+        $key
+    );
+    if ($isOpenApiShaped && !isset($openApiKeys[$key]) && !isset($rendererOwnedCatalogKeys[$key])) {
+        expectOpenApiTranslation(false, "Catalog OpenAPI key is referenced by no annotation or template: {$key}");
+    }
 }
 
 echo "OpenAPI translations contract OK\n";
