@@ -103,7 +103,9 @@ $technicalOnlyValues = [
     'RMS' => true, 'SHA-256' => true, 'STT' => true, 'VAD' => true, 'null' => true,
 ];
 
-foreach (glob($root . '/Lib/RestAPI/*/{Controller,DataStructure,ListDataStructure}.php', GLOB_BRACE) ?: [] as $openApiFile) {
+// The scan must cover every schema-provider file shape, including
+// non-standard *DataStructure.php classes, or retired copy can hide there.
+foreach (glob($root . '/Lib/RestAPI/*/{Controller,*DataStructure}.php', GLOB_BRACE) ?: [] as $openApiFile) {
     $relative = basename(dirname($openApiFile)) . '/' . basename($openApiFile);
     $source = file_get_contents($openApiFile);
     expectOpenApiTranslation(is_string($source), 'Unable to read OpenAPI source: ' . $relative);
