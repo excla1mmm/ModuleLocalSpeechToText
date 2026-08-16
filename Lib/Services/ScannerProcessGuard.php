@@ -20,6 +20,8 @@ final class ScannerProcessGuard
     private readonly string $lockPath;
     private readonly string $statePath;
     private mixed $clock;
+    private mixed $effectiveUidProvider;
+    private bool $foreignPrivilegedOwner = false;
     private mixed $runtimeHandle = null;
     private mixed $lockHandle = null;
     private ?string $canonicalRuntimePath = null;
@@ -28,8 +30,11 @@ final class ScannerProcessGuard
     private bool $stateLoaded = false;
     private ?string $stateErrorCode = null;
 
-    public function __construct(?string $runtimeDirectory = null, mixed $clock = null)
-    {
+    public function __construct(
+        ?string $runtimeDirectory = null,
+        mixed $clock = null,
+        mixed $effectiveUidProvider = null
+    ) {
         if ($runtimeDirectory === null) {
             $workerLockDirectory = method_exists(Processes::class, 'getLockFileDir')
                 ? Processes::getLockFileDir()
@@ -42,11 +47,16 @@ final class ScannerProcessGuard
         if ($clock !== null && !is_callable($clock)) {
             throw new RuntimeException('Scanner process clock must be callable');
         }
+        if ($effectiveUidProvider !== null && !is_callable($effectiveUidProvider)) {
+            throw new RuntimeException('Scanner effective UID provider must be callable');
+        }
 
         $this->runtimeDirectory = rtrim($runtimeDirectory, DIRECTORY_SEPARATOR);
         $this->lockPath = $this->runtimeDirectory . DIRECTORY_SEPARATOR . self::LOCK_FILE;
         $this->statePath = $this->runtimeDirectory . DIRECTORY_SEPARATOR . self::STATE_FILE;
         $this->clock = $clock ?? static fn (): int => time();
+        $this->effectiveUidProvider = $effectiveUidProvider
+            ?? static fn (): ?int => function_exists('posix_geteuid') ? posix_geteuid() : null;
     }
 
     public function __destruct()
@@ -181,7 +191,7 @@ final class ScannerProcessGuard
         }
         $this->assertRuntimeOwnerOwns($this->lockHandle, 'Scanner process lock has an unsafe owner');
         $metadata = fstat($this->lockHandle);
-        if (!is_array($metadata) || ($metadata['mode'] & 07777) !== 0640) {
+        if (!is_array($metadata) || !$this->regularFileModeIsSafe((int)$metadata['mode'])) {
             throw new RuntimeException('Scanner process lock permissions changed while owned');
         }
     }
@@ -263,11 +273,13 @@ final class ScannerProcessGuard
                 throw new RuntimeException('Scanner process runtime directory changed during open');
             }
             $this->assertCurrentUserOwns($handle, 'Scanner process runtime directory has an unsafe owner');
-            if (!$this->filesystemCall(
-                fn (): bool => chmod($this->runtimeDirectory, 0750),
-                'Unable to set scanner process runtime directory permissions'
-            )) {
-                throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+            if (!$this->foreignPrivilegedOwner) {
+                if (!$this->filesystemCall(
+                    fn (): bool => chmod($this->runtimeDirectory, 0750),
+                    'Unable to set scanner process runtime directory permissions'
+                )) {
+                    throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+                }
             }
             if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $handle, 0040000)) {
                 throw new RuntimeException('Scanner process runtime directory changed during permission update');
@@ -290,6 +302,9 @@ final class ScannerProcessGuard
         for ($attempt = 0; $attempt < 3; $attempt++) {
             $metadata = $this->lstatPath($this->lockPath, 'Unable to inspect scanner process lock');
             if ($metadata === false) {
+                if ($this->foreignPrivilegedOwner) {
+                    throw new RuntimeException('Scanner process lock is missing for cross-UID worker');
+                }
                 try {
                     $handle = $this->filesystemCall(
                         fn (): mixed => fopen($this->lockPath, 'x+b'),
@@ -417,6 +432,10 @@ final class ScannerProcessGuard
     private function writeState(array $state): void
     {
         $this->assertOwnership();
+        if ($this->foreignPrivilegedOwner) {
+            $this->stateErrorCode = 'scanner_state_cross_uid_read_only';
+            return;
+        }
         $this->assertRuntimeDirectory();
         $current = $this->lstatPath($this->statePath, 'Unable to inspect scanner recovery state');
         if (is_array($current) && !$this->isRegularFileMetadata($current)) {
@@ -593,21 +612,31 @@ final class ScannerProcessGuard
             throw new RuntimeException($errorMessage);
         }
         $this->assertRuntimeOwnerOwns($handle, $errorMessage);
-        if (!$this->filesystemCall(
-            static fn (): bool => chmod($path, 0640),
-            $errorMessage
-        )) {
-            throw new RuntimeException($errorMessage);
+        if (!$this->foreignPrivilegedOwner) {
+            if (!$this->filesystemCall(
+                static fn (): bool => chmod($path, 0640),
+                $errorMessage
+            )) {
+                throw new RuntimeException($errorMessage);
+            }
         }
         if (!$this->pathIdentifiesHandle($path, $handle, 0100000)) {
             throw new RuntimeException($errorMessage);
         }
         $metadata = fstat($handle);
-        if (!is_array($metadata) || ($metadata['mode'] & 07777) !== 0640) {
+        if (!is_array($metadata) || !$this->regularFileModeIsSafe((int)$metadata['mode'])) {
             throw new RuntimeException($errorMessage);
         }
         $this->assertRuntimeOwnerOwns($handle, $errorMessage);
         $this->assertRuntimeDirectory();
+    }
+
+    private function regularFileModeIsSafe(int $mode): bool
+    {
+        $permissions = $mode & 07777;
+        return $this->foreignPrivilegedOwner
+            ? ($permissions & 0022) === 0 && ($permissions & 0400) !== 0
+            : $permissions === 0640;
     }
 
     /** @param resource $handle */
@@ -627,13 +656,30 @@ final class ScannerProcessGuard
     /** @param resource $handle */
     private function assertCurrentUserOwns(mixed $handle, string $errorMessage): void
     {
-        if (!function_exists('posix_geteuid')) {
+        $effectiveUid = ($this->effectiveUidProvider)();
+        if (!is_int($effectiveUid)) {
             return;
         }
         $metadata = fstat($handle);
-        if (!is_array($metadata) || $metadata['uid'] !== posix_geteuid()) {
-            throw new RuntimeException($errorMessage);
+        if (is_array($metadata) && (int)$metadata['uid'] === $effectiveUid) {
+            $this->foreignPrivilegedOwner = false;
+            return;
         }
+        $parentMetadata = $this->lstatPath(
+            dirname($this->runtimeDirectory),
+            'Unable to inspect scanner process runtime parent'
+        );
+        if ($effectiveUid === 0
+            && is_array($metadata)
+            && is_array($parentMetadata)
+            && $this->isDirectoryMetadata($parentMetadata)
+            && (int)$metadata['uid'] === (int)$parentMetadata['uid']
+        ) {
+            $this->foreignPrivilegedOwner = true;
+            return;
+        }
+
+        throw new RuntimeException($errorMessage);
     }
 
     /** @param array<int|string, int> $metadata */

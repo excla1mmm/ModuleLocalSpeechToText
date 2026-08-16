@@ -223,6 +223,49 @@ expectScannerGuard(
 );
 $defaultGuard->release();
 
+$privilegedRuntimeDirectory = $temporaryRoot . '/trusted-service-runtime/scanner';
+mkdir($privilegedRuntimeDirectory, 0750, true);
+file_put_contents($privilegedRuntimeDirectory . '/.scanner-process.lock', '');
+chmod($privilegedRuntimeDirectory . '/.scanner-process.lock', 0644);
+$privilegedGuard = new ScannerProcessGuard(
+    $privilegedRuntimeDirectory,
+    $clock,
+    effectiveUidProvider: static fn (): int => 0
+);
+expectScannerGuard(
+    $privilegedGuard->acquire(),
+    'privileged scanner must accept a secure runtime directory owned by the trusted service account'
+);
+$privilegedGuard->assertOwnership();
+$privilegedGuard->recordRecycle();
+expectScannerGuard(
+    !file_exists($privilegedRuntimeDirectory . '/.scanner-recovery-state.json'),
+    'privileged scanner must not mutate service-owned recovery-state pathnames'
+);
+$privilegedGuard->release();
+expectScannerGuardRuntimeException(
+    static fn (): bool => (new ScannerProcessGuard(
+        $privilegedRuntimeDirectory,
+        $clock,
+        effectiveUidProvider: static fn (): int => 65534
+    ))->acquire(),
+    'unprivileged scanner must reject a runtime directory owned by another account'
+);
+$privilegedMissingLockRuntime = $temporaryRoot . '/trusted-service-missing-lock/scanner';
+mkdir($privilegedMissingLockRuntime, 0750, true);
+expectScannerGuardRuntimeException(
+    static fn (): bool => (new ScannerProcessGuard(
+        $privilegedMissingLockRuntime,
+        $clock,
+        effectiveUidProvider: static fn (): int => 0
+    ))->acquire(),
+    'privileged scanner must not create a missing lock in a service-owned runtime directory'
+);
+expectScannerGuard(
+    !file_exists($privilegedMissingLockRuntime . '/.scanner-process.lock'),
+    'cross-UID scanner failure must leave the missing lock pathname untouched'
+);
+
 $flockFailureRuntime = $temporaryRoot . '/flock-failure-runtime';
 ScannerGuardFilesystemProbe::$flockWouldBlock = 0;
 expectScannerGuardRuntimeException(
