@@ -195,6 +195,21 @@ function scannerGuardOperationThrows(callable $operation): bool
 
 $temporaryRoot = sys_get_temp_dir() . '/local-stt-scanner-guard-' . bin2hex(random_bytes(8));
 $runtimeDirectory = $temporaryRoot . '/runtime';
+$testRunsAsRoot = function_exists('posix_geteuid') && posix_geteuid() === 0;
+$serviceAccountUid = 65534;
+// Under a root test runner the fixtures would be root-owned and the cross-UID
+// guard path would never activate; adopt a foreign service-account owner so the
+// privileged-guest scenarios exercise the same code as on the station.
+$adoptForeignServiceFixture = static function (string ...$paths) use ($testRunsAsRoot, $serviceAccountUid): void {
+    if (!$testRunsAsRoot) {
+        return;
+    }
+    foreach ($paths as $path) {
+        if (!chown($path, $serviceAccountUid)) {
+            throw new RuntimeException('unable to adopt foreign service-account fixture owner: ' . $path);
+        }
+    }
+};
 register_shutdown_function(
     static function () use ($temporaryRoot): void {
         removeScannerGuardTestDirectory($temporaryRoot);
@@ -227,6 +242,11 @@ $privilegedRuntimeDirectory = $temporaryRoot . '/trusted-service-runtime/scanner
 mkdir($privilegedRuntimeDirectory, 0750, true);
 file_put_contents($privilegedRuntimeDirectory . '/.scanner-process.lock', '');
 chmod($privilegedRuntimeDirectory . '/.scanner-process.lock', 0644);
+$adoptForeignServiceFixture(
+    $temporaryRoot . '/trusted-service-runtime',
+    $privilegedRuntimeDirectory,
+    $privilegedRuntimeDirectory . '/.scanner-process.lock'
+);
 $privilegedGuard = new ScannerProcessGuard(
     $privilegedRuntimeDirectory,
     $clock,
@@ -247,12 +267,16 @@ expectScannerGuardRuntimeException(
     static fn (): bool => (new ScannerProcessGuard(
         $privilegedRuntimeDirectory,
         $clock,
-        effectiveUidProvider: static fn (): int => 65534
+        effectiveUidProvider: static fn (): int => 65533
     ))->acquire(),
     'unprivileged scanner must reject a runtime directory owned by another account'
 );
 $privilegedMissingLockRuntime = $temporaryRoot . '/trusted-service-missing-lock/scanner';
 mkdir($privilegedMissingLockRuntime, 0750, true);
+$adoptForeignServiceFixture(
+    $temporaryRoot . '/trusted-service-missing-lock',
+    $privilegedMissingLockRuntime
+);
 expectScannerGuardRuntimeException(
     static fn (): bool => (new ScannerProcessGuard(
         $privilegedMissingLockRuntime,
