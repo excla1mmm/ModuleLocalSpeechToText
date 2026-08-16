@@ -52,6 +52,7 @@ expectStructuredWriter(
 require_once $sanitizerPath;
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
+require_once $root . '/Lib/Services/LocalSpeechToTextJournalAccess.php';
 require_once $writerPath;
 require_once $loggerPath;
 
@@ -66,6 +67,7 @@ $unsafeDir = $fixtureRoot . '/unsafe';
 $outsideDir = $fixtureRoot . '/outside';
 $linkedDir = $fixtureRoot . '/linked-directory';
 $outsideFile = $fixtureRoot . '/outside-target.log';
+$privilegedDir = $fixtureRoot . '/trusted-service/journal';
 
 try {
     mkdir($fixtureRoot, 0750, true);
@@ -152,6 +154,209 @@ try {
     expectStructuredWriter((fileperms($journalDir) & 0777) === 0750, 'journal directory mode must be 0750');
     expectStructuredWriter((fileperms($journalDir . '/module.log') & 0777) === 0640, 'journal file mode must be 0640');
     expectStructuredWriter((fileperms($journalDir . '/.module-log.lock') & 0777) === 0640, 'lock file mode must be 0640');
+
+    mkdir($privilegedDir, 0750, true);
+    chmod($privilegedDir, 0700);
+    file_put_contents($privilegedDir . '/.module-log.lock', '');
+    file_put_contents($privilegedDir . '/module.log', '');
+    chmod($privilegedDir . '/.module-log.lock', 0600);
+    chmod($privilegedDir . '/module.log', 0600);
+    clearstatcache(true, $privilegedDir);
+    $journalOwnerId = fileowner($privilegedDir);
+    $guestScenariosUsable = !function_exists('posix_geteuid') || posix_geteuid() !== 0;
+
+    $guestWriter = new LocalSpeechToTextLogWriter(
+        $privilegedDir,
+        300,
+        effectiveUidProvider: static fn (): int => 0
+    );
+    expectStructuredWriter(
+        $guestWriter->append('{"probe":"guest-existing-file"}'),
+        'root guest worker must append to a canonical-owner journal'
+    );
+    if ($guestScenariosUsable) {
+        clearstatcache(true, $privilegedDir . '/module.log');
+        expectStructuredWriter(
+            fileowner($privilegedDir . '/module.log') === $journalOwnerId,
+            'guest append must not change journal file ownership'
+        );
+        expectStructuredWriter(
+            (fileperms($privilegedDir . '/module.log') & 0777) === 0600,
+            'guest append must not chmod the service-account journal file'
+        );
+        expectStructuredWriter(
+            (fileperms($privilegedDir) & 0777) === 0700,
+            'guest append must not chmod the service-account journal directory'
+        );
+    }
+    expectStructuredWriter(
+        str_contains((string)file_get_contents($privilegedDir . '/module.log'), 'guest-existing-file'),
+        'guest append must reach the journal file'
+    );
+
+    $ownerAfterGuestWriter = new LocalSpeechToTextLogWriter($privilegedDir, 300);
+    expectStructuredWriter(
+        $ownerAfterGuestWriter->append('{"probe":"owner-after-guest"}'),
+        'service-account writer must keep working after guest appends'
+    );
+    expectStructuredWriter(
+        str_contains((string)file_get_contents($privilegedDir . '/module.log'), 'owner-after-guest'),
+        'owner and guest appends must share one journal'
+    );
+
+    $unprivilegedWriter = new LocalSpeechToTextLogWriter(
+        $privilegedDir,
+        300,
+        effectiveUidProvider: static fn (): int => 65534
+    );
+    expectStructuredWriter(
+        !$unprivilegedWriter->append('{"probe":"untrusted-owner"}'),
+        'unprivileged worker must reject a journal directory owned by another account'
+    );
+
+    $degradedDir = $fixtureRoot . '/trusted-service/degraded-journal';
+    mkdir($degradedDir, 0750, true);
+    file_put_contents($degradedDir . '/module.log', '');
+    chmod($degradedDir . '/module.log', 0600);
+    $degradedWriter = new LocalSpeechToTextLogWriter(
+        $degradedDir,
+        300,
+        effectiveUidProvider: static fn (): int => 0,
+        ownerFileCreator: static fn (string $path, int $ownerUid, int $ownerGid, string $mode): false => false
+    );
+    if ($guestScenariosUsable) {
+        expectStructuredWriter(
+            !$degradedWriter->append('{"probe":"creation-refused"}'),
+            'guest worker without a working owner-side creator must not create journal files as root'
+        );
+        expectStructuredWriter(
+            !is_file($degradedDir . '/.module-log.lock'),
+            'refused guest creation must not leave a root-owned lock file'
+        );
+        expectStructuredWriter(
+            (string)file_get_contents($degradedDir . '/module.log') === '',
+            'refused guest append must not touch the existing journal file'
+        );
+    }
+
+    $rotationRefusedDir = $fixtureRoot . '/trusted-service/rotation-refused-journal';
+    mkdir($rotationRefusedDir, 0750, true);
+    file_put_contents($rotationRefusedDir . '/module.log', str_repeat('x', 120));
+    chmod($rotationRefusedDir . '/module.log', 0600);
+    $rotationRefusedWriter = new LocalSpeechToTextLogWriter(
+        $rotationRefusedDir,
+        90,
+        effectiveUidProvider: static fn (): int => 0,
+        ownerFileCreator: static fn (string $path, int $ownerUid, int $ownerGid, string $mode): false => false
+    );
+    if ($guestScenariosUsable) {
+        expectStructuredWriter(
+            !$rotationRefusedWriter->append('{"probe":"rotation-refused"}'),
+            'guest worker without the owner window must not rotate the journal with root path mutations'
+        );
+        expectStructuredWriter(
+            !is_file($rotationRefusedDir . '/module.log.1'),
+            'refused guest rotation must not create the previous journal'
+        );
+        expectStructuredWriter(
+            str_repeat('x', 120) === (string)file_get_contents($rotationRefusedDir . '/module.log'),
+            'refused guest rotation must leave the active journal untouched'
+        );
+    }
+
+    $creationDir = $fixtureRoot . '/trusted-service/guest-creation-journal';
+    mkdir($creationDir, 0750, true);
+    $creationWriter = new LocalSpeechToTextLogWriter(
+        $creationDir,
+        90,
+        effectiveUidProvider: static fn (): int => 0
+    );
+    if ($guestScenariosUsable) {
+        expectStructuredWriter(
+            $creationWriter->append(str_repeat('a', 60)),
+            'guest worker with owner-side creation must create the journal'
+        );
+        expectStructuredWriter(
+            $creationWriter->append(str_repeat('b', 60)),
+            'guest worker with owner-side creation must rotate the journal'
+        );
+        expectStructuredWriter(
+            is_file($creationDir . '/module.log') && is_file($creationDir . '/module.log.1'),
+            'guest rotation must produce both journal files'
+        );
+        foreach (['module.log', 'module.log.1', '.module-log.lock'] as $guestJournalFile) {
+            clearstatcache(true, $creationDir . '/' . $guestJournalFile);
+            expectStructuredWriter(
+                fileowner($creationDir . '/' . $guestJournalFile) === fileowner($creationDir),
+                "guest-created {$guestJournalFile} must keep the canonical journal owner"
+            );
+            expectStructuredWriter(
+                filegroup($creationDir . '/' . $guestJournalFile) === filegroup($creationDir),
+                "guest-created {$guestJournalFile} must keep the canonical journal group"
+            );
+        }
+    }
+
+    $guestSymlinkDir = $fixtureRoot . '/trusted-service/guest-symlink-journal';
+    $guestSymlinkTarget = $fixtureRoot . '/trusted-service/guest-symlink-target.log';
+    mkdir($guestSymlinkDir, 0750, true);
+    file_put_contents($guestSymlinkTarget, "outside\n");
+    file_put_contents($guestSymlinkDir . '/.module-log.lock', '');
+    chmod($guestSymlinkDir . '/.module-log.lock', 0640);
+    symlink($guestSymlinkTarget, $guestSymlinkDir . '/module.log');
+    $guestSymlinkWriter = new LocalSpeechToTextLogWriter(
+        $guestSymlinkDir,
+        300,
+        effectiveUidProvider: static fn (): int => 0
+    );
+    if ($guestScenariosUsable) {
+        expectStructuredWriter(
+            !$guestSymlinkWriter->append('{"probe":"guest-symlink"}'),
+            'guest worker must reject a symlinked journal file'
+        );
+        expectStructuredWriter(
+            file_get_contents($guestSymlinkTarget) === "outside\n",
+            'guest worker must not follow a symlinked journal file'
+        );
+    }
+
+    $foreignIdentity = static fn (): int => 65534;
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0 && function_exists('posix_setegid')) {
+        // Real privilege window: root worker, journal owned by a foreign uid:gid pair.
+        // The gid assertion is the regression guard for www:root journal files,
+        // which the gid-unaware window produced and this writer then rejected.
+        $windowDir = $fixtureRoot . '/trusted-service/root-window/journal';
+        mkdir($windowDir, 0750, true);
+        expectStructuredWriter(chown($windowDir, $foreignIdentity()), 'root window fixture must accept foreign owner');
+        expectStructuredWriter(chgrp($windowDir, $foreignIdentity()), 'root window fixture must accept foreign group');
+        $windowParentOwnerOk = chown(dirname($windowDir), $foreignIdentity())
+            && chgrp(dirname($windowDir), $foreignIdentity());
+        expectStructuredWriter($windowParentOwnerOk, 'root window fixture parent must accept foreign owner');
+        $windowWriter = new LocalSpeechToTextLogWriter(
+            $windowDir,
+            90,
+            effectiveUidProvider: static fn (): int => 0
+        );
+        expectStructuredWriter(
+            $windowWriter->append(str_repeat('a', 60)),
+            'root guest worker must create the journal through the privilege window'
+        );
+        expectStructuredWriter(
+            $windowWriter->append(str_repeat('b', 60)),
+            'root guest worker must rotate the journal through the privilege window'
+        );
+        foreach (['module.log', 'module.log.1', '.module-log.lock'] as $windowJournalFile) {
+            clearstatcache(true, $windowDir . '/' . $windowJournalFile);
+            expectStructuredWriter(
+                fileowner($windowDir . '/' . $windowJournalFile) === fileowner($windowDir),
+                "window-created {$windowJournalFile} must keep the canonical journal owner"
+            );
+            expectStructuredWriter(
+                filegroup($windowDir . '/' . $windowJournalFile) === filegroup($windowDir),
+                "window-created {$windowJournalFile} must keep the canonical journal group"
+            );
+        }
+    }
 
     $primaryGroup = function_exists('posix_getegid') ? posix_getegid() : null;
     $alternateGroups = function_exists('posix_getgroups') ? posix_getgroups() : [];

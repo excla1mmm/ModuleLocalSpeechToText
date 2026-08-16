@@ -7,16 +7,26 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 use RuntimeException;
 use Throwable;
 
+require_once __DIR__ . '/LocalSpeechToTextJournalAccess.php';
+
 final class LocalSpeechToTextLogWriter
 {
     private const string ACTIVE_FILE = 'module.log';
     private const string PREVIOUS_FILE = 'module.log.1';
     private const string LOCK_FILE = '.module-log.lock';
+    private const int ROOT_UID = 0;
+
+    private readonly int $maxBytes;
+    private readonly LocalSpeechToTextJournalAccess $access;
 
     public function __construct(
-        private readonly string $directory,
-        private readonly int $maxBytes = 5_242_880
+        string $directory,
+        int $maxBytes = 5_242_880,
+        ?callable $effectiveUidProvider = null,
+        ?callable $ownerFileCreator = null
     ) {
+        $this->maxBytes = $maxBytes;
+        $this->access = new LocalSpeechToTextJournalAccess($directory, $effectiveUidProvider, $ownerFileCreator);
         if ($this->maxBytes < 1) {
             throw new RuntimeException('Module log byte limit must be positive');
         }
@@ -26,6 +36,8 @@ final class LocalSpeechToTextLogWriter
     {
         try {
             return $this->appendInternal($jsonLine);
+        } catch (LocalSpeechToTextJournalPrivilegeException $exception) {
+            throw $exception;
         } catch (Throwable) {
             return false;
         }
@@ -60,11 +72,13 @@ final class LocalSpeechToTextLogWriter
                 if ($previousStat === false) {
                     return false;
                 }
-                if (is_array($previousStat) && !@unlink($previousPath)) {
+                if (is_array($previousStat)
+                    && !$this->mutateJournalPath(fn (): bool => @unlink($previousPath))
+                ) {
                     return false;
                 }
                 if (!$this->isSafeJournalPath($activePath, $realDirectory)
-                    || !@rename($activePath, $previousPath)
+                    || !$this->mutateJournalPath(fn (): bool => @rename($activePath, $previousPath))
                     || !$this->isSafeJournalPath($previousPath, $realDirectory)
                 ) {
                     return false;
@@ -99,6 +113,8 @@ final class LocalSpeechToTextLogWriter
     {
         try {
             return $this->replacePreviousInternal($jsonLines, false);
+        } catch (LocalSpeechToTextJournalPrivilegeException $exception) {
+            throw $exception;
         } catch (Throwable) {
             return false;
         }
@@ -109,6 +125,8 @@ final class LocalSpeechToTextLogWriter
     {
         try {
             return $this->replacePreviousInternal($jsonLines, true);
+        } catch (LocalSpeechToTextJournalPrivilegeException $exception) {
+            throw $exception;
         } catch (Throwable) {
             return false;
         }
@@ -186,19 +204,19 @@ final class LocalSpeechToTextLogWriter
                 $written = $written && $closed;
             }
             if (!$written) {
-                @unlink($temporaryPath);
+                $this->discardTemporaryFile($temporaryPath);
                 return false;
             }
 
             if (!$this->applyJournalPermissions($temporaryPath, $realDirectory)) {
-                @unlink($temporaryPath);
+                $this->discardTemporaryFile($temporaryPath);
                 return false;
             }
             if (!$this->isSafeJournalPath($temporaryPath, $realDirectory)
                 || !$this->isSafeJournalPath($previousPath, $realDirectory)
-                || !@rename($temporaryPath, $previousPath)
+                || !$this->mutateJournalPath(fn (): bool => @rename($temporaryPath, $previousPath))
             ) {
-                @unlink($temporaryPath);
+                $this->discardTemporaryFile($temporaryPath);
                 return false;
             }
 
@@ -235,70 +253,36 @@ final class LocalSpeechToTextLogWriter
     /** @param callable(string): bool $callback */
     private function withLock(callable $callback): bool
     {
-        $realDirectory = $this->ensureDirectory();
-        if ($realDirectory === null) {
+        $access = $this->access->resolveDirectoryAccess();
+        if ($access === null) {
             return false;
         }
 
-        $lockPath = $realDirectory . '/' . self::LOCK_FILE;
-        $lock = $this->openRegularFile($lockPath, 'c+b', $realDirectory);
-        if (!is_resource($lock)) {
-            return false;
-        }
-
-        $locked = false;
         try {
-            $locked = flock($lock, LOCK_EX);
-            if (!$locked) {
+            $realDirectory = $access['realDirectory'];
+            $lockPath = $realDirectory . '/' . self::LOCK_FILE;
+            $lock = $this->openRegularFile($lockPath, 'c+b', $realDirectory);
+            if (!is_resource($lock)) {
                 return false;
             }
 
-            return $callback($realDirectory);
-        } finally {
-            if ($locked) {
-                flock($lock, LOCK_UN);
+            $locked = false;
+            try {
+                $locked = flock($lock, LOCK_EX);
+                if (!$locked) {
+                    return false;
+                }
+
+                return $callback($realDirectory);
+            } finally {
+                if ($locked) {
+                    flock($lock, LOCK_UN);
+                }
+                fclose($lock);
             }
-            fclose($lock);
+        } finally {
+            $this->access->clear();
         }
-    }
-
-    private function ensureDirectory(): ?string
-    {
-        $directory = rtrim($this->directory, '/');
-        if ($directory === '' || is_link($directory)) {
-            return null;
-        }
-        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
-            return null;
-        }
-        clearstatcache(true, $directory);
-        $stat = @lstat($directory);
-        if (is_link($directory)
-            || !is_array($stat)
-            || (($stat['mode'] & 0170000) !== 0040000)
-        ) {
-            return null;
-        }
-
-        $realDirectory = realpath($directory);
-        if (!is_string($realDirectory) || !is_dir($realDirectory)) {
-            return null;
-        }
-        if (!chmod($realDirectory, 0750)) {
-            return null;
-        }
-        clearstatcache(true, $realDirectory);
-        $updatedStat = @lstat($realDirectory);
-        $effectiveUid = function_exists('posix_geteuid') ? posix_geteuid() : null;
-        if (!is_array($updatedStat)
-            || (($updatedStat['mode'] & 0170000) !== 0040000)
-            || (($updatedStat['mode'] & 0022) !== 0)
-            || ($effectiveUid !== null && (int)$updatedStat['uid'] !== $effectiveUid)
-        ) {
-            return null;
-        }
-
-        return rtrim($realDirectory, '/');
     }
 
     private function isSafeJournalPath(string $path, string $realDirectory): bool
@@ -327,6 +311,11 @@ final class LocalSpeechToTextLogWriter
         if (dirname($path) !== $realDirectory || is_link($path)) {
             return false;
         }
+
+        if ($this->access->isGuestMode()) {
+            return $this->openGuestRegularFile($path, $mode, $realDirectory);
+        }
+
         $handle = fopen($path, $mode);
         if (!is_resource($handle)) {
             return false;
@@ -346,9 +335,73 @@ final class LocalSpeechToTextLogWriter
             fclose($handle);
             return false;
         }
-
         if (!$this->applyJournalPermissions($path, $realDirectory)) {
             fclose($handle);
+            return false;
+        }
+
+        return $handle;
+    }
+
+    /**
+     * Guest opens never use creating modes: existing entries are opened with
+     * "r+b"/"rb" only, so root cannot create a file by accident even if the
+     * entry vanishes between lstat and fopen. Missing entries are created
+     * exclusively through the owner window.
+     *
+     * @return resource|false
+     */
+    private function openGuestRegularFile(string $path, string $mode, string $realDirectory): mixed
+    {
+        clearstatcache(true, $path);
+        $preStat = @lstat($path);
+
+        if (is_array($preStat)) {
+            if (($preStat['mode'] & 0170000) !== 0100000
+                || str_contains($mode, 'x')
+            ) {
+                return false;
+            }
+
+            $handle = fopen($path, str_contains($mode, 'r') && !str_contains($mode, '+') ? 'rb' : 'r+b');
+            if (!is_resource($handle)) {
+                return false;
+            }
+            if (str_contains($mode, 'a') && fseek($handle, 0, SEEK_END) !== 0) {
+                fclose($handle);
+                return false;
+            }
+            $handleStat = fstat($handle);
+            if (!is_array($handleStat)
+                || !$this->access->statMatchesPath($handleStat, $path)
+                || (int)$handleStat['uid'] !== (int)$this->access->canonicalUid()
+                || !$this->access->guestModeIsSafe((int)$handleStat['mode'])
+                || !$this->applyJournalPermissions($path, $realDirectory)
+            ) {
+                fclose($handle);
+                return false;
+            }
+
+            return $handle;
+        }
+
+        if (!LocalSpeechToTextJournalAccess::modeCreates($mode)) {
+            return false;
+        }
+
+        $handle = $this->access->createFileAsOwner($path, $mode);
+        if (!is_resource($handle)) {
+            return false;
+        }
+        $handleStat = fstat($handle);
+        if (!is_array($handleStat)
+            || (int)$handleStat['uid'] !== (int)$this->access->canonicalUid()
+            || !$this->access->statMatchesPath($handleStat, $path)
+            || !$this->access->guestModeIsSafe((int)$handleStat['mode'])
+            || !$this->applyJournalPermissions($path, $realDirectory)
+        ) {
+            fclose($handle);
+
             return false;
         }
 
@@ -373,6 +426,12 @@ final class LocalSpeechToTextLogWriter
             return false;
         }
 
+        if ($this->access->isGuestMode()) {
+            return (int)$pathStat['uid'] === (int)$this->access->canonicalUid()
+                && (int)$pathStat['gid'] === (int)$directoryStat['gid']
+                && $this->access->guestModeIsSafe((int)$pathStat['mode']);
+        }
+
         $directoryGroup = (int)$directoryStat['gid'];
         if ((int)$pathStat['gid'] !== $directoryGroup && !chgrp($path, $directoryGroup)) {
             return false;
@@ -384,6 +443,26 @@ final class LocalSpeechToTextLogWriter
             && (($updatedPathStat['mode'] & 0170000) === 0100000)
             && (int)$updatedPathStat['gid'] === $directoryGroup
             && chmod($path, 0640);
+    }
+
+    private function discardTemporaryFile(string $temporaryPath): void
+    {
+        $this->mutateJournalPath(
+            fn (): bool => !is_file($temporaryPath) || @unlink($temporaryPath)
+        );
+    }
+
+    /**
+     * Every path mutation inside the journal tree goes through the owner
+     * identity in guest mode, so a substituted path can never make root act.
+     */
+    private function mutateJournalPath(callable $operation): bool
+    {
+        if (!$this->access->isGuestMode()) {
+            return $operation();
+        }
+
+        return $this->access->mutateAsOwner($operation) === true;
     }
 
     /** @param resource $handle */

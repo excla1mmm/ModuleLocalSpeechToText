@@ -36,6 +36,8 @@ final class LocalSpeechToTextLogger
     ): void {
         try {
             self::default()->writeEvent($component, $event, $message, $level, $context);
+        } catch (LocalSpeechToTextJournalPrivilegeException $exception) {
+            throw $exception;
         } catch (Throwable) {
             self::fallbackFailure('structured log initialization failed');
         }
@@ -51,6 +53,8 @@ final class LocalSpeechToTextLogger
     ): void {
         try {
             $this->writeEventInternal($component, $event, $message, $level, $context);
+        } catch (LocalSpeechToTextJournalPrivilegeException $exception) {
+            throw $exception;
         } catch (Throwable) {
             self::fallbackFailure('structured log write failed');
         }
