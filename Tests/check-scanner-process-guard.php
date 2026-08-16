@@ -225,18 +225,29 @@ $clock = static function () use (&$now): int {
 $lockPath = $runtimeDirectory . '/.scanner-process.lock';
 $statePath = $runtimeDirectory . '/.scanner-recovery-state.json';
 
-$defaultRuntimeDirectory = Processes::$lockFileDirectory . '/ModuleLocalSpeechToText/scanner';
+$defaultRuntimeDirectory = $temporaryRoot . '/module-db/scanner-runtime';
+ScannerProcessGuard::overrideDefaultRuntimeDirectory($defaultRuntimeDirectory);
 $defaultGuard = new ScannerProcessGuard();
 expectScannerGuard($defaultGuard->acquire(), 'default scanner guard could not acquire singleton');
 expectScannerGuard(
     is_file($defaultRuntimeDirectory . '/.scanner-process.lock'),
-    'default scanner guard must use the stable Core-managed worker lock directory'
+    'default scanner guard must resolve inside the module-owned db directory'
+);
+expectScannerGuard(
+    !file_exists(Processes::$lockFileDirectory . '/ModuleLocalSpeechToText/scanner/.scanner-process.lock'),
+    'default scanner guard must not use the Core-normalized worker lock directory'
 );
 expectScannerGuard(
     !file_exists(Directories::$coreTempDirectory . '/ModuleLocalSpeechToText/scanner/.scanner-process.lock'),
     'default scanner guard must not use the clearable Core temp directory'
 );
 $defaultGuard->release();
+ScannerProcessGuard::overrideDefaultRuntimeDirectory(null);
+$computedDefaultRuntime = ScannerProcessGuard::defaultRuntimeDirectory();
+expectScannerGuard(
+    str_ends_with($computedDefaultRuntime, '/db/scanner-runtime') && !str_contains($computedDefaultRuntime, '/var/run/'),
+    'default scanner runtime directory must stay inside the module-owned db directory'
+);
 
 $privilegedRuntimeDirectory = $temporaryRoot . '/trusted-service-runtime/scanner';
 mkdir($privilegedRuntimeDirectory, 0750, true);

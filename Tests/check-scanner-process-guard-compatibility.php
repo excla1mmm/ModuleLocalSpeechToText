@@ -121,33 +121,45 @@ namespace {
 
     $failure = null;
     try {
+        ScannerProcessGuard::overrideDefaultRuntimeDirectory($temporaryRoot . '/module-db/scanner-runtime');
         $guard = new ScannerProcessGuard();
         if (!$guard->acquire()) {
-            throw new RuntimeException('old-Core fallback acquisition reported duplicate contention');
+            throw new RuntimeException('old-Core default acquisition reported duplicate contention');
         }
         $guard->assertOwnership();
         $guard->release();
     } catch (Throwable $exception) {
         $failure = $exception;
+    } finally {
+        ScannerProcessGuard::overrideDefaultRuntimeDirectory(null);
     }
 
     if ($failure !== null) {
         throw new RuntimeException(
-            'old-Core fallback default construction/acquisition failed: ' . get_class($failure),
+            'old-Core default construction/acquisition failed: ' . get_class($failure),
             0,
             $failure
         );
     }
 
-    $expectedRuntime = ScannerGuardCompatibilityProbe::$sandboxRoot . '/ModuleLocalSpeechToText/scanner';
+    $expectedRuntime = $temporaryRoot . '/module-db/scanner-runtime';
     if (!is_file($expectedRuntime . '/.scanner-process.lock')) {
-        throw new RuntimeException('old-Core fallback did not acquire under the stable worker runtime');
+        throw new RuntimeException('old-Core default did not acquire under the module-owned runtime');
     }
     if (Directories::$getDirCalls !== 0) {
-        throw new RuntimeException('old-Core fallback consulted the clearable Core temp directory');
+        throw new RuntimeException('old-Core default consulted the clearable Core temp directory');
     }
-    if (!in_array('/var/run/php-workers/ModuleLocalSpeechToText/scanner', ScannerGuardCompatibilityProbe::$requestedPaths, true)) {
-        throw new RuntimeException('old-Core fallback did not resolve the literal stable runtime pathname');
+    foreach (ScannerGuardCompatibilityProbe::$requestedPaths as $requestedPath) {
+        if (str_starts_with($requestedPath, ScannerGuardCompatibilityProbe::FALLBACK_ROOT . '/')) {
+            throw new RuntimeException(
+                'old-Core default touched the Core-normalized worker lock tree: ' . $requestedPath
+            );
+        }
+    }
+
+    $computedDefault = ScannerProcessGuard::defaultRuntimeDirectory();
+    if (!str_ends_with($computedDefault, '/db/scanner-runtime') || str_contains($computedDefault, '/var/run/')) {
+        throw new RuntimeException('default runtime directory left the module-owned db tree: ' . $computedDefault);
     }
 
     echo "Scanner process guard old-Core compatibility OK\n";

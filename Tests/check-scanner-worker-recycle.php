@@ -447,6 +447,7 @@ namespace {
     {
         Directories::$runtimeDirectory = $runtimeRoot;
         Processes::$lockFileDirectory = $runtimeRoot;
+        ScannerProcessGuard::overrideDefaultRuntimeDirectory($runtimeRoot . '/ModuleLocalSpeechToText/scanner');
         LocalSpeechToTextLogger::$events = [];
         ModuleDatabasePragmas::$configureRuntimeCalls = 0;
         DatabaseProviderBase::$ensureCdrTablesCalls = 0;

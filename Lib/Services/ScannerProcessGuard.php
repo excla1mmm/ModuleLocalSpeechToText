@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use JsonException;
-use MikoPBX\Core\System\Processes;
 use RuntimeException;
 use Throwable;
 
@@ -15,6 +14,8 @@ final class ScannerProcessGuard
     private const string STATE_FILE = '.scanner-recovery-state.json';
     private const array BACKOFF_SECONDS = [5, 15, 30, 60];
     private const int RECYCLE_SERIES_TTL_SECONDS = 300;
+
+    private static ?string $defaultRuntimeDirectoryOverride = null;
 
     private readonly string $runtimeDirectory;
     private readonly string $lockPath;
@@ -36,13 +37,7 @@ final class ScannerProcessGuard
         mixed $effectiveUidProvider = null
     ) {
         if ($runtimeDirectory === null) {
-            $workerLockDirectory = method_exists(Processes::class, 'getLockFileDir')
-                ? Processes::getLockFileDir()
-                : '/var/run/php-workers';
-            $runtimeDirectory = rtrim(
-                $workerLockDirectory,
-                DIRECTORY_SEPARATOR
-            ) . '/ModuleLocalSpeechToText/scanner';
+            $runtimeDirectory = self::defaultRuntimeDirectory();
         }
         if ($clock !== null && !is_callable($clock)) {
             throw new RuntimeException('Scanner process clock must be callable');
@@ -62,6 +57,30 @@ final class ScannerProcessGuard
     public function __destruct()
     {
         $this->release();
+    }
+
+    /**
+     * The scanner runtime directory must live inside the module-owned db
+     * directory. The Core rewrites everything under
+     * Processes::getLockFileDir() (/var/run/php-workers) to 0755/0644
+     * www-owned on every PID-file write, which invalidates this guard's
+     * 0750/0640 same-owner invariants while the scanner is running.
+     */
+    public static function defaultRuntimeDirectory(): string
+    {
+        return self::$defaultRuntimeDirectoryOverride
+            ?? dirname(__DIR__, 2) . '/db/scanner-runtime';
+    }
+
+    /**
+     * Redirects the default runtime directory for hermetic tests. Pass
+     * null to restore the module-owned default.
+     */
+    public static function overrideDefaultRuntimeDirectory(?string $directory): void
+    {
+        self::$defaultRuntimeDirectoryOverride = $directory === null
+            ? null
+            : rtrim($directory, DIRECTORY_SEPARATOR);
     }
 
     public function acquire(): bool

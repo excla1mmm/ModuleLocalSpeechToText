@@ -102,6 +102,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         try {
             $setupSnapshot = $this->createSetupDatabaseSnapshot($databaseBackup);
             $this->cleanupLegacyLifecycleFiles();
+            $this->cleanupLegacyScannerRuntime();
 
             (new ModuleMetadataCache())->invalidate();
             $connection = (new STTJob())->getWriteConnection();
@@ -567,6 +568,83 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     ]
                 );
             }
+        }
+    }
+
+    private function cleanupLegacyScannerRuntime(): void
+    {
+        $legacyScannerDirectory = '/var/run/php-workers/ModuleLocalSpeechToText/scanner';
+        $removedLegacyRuntime = false;
+        if (is_dir($legacyScannerDirectory)) {
+            foreach (
+                [
+                    '.scanner-process.lock',
+                    '.scanner-recovery-state.json',
+                ] as $fileName
+            ) {
+                $path = $legacyScannerDirectory . '/' . $fileName;
+                if (!is_file($path) && !is_link($path)) {
+                    continue;
+                }
+                if (@unlink($path)) {
+                    $removedLegacyRuntime = true;
+                } else {
+                    LocalSpeechToTextLogger::event(
+                        'setup',
+                        'operation_failed',
+                        'Obsolete scanner runtime file could not be removed',
+                        LOG_WARNING,
+                        [
+                            'operation' => 'cleanup_legacy_scanner_runtime',
+                            'error_code' => 'unlink_failed',
+                        ]
+                    );
+                }
+            }
+            $scannerEntries = array_values(
+                array_diff(scandir($legacyScannerDirectory) ?: [], ['.', '..'])
+            );
+            if ($scannerEntries === [] && !@rmdir($legacyScannerDirectory)) {
+                LocalSpeechToTextLogger::event(
+                    'setup',
+                    'operation_failed',
+                    'Obsolete scanner runtime directory could not be removed',
+                    LOG_WARNING,
+                    [
+                        'operation' => 'cleanup_legacy_scanner_runtime',
+                        'error_code' => 'rmdir_failed',
+                    ]
+                );
+            }
+        }
+        $legacyParentDirectory = '/var/run/php-workers/ModuleLocalSpeechToText';
+        if (is_dir($legacyParentDirectory)) {
+            $parentEntries = array_values(
+                array_diff(scandir($legacyParentDirectory) ?: [], ['.', '..'])
+            );
+            if ($parentEntries === [] && !@rmdir($legacyParentDirectory)) {
+                LocalSpeechToTextLogger::event(
+                    'setup',
+                    'operation_failed',
+                    'Obsolete scanner runtime parent directory could not be removed',
+                    LOG_WARNING,
+                    [
+                        'operation' => 'cleanup_legacy_scanner_runtime',
+                        'error_code' => 'rmdir_failed',
+                    ]
+                );
+            }
+        }
+        if ($removedLegacyRuntime) {
+            LocalSpeechToTextLogger::event(
+                'setup',
+                'scanner_runtime_migrated',
+                'Scanner runtime directory left the Core-normalized worker lock tree',
+                LOG_NOTICE,
+                [
+                    'operation' => 'cleanup_legacy_scanner_runtime',
+                ]
+            );
         }
     }
 
