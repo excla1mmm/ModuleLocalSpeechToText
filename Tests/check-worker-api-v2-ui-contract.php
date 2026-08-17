@@ -28,7 +28,6 @@ expectWorkerApiV2Ui(
 
 foreach ([
     'module_local_speech_to_text_WorkerUid',
-    'module_local_speech_to_text_ApiVersion',
     'module_local_speech_to_text_AppVersion',
     'module_local_speech_to_text_Compatible',
     'module_local_speech_to_text_Incompatible',
@@ -37,6 +36,10 @@ foreach ([
 ] as $key) {
     expectWorkerApiV2Ui(str_contains($view, "t._('{$key}')"), "Workers view is missing {$key}");
 }
+expectWorkerApiV2Ui(
+    !str_contains($view, 'module_local_speech_to_text_ApiVersion'),
+    'Workers view must not render the retired API version column header'
+);
 
 expectWorkerApiV2Ui(str_contains($view, 'workerCompatibility[worker.id]'), 'Workers view must render controller-calculated compatibility');
 expectWorkerApiV2Ui(
@@ -44,12 +47,15 @@ expectWorkerApiV2Ui(
     'Workers view must render online status only for compatible online workers'
 );
 expectWorkerApiV2Ui(
-    str_contains($view, 'colspan="9"'),
-    'Workers empty row must span all nine worker columns'
+    str_contains($view, 'colspan="8"'),
+    'Workers empty row must span all eight worker columns'
 );
 expectWorkerApiV2Ui(str_contains($view, 'worker.worker_uid|e'), 'Workers view must display an escaped worker UID');
 expectWorkerApiV2Ui(str_contains($view, 'worker.app_version|e'), 'Workers view must display an escaped app version');
-expectWorkerApiV2Ui(str_contains($view, 'worker.api_version|e'), 'Workers view must display an escaped API version');
+expectWorkerApiV2Ui(
+    !str_contains($view, 'worker.api_version'),
+    'Workers view must not display the API version column'
+);
 expectWorkerApiV2Ui(str_contains($view, 'worker.last_seen'), 'Workers view must display last seen');
 expectWorkerApiV2Ui(
     preg_match('/href="https:\/\/docs\.mikopbx\.com\/extensions\/ModuleLocalSpeechToText\/worker-update"/', $view) === 1,

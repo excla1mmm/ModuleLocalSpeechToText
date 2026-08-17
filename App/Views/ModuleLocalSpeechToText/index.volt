@@ -452,7 +452,6 @@
                 <th>{{ t._('module_local_speech_to_text_IP') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
                 <th>{{ t._('module_local_speech_to_text_AppVersion') }}</th>
-                <th>{{ t._('module_local_speech_to_text_ApiVersion') }}</th>
                 <th class="center aligned">{{ t._('module_local_speech_to_text_Compatible') }}</th>
                 <th class="center aligned">{{ t._('module_local_speech_to_text_Status') }}</th>
                 <th>{{ t._('module_local_speech_to_text_LastSeen') }}</th>
@@ -466,7 +465,6 @@
                     <td>{{ worker.ip|e }}</td>
                     <td><span class="stt-model-text">{{ workerRuntimeModel|e }}</span></td>
                     <td>{{ worker.app_version|e }}</td>
-                    <td>{{ worker.api_version|e }}</td>
                     <td class="center aligned">
                         {% if workerCompatibility[worker.id] %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Compatible') }}</span>
@@ -486,7 +484,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="9" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
+                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
                 </tr>
             {% endfor %}
             </tbody>
