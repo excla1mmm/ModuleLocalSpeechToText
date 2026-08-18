@@ -33,6 +33,8 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         public static ?string $pathCheckFailureNeedle = null;
         public static ?string $forcedChmodNeedle = null;
         public static ?int $forcedChmodMode = null;
+        /** @var array<int, array{path: string, mode: int}> */
+        public static array $chmodCalls = [];
         public static ?string $forcedRenameNeedle = null;
         public static ?int $forcedRenameMode = null;
         public static string $filesystemWarning = '';
@@ -87,6 +89,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 
     function chmod(string $filename, int $permissions): bool
     {
+        ScannerGuardFilesystemProbe::$chmodCalls[] = ['path' => $filename, 'mode' => $permissions];
         if (!\chmod($filename, $permissions)) {
             return false;
         }
@@ -225,13 +228,13 @@ $clock = static function () use (&$now): int {
 $lockPath = $runtimeDirectory . '/.scanner-process.lock';
 $statePath = $runtimeDirectory . '/.scanner-recovery-state.json';
 
-$defaultRuntimeDirectory = $temporaryRoot . '/module-db/scanner-runtime';
+$defaultRuntimeDirectory = $temporaryRoot . '/run-namespace/scanner';
 ScannerProcessGuard::overrideDefaultRuntimeDirectory($defaultRuntimeDirectory);
 $defaultGuard = new ScannerProcessGuard();
 expectScannerGuard($defaultGuard->acquire(), 'default scanner guard could not acquire singleton');
 expectScannerGuard(
     is_file($defaultRuntimeDirectory . '/.scanner-process.lock'),
-    'default scanner guard must resolve inside the module-owned db directory'
+    'default scanner guard must resolve inside its dedicated runtime namespace'
 );
 expectScannerGuard(
     !file_exists(Processes::$lockFileDirectory . '/ModuleLocalSpeechToText/scanner/.scanner-process.lock'),
@@ -245,8 +248,8 @@ $defaultGuard->release();
 ScannerProcessGuard::overrideDefaultRuntimeDirectory(null);
 $computedDefaultRuntime = ScannerProcessGuard::defaultRuntimeDirectory();
 expectScannerGuard(
-    str_ends_with($computedDefaultRuntime, '/db/scanner-runtime') && !str_contains($computedDefaultRuntime, '/var/run/'),
-    'default scanner runtime directory must stay inside the module-owned db directory'
+    $computedDefaultRuntime === '/var/run/ModuleLocalSpeechToText/scanner',
+    'default scanner runtime directory must use the dedicated root-owned namespace'
 );
 
 $privilegedRuntimeDirectory = $temporaryRoot . '/trusted-service-runtime/scanner';
@@ -263,12 +266,17 @@ $privilegedGuard = new ScannerProcessGuard(
     $clock,
     effectiveUidProvider: static fn (): int => 0
 );
+ScannerGuardFilesystemProbe::$chmodCalls = [];
 expectScannerGuard(
     $privilegedGuard->acquire(),
     'privileged scanner must accept a secure runtime directory owned by the trusted service account'
 );
 $privilegedGuard->assertOwnership();
 $privilegedGuard->recordRecycle();
+expectScannerGuard(
+    ScannerGuardFilesystemProbe::$chmodCalls === [],
+    'secure cross-UID adoption must stay read-only and never chmod adopted pathnames'
+);
 expectScannerGuard(
     !file_exists($privilegedRuntimeDirectory . '/.scanner-recovery-state.json'),
     'privileged scanner must not mutate service-owned recovery-state pathnames'
@@ -301,31 +309,28 @@ expectScannerGuard(
     'cross-UID scanner failure must leave the missing lock pathname untouched'
 );
 
-$migratedRuntimeDirectory = $temporaryRoot . '/module-update-runtime/scanner';
-mkdir($migratedRuntimeDirectory, 0755, true);
-file_put_contents($migratedRuntimeDirectory . '/.scanner-process.lock', '');
-chmod($migratedRuntimeDirectory . '/.scanner-process.lock', 0644);
+$normalizedRuntimeDirectory = $temporaryRoot . '/module-update-runtime/scanner';
+mkdir($normalizedRuntimeDirectory, 0755, true);
+file_put_contents($normalizedRuntimeDirectory . '/.scanner-process.lock', '');
+chmod($normalizedRuntimeDirectory . '/.scanner-process.lock', 0644);
 $adoptForeignServiceFixture(
     $temporaryRoot . '/module-update-runtime',
-    $migratedRuntimeDirectory,
-    $migratedRuntimeDirectory . '/.scanner-process.lock'
+    $normalizedRuntimeDirectory,
+    $normalizedRuntimeDirectory . '/.scanner-process.lock'
 );
-$migratedGuard = new ScannerProcessGuard(
-    $migratedRuntimeDirectory,
-    $clock,
-    effectiveUidProvider: static fn (): int => 0
+expectScannerGuardRuntimeException(
+    static fn (): bool => (new ScannerProcessGuard(
+        $normalizedRuntimeDirectory,
+        $clock,
+        effectiveUidProvider: static fn (): int => 0
+    ))->acquire(),
+    'privileged scanner must fail closed on a foreign-owned runtime directory without the 0750 mode'
 );
+$normalizedStat = stat($normalizedRuntimeDirectory);
 expectScannerGuard(
-    $migratedGuard->acquire(),
-    'privileged scanner must self-heal a module-update-normalized runtime directory'
+    is_array($normalizedStat) && ($normalizedStat['mode'] & 07777) === 0755,
+    'a rejected foreign runtime directory must keep its original mode'
 );
-$migratedGuard->assertOwnership();
-$migratedStat = stat($migratedRuntimeDirectory);
-expectScannerGuard(
-    is_array($migratedStat) && ($migratedStat['mode'] & 07777) === 0750,
-    'privileged scanner must restore the 0750 runtime directory mode after adoption'
-);
-$migratedGuard->release();
 
 $flockFailureRuntime = $temporaryRoot . '/flock-failure-runtime';
 ScannerGuardFilesystemProbe::$flockWouldBlock = 0;

@@ -60,16 +60,21 @@ final class ScannerProcessGuard
     }
 
     /**
-     * The scanner runtime directory must live inside the module-owned db
-     * directory. The Core rewrites everything under
+     * The scanner runtime directory must live in a dedicated namespace
+     * under /var/run: the Core rewrites everything under
      * Processes::getLockFileDir() (/var/run/php-workers) to 0755/0644
-     * www-owned on every PID-file write, which invalidates this guard's
-     * 0750/0640 same-owner invariants while the scanner is running.
+     * www-owned on every PID-file write, the module installer rewrites
+     * the module tree the same way, and tmpfs resets runtime state on
+     * reboot. A shared parent such as /var/run/mikopbx must not be used:
+     * the recursive 0750 mkdir would cut other consumers off their
+     * module-state locks.
      */
+    private const string DEFAULT_RUNTIME_DIRECTORY = '/var/run/ModuleLocalSpeechToText/scanner';
+
     public static function defaultRuntimeDirectory(): string
     {
         return self::$defaultRuntimeDirectoryOverride
-            ?? dirname(__DIR__, 2) . '/db/scanner-runtime';
+            ?? self::DEFAULT_RUNTIME_DIRECTORY;
     }
 
     /**
@@ -292,14 +297,15 @@ final class ScannerProcessGuard
                 throw new RuntimeException('Scanner process runtime directory changed during open');
             }
             $this->assertCurrentUserOwns($handle, 'Scanner process runtime directory has an unsafe owner');
-            // A privileged worker also normalizes an adopted directory:
-            // module updates rewrite the module tree to 0755/0644 www-owned,
-            // and root may restore the 0750 invariant itself.
-            if (!$this->filesystemCall(
-                fn (): bool => chmod($this->runtimeDirectory, 0750),
-                'Unable to set scanner process runtime directory permissions'
-            )) {
-                throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+            // Cross-UID adoption stays strictly read-only: a foreign-owned
+            // directory with any mode other than 0750 must fail closed.
+            if (!$this->foreignPrivilegedOwner) {
+                if (!$this->filesystemCall(
+                    fn (): bool => chmod($this->runtimeDirectory, 0750),
+                    'Unable to set scanner process runtime directory permissions'
+                )) {
+                    throw new RuntimeException('Unable to set scanner process runtime directory permissions');
+                }
             }
             if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $handle, 0040000)) {
                 throw new RuntimeException('Scanner process runtime directory changed during permission update');

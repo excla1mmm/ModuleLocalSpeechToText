@@ -121,7 +121,7 @@ namespace {
 
     $failure = null;
     try {
-        ScannerProcessGuard::overrideDefaultRuntimeDirectory($temporaryRoot . '/module-db/scanner-runtime');
+        ScannerProcessGuard::overrideDefaultRuntimeDirectory($temporaryRoot . '/run-namespace/scanner');
         $guard = new ScannerProcessGuard();
         if (!$guard->acquire()) {
             throw new RuntimeException('old-Core default acquisition reported duplicate contention');
@@ -142,9 +142,9 @@ namespace {
         );
     }
 
-    $expectedRuntime = $temporaryRoot . '/module-db/scanner-runtime';
+    $expectedRuntime = $temporaryRoot . '/run-namespace/scanner';
     if (!is_file($expectedRuntime . '/.scanner-process.lock')) {
-        throw new RuntimeException('old-Core default did not acquire under the module-owned runtime');
+        throw new RuntimeException('old-Core default did not acquire under the dedicated runtime namespace');
     }
     if (Directories::$getDirCalls !== 0) {
         throw new RuntimeException('old-Core default consulted the clearable Core temp directory');
@@ -158,8 +158,8 @@ namespace {
     }
 
     $computedDefault = ScannerProcessGuard::defaultRuntimeDirectory();
-    if (!str_ends_with($computedDefault, '/db/scanner-runtime') || str_contains($computedDefault, '/var/run/')) {
-        throw new RuntimeException('default runtime directory left the module-owned db tree: ' . $computedDefault);
+    if ($computedDefault !== '/var/run/ModuleLocalSpeechToText/scanner') {
+        throw new RuntimeException('default runtime directory left its dedicated namespace: ' . $computedDefault);
     }
 
     echo "Scanner process guard old-Core compatibility OK\n";
