@@ -301,6 +301,32 @@ expectScannerGuard(
     'cross-UID scanner failure must leave the missing lock pathname untouched'
 );
 
+$migratedRuntimeDirectory = $temporaryRoot . '/module-update-runtime/scanner';
+mkdir($migratedRuntimeDirectory, 0755, true);
+file_put_contents($migratedRuntimeDirectory . '/.scanner-process.lock', '');
+chmod($migratedRuntimeDirectory . '/.scanner-process.lock', 0644);
+$adoptForeignServiceFixture(
+    $temporaryRoot . '/module-update-runtime',
+    $migratedRuntimeDirectory,
+    $migratedRuntimeDirectory . '/.scanner-process.lock'
+);
+$migratedGuard = new ScannerProcessGuard(
+    $migratedRuntimeDirectory,
+    $clock,
+    effectiveUidProvider: static fn (): int => 0
+);
+expectScannerGuard(
+    $migratedGuard->acquire(),
+    'privileged scanner must self-heal a module-update-normalized runtime directory'
+);
+$migratedGuard->assertOwnership();
+$migratedStat = stat($migratedRuntimeDirectory);
+expectScannerGuard(
+    is_array($migratedStat) && ($migratedStat['mode'] & 07777) === 0750,
+    'privileged scanner must restore the 0750 runtime directory mode after adoption'
+);
+$migratedGuard->release();
+
 $flockFailureRuntime = $temporaryRoot . '/flock-failure-runtime';
 ScannerGuardFilesystemProbe::$flockWouldBlock = 0;
 expectScannerGuardRuntimeException(

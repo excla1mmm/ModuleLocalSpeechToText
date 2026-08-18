@@ -292,13 +292,14 @@ final class ScannerProcessGuard
                 throw new RuntimeException('Scanner process runtime directory changed during open');
             }
             $this->assertCurrentUserOwns($handle, 'Scanner process runtime directory has an unsafe owner');
-            if (!$this->foreignPrivilegedOwner) {
-                if (!$this->filesystemCall(
-                    fn (): bool => chmod($this->runtimeDirectory, 0750),
-                    'Unable to set scanner process runtime directory permissions'
-                )) {
-                    throw new RuntimeException('Unable to set scanner process runtime directory permissions');
-                }
+            // A privileged worker also normalizes an adopted directory:
+            // module updates rewrite the module tree to 0755/0644 www-owned,
+            // and root may restore the 0750 invariant itself.
+            if (!$this->filesystemCall(
+                fn (): bool => chmod($this->runtimeDirectory, 0750),
+                'Unable to set scanner process runtime directory permissions'
+            )) {
+                throw new RuntimeException('Unable to set scanner process runtime directory permissions');
             }
             if (!$this->pathIdentifiesHandle($this->runtimeDirectory, $handle, 0040000)) {
                 throw new RuntimeException('Scanner process runtime directory changed during permission update');
