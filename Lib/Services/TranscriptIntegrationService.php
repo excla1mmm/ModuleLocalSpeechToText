@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use MikoPBX\Common\Models\CallDetailRecords;
+use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Core\System\Directories;
 use Modules\ModuleLocalSpeechToText\Lib\TranscriptTimeNormalizer;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -202,6 +203,7 @@ class TranscriptIntegrationService
             'call_id' => $callId,
             'cdr_id' => $cdr instanceof CallDetailRecords ? (int)$cdr->id : null,
             'cdr_endtime' => $this->cdrEndtime($job, $cdr),
+            'cdr_start_ms' => $job instanceof STTJob && (int)$job->cdr_start_ms > 0 ? (int)$job->cdr_start_ms : null,
             'call_timestamp' => $callTimestamp,
             'finished_at' => $job instanceof STTJob ? (int)$job->finished_at : null,
             'result_created_at' => (int)$result->created_at,
@@ -210,6 +212,7 @@ class TranscriptIntegrationService
             'model_used' => (string)$result->model_used,
             'recording' => $recording,
             'call' => $this->callMetadata($cdr),
+            'pbx_timezone' => PbxSettings::getValueByKey(PbxSettings::PBX_TIMEZONE),
         ];
     }
 
@@ -830,6 +833,15 @@ class TranscriptIntegrationService
             if ($timestamp !== false && $timestamp > 0) {
                 return $timestamp;
             }
+        }
+
+        // cdr_start_ms is captured from the live CDR at job-creation time, so it survives
+        // CDR retention purges that happen before this backlog item is processed.
+        if ($job instanceof STTJob && (int)$job->cdr_start_ms > 0) {
+            return intdiv((int)$job->cdr_start_ms, 1000);
+        }
+
+        if ($cdr instanceof CallDetailRecords) {
             $timestamp = strtotime((string)$cdr->endtime);
             if ($timestamp !== false && $timestamp > 0) {
                 return $timestamp;

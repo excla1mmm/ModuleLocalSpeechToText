@@ -538,21 +538,30 @@ class CallRecordingService
 
     public function callTimestamp(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr = null): int
     {
-        if ($job instanceof STTJob) {
-            if ((int)$job->cdr_endtime > 0) {
-                return (int)$job->cdr_endtime;
+        // Priority matches TranscriptIntegrationService::callTimestamp() so the REST API
+        // and this module's own web UI never disagree on the call date for the same call:
+        // live CDR.start -> cdr_start_ms snapshot (captured at job creation, survives CDR
+        // retention) -> a fresh CDR lookup -> CDR.endtime -> recording filename -> job/result
+        // creation time as the last resort.
+        if ($cdr instanceof CallDetailRecords) {
+            $cdrTimestamp = strtotime((string)$cdr->start);
+            if ($cdrTimestamp !== false && $cdrTimestamp > 0) {
+                return $cdrTimestamp;
             }
+        }
 
-            if ($cdr instanceof CallDetailRecords) {
-                $cdrTimestamp = strtotime((string)$cdr->start);
-                if ($cdrTimestamp !== false && $cdrTimestamp > 0) {
-                    return $cdrTimestamp;
-                }
+        if ($job instanceof STTJob) {
+            if ((int)$job->cdr_start_ms > 0) {
+                return intdiv((int)$job->cdr_start_ms, 1000);
             }
 
             $cdrTimestamp = $this->cdrCallStartTimestamp((string)$job->call_id);
             if ($cdrTimestamp > 0) {
                 return $cdrTimestamp;
+            }
+
+            if ((int)$job->cdr_endtime > 0) {
+                return (int)$job->cdr_endtime;
             }
 
             $recordingTimestamp = $this->recordingTimestamp((string)$job->file_path);
