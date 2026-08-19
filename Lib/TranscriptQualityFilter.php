@@ -6,6 +6,86 @@ namespace Modules\ModuleLocalSpeechToText\Lib;
 
 final class TranscriptQualityFilter
 {
+    /** @var array<int, string> */
+    private const array HALLUCINATION_SEGMENTS = [
+        'веселая музыка',
+        'спокойная музыка',
+        'грустная мелодия',
+        'лирическая музыка',
+        'динамичная музыка',
+        'таинственная музыка',
+        'торжественная музыка',
+        'интригующая музыка',
+        'напряженная музыка',
+        'печальная музыка',
+        'тревожная музыка',
+        'музыкальная заставка',
+        'перестрелка',
+        'гудок поезда',
+        'рев мотора',
+        'шум двигателя',
+        'сигнал автомобиля',
+        'лай собак',
+        'пес лает',
+        'кашель',
+        'выстрелы',
+        'шум дождя',
+        'песня',
+        'по громкоговорическом языке',
+        'по громкоговорителю',
+        'взрыв',
+        'шум мотора',
+        'плеск воды',
+        'гудок автомобиля',
+        'лай собаки',
+        'по тв',
+        'аплодисменты',
+        'городской шум',
+        'полиция',
+        'городской гудок',
+        'сигнал машины',
+        'смех',
+        'стук в дверь',
+        'ааааааааааааааааааааа',
+        'полицейская сирена',
+        'звонок в дверь',
+        'спасибо за субтитры',
+        'субтитры добавил dimatorzok',
+        'субтитры подогнал симон',
+        'редактор субтитров м лосева корректор а егорова',
+        'редактор субтитров а синецкая корректор а егорова',
+        'редактор субтитров т горелова корректор а егорова',
+        'редактор субтитров е жукова корректор а егорова',
+        'редактор субтитров а семкин корректор а егорова',
+        'редактор субтитров а захарова корректор а егорова',
+        'смотрите продолжение во второй части видео',
+        'смотрите продолжение в следующей части',
+        'смотрите продолжение в следующей части видео',
+        'смотрите продолжение в 4 части видео',
+        'смотрите продолжение в следующей серии',
+        'смотрите продолжение во второй части',
+        'продолжение следует',
+        'подпишись на канал',
+        'подпишись',
+        'поехали',
+        'девушки отдыхают',
+        'музыка',
+        'спасибо за просмотр',
+        'до новых встреч',
+        'спасибо за внимание',
+        'ставьте лайк',
+        'не забудьте подписаться',
+        'подписывайтесь на канал',
+        'thanks for watching',
+        'thank you for watching',
+        'please subscribe to the channel',
+        'see you next time',
+        'to be continued',
+        'субтитры',
+        'текст фильма',
+    ];
+    /** @var array<int, string> */
+    private const array SYMBOL_HALLUCINATION_SEGMENTS = ['🦜', '💥', '😎', '🤨', '🤔'];
     private const float MAX_DENSE_CHARS_PER_SECOND = 320.0;
     private const int DENSE_TRANSCRIPT_MINIMUM_CHARACTERS = 240;
     private const float NEAR_ZERO_DURATION_THRESHOLD = 0.15;
@@ -29,6 +109,8 @@ final class TranscriptQualityFilter
     {
         $filtered = [];
         $languageHint = self::normalizeLanguageHint($languageHint);
+        $previousDuplicateKey = null;
+        $consecutiveDuplicateCount = 0;
         $stats = [
             'raw_segments' => count($segments),
             'submitted_segments' => 0,
@@ -47,6 +129,22 @@ final class TranscriptQualityFilter
                 if ($decision['reason'] !== null) {
                     $stats['reasons'][] = $decision['reason'];
                 }
+                continue;
+            }
+
+            $duplicateKey = self::consecutiveDuplicateKey($decision['text'], $segment);
+            if ($duplicateKey === null) {
+                $previousDuplicateKey = null;
+                $consecutiveDuplicateCount = 0;
+            } elseif ($duplicateKey === $previousDuplicateKey) {
+                $consecutiveDuplicateCount++;
+            } else {
+                $previousDuplicateKey = $duplicateKey;
+                $consecutiveDuplicateCount = 1;
+            }
+            if ($duplicateKey !== null && $consecutiveDuplicateCount > 2) {
+                $stats['rejected_segments']++;
+                $stats['reasons'][] = 'consecutive_duplicate';
                 continue;
             }
 
@@ -135,6 +233,9 @@ final class TranscriptQualityFilter
         }
         if (self::hasPunctuationFlood($text)) {
             return 'punctuation_flood';
+        }
+        if (self::hasSymbolOnlyTranscript($text)) {
+            return 'symbol_only';
         }
         if (self::hasSingleLetterTranscript($text)) {
             return 'single_letter';
@@ -370,14 +471,48 @@ final class TranscriptQualityFilter
 
     private static function hasHallucinationMarker(string $text): bool
     {
-        $normalized = mb_strtolower($text, 'UTF-8');
-        foreach (['субтитры', 'subtitles', 'текст фильма', 'продолжение следует'] as $marker) {
-            if (str_contains($normalized, $marker)) {
-                return true;
-            }
+        $trimmed = trim($text);
+        if (in_array($trimmed, self::SYMBOL_HALLUCINATION_SEGMENTS, true)) {
+            return true;
         }
 
-        return false;
+        $normalized = self::normalizedHallucinationText($text);
+        if (in_array($normalized, self::HALLUCINATION_SEGMENTS, true)) {
+            return true;
+        }
+
+        return preg_match('/^(?:generated\s+)?subtitles(?:\s+by\b.*)?$/u', $normalized) === 1
+            || preg_match('/^captions(?:\s+by\b.*)?$/u', $normalized) === 1
+            || preg_match('/^(?:редактор|встреча)\s+субтитров\b.*\bкорректор\b.*$/u', $normalized) === 1
+            || preg_match('/^субтитры\s+(?:добавил|подогнал)\b.*$/u', $normalized) === 1;
+    }
+
+    private static function normalizedHallucinationText(string $text): string
+    {
+        $normalized = str_replace('ё', 'е', mb_strtolower(trim($text), 'UTF-8'));
+        $normalized = preg_replace('/[\p{P}\p{S}]+/u', ' ', $normalized) ?? $normalized;
+        return trim(preg_replace('/\s+/u', ' ', $normalized) ?? $normalized);
+    }
+
+    /**
+     * @param array<string, mixed> $segment
+     */
+    private static function consecutiveDuplicateKey(string $text, array $segment): ?string
+    {
+        $normalized = self::normalizedHallucinationText($text);
+        $tokens = self::transcriptTokens($normalized);
+        if ($normalized === '' || mb_strlen($normalized, 'UTF-8') > 32 || count($tokens) > 3) {
+            return null;
+        }
+
+        return (string)($segment['channel'] ?? '') . "\0"
+            . (string)($segment['speaker'] ?? '') . "\0"
+            . $normalized;
+    }
+
+    private static function hasSymbolOnlyTranscript(string $text): bool
+    {
+        return preg_match('/[\p{L}\p{N}]/u', $text) !== 1;
     }
 
     private static function hasPunctuationFlood(string $text): bool
