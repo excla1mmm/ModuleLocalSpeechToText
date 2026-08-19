@@ -99,4 +99,25 @@ expectAssembler(
 $otherCall = $assembler->assemble('call-2', [$parts[0]]);
 expectAssembler($assembled['content_hash'] !== $otherCall['content_hash'], 'different calls must never share canonical identity');
 
+$coalesced = $assembler->assemble('call-coalesced', [
+    assemblerPart(401, 3_000_000, 'cdr:401', [
+        ['start_ms' => 0, 'end_ms' => 1000, 'text' => 'first phrase', 'channel' => 'left', 'speaker' => 'left'],
+        ['start_ms' => 1500, 'end_ms' => 2500, 'text' => 'second phrase', 'channel' => 'left', 'speaker' => 'left'],
+        ['start_ms' => 2600, 'end_ms' => 3400, 'text' => 'customer reply', 'channel' => 'right', 'speaker' => 'right'],
+    ]),
+]);
+expectAssembler(count($coalesced['transcript']['segments']) === 3, 'coalescing must not remove raw segments');
+expectAssembler(count($coalesced['transcript']['turns']) === 2, 'adjacent same-speaker segments must form one turn');
+expectAssembler(
+    ($coalesced['transcript']['turns'][0]['text'] ?? '') === 'first phrase second phrase',
+    'coalesced turn text mismatch'
+);
+expectAssembler(
+    ($coalesced['transcript']['turns'][0]['source_segment_ids'] ?? []) === [
+        'call:' . substr(hash('sha256', 'call-coalesced'), 0, 16) . ':r401:s0',
+        'call:' . substr(hash('sha256', 'call-coalesced'), 0, 16) . ':r401:s1',
+    ],
+    'coalesced turn must retain source evidence ids'
+);
+
 echo "Call transcript assembler contract OK\n";

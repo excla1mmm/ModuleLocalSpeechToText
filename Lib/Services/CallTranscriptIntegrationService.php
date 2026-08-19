@@ -10,6 +10,8 @@ use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision;
 use Phalcon\Db\Enum;
 use RuntimeException;
 
+require_once __DIR__ . '/CallTranscriptTurnProjector.php';
+
 final class CallTranscriptIntegrationService
 {
     /** @param array<string, mixed> $filters @return array<string, mixed> */
@@ -72,6 +74,9 @@ final class CallTranscriptIntegrationService
         }
         $payload = json_decode((string)$stored->payload, true);
         $payload = is_array($payload) ? $payload : [];
+        if (is_array($payload['transcript'] ?? null)) {
+            $payload['transcript'] = (new CallTranscriptTurnProjector())->project($payload['transcript']);
+        }
 
         return [
             'aggregate_id' => $aggregateId,

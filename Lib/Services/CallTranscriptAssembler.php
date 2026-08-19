@@ -6,6 +6,8 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use InvalidArgumentException;
 
+require_once __DIR__ . '/CallTranscriptTurnProjector.php';
+
 final class CallTranscriptAssembler
 {
     private const float DUPLICATE_OVERLAP_RATIO = 0.8;
@@ -74,26 +76,18 @@ final class CallTranscriptAssembler
         usort($segments, fn (array $left, array $right): int => $this->compareSegments($left, $right));
         $segments = $this->withoutProvenDuplicates($segments);
 
-        $turns = [];
-        $lines = [];
         foreach ($segments as $index => $segment) {
             $segment['index'] = $index;
             $segments[$index] = $segment;
-            $turns[] = [
-                'turn_id' => (string)$segment['segment_id'],
-                'index' => $index,
-                'start_ms' => $segment['start_ms'],
-                'end_ms' => $segment['end_ms'],
-                'absolute_start_ms' => $segment['absolute_start_ms'],
-                'absolute_end_ms' => $segment['absolute_end_ms'],
-                'text' => (string)$segment['text'],
-                'speaker' => (string)$segment['source_label'],
-                'channel' => $segment['channel'],
-                'source_segment_ids' => [(string)$segment['segment_id']],
-                'source_result_ids' => [(int)$segment['result_id']],
-            ];
-            $lines[] = sprintf('[%s] %s', (string)$segment['source_label'], (string)$segment['text']);
         }
+
+        $transcript = (new CallTranscriptTurnProjector())->project([
+            'segments' => $segments,
+            'segment_count' => count($segments),
+            'turns' => [],
+            'turn_count' => 0,
+            'text' => '',
+        ]);
 
         $semanticSegments = array_map(
             static fn (array $segment): array => [
@@ -118,13 +112,7 @@ final class CallTranscriptAssembler
             'parts_hash' => hash('sha256', $this->canonicalJson($manifest)),
             'completeness_status' => $hasUnresolved ? 'legacy_unresolved' : 'complete',
             'part_manifest' => $manifest,
-            'transcript' => [
-                'segments' => $segments,
-                'segment_count' => count($segments),
-                'turns' => $turns,
-                'turn_count' => count($turns),
-                'text' => implode("\n", $lines),
-            ],
+            'transcript' => $transcript,
         ];
     }
 
