@@ -198,6 +198,16 @@ foreach ([
     expectRejectedTranscriptQualityFilter('hallucination_marker', $hallucination);
 }
 foreach ([
+    'Субтитры создавал DimaTorzok',
+    'Субтитры создавал Dima Torzok',
+    'Субтитры делал DimaTorzok',
+    'Субтитры сделал Dima-Torzok',
+    'Субтитры сделал Dima.Torzok',
+    'Мне написал DIMA_TORZOK по рабочему вопросу.',
+] as $uniqueMarkerHallucination) {
+    expectRejectedTranscriptQualityFilter('hallucination_marker', $uniqueMarkerHallucination);
+}
+foreach ([
     'Спасибо за внимание!',
     'Ставьте лайк!',
     'Не забудьте подписаться!',
@@ -218,6 +228,8 @@ foreach ([
     'Корректор согласовал текст фильма с автором.',
     'Спасибо за просмотр документов, я перезвоню завтра.',
     'До новых встреч по проекту осталось два дня.',
+    'Сервис NotDimaTorzokTest временно недоступен.',
+    'Dima обсуждал проект Torzok отдельно.',
 ] as $legitimateSpeech) {
     expectAcceptedForRussianTranscriptQualityFilter(
         $legitimateSpeech,

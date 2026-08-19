@@ -477,6 +477,9 @@ final class TranscriptQualityFilter
         }
 
         $normalized = self::normalizedHallucinationText($text);
+        if (self::hasUniqueHallucinationMarker($normalized)) {
+            return true;
+        }
         if (in_array($normalized, self::HALLUCINATION_SEGMENTS, true)) {
             return true;
         }
@@ -485,6 +488,21 @@ final class TranscriptQualityFilter
             || preg_match('/^captions(?:\s+by\b.*)?$/u', $normalized) === 1
             || preg_match('/^(?:редактор|встреча)\s+субтитров\b.*\bкорректор\b.*$/u', $normalized) === 1
             || preg_match('/^субтитры\s+(?:добавил|подогнал)\b.*$/u', $normalized) === 1;
+    }
+
+    private static function hasUniqueHallucinationMarker(string $normalized): bool
+    {
+        $tokens = $normalized === '' ? [] : explode(' ', $normalized);
+        foreach ($tokens as $index => $token) {
+            if ($token === 'dimatorzok') {
+                return true;
+            }
+            if ($token === 'dima' && ($tokens[$index + 1] ?? null) === 'torzok') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function normalizedHallucinationText(string $text): string
