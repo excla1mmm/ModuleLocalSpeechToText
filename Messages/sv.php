@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Fält för klientkompatibilitet. Servern ignorerar det angivna värdet och använder modellen från de centrala bearbetningsinställningarna.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Beständig identifierare för samtalet som är kopplat till inspelningen.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifierare för det reserverade STT-jobbet.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Rekommenderat intervall mellan begäranden om nya jobb i sekunder.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Version av kontraktet för den centrala bearbetningsprofilen.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Fullständig serverstyrd profil för avkodning, filtrering och segmentering.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Intern numerisk identifierare för den registrerade workern.',

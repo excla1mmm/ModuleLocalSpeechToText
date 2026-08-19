@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Поле сумісності клієнта. Сервер ігнорує передане значення та використовує модель із централізованих налаштувань обробки.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Стабільний ідентифікатор дзвінка, пов’язаного із записом.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Ідентифікатор орендованого завдання STT.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Рекомендований інтервал між запитами нового завдання у секундах.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Версія контракту централізованого профілю обробки.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Повний профіль декодування, фільтрування та сегментації, керований сервером.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Внутрішній числовий ідентифікатор зареєстрованого воркера.',

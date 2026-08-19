@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Asiakkaan yhteensopivuuskenttä. Palvelin ohittaa annetun arvon ja käyttää keskitettyjen käsittelyasetusten mallia.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Tallenteeseen liittyvän puhelun pysyvä tunniste.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Varatun STT-tehtävän tunniste.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Suositeltu uusien tehtäväpyyntöjen väli sekunteina.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Keskitetyn käsittelyprofiilisopimuksen versio.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Täydellinen palvelimen hallitsema dekoodaus-, suodatus- ja segmentointiprofiili.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Rekisteröidyn käsittelijän sisäinen numeerinen tunniste.',

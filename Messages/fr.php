@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Champ de compatibilité client. Le serveur ignore la valeur fournie et utilise le modèle des paramètres de traitement centralisés.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Identifiant stable de l’appel associé à l’enregistrement.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifiant de la tâche STT attribuée.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Intervalle recommandé entre les demandes de nouvelles tâches, en secondes.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Version du contrat de profil de traitement centralisé.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Profil complet de décodage, filtrage et segmentation contrôlé par le serveur.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Identifiant numérique interne de l’agent enregistré.',

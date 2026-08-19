@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Polje za kompatibilnost klijenta. Poslužitelj zanemaruje dostavljenu vrijednost i koristi model iz centraliziranih postavki obrade.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stabilni identifikator poziva povezanog sa snimkom.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifikator STT zadatka danog u zakup.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Preporučeni interval između zahtjeva za novim zadatkom u sekundama.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Verzija ugovora centraliziranog profila obrade.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Potpuni profil dekodiranja, filtriranja i segmentacije kojim upravlja poslužitelj.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Interni brojčani identifikator registriranog radnika.',

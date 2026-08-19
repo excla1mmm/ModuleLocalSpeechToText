@@ -118,7 +118,7 @@ namespace MikoPBX\Common\Models {
     {
         public int $id = 42;
         public string $full_permissions = '0';
-        public string $allowed_paths = '{"/api/v3/module-local-speech-to-text/workers":"write","/api/v3/module-local-speech-to-text/jobs":"write"}';
+        public string $allowed_paths = '{"/api/v3/module-local-speech-to-text/workers":"write"}';
 
         public static function findFirstById(int $id): ?self
         {
@@ -132,7 +132,6 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
     {
         public const array WORKER_ALLOWED_PATHS = [
             '/api/v3/module-local-speech-to-text/workers' => 'write',
-            '/api/v3/module-local-speech-to-text/jobs' => 'write',
         ];
     }
 }
@@ -163,7 +162,6 @@ namespace {
     use MikoPBX\PBXCoreREST\Attributes\HttpMapping;
     use MikoPBX\PBXCoreREST\Attributes\ResourceSecurity;
     use MikoPBX\PBXCoreREST\Attributes\SecurityType;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\LegacyRouteRejector;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerApiContract\Controller;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerApiContract\DataStructure;
@@ -220,7 +218,6 @@ namespace {
     $requiredFiles = [
         '/Lib/Services/WorkerApiContract.php',
         '/Lib/RestAPI/Common/WorkerRequestContext.php',
-        '/Lib/RestAPI/Common/LegacyRouteRejector.php',
         '/Lib/RestAPI/WorkerApiContract/Processor.php',
         '/Lib/RestAPI/WorkerApiContract/DataStructure.php',
         '/Lib/RestAPI/WorkerApiContract/Controller.php',
@@ -383,18 +380,6 @@ namespace {
     }
     expectV2($stripped['_worker_uid_header'] === '', 'worker UID header must not be accepted from body data');
     expectV2($stripped['_lease_token_header'] === '', 'lease token header must not be accepted from body data');
-
-    $workerUpgrade = LegacyRouteRejector::worker();
-    expectV2($workerUpgrade->httpCode === 426, 'legacy worker route must require an upgrade');
-    expectV2(($workerUpgrade->data['error_code'] ?? '') === 'worker_upgrade_required', 'legacy worker route error code changed');
-
-    $removed = LegacyRouteRejector::removed('/job-leases');
-    expectV2($removed->success === false, 'removed legacy route must fail');
-    expectV2($removed->httpCode === 410, 'removed legacy route must return HTTP 410', $removed->httpCode);
-    expectV2($removed->data === [
-        'error_code' => 'api_route_removed',
-        'replacement_path' => '/job-leases',
-    ], 'removed route replacement changed', $removed->data);
 
     $processorResult = Processor::callBack(['action' => 'getList']);
     expectV2($processorResult->data === $contract->data, 'contract processor must return the shared contract result');

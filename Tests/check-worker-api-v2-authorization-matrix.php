@@ -18,7 +18,6 @@ $expected = [
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
     '/api/v3/module-local-speech-to-text/job-failures' => 'write',
-    '/api/v3/module-local-speech-to-text/jobs' => 'write',
 ];
 expectAuthorizationMatrix(WorkerApiKeyService::WORKER_ALLOWED_PATHS === $expected, 'Exact v2 worker permission map changed');
 

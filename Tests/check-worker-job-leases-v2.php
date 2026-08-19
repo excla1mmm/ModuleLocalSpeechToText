@@ -67,7 +67,6 @@ foreach (['lease_token=', 'worker_uid=', ':download', '/jobs/', 'API_BASE_PATH']
     expectWorkerLeaseV2(!str_contains($formatter, $forbidden), "Claim formatter contains forbidden $forbidden");
 }
 expectWorkerLeaseV2(!str_contains($jobsSchema, ':download?'), 'Schema exposes a legacy credential URL');
-expectWorkerLeaseV2(str_contains($workersProcessor, 'WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker()'), 'Legacy settings route must remain terminal 426');
 $claimModelStart = strpos($jobModel, 'public static function claimNextForWorker');
 $claimModelEnd = strpos($jobModel, 'public static function requeueStaleProcessing', $claimModelStart);
 $claimModel = substr($jobModel, $claimModelStart, $claimModelEnd - $claimModelStart);

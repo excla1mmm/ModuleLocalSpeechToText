@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Πεδίο συμβατότητας πελάτη. Ο διακομιστής αγνοεί την παρεχόμενη τιμή και χρησιμοποιεί το μοντέλο από τις κεντρικές ρυθμίσεις επεξεργασίας.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Σταθερό αναγνωριστικό της κλήσης που σχετίζεται με την εγγραφή.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Αναγνωριστικό της δεσμευμένης εργασίας STT.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Συνιστώμενο διάστημα μεταξύ αιτημάτων νέας εργασίας, σε δευτερόλεπτα.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Έκδοση της σύμβασης του κεντρικού προφίλ επεξεργασίας.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Πλήρες προφίλ αποκωδικοποίησης, φιλτραρίσματος και τμηματοποίησης που ελέγχεται από τον διακομιστή.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Εσωτερικό αριθμητικό αναγνωριστικό του καταχωρισμένου worker.',

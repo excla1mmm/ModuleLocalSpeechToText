@@ -76,12 +76,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'minimum' => 0,
                 ],
             ],
-            'response' => [
-                // Retained only so older OpenAPI consumers can recognize the
-                // former registration response while its routes return 426.
-                'worker_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldWorkerId'],
-                'poll_interval' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldPollInterval'],
-            ],
         ];
     }
 
@@ -128,8 +122,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'last_seen' => 1786512000,
                 'created_at' => 1786500000,
                 'updated_at' => 1786512000,
-                'worker_id' => 1,
-                'poll_interval' => 30,
             ],
         ];
     }

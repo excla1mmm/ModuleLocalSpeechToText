@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => '客户端兼容性字段。服务器忽略提供的值，并使用集中式处理设置中的模型。',
     'module_local_speech_to_text_ApiFieldCallId' => '与录音关联的通话稳定标识符。',
     'module_local_speech_to_text_ApiFieldJobId' => '已租约分配的 STT 作业标识符。',
-    'module_local_speech_to_text_ApiFieldPollInterval' => '新作业请求之间建议的间隔，以秒为单位。',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => '集中式处理配置文件契约的版本。',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => '完整的服务器控制解码、筛选和分段配置文件。',
     'module_local_speech_to_text_ApiFieldWorkerId' => '已注册工作节点的内部数字标识符。',

@@ -24,7 +24,6 @@ $expectedPaths = [
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
     '/api/v3/module-local-speech-to-text/job-failures' => 'write',
-    '/api/v3/module-local-speech-to-text/jobs' => 'write',
 ];
 
 expectWorkerPermission(
@@ -36,7 +35,7 @@ expectWorkerPermission(
 $allowedPaths = WorkerApiKeyService::WORKER_ALLOWED_PATHS;
 expectWorkerPermission(
     $allowedPaths === $expectedPaths,
-    'Worker credentials must contain the exact eight worker API v2 paths'
+    'Worker credentials must contain the exact seven worker API v2 paths'
 );
 
 $key = (object)[
@@ -56,14 +55,6 @@ foreach ([
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/job-recordings/42'],
     ['PUT', '/pbxcore/api/v3/module-local-speech-to-text/job-results/42'],
     ['PUT', '/pbxcore/api/v3/module-local-speech-to-text/job-failures/42'],
-    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/workers:register'],
-    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/workers:getProcessingSettings?worker_uid=worker-a'],
-    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/jobs:getNext?worker_uid=worker-a'],
-    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download'],
-    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:submitResult'],
-    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:submitError'],
-    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:heartbeat'],
-    ['POST', '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:release'],
 ] as [$method, $path]) {
     expectWorkerPermission(
         $checker->checkPermission($key, $path, $method),
@@ -72,6 +63,9 @@ foreach ([
 }
 
 foreach ([
+    '/pbxcore/api/v3/module-local-speech-to-text/jobs',
+    '/pbxcore/api/v3/module-local-speech-to-text/jobs:getNext',
+    '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download',
     '/pbxcore/api/v3/module-local-speech-to-text/transcripts',
     '/pbxcore/api/v3/module-local-speech-to-text/transcripts/events',
     '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/42',

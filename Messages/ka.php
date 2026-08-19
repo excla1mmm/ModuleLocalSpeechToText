@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'კლიენტის თავსებადობის ველი. სერვერი უგულებელყოფს მოწოდებულ მნიშვნელობას და იყენებს ცენტრალიზებული დამუშავების პარამეტრების მოდელს.',
     'module_local_speech_to_text_ApiFieldCallId' => 'ჩანაწერთან დაკავშირებული ზარის სტაბილური იდენტიფიკატორი.',
     'module_local_speech_to_text_ApiFieldJobId' => 'lease-ით მიბმული STT ამოცანის იდენტიფიკატორი.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'ახალი ამოცანის მოთხოვნებს შორის რეკომენდებული ინტერვალი წამებში.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'ცენტრალიზებული დამუშავების პროფილის კონტრაქტის ვერსია.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'სერვერის მიერ მართული დეკოდირების, ფილტრაციისა და სეგმენტაციის სრული პროფილი.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'რეგისტრირებული მუშაკის შიდა რიცხვითი იდენტიფიკატორი.',

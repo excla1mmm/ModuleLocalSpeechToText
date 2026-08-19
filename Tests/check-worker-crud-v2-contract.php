@@ -270,8 +270,6 @@ namespace Modules\ModuleLocalSpeechToText\Lib {
             $result->httpCode = 200;
             $result->data = [
                 'id' => (int)$worker->id,
-                'worker_id' => (int)$worker->id,
-                'poll_interval' => 30,
             ];
 
             return $result;
@@ -361,7 +359,6 @@ namespace {
     require_once $root . '/Lib/Services/WorkerApiContract.php';
     require_once $root . '/Lib/Services/WorkerApiKeyService.php';
     require_once $root . '/Lib/RestAPI/Common/WorkerRequestContext.php';
-    require_once $root . '/Lib/RestAPI/Common/LegacyRouteRejector.php';
     require_once $serviceFile;
     require_once $root . '/Lib/RestAPI/Workers/Processor.php';
 
@@ -566,43 +563,6 @@ namespace {
     );
     unset(STTWorker::$rows[20], STTWorker::$rows[21]);
 
-    foreach (['register', 'getProcessingSettings'] as $legacyAction) {
-        $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;
-        $beforeRegistration = LocalSpeechToTextMain::$registrationCalls;
-        $legacy = Processor::callBack(requestForWorkerCrud($legacyAction, ['worker_uid' => 'worker-a'], true));
-        expectWorkerCrud(
-            $legacy->httpCode === 426
-                && ($legacy->data['error_code'] ?? null) === 'worker_upgrade_required',
-            "Legacy {$legacyAction} must be an HTTP 426 tombstone",
-            $legacy->data,
-        );
-        expectWorkerCrud(
-            ModuleLifecycleGate::$acquireCalls === $beforeLeaseCalls
-                && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
-            "Legacy {$legacyAction} must not acquire lifecycle or execute old services",
-        );
-        $originalAllowedKeyIds = STTSetting::$allowedWorkerApiKeyIds;
-        STTSetting::$allowedWorkerApiKeyIds = [99, 123];
-        $cacheStaleKey = new ApiKeys();
-        $cacheStaleKey->id = 123;
-        $cacheStaleKey->full_permissions = '0';
-        $cacheStaleKey->allowed_paths = '{}';
-        ApiKeys::$rows[123] = $cacheStaleKey;
-        foreach ([77, 123] as $revokedKeyId) {
-            $beforeLeaseCalls = ModuleLifecycleGate::$acquireCalls;
-            $beforeRegistration = LocalSpeechToTextMain::$registrationCalls;
-            $denied = Processor::callBack(requestForWorkerCrud($legacyAction, ['worker_uid' => 'worker-a'], true, true, $revokedKeyId));
-            expectWorkerCrud(
-                $denied->httpCode === 403
-                    && ModuleLifecycleGate::$acquireCalls === $beforeLeaseCalls
-                    && LocalSpeechToTextMain::$registrationCalls === $beforeRegistration,
-                "Revoked/cache-stale credential must deny legacy {$legacyAction} before terminal tombstone",
-            );
-        }
-        unset(ApiKeys::$rows[123]);
-        STTSetting::$allowedWorkerApiKeyIds = $originalAllowedKeyIds;
-    }
-
     $adminRequests = [
         'getList' => [],
         'create' => ['worker_uid' => 'admin-created', 'name' => 'Admin', 'app_version' => '4.0.0'],
@@ -735,10 +695,6 @@ namespace {
         !is_file($root . '/Lib/RestAPI/Workers/Actions/RegisterAction.php')
             && !is_file($root . '/Lib/RestAPI/Workers/Actions/GetProcessingSettingsAction.php'),
         'Legacy action implementations must be deleted',
-    );
-    expectWorkerCrud(
-        substr_count($processor, 'LegacyRouteRejector::worker()') === 2,
-        'Both legacy routes must directly use the worker-upgrade tombstone',
     );
     expectWorkerCrud(
         !str_contains($resourceService, 'ApiKeys')

@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'İstemci uyumluluk alanı. Sunucu sağlanan değeri yok sayar ve merkezi işleme ayarlarındaki modeli kullanır.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Kayıtla ilişkili çağrının kararlı tanımlayıcısı.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Lease edilmiş STT işinin tanımlayıcısı.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Yeni iş istekleri arasındaki önerilen saniye cinsinden aralık.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Merkezi işleme profili sözleşmesinin sürümü.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Sunucu denetimli eksiksiz kod çözme, filtreleme ve segmentasyon profili.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Kayıtlı worker için dahili sayısal tanımlayıcı.',

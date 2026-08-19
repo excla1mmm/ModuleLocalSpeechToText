@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Pole kompatibility klienta. Server dodanou hodnotu ignoruje a používá model z centralizovaného nastavení zpracování.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stálý identifikátor hovoru spojeného se záznamem.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifikátor přiřazené úlohy STT.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Doporučený interval mezi požadavky na nové úlohy v sekundách.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Verze kontraktu centralizovaného profilu zpracování.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Úplný profil dekódování, filtrování a segmentace řízený serverem.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Interní číselný identifikátor registrovaného workeru.',

@@ -23,16 +23,7 @@ The `{id}` and `{job_id}` values are numeric module database IDs. `worker_uid` r
 
 A v2 worker starts with `GET /worker-api-contract`. Every subsequent worker request carries `X-MikoPBX-Worker-API-Version: 2`. The module accepts no legacy fallback.
 
-Each of the eight listed v1 routes remains only as a module-local tombstone and returns HTTP 426 in the normal `PBXApiResult` envelope with:
-
-```json
-{
-  "error_code": "worker_upgrade_required",
-  "required_worker_api_version": 2
-}
-```
-
-The 426 result is module-only: it has no `Upgrade` response header. It does not invoke the old processor, service, domain operation, lifecycle operation, or mutation.
+The eight listed v1 routes are no longer registered. Requests to them are rejected by the routing or authorization layer, typically with HTTP 403, 404, or 405 depending on the request credentials and route shape. There is no module-level v1 compatibility response and no legacy processor or domain operation is invoked.
 
 A new worker against an old module sees `404` or `405` for `/worker-api-contract`. It must classify that locally as `module_upgrade_required`, stop registration and polling, and not try any v1 route.
 
@@ -49,4 +40,4 @@ Existing worker API keys and their IDs are preserved; this migration does not ro
 
 The module migration preserves worker UID, numeric IDs, API-key bindings and history. Existing v1 worker rows are marked offline/incompatible; existing v2 worker rows are retained. Active v1 processing leases are returned to pending with ownership and lease fields cleared, without increasing attempts. Completed, skipped, terminal jobs, results, transcripts, events, and other stored results remain unchanged.
 
-Migration runs under the module's existing setup backup/restore guard and records an idempotent v2 migration marker only after the module-owned schema/data changes succeed. A setup failure rolls back the in-transaction changes. After the module update, an old worker cannot be made functional by rolling back only its request: its v1 routes remain HTTP 426 tombstones. Restoring a previous module package/database backup is an operational rollback, subject to the normal module backup availability and reinstall limits; it does not preserve a v1 worker lease created before the v2 migration.
+Migration runs under the module's existing setup backup/restore guard and records an idempotent v2 migration marker only after the module-owned schema/data changes succeed. A setup failure rolls back the in-transaction changes. After the module update, an old worker cannot be made functional by retrying its former routes because those routes are no longer registered. Restoring a previous module package/database backup is an operational rollback, subject to the normal module backup availability and reinstall limits; it does not preserve a v1 worker lease created before the v2 migration.

@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Müştəri uyğunluğu sahəsi. Server göndərilən dəyəri nəzərə almır və mərkəzləşdirilmiş emal ayarlarındakı modeldən istifadə edir.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Yazı ilə əlaqəli zəngin sabit identifikatoru.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Təhkim edilmiş STT tapşırığının identifikatoru.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Yeni tapşırıq sorğuları arasında tövsiyə olunan interval, saniyə ilə.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Mərkəzləşdirilmiş emal profili müqaviləsinin versiyası.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Serverin idarə etdiyi tam dekodlaşdırma, filtrləmə və seqmentləşdirmə profili.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Qeydiyyatdan keçmiş emalçının daxili rəqəmli identifikatoru.',

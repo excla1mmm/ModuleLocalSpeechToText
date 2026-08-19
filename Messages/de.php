@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Feld zur Clientkompatibilität. Der Server ignoriert den übergebenen Wert und verwendet das Modell aus den zentralen Verarbeitungseinstellungen.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stabile Kennung des mit der Aufzeichnung verknüpften Anrufs.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Kennung des reservierten STT-Auftrags.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Empfohlenes Intervall zwischen Anfragen nach neuen Aufträgen in Sekunden.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Version des Vertrags für das zentrale Verarbeitungsprofil.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Vollständiges servergesteuertes Profil für Dekodierung, Filterung und Segmentierung.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Interne numerische Kennung des registrierten Workers.',

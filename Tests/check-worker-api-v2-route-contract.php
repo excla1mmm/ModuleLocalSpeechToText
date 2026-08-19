@@ -124,7 +124,7 @@ namespace {
     }
 
     /** @return list<array{method: string, path: string, action: string, controller: string, processor: string, operationCount: int, custom: bool, idPattern: string|array|null}> */
-    function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $legacyActions, array $nonWorkerResources): array
+    function reflectedWorkerApiV2Operations(string $root, array $v2Resources, array $nonWorkerResources): array
     {
         $before = get_declared_classes();
         $controllerFiles = glob($root . '/Lib/RestAPI/*/Controller.php') ?: [];
@@ -153,12 +153,7 @@ namespace {
             expectWorkerApiV2Route(count($mappingAttributes) === 1, "{$controller} must declare one HttpMapping attribute");
             /** @var HttpMapping $mapping */
             $mapping = $mappingAttributes[0]->newInstance();
-            foreach ($mapping->customMethods as $customAction) {
-                expectWorkerApiV2Route(
-                    in_array($customAction, $legacyActions, true),
-                    "{$controller} must not expose a non-legacy v2 custom action {$customAction}",
-                );
-            }
+            expectWorkerApiV2Route($mapping->customMethods === [], "{$controller} must not expose removed custom worker actions");
 
             foreach (expandWorkerApiV2Mapping($path, $idName, $mapping->mapping, $mapping->resourceLevelMethods, $mapping->collectionLevelMethods) as $route) {
                 expectWorkerApiV2Route($reflection->hasMethod($route['action']), "{$controller} mapping action {$route['action']} is not implemented");
@@ -185,66 +180,9 @@ namespace {
         expectWorkerApiV2Route(str_starts_with($processor, $prefix), "Processor must belong to this module: {$processor}");
         $file = $root . '/' . str_replace('\\', '/', substr($processor, strlen($prefix))) . '.php';
         $source = file_get_contents($file);
-        expectWorkerApiV2Route($source !== false, "Unable to read tombstone processor {$file}");
+        expectWorkerApiV2Route($source !== false, "Unable to read processor {$file}");
 
         return $source;
-    }
-
-    /** @return string */
-    function functionBodyWorkerApiV2Route(string $source, string $function): string
-    {
-        $start = strpos($source, "function {$function}(");
-        expectWorkerApiV2Route($start !== false, "Processor must declare {$function}()");
-        $open = strpos($source, '{', $start);
-        expectWorkerApiV2Route($open !== false, "Processor {$function}() has no body");
-        $depth = 0;
-        for ($offset = $open, $length = strlen($source); $offset < $length; $offset++) {
-            if ($source[$offset] === '{') {
-                $depth++;
-            } elseif ($source[$offset] === '}' && --$depth === 0) {
-                return substr($source, $open + 1, $offset - $open - 1);
-            }
-        }
-        throw new RuntimeException("Processor {$function}() body is not balanced");
-    }
-
-    function assertLegacyTerminalWorkerApiV2Route(string $callback, string $enumCase): void
-    {
-        $callback = preg_replace('/\/\*.*?\*\/|\/\/[^\n]*/s', '', $callback) ?? $callback;
-        $callback = preg_replace('/\s+/', '', $callback) ?? $callback;
-        $terminal = strpos($callback, 'returnmatch');
-        expectWorkerApiV2Route($terminal !== false, 'Legacy dispatch must be an immediate terminal return match');
-        $before = substr($callback, 0, $terminal);
-        $provenancePrelude = '\$data=WorkerRequestContext::data\(\$request\);if\(WorkerRequestContext::isRevokedWorkerKey\(\$data\)\)\{?returnself::(?:forbidden|error)\([^;]+\);\}?';
-        $harmlessPrelude = '\$actionString=\(string\)\(\$request\[[\'\"]action[\'\"]\]\?\?[\'\"]{2}\);\$action=\w+Action::tryFrom\(\$actionString\);';
-        expectWorkerApiV2Route(
-            preg_match('/^' . $harmlessPrelude . '(?:' . $provenancePrelude . ')?$/', $before) === 1,
-            'Legacy terminal dispatch may only perform revoked-key provenance rejection before its direct tombstone',
-        );
-        expectWorkerApiV2Route(!str_contains($before, 'ModuleLifecycleGate') && !str_contains($before, 'ModuleDatabasePragmas'), 'Legacy tombstones must not acquire lifecycle or database setup before rejection');
-        $open = strpos($callback, '{', $terminal);
-        expectWorkerApiV2Route($open !== false, 'Legacy terminal match has no body');
-        $depth = 0;
-        $end = null;
-        for ($i = $open, $length = strlen($callback); $i < $length; $i++) {
-            if ($callback[$i] === '{') {
-                $depth++;
-            } elseif ($callback[$i] === '}' && --$depth === 0) {
-                $end = $i;
-                break;
-            }
-        }
-        expectWorkerApiV2Route($end !== null, 'Legacy terminal match body is not balanced');
-        expectWorkerApiV2Route(
-            substr($callback, $end + 1) === ';',
-            'Legacy terminal return match must end at the match close with only its semicolon',
-            substr($callback, $end + 1),
-        );
-        $arms = substr($callback, $open + 1, $end - $open - 1);
-        expectWorkerApiV2Route(
-            preg_match_all('/' . preg_quote($enumCase, '/') . '=>LegacyRouteRejector::worker\(\)(?=,|$)/', $arms) === 1,
-            "{$enumCase} must have exactly one direct LegacyRouteRejector::worker() terminal arm",
-        );
     }
 
     if (getenv('WORKER_API_V2_ROUTE_MUTATION') === '1') {
@@ -273,60 +211,6 @@ namespace {
             } catch (RuntimeException $error) {
                 expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'declared processor mutation did not fail for the intended reason');
             }
-        }
-        $badTombstone = 'function callBack(array $request) { return LocalSpeechToTextMain::getNextJob([]); }';
-        expectWorkerApiV2Route(!str_contains($badTombstone, 'WorkerApiContract::upgradeRequired'), 'mutation fixture must omit the upgrade tombstone');
-        $lateTombstone = 'function callBack(array $request) { $gate = new ModuleLifecycleGate(); return match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() }; }';
-        $branch = strpos($lateTombstone, 'JobAction::GET_NEXT');
-        $setup = strpos($lateTombstone, 'ModuleLifecycleGate');
-        try {
-            expectWorkerApiV2Route($branch < $setup, 'legacy tombstone must reject before setup');
-            throw new RuntimeException('pre-tombstone mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'pre-tombstone mutation check did not fail for the intended reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('$result = match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() }; (new STTJob())->save(); return $result;', 'JobAction::GET_NEXT');
-            throw new RuntimeException('non-terminal legacy rejection mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'terminal legacy mutation check did not fail for the intended reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('STTJob::findFirst([])->delete(); return match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');
-            throw new RuntimeException('pre-tombstone work mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'pre-tombstone work mutation did not fail for the intended reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('if(false){return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()};}mutateDatabase();', 'JobAction::GET_NEXT');
-            throw new RuntimeException('dead conditional tombstone mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'dead conditional tombstone mutation did not fail for the intended reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('auditRequest($request);return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()};', 'JobAction::GET_NEXT');
-            throw new RuntimeException('unknown legacy prelude call mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'unknown legacy prelude mutation did not fail for the intended reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()&&mutateDatabase()};', 'JobAction::GET_NEXT');
-            throw new RuntimeException('legacy arm suffix mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'legacy arm suffix mutation did not fail for the intended expression-boundary reason');
-        }
-        try {
-            assertLegacyTerminalWorkerApiV2Route('return match($action){JobAction::GET_NEXT=>LegacyRouteRejector::worker()}+mutateDatabase();', 'JobAction::GET_NEXT');
-            throw new RuntimeException('legacy return suffix mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'legacy return suffix mutation did not fail for the intended expression-boundary reason');
-        }
-        assertLegacyTerminalWorkerApiV2Route("\n // comment\n \$actionString = (string) (\$request['action'] ?? '');\n \$action = JobAction::tryFrom(\$actionString);\n return match (\$action) { JobAction::GET_NEXT => LegacyRouteRejector::worker(), };", 'JobAction::GET_NEXT');
-        try {
-            assertLegacyTerminalWorkerApiV2Route('return match($action) { JobAction::GET_NEXT => $result }; $later = match($action) { JobAction::GET_NEXT => LegacyRouteRejector::worker() };', 'JobAction::GET_NEXT');
-            throw new RuntimeException('later-match legacy arm mutation was accepted');
-        } catch (RuntimeException $error) {
-            expectWorkerApiV2Route(!str_contains($error->getMessage(), 'accepted'), 'later-match mutation did not fail for the intended reason');
         }
         foreach ([
             [
@@ -391,19 +275,10 @@ namespace {
         'GET /jobs getList', 'GET /jobs/{id} getRecord', 'POST /jobs create', 'PATCH /jobs/{id} patch',
         'PATCH /jobs patchCollection', 'DELETE /jobs/{id} delete', 'DELETE /jobs deleteCollection',
     ];
-    $legacy = [
-        'POST /workers register', 'GET /workers getProcessingSettings', 'GET /jobs getNext',
-        'GET /jobs/{id} download', 'POST /jobs/{id} submitResult', 'POST /jobs/{id} submitError',
-        'POST /jobs/{id} heartbeat', 'POST /jobs/{id} release',
-    ];
-
     $root = dirname(__DIR__);
     $nonWorkerResources = ['/transcripts', '/transcripts/events', '/call-transcripts', '/call-transcripts/events'];
-    $operations = reflectedWorkerApiV2Operations($root, $v2Resources, array_map(
-        static fn(string $route): string => substr($route, strrpos($route, ' ') + 1),
-        $legacy,
-    ), $nonWorkerResources);
-    $allowed = array_merge($expected, $legacy);
+    $operations = reflectedWorkerApiV2Operations($root, $v2Resources, $nonWorkerResources);
+    $allowed = $expected;
     $actual = [];
     foreach ($operations as $operation) {
         $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
@@ -437,48 +312,6 @@ namespace {
         if ($operation['method'] === 'GET') {
             expectWorkerApiV2Route(!preg_match('/(?:create|claim|lease|submit|fail|heartbeat|release|update|patch|delete)/i', $operation['action']), "{$key} maps GET to a mutation");
         }
-    }
-
-    $legacyByAction = [];
-    foreach ($operations as $operation) {
-        $key = $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'];
-        if (in_array($key, $legacy, true)) {
-            $legacyByAction[$key] = $operation;
-        }
-    }
-    $legacyEnumCases = [
-        'POST /workers register' => 'WorkerAction::REGISTER',
-        'GET /workers getProcessingSettings' => 'WorkerAction::GET_PROCESSING_SETTINGS',
-        'GET /jobs getNext' => 'JobAction::GET_NEXT',
-        'GET /jobs/{id} download' => 'JobAction::DOWNLOAD',
-        'POST /jobs/{id} submitResult' => 'JobAction::SUBMIT_RESULT',
-        'POST /jobs/{id} submitError' => 'JobAction::SUBMIT_ERROR',
-        'POST /jobs/{id} heartbeat' => 'JobAction::HEARTBEAT',
-        'POST /jobs/{id} release' => 'JobAction::RELEASE',
-    ];
-    foreach ($legacy as $key) {
-        $matches = array_values(array_filter($operations, static fn(array $operation): bool => $operation['method'] . ' ' . $operation['path'] . ' ' . $operation['action'] === $key));
-        expectWorkerApiV2Route(count($matches) === 1, "Legacy worker route must appear exactly once with its original HTTP method: {$key}", count($matches));
-        expectWorkerApiV2Route(isset($legacyByAction[$key]), "Legacy worker route must remain routable with its original HTTP method: {$key}");
-        $operation = $legacyByAction[$key];
-        expectWorkerApiV2Route($operation['custom'], "Legacy route {$key} must remain a custom tombstone action");
-        expectWorkerApiV2Route($operation['operationCount'] === 0, "Legacy route {$key} must not expose ApiOperation");
-        $callback = functionBodyWorkerApiV2Route(processorSourceWorkerApiV2Route($root, $operation['processor']), 'callBack');
-        assertLegacyTerminalWorkerApiV2Route($callback, $legacyEnumCases[$key]);
-        $armPattern = '/' . preg_quote($legacyEnumCases[$key], '/') . '\s*=>\s*LegacyRouteRejector::worker\(\)/';
-        expectWorkerApiV2Route(
-            preg_match_all($armPattern, $callback) === 1,
-            "Legacy route {$key} must directly return LegacyRouteRejector::worker() from its action branch",
-        );
-        $branchPosition = strpos($callback, $legacyEnumCases[$key]);
-        $setupPositions = array_filter([
-            strpos($callback, 'ModuleLifecycleGate'), strpos($callback, 'ModuleDatabasePragmas'),
-            strpos($callback, '::main('), strpos($callback, 'LocalSpeechToTextMain::'),
-        ], static fn(int|false $position): bool => $position !== false);
-        expectWorkerApiV2Route(
-            $setupPositions === [] || $branchPosition < min($setupPositions),
-            "Legacy route {$key} must reject before lifecycle or business setup",
-        );
     }
 
     echo "Worker API v2 route contract OK\n";

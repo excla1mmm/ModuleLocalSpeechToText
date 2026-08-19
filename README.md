@@ -96,7 +96,7 @@ Worker API v2 is a breaking change in module `1.45`. New worker requests use the
 
 New workers first call `GET /worker-api-contract`, then send `X-MikoPBX-Worker-API-Version: 2` on every worker request other than that contract call. All JSON endpoints use the standard MikoPBX REST v3 `PBXApiResult` envelope and Bearer-token security rules.
 
-The eight former worker routes are retained only as module tombstones. They return HTTP 426 with `error_code: worker_upgrade_required` and numeric `required_worker_api_version: 2`; this module response has no `Upgrade` response header. A v2 worker talking to an older module receives `404` or `405` from `/worker-api-contract`, classifies it locally as `module_upgrade_required`, and must not fall back to v1 registration or polling.
+The eight former worker routes are no longer registered. Requests to them are rejected by the routing or authorization layer and do not have a module-level compatibility response. A v2 worker talking to an older module receives `404` or `405` from `/worker-api-contract`, classifies it locally as `module_upgrade_required`, and must not fall back to v1 registration or polling.
 
 Update in this order: update this module to `1.45`; the previous macOS worker becomes incompatible/offline; update `LocalSTTWorkerMac` to `1.7` build `34`; then retry contract negotiation and a job claim. Existing worker API keys are preserved and are not rotated. Windows and Python workers are outside this migration and are not release artifacts. The Core floor remains `2025.1.1`; no Core prerequisite is required. See [the migration guide](docs/worker-api-v2-migration.md) for data preservation and rollback limits.
 

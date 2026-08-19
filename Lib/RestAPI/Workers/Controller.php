@@ -24,15 +24,14 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 #[ResourceSecurity('module_local_speech_to_text_workers', requirements: [SecurityType::LOCALHOST, SecurityType::BEARER_TOKEN])]
 #[HttpMapping(
     mapping: [
-        'GET' => ['getList', 'getRecord', 'getProcessingSettings'],
-        'POST' => ['create', 'register'],
+        'GET' => ['getList', 'getRecord'],
+        'POST' => ['create'],
         'PUT' => ['update'],
         'PATCH' => ['patch'],
         'DELETE' => ['delete'],
     ],
     resourceLevelMethods: ['getRecord', 'update', 'patch', 'delete'],
-    collectionLevelMethods: ['getList', 'create', 'register', 'getProcessingSettings'],
-    customMethods: ['register', 'getProcessingSettings'],
+    collectionLevelMethods: ['getList', 'create'],
     idPattern: '[0-9]+'
 )]
 class Controller extends BaseRestController
@@ -145,17 +144,5 @@ class Controller extends BaseRestController
     public function delete(string $id): void
     {
         // Implementation handled by BaseRestController.
-    }
-
-    /** @route POST /pbxcore/api/v3/module-local-speech-to-text/workers:register */
-    public function register(): void
-    {
-        // Undocumented API v1 tombstone handled by Processor.
-    }
-
-    /** @route GET /pbxcore/api/v3/module-local-speech-to-text/workers:getProcessingSettings */
-    public function getProcessingSettings(): void
-    {
-        // Undocumented API v1 tombstone handled by Processor.
     }
 }

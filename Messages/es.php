@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Campo de compatibilidad del cliente. El servidor ignora el valor proporcionado y usa el modelo de la configuración centralizada.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Identificador estable de la llamada asociada a la grabación.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identificador del trabajo STT asignado mediante lease.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Intervalo recomendado en segundos entre solicitudes de trabajos nuevos.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Versión del contrato del perfil de procesamiento centralizado.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Perfil completo de decodificación, filtrado y segmentación controlado por el servidor.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Identificador numérico interno del worker registrado.',

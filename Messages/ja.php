@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'クライアント互換性フィールド。サーバーは指定値を無視し、集中処理設定のモデルを使用します。',
     'module_local_speech_to_text_ApiFieldCallId' => '録音に関連付けられた通話の安定した識別子。',
     'module_local_speech_to_text_ApiFieldJobId' => 'lease された STT ジョブの識別子。',
-    'module_local_speech_to_text_ApiFieldPollInterval' => '新規ジョブ要求の推奨間隔（秒）。',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => '集中処理プロファイル契約のバージョン。',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'サーバー管理の完全なデコード、フィルタリング、セグメント化プロファイル。',
     'module_local_speech_to_text_ApiFieldWorkerId' => '登録済みワーカーの内部数値識別子。',

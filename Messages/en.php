@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Client compatibility field. The server ignores the supplied value and uses the model from centralized processing settings.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stable identifier of the call associated with the recording.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifier of the leased STT job.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Recommended interval between new-job requests in seconds.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Version of the centralized processing-profile contract.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Complete server-controlled decoding, filtering, and segmentation profile.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Internal numeric identifier of the registered worker.',

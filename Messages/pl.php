@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Pole zgodności klienta. Serwer ignoruje podaną wartość i używa modelu z centralnych ustawień przetwarzania.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stały identyfikator rozmowy powiązanej z nagraniem.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identyfikator wydzierżawionego zadania STT.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Zalecany odstęp między żądaniami nowych zadań w sekundach.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Wersja kontraktu centralnego profilu przetwarzania.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Pełny, kontrolowany przez serwer profil dekodowania, filtrowania i segmentacji.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Wewnętrzny numeryczny identyfikator zarejestrowanego workera.',

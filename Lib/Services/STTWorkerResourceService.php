@@ -68,10 +68,6 @@ final class STTWorkerResourceService
     public function create(array $data): PBXApiResult
     {
         $result = LocalSpeechToTextMain::registerWorker($data);
-        if ($result->success && !isset($result->data['id']) && isset($result->data['worker_id'])) {
-            $result->data['id'] = (int)$result->data['worker_id'];
-        }
-
         return $result;
     }
 

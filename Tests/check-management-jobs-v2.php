@@ -15,8 +15,8 @@ $schema = file_get_contents($root . '/Lib/RestAPI/Jobs/DataStructure.php');
 $serviceSource = file_get_contents($service);
 
 $required = [
-    "'GET' => ['getList', 'getRecord', 'getNext', 'download']",
-    "'POST' => ['create', 'submitResult', 'submitError', 'heartbeat', 'release']",
+    "'GET' => ['getList', 'getRecord']",
+    "'POST' => ['create']",
     "'PATCH' => ['patch', 'patchCollection']",
     "'DELETE' => ['delete', 'deleteCollection']",
     "idPattern: '[0-9]+'",
@@ -26,18 +26,10 @@ foreach ($required as $fragment) {
         throw new RuntimeException("Missing management route: {$fragment}");
     }
 }
-foreach (['getNext', 'download', 'submitResult', 'submitError', 'heartbeat', 'release'] as $legacy) {
-    if (!preg_match('/public function ' . $legacy . '\\([^)]*\\): void\\s*\\{[^}]*Undocumented API v1 tombstone/s', $controller)) {
-        throw new RuntimeException("Legacy {$legacy} is not an undocumented tombstone");
-    }
-}
 foreach (['GET_LIST', 'GET_RECORD', 'CREATE', 'PATCH', 'PATCH_COLLECTION', 'DELETE', 'DELETE_COLLECTION'] as $case) {
     if (!str_contains($processor, "case {$case}")) {
         throw new RuntimeException("Processor action {$case} is missing");
     }
-}
-if (!str_contains($processor, 'LegacyRouteRejector::worker()')) {
-    throw new RuntimeException('Legacy routes do not terminate in the upgrade rejector');
 }
 foreach (['getList', 'getRecord', 'create', 'patch', 'patchCollection', 'delete', 'deleteCollection'] as $method) {
     if (!preg_match('/function ' . $method . '\\(/', $serviceSource)) {

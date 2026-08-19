@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Veld voor clientcompatibiliteit. De server negeert de opgegeven waarde en gebruikt het model uit de centrale verwerkingsinstellingen.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stabiele identificatie van het gesprek dat bij de opname hoort.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identificatie van de STT-taak waarop een lease actief is.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Aanbevolen interval tussen aanvragen voor nieuwe taken, in seconden.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Versie van het contract voor het centrale verwerkingsprofiel.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Volledig door de server beheerd profiel voor decodering, filtering en segmentatie.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Interne numerieke identificatie van de geregistreerde worker.',

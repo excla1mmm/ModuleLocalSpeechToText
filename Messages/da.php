@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Felt til klientkompatibilitet. Serveren ignorerer den angivne værdi og bruger modellen fra de centraliserede behandlingsindstillinger.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Stabil identifikator for det opkald, som optagelsen er knyttet til.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identifikator for det reserverede STT-job.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Anbefalet interval i sekunder mellem forespørgsler efter nye job.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Version af kontrakten for den centraliserede behandlingsprofil.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Komplet serverstyret profil for afkodning, filtrering og segmentering.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Intern numerisk identifikator for den registrerede worker.',

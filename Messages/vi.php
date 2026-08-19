@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Trường tương thích phía máy khách. Máy chủ bỏ qua giá trị được cung cấp và dùng mô hình từ thiết lập xử lý tập trung.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Định danh ổn định của cuộc gọi liên kết với bản ghi.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Định danh của tác vụ STT đã được cấp lease.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Khoảng thời gian khuyến nghị giữa các yêu cầu tác vụ mới, tính bằng giây.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Phiên bản hợp đồng hồ sơ xử lý tập trung.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Hồ sơ giải mã, lọc và phân đoạn hoàn chỉnh do máy chủ kiểm soát.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Định danh số nội bộ của worker đã đăng ký.',

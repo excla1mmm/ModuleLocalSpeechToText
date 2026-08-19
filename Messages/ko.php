@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => '클라이언트 호환성 필드입니다. 서버는 제공된 값을 무시하고 중앙 처리 설정의 모델을 사용합니다.',
     'module_local_speech_to_text_ApiFieldCallId' => '녹음과 연결된 통화의 안정적인 식별자입니다.',
     'module_local_speech_to_text_ApiFieldJobId' => '임대한 STT 작업의 식별자입니다.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => '새 작업 요청 사이의 권장 간격(초)입니다.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => '중앙 처리 프로필 계약의 버전입니다.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => '서버가 제어하는 전체 디코딩, 필터링 및 세분화 프로필입니다.',
     'module_local_speech_to_text_ApiFieldWorkerId' => '등록된 워커의 내부 숫자 식별자입니다.',

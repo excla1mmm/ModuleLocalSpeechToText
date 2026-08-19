@@ -38,9 +38,7 @@ expectProcessingEndpoint(str_contains($main, 'validateWorkerApiKeyBinding($worke
 expectProcessingEndpoint(str_contains($main, 'fetchForWorker($worker)'), 'Atomic profile fetch is missing');
 expectProcessingEndpoint(!str_contains($main, 'settings_revision'), 'Settings revisions are forbidden');
 expectProcessingEndpoint(!str_contains($main, 'applied_settings_revision'), 'Applied settings revisions are forbidden');
-expectProcessingEndpoint(str_contains($workersController, "'GET' => ['getList', 'getRecord', 'getProcessingSettings']"), 'Old Workers processing-settings route must remain a tombstone');
-expectProcessingEndpoint(str_contains($workersProcessor, 'WorkerAction::GET_PROCESSING_SETTINGS => LegacyRouteRejector::worker()'), 'Old Workers processing-settings action must be a 426 tombstone');
-expectProcessingEndpoint(!is_file($root . '/Lib/RestAPI/Workers/Actions/GetProcessingSettingsAction.php'), 'Old Workers processing-settings action must not return');
-expectProcessingEndpoint(!is_file($root . '/Lib/RestAPI/Workers/ProcessingSettingsResponseDataStructure.php'), 'Old Workers processing-settings schema must not return');
+expectProcessingEndpoint(str_contains($workersController, "'GET' => ['getList', 'getRecord']"), 'Workers resource must expose only active GET routes');
+expectProcessingEndpoint(!str_contains($workersProcessor, 'GET_PROCESSING_SETTINGS'), 'Removed Workers processing-settings action must not remain dispatchable');
 
 echo "Worker processing settings endpoint contract OK\n";

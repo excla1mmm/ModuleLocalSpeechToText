@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => '用戶端相容性欄位。伺服器會忽略提供的值，並使用集中式處理設定中的模型。',
     'module_local_speech_to_text_ApiFieldCallId' => '與錄音關聯之通話的穩定識別碼。',
     'module_local_speech_to_text_ApiFieldJobId' => '已租約指派的 STT 工作項目識別碼。',
-    'module_local_speech_to_text_ApiFieldPollInterval' => '新工作項目請求之間建議的間隔（秒）。',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => '集中式處理設定檔契約的版本。',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => '完整由伺服器控制的解碼、篩選及分段設定檔。',
     'module_local_speech_to_text_ApiFieldWorkerId' => '已註冊工作節點的內部數值識別碼。',

@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'ฟิลด์ความเข้ากันได้ของไคลเอ็นต์ เซิร์ฟเวอร์ไม่ใช้ค่าที่ระบุ และใช้โมเดลจากการตั้งค่าการประมวลผลแบบรวมศูนย์',
     'module_local_speech_to_text_ApiFieldCallId' => 'ตัวระบุที่คงที่ของการโทรที่เกี่ยวข้องกับไฟล์บันทึก',
     'module_local_speech_to_text_ApiFieldJobId' => 'ตัวระบุของงาน STT ที่กำหนด lease แล้ว',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'ช่วงเวลาที่แนะนำระหว่างคำขอรับงานใหม่ หน่วยเป็นวินาที',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'รุ่นของสัญญาโพรไฟล์การประมวลผลแบบรวมศูนย์',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'โพรไฟล์การถอดรหัส การกรอง และการแบ่งเซกเมนต์ทั้งหมดที่เซิร์ฟเวอร์ควบคุม',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'ตัวระบุตัวเลขภายในของตัวประมวลผลที่ลงทะเบียนแล้ว',

@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Клиентийн нийцлийн талбар. Сервер өгсөн утгыг үл тоомсорлож, төвлөрсөн боловсруулалтын тохиргооны загварыг ашиглана.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Бичлэгтэй холбоотой дуудлагын тогтвортой танигч.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Түрээслэсэн STT ажлын танигч.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Шинэ ажил хүсэх хоорондох санал болгосон интервал секундээр.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Төвлөрсөн боловсруулалтын профайлын гэрээний хувилбар.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Серверийн удирддаг бүрэн декодлох, шүүх, сегментчлэх профайл.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Бүртгэгдсэн ажиллагчийн дотоод тоон танигч.',

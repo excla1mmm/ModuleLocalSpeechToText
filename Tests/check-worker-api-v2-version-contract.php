@@ -164,19 +164,6 @@ namespace {
         );
     }
 
-    function assertLegacyWorkerTombstoneContract(MikoPBX\PBXCoreREST\Lib\PBXApiResult $result, string $source): void
-    {
-        expectWorkerApiV2Version($result->httpCode === 426, 'Legacy worker tombstone must return HTTP 426', $result->httpCode);
-        expectWorkerApiV2Version(($result->data['error_code'] ?? null) === 'worker_upgrade_required', 'Legacy worker tombstone error_code changed', $result->data);
-        expectWorkerApiV2Version(($result->data['required_worker_api_version'] ?? null) === 2, 'Legacy worker tombstone must require worker API version 2', $result->data);
-        $body = codeWorkerApiV2Version(functionBodyWorkerApiV2Version($source, 'worker'));
-        expectWorkerApiV2Version(
-            $body === 'returnWorkerApiContract::upgradeRequired();',
-            'LegacyRouteRejector::worker() must directly return the upgrade result without legacy or business dispatch',
-            $body,
-        );
-    }
-
     /** @param array<string, string> $sources */
     function assertOwnershipHeaderIsolation(array $sources): void
     {
@@ -419,25 +406,6 @@ namespace {
             }
         }
         assertRestrictedWorkerCreateVersionScope('function callBack(array $request) { $data = WorkerRequestContext::data($request); if (((WorkerRequestContext::isRestrictedWorkerKey(($data)))) && (($action) === (WorkerAction::CREATE))) { $versionError = WorkerApiContract::requireVersion($request); if ($versionError !== null) { return $versionError; } } return match ($action) { WorkerAction::CREATE => LocalSpeechToTextMain::registerWorker($data) }; }');
-        $validTombstone = new MikoPBX\PBXCoreREST\Lib\PBXApiResult();
-        $validTombstone->httpCode = 426;
-        $validTombstone->data = ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2];
-        assertLegacyWorkerTombstoneContract($validTombstone, 'function worker() { return WorkerApiContract::upgradeRequired(); }');
-        foreach ([
-            [200, ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2], 'function worker() { return WorkerApiContract::upgradeRequired(); }'],
-            [426, ['error_code' => 'api_route_removed', 'required_worker_api_version' => 1], 'function worker() { return WorkerApiContract::upgradeRequired(); }'],
-            [426, ['error_code' => 'worker_upgrade_required', 'required_worker_api_version' => 2], 'function worker() { LocalSpeechToTextMain::getNextJob([]); return WorkerApiContract::upgradeRequired(); }'],
-        ] as [$status, $data, $source]) {
-            $mutatedTombstone = new MikoPBX\PBXCoreREST\Lib\PBXApiResult();
-            $mutatedTombstone->httpCode = $status;
-            $mutatedTombstone->data = $data;
-            try {
-                assertLegacyWorkerTombstoneContract($mutatedTombstone, $source);
-                throw new RuntimeException('invalid executable legacy tombstone mutation was accepted');
-            } catch (RuntimeException $error) {
-                expectWorkerApiV2Version(!str_contains($error->getMessage(), 'accepted'), 'legacy tombstone result mutation did not fail for the intended reason');
-            }
-        }
         try {
             assertContractConstantsWorkerApiV2Version(['CONTRACT' => 'MikoPBX-Worker-API', 'API_VERSION' => '2', 'VERSION_HEADER' => 'X-MikoPBX-Worker-API-Version']);
             throw new RuntimeException('weak contract constants mutation was accepted');
@@ -504,15 +472,6 @@ namespace {
     $contractClass = Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract::class;
     expectWorkerApiV2Version(class_exists($contractClass), 'WorkerApiContract class must load from its service file');
     assertContractConstantsWorkerApiV2Version((new ReflectionClass($contractClass))->getConstants());
-
-    $legacyRejectorFile = $root . '/Lib/RestAPI/Common/LegacyRouteRejector.php';
-    expectWorkerApiV2Version(is_file($legacyRejectorFile), 'LegacyRouteRejector.php must exist before legacy v1 routes can run');
-    require_once $legacyRejectorFile;
-    $legacyRejectorClass = Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\LegacyRouteRejector::class;
-    expectWorkerApiV2Version(class_exists($legacyRejectorClass), 'LegacyRouteRejector class must load from its common helper file');
-    $legacyResult = $legacyRejectorClass::worker();
-    expectWorkerApiV2Version($legacyResult instanceof MikoPBX\PBXCoreREST\Lib\PBXApiResult, 'LegacyRouteRejector::worker() must return PBXApiResult');
-    assertLegacyWorkerTombstoneContract($legacyResult, (string)file_get_contents($legacyRejectorFile));
 
     $runtimeFileUrlSource = $root . '/Lib/LocalSpeechToTextMain.php';
     expectWorkerApiV2Version(is_file($runtimeFileUrlSource), 'LocalSpeechToTextMain runtime claim builder must exist');

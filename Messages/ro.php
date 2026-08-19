@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Câmp de compatibilitate al clientului. Serverul ignoră valoarea furnizată și utilizează modelul din setările centralizate de procesare.',
     'module_local_speech_to_text_ApiFieldCallId' => 'Identificator stabil al apelului asociat înregistrării.',
     'module_local_speech_to_text_ApiFieldJobId' => 'Identificatorul sarcinii STT alocate prin lease.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Interval recomandat în secunde între cererile de sarcini noi.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'Versiunea contractului profilului centralizat de procesare.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'Profil complet de decodare, filtrare și segmentare controlat de server.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'Identificator numeric intern al workerului înregistrat.',

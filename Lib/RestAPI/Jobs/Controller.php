@@ -7,11 +7,11 @@ use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 #[ApiResource(path:LocalSpeechToTextMain::API_BASE_PATH.'/jobs',tags:['Local STT Jobs'],description:'module_local_speech_to_text_AdminJobsApiDescription',processor:Processor::class)]
 #[ResourceSecurity('module_local_speech_to_text_jobs',requirements:[SecurityType::LOCALHOST,SecurityType::BEARER_TOKEN])]
 #[HttpMapping(mapping: [
-    'GET' => ['getList', 'getRecord', 'getNext', 'download'],
-    'POST' => ['create', 'submitResult', 'submitError', 'heartbeat', 'release'],
+    'GET' => ['getList', 'getRecord'],
+    'POST' => ['create'],
     'PATCH' => ['patch', 'patchCollection'],
     'DELETE' => ['delete', 'deleteCollection'],
-], resourceLevelMethods: ['getRecord','patch','delete','download','submitResult','submitError','heartbeat','release'], collectionLevelMethods: ['getList','create','patchCollection','deleteCollection','getNext'], customMethods: ['getNext','download','submitResult','submitError','heartbeat','release'], idPattern: '[0-9]+')]
+], resourceLevelMethods: ['getRecord','patch','delete'], collectionLevelMethods: ['getList','create','patchCollection','deleteCollection'], idPattern: '[0-9]+')]
 class Controller extends BaseRestController {
  protected string $processorClass=Processor::class;
  protected function getActionMapping(): array { return [
@@ -46,10 +46,4 @@ class Controller extends BaseRestController {
  #[ApiOperation(summary:'module_local_speech_to_text_RetryJobs',description:'module_local_speech_to_text_RetryJobsDesc',operationId:'patchLocalSTTJobs')] #[ApiParameterRef('ids',required:true)] #[ApiParameterRef('action',required:true)] public function patchCollection():void{}
  #[ApiOperation(summary:'module_local_speech_to_text_DeleteJob',description:'module_local_speech_to_text_DeleteJobDesc',operationId:'deleteLocalSTTJob')] #[ApiParameterRef('id',required:true)] public function delete(string $id):void{}
  #[ApiOperation(summary:'module_local_speech_to_text_DeleteJobs',description:'module_local_speech_to_text_DeleteJobsDesc',operationId:'deleteLocalSTTJobs')] #[ApiParameterRef('status',required:true)] public function deleteCollection():void{}
- /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs:getNext */ public function getNext(): void { /* Undocumented API v1 tombstone. */ }
- /** @route GET /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:download */ public function download(string $id): void { /* Undocumented API v1 tombstone. */ }
- /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitResult */ public function submitResult(string $id): void { /* Undocumented API v1 tombstone. */ }
- /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:submitError */ public function submitError(string $id): void { /* Undocumented API v1 tombstone. */ }
- /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:heartbeat */ public function heartbeat(string $id): void { /* Undocumented API v1 tombstone. */ }
- /** @route POST /pbxcore/api/v3/module-local-speech-to-text/jobs/{id}:release */ public function release(string $id): void { /* Undocumented API v1 tombstone. */ }
 }

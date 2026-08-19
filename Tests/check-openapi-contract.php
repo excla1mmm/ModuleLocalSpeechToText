@@ -298,7 +298,7 @@ namespace {
     $callEvents = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
     expectOpenApi(($callEvents['example']['events'][0]['aggregate_id'] ?? null) === ($callSchema['example']['aggregate_id'] ?? null) && ($callEvents['example']['events'][0]['revision'] ?? null) === ($callSchema['example']['revision'] ?? null), 'Call transcript event/detail examples must remain linked');
 
-    $tombstoneMethods = [
+    $removedWorkerMethods = [
         ['Workers', 'register'], ['Workers', 'getProcessingSettings'],
         ['Jobs', 'getNext'],
         ['Jobs', 'download'],
@@ -307,12 +307,11 @@ namespace {
         ['Jobs', 'heartbeat'],
         ['Jobs', 'release'],
     ];
-    foreach ($tombstoneMethods as [$resource, $method]) {
-        $tombstoneController = 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
-        $operations = (new ReflectionMethod($tombstoneController, $method))->getAttributes(ApiOperation::class);
+    foreach ($removedWorkerMethods as [$resource, $method]) {
+        $controllerClass = 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
         expectOpenApi(
-            $operations === [],
-            "{$resource}::{$method} is a runtime tombstone and must not be generated in OpenAPI"
+            !(new ReflectionClass($controllerClass))->hasMethod($method),
+            "Removed worker API v1 method {$resource}::{$method} must not remain routable"
         );
     }
 

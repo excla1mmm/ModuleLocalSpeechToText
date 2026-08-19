@@ -348,7 +348,6 @@ return [
     'module_local_speech_to_text_ApiParamWorkerModel' => 'Klienskompatibilitási mező. A kiszolgáló figyelmen kívül hagyja a megadott értéket, és a központi feldolgozási beállítások modelljét használja.',
     'module_local_speech_to_text_ApiFieldCallId' => 'A felvételhez tartozó hívás állandó azonosítója.',
     'module_local_speech_to_text_ApiFieldJobId' => 'A lefoglalt STT-feladat azonosítója.',
-    'module_local_speech_to_text_ApiFieldPollInterval' => 'Az új feladatokra vonatkozó kérések közötti ajánlott időköz másodpercben.',
     'module_local_speech_to_text_ApiFieldProcessingSchemaVersion' => 'A központi feldolgozási profil szerződésének verziója.',
     'module_local_speech_to_text_ApiFieldProcessingSettings' => 'A kiszolgáló által vezérelt teljes dekódolási, szűrési és szegmentálási profil.',
     'module_local_speech_to_text_ApiFieldWorkerId' => 'A regisztrált feldolgozó belső numerikus azonosítója.',
