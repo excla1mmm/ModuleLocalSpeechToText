@@ -2,9 +2,10 @@
 declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobResults;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
-use Modules\ModuleLocalSpeechToText\Lib\Services\{CanonicalJobId,JobLeaseOwnership,JobSubmissionReceiptService,ModuleDatabasePragmas,ModuleLifecycleGate,WorkerApiContract,WorkerBindingDecision};
+use Modules\ModuleLocalSpeechToText\Lib\Services\{CanonicalJobId,JobLeaseOwnership,JobSubmissionReceiptService,ModuleDatabasePragmas,ModuleDatabaseWriterMutex,ModuleLifecycleGate,WorkerApiContract,WorkerBindingDecision};
 use Modules\ModuleLocalSpeechToText\Models\{STTJob,STTWorker};
 use Phalcon\Di\Injectable;
 class Processor extends Injectable
@@ -29,14 +30,22 @@ class Processor extends Injectable
         $ownershipError = JobLeaseOwnership::preflight($jobId, $workerUid, $token); if ($ownershipError !== null) return $ownershipError;
         $data['id'] = $jobId; $gate = new ModuleLifecycleGate(); $lease = $gate->acquireWriteLease(allowDuringDrain: true); if ($lease === null) return self::error(503, 'module_unavailable');
         try {
-            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-            $result = $receipts->execute($jobId, (int)$worker->id, $token, $operation, $digest, static function () use ($failure, $data): PBXApiResult {
-                return self::decorate($failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data), $failure);
-            });
+            try {
+                $result = (new ModuleDatabaseWriterMutex())->synchronized(
+                    static function () use ($receipts, $jobId, $worker, $token, $operation, $digest, $failure, $data): PBXApiResult {
+                        (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+                        return $receipts->execute($jobId, (int)$worker->id, $token, $operation, $digest, static function () use ($failure, $data): PBXApiResult {
+                            return self::decorate($failure ? LocalSpeechToTextMain::submitError($data) : LocalSpeechToTextMain::submitResult($data), $failure);
+                        });
+                    }
+                );
+            } catch (ModuleDatabaseWriterBusyException) {
+                return self::error(503, 'database_busy', 2);
+            }
         }
         finally { $gate->releaseWriteLease($lease); }
         return self::decorate($result, $failure);
     }
     public static function decorate(PBXApiResult $result, bool $failure): PBXApiResult { $result->processor = $failure ? \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobFailures\Processor::class . '::callBack' : self::class . '::callBack'; $result->function = 'update'; return $result; }
-    private static function error(int $status, string $code): PBXApiResult { $r = new PBXApiResult(); $r->success=false; $r->httpCode=$status; $r->data=['error_code'=>$code]; if($status===503)$r->data['retry_after']=5; return $r; }
+    private static function error(int $status, string $code, int $retryAfter = 5): PBXApiResult { $r = new PBXApiResult(); $r->success=false; $r->httpCode=$status; $r->data=['error_code'=>$code]; if($status===503)$r->data['retry_after']=$retryAfter; return $r; }
 }

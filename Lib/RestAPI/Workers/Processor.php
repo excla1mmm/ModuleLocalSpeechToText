@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Workers;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
@@ -80,17 +82,25 @@ class Processor extends Injectable
         }
 
         try {
-            (new ModuleDatabasePragmas())->configureRuntime((new STTWorker())->getWriteConnection());
-            $service = new STTWorkerResourceService();
-            $id = (int)($data['id'] ?? 0);
-            $result = match ($action) {
-                WorkerAction::GET_LIST => $service->getList($data),
-                WorkerAction::CREATE => $service->create($data),
-                WorkerAction::GET_RECORD => $service->getRecord($id),
-                WorkerAction::UPDATE => $service->update($id, $data),
-                WorkerAction::PATCH => $service->patch($id, $data),
-                WorkerAction::DELETE => $service->delete($id),
-            };
+            try {
+                $result = (new ModuleDatabaseWriterMutex())->synchronized(
+                    static function () use ($action, $data): PBXApiResult {
+                        (new ModuleDatabasePragmas())->configureRuntime((new STTWorker())->getWriteConnection());
+                        $service = new STTWorkerResourceService();
+                        $id = (int)($data['id'] ?? 0);
+                        return match ($action) {
+                            WorkerAction::GET_LIST => $service->getList($data),
+                            WorkerAction::CREATE => $service->create($data),
+                            WorkerAction::GET_RECORD => $service->getRecord($id),
+                            WorkerAction::UPDATE => $service->update($id, $data),
+                            WorkerAction::PATCH => $service->patch($id, $data),
+                            WorkerAction::DELETE => $service->delete($id),
+                        };
+                    }
+                );
+            } catch (ModuleDatabaseWriterBusyException) {
+                return self::databaseBusy($actionString);
+            }
         } finally {
             $gate->releaseWriteLease($writeLease);
         }
@@ -98,6 +108,17 @@ class Processor extends Injectable
         $result->processor = self::class . '::callBack';
         $result->function = $actionString;
 
+        return $result;
+    }
+
+    private static function databaseBusy(string $action): PBXApiResult
+    {
+        $result = new PBXApiResult();
+        $result->success = false;
+        $result->httpCode = 503;
+        $result->function = $action;
+        $result->data = ['error_code' => 'database_busy', 'retry_after' => 2];
+        $result->messages['error'][] = 'ModuleLocalSpeechToText database writer is temporarily busy';
         return $result;
     }
 

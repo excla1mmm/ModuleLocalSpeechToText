@@ -11,6 +11,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
     class LocalSpeechToTextLogSanitizer {public static function errorCode(\Throwable$e):string{return'test';}}
     class ModuleLifecycleGate {public static int$acquired=0,$released=0;public function acquireWriteLease(bool$allowDuringDrain=false):?object{self::$acquired++;return new \stdClass();}public function releaseWriteLease(mixed$lease):void{self::$released++;}}
     class ModuleDatabasePragmas {public static bool$throw=false;public function configureRuntime(mixed$c):void{if(self::$throw)throw new \RuntimeException('pragma test throw');}}
+    class ModuleDatabaseWriterMutex {public function synchronized(callable$operation):mixed{return$operation();}}
 }
 namespace Modules\ModuleLocalSpeechToText\Models {
     class STTSetting {public static int$max=1024;public static bool$allowed=true;public static function isWorkerApiKeyIdAllowed(int$id):bool{return$id===77&&self::$allowed;}public static function isWorkerApiKeyIdKnown(int$id):bool{return$id===77;}public static function workerApiKeyIds():array{return self::$allowed?[77]:[];}public static function recordingDurationAllowed(?int$d):bool{return$d===null||$d<=60;}public static function maxFileSizeBytes():int{return self::$max;}}

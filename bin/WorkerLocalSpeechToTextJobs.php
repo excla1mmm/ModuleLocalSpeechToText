@@ -13,7 +13,9 @@ use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerDatabaseFailurePolicy;
@@ -142,53 +144,64 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
                 $iterationSucceeded = false;
                 try {
-                    if (!$this->runtimePragmasConfigured) {
-                        $scanPhase = 'runtime_pragmas';
-                        (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-                        $this->runtimePragmasConfigured = true;
-                    }
-                    if (!$cdrTablesInitialized) {
-                        $scanPhase = 'cdr_schema';
-                        DatabaseProviderBase::ensureCdrTables();
-                        $cdrTablesInitialized = true;
-                    }
-                    $scanPhase = 'stale_workers';
-                    STTWorker::markStaleOffline();
-                    $scanPhase = 'stale_leases';
-                    $requeued = STTJob::requeueStaleProcessing();
-                    if ($requeued > 0) {
-                        LocalSpeechToTextLogger::event(
-                            'queue',
-                            'stale_leases_recovered',
-                            'Expired transcription leases were recovered',
-                            LOG_NOTICE,
-                            ['recovered_count' => $requeued]
-                        );
-                    }
-                    $scanPhase = 'delayed_recordings';
-                    $this->retryDelayedRecordings();
-                    $scanPhase = 'skipped_recordings';
-                    $this->retrySkippedRecordings();
-                    $scanPhase = 'cdr_scan';
-                    $this->createJobsFromCompletedCdr();
-                    $scanPhase = 'call_transcript_publish';
-                    $publication = (new CallTranscriptRevisionService())->publishReady();
-                    if ($publication['published'] > 0) {
-                        LocalSpeechToTextLogger::event(
-                            'transcript',
-                            'call_transcripts_published',
-                            'Call transcript revisions published',
-                            LOG_NOTICE,
-                            [
-                                'published_count' => $publication['published'],
-                                'scanned_count' => $publication['scanned'],
-                                'blocked_jobs' => $publication['blocked_jobs'],
-                            ]
-                        );
-                    }
-                    $scanPhase = 'retention_cleanup';
-                    $this->purgeExpiredTranscripts();
+                    (new ModuleDatabaseWriterMutex())->synchronized(function () use (&$cdrTablesInitialized, &$scanPhase): void {
+                        if (!$this->runtimePragmasConfigured) {
+                            $scanPhase = 'runtime_pragmas';
+                            (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+                            $this->runtimePragmasConfigured = true;
+                        }
+                        if (!$cdrTablesInitialized) {
+                            $scanPhase = 'cdr_schema';
+                            DatabaseProviderBase::ensureCdrTables();
+                            $cdrTablesInitialized = true;
+                        }
+                        $scanPhase = 'stale_workers';
+                        STTWorker::markStaleOffline();
+                        $scanPhase = 'stale_leases';
+                        $requeued = STTJob::requeueStaleProcessing();
+                        if ($requeued > 0) {
+                            LocalSpeechToTextLogger::event(
+                                'queue',
+                                'stale_leases_recovered',
+                                'Expired transcription leases were recovered',
+                                LOG_NOTICE,
+                                ['recovered_count' => $requeued]
+                            );
+                        }
+                        $scanPhase = 'delayed_recordings';
+                        $this->retryDelayedRecordings();
+                        $scanPhase = 'skipped_recordings';
+                        $this->retrySkippedRecordings();
+                        $scanPhase = 'cdr_scan';
+                        $this->createJobsFromCompletedCdr();
+                        $scanPhase = 'call_transcript_publish';
+                        $publication = (new CallTranscriptRevisionService())->publishReady();
+                        if ($publication['published'] > 0) {
+                            LocalSpeechToTextLogger::event(
+                                'transcript',
+                                'call_transcripts_published',
+                                'Call transcript revisions published',
+                                LOG_NOTICE,
+                                [
+                                    'published_count' => $publication['published'],
+                                    'scanned_count' => $publication['scanned'],
+                                    'blocked_jobs' => $publication['blocked_jobs'],
+                                ]
+                            );
+                        }
+                        $scanPhase = 'retention_cleanup';
+                        $this->purgeExpiredTranscripts();
+                    });
                     $iterationSucceeded = true;
+                } catch (ModuleDatabaseWriterBusyException) {
+                    $consecutiveDatabaseFailures = 0;
+                    LocalSpeechToTextLogger::event(
+                        'storage',
+                        'database_writer_busy',
+                        'STT scanner iteration deferred while another database writer is active',
+                        LOG_NOTICE,
+                        ['operation' => 'scanner_iteration']
+                    );
                 } catch (Throwable $exception) {
                     $outcome = (new ScannerIterationFailureHandler())->handle(
                         $exception,

@@ -217,6 +217,14 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         {
         }
     }
+
+    class ModuleDatabaseWriterMutex
+    {
+        public function synchronized(callable $operation): mixed
+        {
+            return $operation();
+        }
+    }
 }
 
 namespace Modules\ModuleLocalSpeechToText\Lib {

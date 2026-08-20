@@ -95,6 +95,12 @@ namespace MikoPBX\Core\Workers {
     }
 }
 
+namespace Modules\ModuleLocalSpeechToText\Lib\Exceptions {
+    final class ModuleDatabaseWriterBusyException extends \RuntimeException
+    {
+    }
+}
+
 namespace Modules\ModuleLocalSpeechToText\Lib\Services {
     final class ScannerWorkerProbe
     {
@@ -214,6 +220,21 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         {
             self::$configureRuntimeCalls++;
             ScannerWorkerProbe::reachPhase('runtime_pragmas');
+        }
+    }
+
+    final class ModuleDatabaseWriterMutex
+    {
+        /** @var array<int, ?\Throwable> */
+        public static array $failures = [];
+
+        public function synchronized(callable $operation): mixed
+        {
+            $failure = array_shift(self::$failures);
+            if ($failure instanceof \Throwable) {
+                throw $failure;
+            }
+            return $operation();
         }
     }
 
@@ -450,6 +471,7 @@ namespace {
         ScannerProcessGuard::overrideDefaultRuntimeDirectory($runtimeRoot . '/ModuleLocalSpeechToText/scanner');
         LocalSpeechToTextLogger::$events = [];
         ModuleDatabasePragmas::$configureRuntimeCalls = 0;
+        \Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex::$failures = [];
         DatabaseProviderBase::$ensureCdrTablesCalls = 0;
         STTWorker::$markStaleOfflineCalls = 0;
         STTWorker::$failures = [];
@@ -852,6 +874,17 @@ namespace {
             $failures
         );
     }
+
+    $runtimeRoot = $temporaryRoot . '/writer-busy';
+    resetScannerWorkerProbes($runtimeRoot);
+    \Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex::$failures = [
+        new \Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException('busy'),
+    ];
+    runScannerWorker(false, 'writer mutex contention', $failures);
+    checkScannerWorker(count(scannerWorkerEvents('database_writer_busy')) === 1, 'writer contention was not logged as deferred', $failures);
+    checkScannerWorker(scannerWorkerEvents('operation_failed') === [], 'writer contention entered database failure recovery', $failures);
+    checkScannerWorker(STTWorker::$markStaleOfflineCalls === 0, 'writer contention entered scanner write phases', $failures);
+    checkLifecycleLeasePairs(1, 'writer mutex contention', $failures);
 
     $runtimeRoot = $temporaryRoot . '/busy-threshold';
     resetScannerWorkerProbes($runtimeRoot);
