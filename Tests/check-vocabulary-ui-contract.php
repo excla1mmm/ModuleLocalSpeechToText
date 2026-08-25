@@ -25,4 +25,21 @@ expectVocabularyUi(
     'Vocabulary upload and template controls must remain available'
 );
 
+$document = new DOMDocument();
+$previousLibxmlState = libxml_use_internal_errors(true);
+$document->loadHTML($view, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+libxml_clear_errors();
+libxml_use_internal_errors($previousLibxmlState);
+
+$xpath = new DOMXPath($document);
+$fileInput = $xpath->query('//*[@id="stt-vocabulary-terms-file"]')->item(0);
+$uploadLabel = $xpath->query('//label[@for="stt-vocabulary-terms-file"]')->item(0);
+
+expectVocabularyUi($fileInput instanceof DOMElement, 'Vocabulary file input must be rendered');
+expectVocabularyUi(
+    $fileInput->hasAttribute('hidden'),
+    'Vocabulary file input must stay out of layout and hit testing'
+);
+expectVocabularyUi($uploadLabel instanceof DOMElement, 'Vocabulary upload label must activate the hidden file input');
+
 echo "Vocabulary UI contract OK\n";
