@@ -257,6 +257,21 @@ namespace {
         }
     }
 
+    $jobSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::getDetailSchema();
+    $jobProperties = $jobSchema['properties'] ?? [];
+    foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'model_display_name', 'model_source_url'] as $field) {
+        expectOpenApi(($jobProperties[$field]['type'] ?? null) === 'string', "Worker v2 job schema must document generic {$field}");
+    }
+    expectOpenApi(
+        ($jobProperties['whisperkit_model']['type'] ?? null) === ['string', 'null'],
+        'Worker v2 job schema must retain nullable whisperkit_model'
+    );
+    expectOpenApi(
+        ($jobProperties['vocabulary_terms']['type'] ?? null) === 'array'
+            && ($jobProperties['vocabulary_terms']['items']['type'] ?? null) === 'string',
+        'Worker v2 job schema must retain vocabulary_terms as an array of strings'
+    );
+
     $english = include __DIR__ . '/../Messages/en.php';
     $russian = include __DIR__ . '/../Messages/ru.php';
     expectOpenApi(

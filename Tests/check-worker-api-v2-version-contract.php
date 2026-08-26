@@ -473,6 +473,27 @@ namespace {
     expectWorkerApiV2Version(class_exists($contractClass), 'WorkerApiContract class must load from its service file');
     assertContractConstantsWorkerApiV2Version((new ReflectionClass($contractClass))->getConstants());
 
+    $resultModel = (string)file_get_contents($root . '/Models/STTResult.php');
+    preg_match_all('/public \?[^\s]+ \$(?<field>[a-z_]+)\s*=/', $resultModel, $resultFields);
+    expectWorkerApiV2Version(
+        ($resultFields['field'] ?? []) === ['job_id', 'transcript', 'language', 'duration', 'model_used', 'technical_info', 'created_at'],
+        'STTResult storage fields changed'
+    );
+    $timeNormalizer = (string)file_get_contents($root . '/Lib/TranscriptTimeNormalizer.php');
+    expectWorkerApiV2Version(
+        str_contains($timeNormalizer, "'start_ms'")
+            && str_contains($timeNormalizer, "'end_ms'")
+            && str_contains($timeNormalizer, "start/end are not supported; use integer start_ms/end_ms"),
+        'Transcript segment timestamp contract changed'
+    );
+    $setup = (string)file_get_contents($root . '/Setup/PbxExtensionSetup.php');
+    preg_match_all('/new ModuleSchemaMigration\(\s*(?<version>\d+),.*?[\'\"](?<key>stt-schema-[^\'\"]+)[\'\"]/s', $setup, $migrations);
+    expectWorkerApiV2Version(
+        array_map('intval', $migrations['version'] ?? []) === range(1, 14)
+            && ($migrations['key'][13] ?? null) === 'stt-schema-014-job-submission-receipts',
+        'Database schema migration registry changed'
+    );
+
     $runtimeFileUrlSource = $root . '/Lib/LocalSpeechToTextMain.php';
     expectWorkerApiV2Version(is_file($runtimeFileUrlSource), 'LocalSpeechToTextMain runtime claim builder must exist');
     assertRuntimeWorkerApiV2FileUrl((string)file_get_contents($runtimeFileUrlSource));
@@ -512,6 +533,11 @@ namespace {
         'JobResults' => ['PUT /job-results/{job_id} update'],
         'JobFailures' => ['PUT /job-failures/{job_id} update'],
     ];
+    expectWorkerApiV2Version(
+        $workerOperationsByProcessor['JobResults'] === ['PUT /job-results/{job_id} update']
+            && $workerOperationsByProcessor['JobFailures'] === ['PUT /job-failures/{job_id} update'],
+        'Worker result/failure submission endpoints changed'
+    );
     foreach ($workerOperationsByProcessor as $resource => $operations) {
         $file = $root . '/Lib/RestAPI/' . $resource . '/Processor.php';
         expectWorkerApiV2Version(is_file($file), "Worker-only v2 resource {$resource} must have a processor");

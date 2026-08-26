@@ -33,6 +33,18 @@ expectNextJobSettings(
     'getNextJob() must never clear the processing-settings flag'
 );
 
+$snapshotStart = strpos($main, 'private static function prepareJobSnapshot');
+$snapshotEnd = $snapshotStart === false ? false : strpos($main, 'private static function formatJob', $snapshotStart);
+$snapshot = $snapshotStart === false || $snapshotEnd === false ? '' : substr($main, $snapshotStart, $snapshotEnd - $snapshotStart);
+expectNextJobSettings($snapshot !== '', 'Cannot inspect prepareJobSnapshot()');
+foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'whisperkit_model', 'model_display_name', 'model_source_url', 'vocabulary_terms'] as $field) {
+    expectNextJobSettings(str_contains($snapshot, "'{$field}'"), "Worker job snapshot lost {$field}");
+}
+expectNextJobSettings(
+    str_contains($snapshot, "=== 'whisperKit'") && str_contains($snapshot, ': null'),
+    'Worker job snapshot must expose whisperkit_model only for the WhisperKit engine'
+);
+
 $forbidden = $main . $restApi;
 expectNextJobSettings(!str_contains($forbidden, 'settings_revision'), 'settings_revision is forbidden');
 expectNextJobSettings(!str_contains($forbidden, 'applied_settings_revision'), 'applied_settings_revision is forbidden');

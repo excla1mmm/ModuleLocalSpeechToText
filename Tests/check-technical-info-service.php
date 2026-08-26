@@ -151,4 +151,47 @@ expectTrueTechnicalInfoService(
     'Channel row must include normalized speech seconds'
 );
 
+$parakeetCard = $service->technicalInfoCard(json_encode([
+    'model' => [
+        'requested' => 'parakeet-tdt-0.6b-v3',
+        'resolved' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+    ],
+], JSON_THROW_ON_ERROR));
+$parakeetRows = array_merge(...array_column($parakeetCard['groups'], 'rows'));
+expectTrueTechnicalInfoService(
+    in_array('FluidInference/parakeet-tdt-0.6b-v3-coreml', array_column($parakeetRows, 'value'), true),
+    'Parakeet technical info must display the generic resolved model'
+);
+expectTrueTechnicalInfoService(
+    !in_array('module_local_speech_to_text_TechnicalWhisperKitModel', array_column($parakeetRows, 'label'), true),
+    'Parakeet technical info must not display the WhisperKit-specific row'
+);
+expectSameTechnicalInfoService(
+    'parakeet-tdt-0.6b-v3',
+    technicalInfoMetric(json_decode($parakeetCard['rawJson'], true, 512, JSON_THROW_ON_ERROR), 'model.requested'),
+    'Parakeet raw technical JSON must remain readable'
+);
+
+$legacyWhisperCard = $service->technicalInfoCard(json_encode([
+    'model' => ['whisperkit_model' => 'large-v3-v20240930_turbo'],
+], JSON_THROW_ON_ERROR));
+$legacyWhisperRows = array_merge(...array_column($legacyWhisperCard['groups'], 'rows'));
+expectSameTechnicalInfoService(
+    1,
+    count(array_filter(
+        $legacyWhisperRows,
+        static fn (array $row): bool => ($row['label'] ?? '') === 'module_local_speech_to_text_TechnicalModelResolved'
+            && ($row['value'] ?? '') === 'large-v3-v20240930_turbo'
+    )),
+    'Legacy WhisperKit technical info must also populate the generic resolved-model row'
+);
+expectSameTechnicalInfoService(
+    1,
+    count(array_filter(
+        $legacyWhisperRows,
+        static fn (array $row): bool => ($row['label'] ?? '') === 'module_local_speech_to_text_TechnicalWhisperKitModel'
+    )),
+    'WhisperKit technical info must retain its engine-specific row when present'
+);
+
 echo "Technical info service contract OK\n";

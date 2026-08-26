@@ -5,6 +5,7 @@ declare(strict_types=1);
 $tests = [
     __DIR__ . '/check-module-structure-contract.php',
     __DIR__ . '/check-parakeet-model-contract.php',
+    __DIR__ . '/check-parakeet-worker-payload.php',
     __DIR__ . '/check-worker-api-v2-route-contract.php',
     __DIR__ . '/check-worker-api-v2-negotiation.php',
     __DIR__ . '/check-worker-api-v2-version-contract.php',

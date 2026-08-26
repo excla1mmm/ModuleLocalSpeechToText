@@ -97,6 +97,9 @@ class TranscriptTechnicalInfoService
 
     private function normalizeTechnicalInfo(array $data): array
     {
+        if ($this->metricValue($data, 'model.resolved') === null) {
+            $this->setMetricValue($data, 'model.resolved', $this->metricValue($data, 'model.whisperkit_model'));
+        }
         if ($this->metricValue($data, 'input.duration_seconds') === null) {
             $durationMs = $this->metricValue($data, 'input.duration_ms') ?? $this->metricValue($data, 'audio.duration_ms');
             $this->setMetricValue(
