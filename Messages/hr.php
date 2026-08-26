@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Snimka STT zadatka u vlasništvu radnika',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Konačni rezultati STT zadataka',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Izvještaji o pogreškama STT zadataka',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'višejezični Core ML model za precizno prepoznavanje dugog govora',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Višejezični',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Dugi pozivi i ruski govor',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Zahtijeva veće preuzimanje i više memorije od kompaktnih WhisperKit modela.',
 ];

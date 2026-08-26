@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Ажиллагчид өгсөн STT ажлын бичлэг',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT ажлуудын эцсийн үр дүн',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT ажлуудын алдааны тайлан',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'урт яриаг нарийвчлалтай таних олон хэлний Core ML загвар',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Олон хэлний',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Урт дуудлага болон орос хэлний яриа',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Авсаархан WhisperKit загваруудаас илүү их таталт болон санах ой шаарддаг.',
 ];

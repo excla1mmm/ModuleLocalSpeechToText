@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Käsittelijälle varatun STT-tehtävän äänite',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT-tehtävien lopulliset tulokset',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT-tehtävien virheraportit',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'monikielinen Core ML -malli pitkän puheen tarkkaan tunnistukseen',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Monikielinen',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Pitkät puhelut ja venäjänkielinen puhe',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Vaatii suuremman latauksen ja enemmän muistia kuin kompaktit WhisperKit-mallit.',
 ];

@@ -51,7 +51,7 @@ class ModelMarketplaceService
     private function modelArtifactLabel(string $artifactType): string
     {
         return match ($artifactType) {
-            'whisperkit-coreml' => 'Core ML',
+            'whisperkit-coreml', 'parakeet-coreml' => 'Core ML',
             '' => '',
             default => $artifactType,
         };

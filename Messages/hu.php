@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'A feldolgozóhoz rendelt STT-feladat felvétele',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Az STT-feladatok végleges eredményei',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Az STT-feladatok hibajelentései',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'többnyelvű Core ML modell hosszú beszéd pontos felismeréséhez',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Többnyelvű',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Hosszú hívások és orosz beszéd',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Nagyobb letöltést és több memóriát igényel, mint a kompakt WhisperKit modellek.',
 ];

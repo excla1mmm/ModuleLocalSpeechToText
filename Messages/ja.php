@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'ワーカーに割り当てられた STT ジョブの録音',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT ジョブの最終結果',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT ジョブのエラーレポート',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => '長時間の音声を高精度に認識する多言語 Core ML モデル',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => '多言語',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => '長時間の通話とロシア語音声',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => '小型の WhisperKit モデルよりダウンロード容量とメモリ使用量が大きくなります。',
 ];

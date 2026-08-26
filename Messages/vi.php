@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Bản ghi của tác vụ STT được gán cho worker',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Kết quả cuối cùng của các tác vụ STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Báo cáo lỗi của các tác vụ STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'mô hình Core ML đa ngôn ngữ để nhận dạng chính xác bản ghi âm dài',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Đa ngôn ngữ',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Cuộc gọi dài và giọng nói tiếng Nga',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Cần tải xuống nhiều hơn và dùng nhiều bộ nhớ hơn các mô hình WhisperKit nhỏ gọn.',
 ];

@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Optagelse for et STT-job, der ejes af workeren',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Endelige resultater for STT-job',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Fejlrapporter for STT-job',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'flersproget Core ML-model til præcis genkendelse af lange taleforløb',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Flersproget',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Lange opkald og russisk tale',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Kræver en større download og mere hukommelse end kompakte WhisperKit-modeller.',
 ];

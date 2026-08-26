@@ -160,6 +160,20 @@ class STTSetting extends ModulesModelsBase
             'best_for' => 'module_local_speech_to_text_ModelLargeV3BestFor',
             'tradeoff' => 'module_local_speech_to_text_ModelLargeV3Tradeoff',
         ],
+        'parakeet-tdt-0.6b-v3' => [
+            'repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+            'model' => 'parakeet-tdt-0.6b-v3',
+            'engine' => 'parakeet',
+            'artifact_type' => 'parakeet-coreml',
+            'label' => 'module_local_speech_to_text_ModelParakeetV3',
+            'description' => 'module_local_speech_to_text_ModelParakeetV3Desc',
+            'source_url' => 'https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml',
+            'profile' => 'module_local_speech_to_text_ModelProfileParakeetV3',
+            'best_for' => 'module_local_speech_to_text_ModelParakeetV3BestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelParakeetV3Tradeoff',
+            'language' => '25 languages',
+            'license' => 'CC BY 4.0',
+        ],
     ];
 
     /**

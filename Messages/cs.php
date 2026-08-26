@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Nahrávka úlohy STT přidělená workeru',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Konečné výsledky úloh STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Hlášení chyb úloh STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'vícejazyčný model Core ML pro přesné rozpoznávání dlouhé řeči',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Vícejazyčný',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Dlouhé hovory a ruština',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Vyžaduje větší stažení a více paměti než kompaktní modely WhisperKit.',
 ];

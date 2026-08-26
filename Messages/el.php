@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Ηχογράφηση εργασίας STT ανατεθειμένη σε worker',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Τελικά αποτελέσματα εργασιών STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Αναφορές σφαλμάτων εργασιών STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'πολυγλωσσικό μοντέλο Core ML για ακριβή αναγνώριση ομιλίας μεγάλης διάρκειας',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Πολυγλωσσικό',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Κλήσεις μεγάλης διάρκειας και ρωσική ομιλία',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Απαιτεί μεγαλύτερη λήψη και περισσότερη μνήμη από τα συμπαγή μοντέλα WhisperKit.',
 ];

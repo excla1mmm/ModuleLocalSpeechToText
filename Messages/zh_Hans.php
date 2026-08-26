@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => '分配给工作节点的 STT 作业录音',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT 作业的最终结果',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT 作业的错误报告',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => '用于精准识别长音频的多语言 Core ML 模型',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => '多语言',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => '长时间通话和俄语语音',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => '比紧凑型 WhisperKit 模型需要更大的下载空间和更多内存。',
 ];

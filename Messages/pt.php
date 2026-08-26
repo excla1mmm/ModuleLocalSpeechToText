@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Gravação de uma tarefa STT atribuída ao worker',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Resultados finais das tarefas STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Comunicações de erro das tarefas STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'modelo Core ML multilingue para reconhecimento preciso de gravações longas',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Multilingue',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Chamadas longas e fala em russo',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Requer uma transferência maior e mais memória do que os modelos WhisperKit compactos.',
 ];

@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Inspelning för ett STT-jobb som ägs av workern',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Slutliga resultat för STT-jobb',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Felrapporter för STT-jobb',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'flerspråkig Core ML-modell för exakt igenkänning av långa talinspelningar',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Flerspråkig',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Långa samtal och ryskt tal',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Kräver en större hämtning och mer minne än kompakta WhisperKit-modeller.',
 ];

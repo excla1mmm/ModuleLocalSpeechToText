@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => '指派給工作節點的 STT 作業錄音',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT 作業的最終結果',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT 作業的錯誤報告',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => '用於精準辨識長音訊的多語言 Core ML 模型',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => '多語言',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => '長時間通話和俄語語音',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => '比精簡型 WhisperKit 模型需要更大的下載空間和更多記憶體。',
 ];

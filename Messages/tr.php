@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Worker’a atanmış bir STT işinin kaydı',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT işlerinin nihai sonuçları',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT işlerinin hata raporları',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'uzun konuşmaları doğru tanımak için çok dilli Core ML modeli',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Çok dilli',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Uzun aramalar ve Rusça konuşma',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Kompakt WhisperKit modellerine göre daha büyük indirme ve daha fazla bellek gerektirir.',
 ];

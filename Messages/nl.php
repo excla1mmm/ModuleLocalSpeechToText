@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Opname van een STT-taak in bezit van de worker',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Definitieve resultaten van STT-taken',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Foutrapporten van STT-taken',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'meertalig Core ML-model voor nauwkeurige herkenning van lange spraakopnamen',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Meertalig',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Lange gesprekken en Russische spraak',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Vereist een grotere download en meer geheugen dan compacte WhisperKit-modellen.',
 ];

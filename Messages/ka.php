@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'მუშაკზე გადაცემული STT ამოცანის ჩანაწერი',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT ამოცანების საბოლოო შედეგები',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT ამოცანების შეცდომების ანგარიშები',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'მრავალენოვანი Core ML მოდელი ხანგრძლივი მეტყველების ზუსტი ამოცნობისთვის',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'მრავალენოვანი',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'ხანგრძლივი ზარები და რუსული მეტყველება',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'კომპაქტურ WhisperKit მოდელებთან შედარებით საჭიროებს უფრო დიდ ჩამოტვირთვას და მეტ მეხსიერებას.',
 ];

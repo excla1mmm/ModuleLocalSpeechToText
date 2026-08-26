@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Emalçıya təhkim edilmiş STT tapşırığının yazısı',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT tapşırıqlarının yekun nəticələri',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT tapşırıqlarının xəta hesabatları',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'uzun nitqin dəqiq tanınması üçün çoxdilli Core ML modeli',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Çoxdilli',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Uzun zənglər və rus nitqi',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Yığcam WhisperKit modellərindən daha böyük yükləmə və daha çox yaddaş tələb edir.',
 ];

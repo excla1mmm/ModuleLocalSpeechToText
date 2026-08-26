@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Запись задания STT, закреплённая за обработчиком',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Итоговые результаты заданий STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Сообщения об ошибках заданий STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'многоязычная Core ML модель для точного распознавания длинной речи',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Многоязычная',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Длинные звонки и русская речь',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Требует больше места для загрузки и памяти, чем компактные модели WhisperKit.',
 ];

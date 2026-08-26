@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'ไฟล์บันทึกเสียงของงาน STT ที่มอบให้ตัวประมวลผล',
     'module_local_speech_to_text_JobResultsApiDescription' => 'ผลลัพธ์สุดท้ายของงาน STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'รายงานข้อผิดพลาดของงาน STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'โมเดล Core ML หลายภาษาสำหรับการรู้จำเสียงพูดที่ยาวอย่างแม่นยำ',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'หลายภาษา',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'สายสนทนายาวและเสียงพูดภาษารัสเซีย',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'ต้องดาวน์โหลดไฟล์ใหญ่กว่าและใช้หน่วยความจำมากกว่าโมเดล WhisperKit ขนาดเล็ก',
 ];

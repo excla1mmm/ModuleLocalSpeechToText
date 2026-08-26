@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => 'Înregistrarea unei sarcini STT atribuită workerului',
     'module_local_speech_to_text_JobResultsApiDescription' => 'Rezultatele finale ale sarcinilor STT',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'Rapoartele de eroare ale sarcinilor STT',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => 'model Core ML multilingv pentru recunoașterea precisă a înregistrărilor lungi',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => 'Multilingv',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => 'Apeluri lungi și vorbire în limba rusă',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => 'Necesită o descărcare mai mare și mai multă memorie decât modelele WhisperKit compacte.',
 ];

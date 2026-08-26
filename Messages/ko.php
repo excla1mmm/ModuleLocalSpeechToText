@@ -525,4 +525,9 @@ return [
     'module_local_speech_to_text_JobRecordingsApiDescription' => '워커에 할당된 STT 작업 녹음',
     'module_local_speech_to_text_JobResultsApiDescription' => 'STT 작업의 최종 결과',
     'module_local_speech_to_text_JobFailuresApiDescription' => 'STT 작업 오류 보고서',
+    'module_local_speech_to_text_ModelParakeetV3' => 'Parakeet TDT 0.6B v3',
+    'module_local_speech_to_text_ModelParakeetV3Desc' => '긴 음성을 정확하게 인식하는 다국어 Core ML 모델',
+    'module_local_speech_to_text_ModelProfileParakeetV3' => '다국어',
+    'module_local_speech_to_text_ModelParakeetV3BestFor' => '긴 통화와 러시아어 음성',
+    'module_local_speech_to_text_ModelParakeetV3Tradeoff' => '소형 WhisperKit 모델보다 다운로드 용량과 메모리 사용량이 큽니다.',
 ];
