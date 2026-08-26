@@ -142,6 +142,7 @@ namespace {
     expectSameSettingsNormalization('en', STTSetting::normalizeLanguageId(' EN '), 'Known language ids must normalize to lowercase');
     expectSameSettingsNormalization(STTSetting::AUTO_LANGUAGE, STTSetting::normalizeLanguageId('xx'), 'Unknown languages must fall back to auto');
     expectSameSettingsNormalization('large-v3-turbo', STTSetting::DEFAULT_MODEL, 'Large V3 Turbo must remain the default model');
+    expectSameSettingsNormalization('parakeet-tdt-0.6b-v3', STTSetting::normalizeModelId('parakeet-tdt-0.6b-v3'), 'Parakeet preset id must normalize without fallback');
     expectSameSettingsNormalization('small', STTSetting::normalizeModelId('argmaxinc/whisperkit-coreml:openai_whisper-small_216MB'), 'Legacy small model id must normalize to the current preset id');
     expectSameSettingsNormalization('podlodka', STTSetting::normalizeModelId('smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo'), 'Legacy Podlodka model id must normalize to the Podlodka preset');
     expectSameSettingsNormalization('podlodka', STTSetting::normalizeModelId('custom:c60f298fe61e0020d1932b4341e62fc30c6a9eac'), 'Legacy custom Podlodka id must normalize to the Podlodka preset');

@@ -16,6 +16,7 @@ expectVocabularyUi(
     'Redundant custom terms label must not be rendered'
 );
 expectVocabularyUi(str_contains($view, "form.render('custom_vocabulary_terms')"), 'Vocabulary field must remain available');
+expectVocabularyUi(!str_contains($view, 'parakeet-vocabulary'), 'Parakeet must not add a model-specific vocabulary control');
 expectVocabularyUi(
     str_contains($view, "module_local_speech_to_text_CustomVocabularyTermsHint"),
     'Vocabulary guidance must remain available'
