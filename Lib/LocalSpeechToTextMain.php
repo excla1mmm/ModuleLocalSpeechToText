@@ -597,18 +597,20 @@ class LocalSpeechToTextMain
 
     private static function prepareJobSnapshot(): array
     {
-        $modelEngine = STTSetting::selectedModelEngine();
-        $modelRuntimeId = STTSetting::selectedModelRuntimeId();
+        $modelPreset = STTSetting::selectedModelPreset();
+        $modelEngine = (string)$modelPreset['engine'];
+        $modelRuntimeId = (string)$modelPreset['model'];
+        $modelRepo = (string)$modelPreset['repo'];
 
         return [
             'language_hint' => STTSetting::selectedLanguageHint(),
             'model_id' => $modelRuntimeId,
-            'model_repo' => STTSetting::selectedModelRepo(),
+            'model_repo' => $modelRepo,
             'model_engine' => $modelEngine,
-            'model_artifact_type' => STTSetting::selectedModelArtifactType(),
+            'model_artifact_type' => (string)$modelPreset['artifact_type'],
             'whisperkit_model' => $modelEngine === 'whisperKit' ? $modelRuntimeId : null,
-            'model_display_name' => STTSetting::selectedModelDisplayName(),
-            'model_source_url' => STTSetting::selectedModelSourceUrl(),
+            'model_display_name' => $modelRepo . '/' . $modelRuntimeId,
+            'model_source_url' => (string)($modelPreset['source_url'] ?? ''),
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
     }

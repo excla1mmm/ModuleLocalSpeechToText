@@ -6,44 +6,31 @@ namespace Modules\ModuleLocalSpeechToText\Models {
     final class STTSetting
     {
         public static string $engine = 'parakeet';
+        public static int $presetReads = 0;
 
         public static function selectedLanguageHint(): string
         {
             return 'ru';
         }
 
-        public static function selectedModelRuntimeId(): string
+        public static function selectedModelPreset(): array
         {
-            return self::$engine === 'parakeet' ? 'parakeet-tdt-0.6b-v3' : 'large-v3-v20240930_turbo';
-        }
-
-        public static function selectedModelRepo(): string
-        {
+            self::$presetReads++;
             return self::$engine === 'parakeet'
-                ? 'FluidInference/parakeet-tdt-0.6b-v3-coreml'
-                : 'argmaxinc/whisperkit-coreml';
-        }
-
-        public static function selectedModelEngine(): string
-        {
-            return self::$engine;
-        }
-
-        public static function selectedModelArtifactType(): string
-        {
-            return self::$engine === 'parakeet' ? 'parakeet-coreml' : 'whisperkit-coreml';
-        }
-
-        public static function selectedModelDisplayName(): string
-        {
-            return self::selectedModelRepo() . '/' . self::selectedModelRuntimeId();
-        }
-
-        public static function selectedModelSourceUrl(): string
-        {
-            return self::$engine === 'parakeet'
-                ? 'https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml'
-                : 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo';
+                ? [
+                    'model' => 'parakeet-tdt-0.6b-v3',
+                    'repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+                    'engine' => 'parakeet',
+                    'artifact_type' => 'parakeet-coreml',
+                    'source_url' => 'https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml',
+                ]
+                : [
+                    'model' => 'large-v3-v20240930_turbo',
+                    'repo' => 'argmaxinc/whisperkit-coreml',
+                    'engine' => 'whisperKit',
+                    'artifact_type' => 'whisperkit-coreml',
+                    'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo',
+                ];
         }
 
         public static function selectedVocabularyTerms(): array
@@ -82,7 +69,9 @@ namespace {
     $formatMethod = new ReflectionMethod(LocalSpeechToTextMain::class, 'formatJob');
 
     STTSetting::$engine = 'parakeet';
+    STTSetting::$presetReads = 0;
     $parakeet = $snapshotMethod->invoke(null);
+    expectParakeetWorkerPayload(1, STTSetting::$presetReads, 'A job snapshot must read one immutable model preset');
     expectParakeetWorkerPayload('parakeet-tdt-0.6b-v3', $parakeet['model_id'] ?? null, 'Parakeet model_id changed');
     expectParakeetWorkerPayload('FluidInference/parakeet-tdt-0.6b-v3-coreml', $parakeet['model_repo'] ?? null, 'Parakeet model_repo changed');
     expectParakeetWorkerPayload('parakeet', $parakeet['model_engine'] ?? null, 'Parakeet model_engine changed');
@@ -117,7 +106,9 @@ namespace {
     expectParakeetWorkerPayload(['МикоПБХ', 'Иван Петров'], $payload['vocabulary_terms'], 'Formatted Parakeet job lost vocabulary terms');
 
     STTSetting::$engine = 'whisperKit';
+    STTSetting::$presetReads = 0;
     $whisper = $snapshotMethod->invoke(null);
+    expectParakeetWorkerPayload(1, STTSetting::$presetReads, 'A WhisperKit snapshot must read one immutable model preset');
     expectParakeetWorkerPayload('large-v3-v20240930_turbo', $whisper['whisperkit_model'] ?? null, 'WhisperKit must retain its runtime model field');
     expectParakeetWorkerPayload('whisperKit', $whisper['model_engine'] ?? null, 'WhisperKit model_engine changed');
     expectParakeetWorkerPayload('whisperkit-coreml', $whisper['model_artifact_type'] ?? null, 'WhisperKit artifact type changed');
