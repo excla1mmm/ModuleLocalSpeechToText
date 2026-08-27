@@ -24,6 +24,14 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
   'whisperkit_model'=>['type'=>['string','null'],'example'=>null],
   'model_display_name'=>['type'=>'string','example'=>'FluidInference/parakeet-tdt-0.6b-v3-coreml/parakeet-tdt-0.6b-v3'],
   'model_source_url'=>['type'=>'string','example'=>'https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml'],
+  'model_revision'=>['type'=>['string','null'],'pattern'=>'^[a-f0-9]{40}$','example'=>null],
+  'model_sha256_manifest'=>['type'=>['array','null'],'minItems'=>1,'maxItems'=>128,'items'=>[
+   'type'=>'object','required'=>['path','size','sha256'],'properties'=>[
+    'path'=>['type'=>'string','minLength'=>1,'maxLength'=>1024],
+    'size'=>['type'=>'integer','minimum'=>1],
+    'sha256'=>['type'=>'string','pattern'=>'^[a-f0-9]{64}$'],
+   ],'additionalProperties'=>false,
+  ]],
   'vocabulary_terms'=>['type'=>'array','items'=>['type'=>'string'],'example'=>['МикоПБХ']],
  ]];}
  public static function getRelatedSchemas():array{return[];}

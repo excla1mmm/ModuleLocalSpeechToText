@@ -159,9 +159,9 @@ namespace {
     $podlodkaPreset = STTSetting::modelPresets()['podlodka'] ?? [];
     expectSameSettingsNormalization('module_local_speech_to_text_ModelPodlodkaDesc', $podlodkaPreset['description'] ?? null, 'Podlodka preset description must use a translation key');
     expectSameSettingsNormalization(
-        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
+        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml/tree/' . STTSetting::PODLODKA_WHISPERKIT_REVISION,
         $podlodkaPreset['source_url'] ?? null,
-        'Podlodka preset source URL must point at the WhisperKit/Core ML Hugging Face repository'
+        'Podlodka preset source URL must point at the pinned WhisperKit/Core ML repository commit'
     );
     expectTrueSettingsNormalization(
         !str_contains(json_encode(STTSetting::MODEL_PRESETS, JSON_UNESCAPED_SLASHES) ?: '', 'https://huggingface.co/bond005/whisper-podlodka-turbo'),
@@ -181,9 +181,9 @@ namespace {
     ));
     expectSameSettingsNormalization(1, count($podlodkaRows), 'Podlodka must be exposed as exactly one marketplace row');
     expectSameSettingsNormalization(
-        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml',
+        'https://huggingface.co/smkrv/whisper-podlodka-turbo-coreml/tree/' . STTSetting::PODLODKA_WHISPERKIT_REVISION,
         $podlodkaRows[0]['sourceUrl'] ?? null,
-        'Podlodka marketplace row must expose the WhisperKit/Core ML Hugging Face repository link'
+        'Podlodka marketplace row must expose the pinned WhisperKit/Core ML repository link'
     );
 
     ModulesModelsBase::$values = [];

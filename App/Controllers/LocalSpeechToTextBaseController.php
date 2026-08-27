@@ -81,10 +81,18 @@ class LocalSpeechToTextBaseController extends BaseController
         }
 
         $customTerms = $this->vocabularyTermsTextFromRequest();
+        $nextLanguage = STTSetting::normalizeLanguageId(
+            $this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16)
+        );
+        $nextModel = $this->request->hasPost(STTSetting::SELECTED_MODEL)
+            ? STTSetting::normalizeModelId(
+                $this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255)
+            )
+            : STTSetting::selectedModelId();
+        $this->assertModelLanguageCompatibility($nextModel, $nextLanguage);
+
         $nextValues = [
-            STTSetting::DEFAULT_LANGUAGE => STTSetting::normalizeLanguageId(
-                $this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16)
-            ),
+            STTSetting::DEFAULT_LANGUAGE => $nextLanguage,
             STTSetting::POLL_INTERVAL_SEC => (string)$this->postInt(
                 STTSetting::POLL_INTERVAL_SEC,
                 30,
@@ -108,11 +116,7 @@ class LocalSpeechToTextBaseController extends BaseController
                 60,
                 86400
             ),
-            STTSetting::SELECTED_MODEL => $this->request->hasPost(STTSetting::SELECTED_MODEL)
-                ? STTSetting::normalizeModelId(
-                    $this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255)
-                )
-                : STTSetting::selectedModelId(),
+            STTSetting::SELECTED_MODEL => $nextModel,
             STTSetting::CUSTOM_VOCABULARY_TERMS => function_exists('mb_substr')
                 ? mb_substr($customTerms, 0, 8000)
                 : substr($customTerms, 0, 8000),
@@ -168,6 +172,17 @@ class LocalSpeechToTextBaseController extends BaseController
                 ['changed_fields' => implode(',', $changedFields)]
             );
         }
+    }
+
+    protected function assertModelLanguageCompatibility(string $modelId, string $languageId): void
+    {
+        if (STTSetting::modelSupportsLanguage($modelId, $languageId)) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            $this->translation->_('module_local_speech_to_text_ModelLanguageIncompatible')
+        );
     }
 
     protected function countJobsByStatus(string $status): int

@@ -263,6 +263,14 @@ namespace {
         expectOpenApi(($jobProperties[$field]['type'] ?? null) === 'string', "Worker v2 job schema must document generic {$field}");
     }
     expectOpenApi(
+        ($jobProperties['model_revision']['type'] ?? null) === ['string', 'null'],
+        'Worker v2 job schema must document nullable model_revision'
+    );
+    expectOpenApi(
+        ($jobProperties['model_sha256_manifest']['type'] ?? null) === ['array', 'null'],
+        'Worker v2 job schema must document nullable model_sha256_manifest'
+    );
+    expectOpenApi(
         ($jobProperties['whisperkit_model']['type'] ?? null) === ['string', 'null'],
         'Worker v2 job schema must retain nullable whisperkit_model'
     );

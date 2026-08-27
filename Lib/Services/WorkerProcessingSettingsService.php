@@ -123,7 +123,7 @@ final class WorkerProcessingSettingsService
      * @return array{
      *     schema_version: int,
      *     processing_settings: array<string, float|int|bool>,
-     *     selected_model: array<string, string>
+     *     selected_model: array<string, mixed>
      * }
      */
     public static function apiPayload(array $profile): array
@@ -173,7 +173,7 @@ final class WorkerProcessingSettingsService
      * @return array{
      *     schema_version: int,
      *     processing_settings: array<string, float|int|bool>,
-     *     selected_model: array<string, string>
+     *     selected_model: array<string, mixed>
      * }
      */
     public function fetchForWorker(STTWorker $worker): array
@@ -189,7 +189,7 @@ final class WorkerProcessingSettingsService
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private static function selectedModelPayload(): array
     {
@@ -197,13 +197,20 @@ final class WorkerProcessingSettingsService
         $modelId = (string)$preset['model'];
         $repository = (string)$preset['repo'];
 
-        return [
+        $payload = [
             'model_id' => $modelId,
             'model_repo' => $repository,
             'model_engine' => (string)$preset['engine'],
             'model_artifact_type' => (string)$preset['artifact_type'],
             'model_display_name' => (string)($preset['display_name'] ?? $repository . '/' . $modelId),
         ];
+
+        if ((string)$preset['engine'] === 'whisperKit') {
+            $payload['model_revision'] = (string)($preset['revision'] ?? '');
+            $payload['model_sha256_manifest'] = $preset['sha256_manifest'] ?? [];
+        }
+
+        return $payload;
     }
 
     private static function normalizeBoolean(string $field, mixed $value): bool

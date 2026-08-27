@@ -123,6 +123,7 @@ return [
     'module_local_speech_to_text_ProcessingTimeout' => 'Job timeout, sec.',
     'module_local_speech_to_text_SelectedModel' => 'Recognition model',
     'module_local_speech_to_text_ModelsMarketplaceHint' => 'Choose the speech recognition model the PBX will send to the local worker for new call transcription jobs.',
+    'module_local_speech_to_text_ModelLanguageIncompatible' => 'Valittu kieli ei ole tämän mallin tukema. Valitse asetuksista Automaattinen tai yhteensopiva kieli.',
     'module_local_speech_to_text_ModelTags' => 'Model profile',
     'module_local_speech_to_text_ModelFit' => 'Best fit',
     'module_local_speech_to_text_ModelTechnicalName' => 'Technical name',

@@ -195,6 +195,17 @@ namespace {
             ],
             'Fetch must return the PBX-selected model descriptor'
         );
+        ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'large-v3-turbo';
+        $whisperPayload = WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? [];
+        expectProcessingSettingsSqlite(
+            ($whisperPayload['model_revision'] ?? null) === STTSetting::ARGMAX_WHISPERKIT_REVISION,
+            'Whisper processing settings must carry the pinned repository commit'
+        );
+        expectProcessingSettingsSqlite(
+            ($whisperPayload['model_sha256_manifest'] ?? null) === STTSetting::WHISPER_SHA256_MANIFESTS['large-v3-turbo'],
+            'Whisper processing settings must carry the reviewed SHA-256 manifest'
+        );
+        ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'parakeet-tdt-0.6b-v3';
         expectProcessingSettingsSqlite(
             dirtyFlags($connectionA) === ['worker-a' => 0, 'worker-b' => 1],
             'Fetch must clear only the requesting worker'

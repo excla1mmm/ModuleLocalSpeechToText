@@ -54,6 +54,10 @@ namespace {
         'tradeoff' => 'module_local_speech_to_text_ModelParakeetV3Tradeoff',
         'language' => '25 languages',
         'license' => 'CC BY 4.0',
+        'supported_languages' => [
+            'bg', 'hr', 'cs', 'da', 'nl', 'en', 'et', 'fi', 'fr', 'de', 'el', 'hu', 'it',
+            'lv', 'lt', 'mt', 'pl', 'pt', 'ro', 'sk', 'sl', 'es', 'sv', 'ru', 'uk',
+        ],
     ];
     expectParakeet(STTSetting::DEFAULT_MODEL === 'parakeet-tdt-0.6b-v3', 'Parakeet must be the default model');
     expectParakeet(

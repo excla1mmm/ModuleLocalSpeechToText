@@ -611,6 +611,8 @@ class LocalSpeechToTextMain
             'whisperkit_model' => $modelEngine === 'whisperKit' ? $modelRuntimeId : null,
             'model_display_name' => $modelRepo . '/' . $modelRuntimeId,
             'model_source_url' => (string)($modelPreset['source_url'] ?? ''),
+            'model_revision' => $modelEngine === 'whisperKit' ? (string)($modelPreset['revision'] ?? '') : null,
+            'model_sha256_manifest' => $modelEngine === 'whisperKit' ? ($modelPreset['sha256_manifest'] ?? []) : null,
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
     }
@@ -632,6 +634,8 @@ class LocalSpeechToTextMain
             'whisperkit_model' => $snapshot['whisperkit_model'],
             'model_display_name' => $snapshot['model_display_name'],
             'model_source_url' => $snapshot['model_source_url'],
+            'model_revision' => $snapshot['model_revision'],
+            'model_sha256_manifest' => $snapshot['model_sha256_manifest'],
             'vocabulary_terms' => $snapshot['vocabulary_terms'],
         ];
     }

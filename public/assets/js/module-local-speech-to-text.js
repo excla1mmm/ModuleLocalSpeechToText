@@ -1043,14 +1043,48 @@
     function initializeModelMarketplace($modelForm) {
         var $saveButton = $('#module-local-speech-to-text-model-save');
         var $modelInputs = $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]');
+        var $compatibilityMessage = $('#stt-model-language-compatibility');
         var initialSelectedModel = String($modelForm.data('initial-selected-model') || $modelInputs.filter(':checked').val() || '');
+        var selectedLanguage = String($modelForm.data('selected-language') || '').trim().toLowerCase();
 
         function selectedModel() {
             return String($modelInputs.filter(':checked').val() || '');
         }
 
+        function selectedModelSupportsLanguage() {
+            var $selectedInput = $modelInputs.filter(':checked');
+            var supportedLanguages;
+
+            if (selectedLanguage === '' || selectedLanguage === 'auto') {
+                return true;
+            }
+            if ($selectedInput.length === 0) {
+                return false;
+            }
+
+            supportedLanguages = String($selectedInput.attr('data-supported-languages') || '')
+                .split(',')
+                .map(function (language) { return language.trim().toLowerCase(); })
+                .filter(function (language) { return language !== ''; });
+
+            return supportedLanguages.indexOf(selectedLanguage) !== -1;
+        }
+
+        function updateCompatibilityState() {
+            var compatible = selectedModelSupportsLanguage();
+
+            $compatibilityMessage
+                .toggleClass('hidden', compatible)
+                .attr('aria-hidden', compatible ? 'true' : 'false');
+
+            return compatible;
+        }
+
         function updateSaveButtonState() {
-            var hasChanges = selectedModel() !== '' && selectedModel() !== initialSelectedModel;
+            var compatible = updateCompatibilityState();
+            var hasChanges = selectedModel() !== ''
+                && selectedModel() !== initialSelectedModel
+                && compatible;
 
             $saveButton.toggleClass('disabled', !hasChanges);
             $saveButton.prop('disabled', !hasChanges);
@@ -1076,7 +1110,9 @@
         });
 
         $modelForm.on('submit', function () {
-            if (selectedModel() === '' || selectedModel() === initialSelectedModel) {
+            if (!selectedModelSupportsLanguage()
+                || selectedModel() === ''
+                || selectedModel() === initialSelectedModel) {
                 return false;
             }
             if ($saveButton.length > 0) {

@@ -61,7 +61,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 'string',
                 STTSetting::selectedModelId()
             ));
-            STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
+            $normalizedModelId = STTSetting::normalizeModelId(substr($modelId, 0, 255));
+            $this->assertModelLanguageCompatibility($normalizedModelId, STTSetting::selectedLanguageId());
+            STTSetting::setValue(STTSetting::SELECTED_MODEL, $normalizedModelId);
             WorkerProcessingSettingsService::markAllWorkersChanged();
             LocalSpeechToTextLogger::event(
                 'settings',
@@ -342,6 +344,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
         $this->view->modelPresets = STTSetting::modelPresets();
         $this->view->selectedModel = STTSetting::selectedModelId();
+        $this->view->selectedLanguage = STTSetting::selectedLanguageId();
         $this->view->modelMarketplaceRows = $this->modelMarketplaceService()->modelMarketplaceRows();
         $this->view->selectedVocabularyTermsCount = count(STTSetting::selectedVocabularyTerms());
         $this->view->pendingCount = $pendingCount;

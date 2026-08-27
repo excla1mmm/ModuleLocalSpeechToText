@@ -136,9 +136,12 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'models' %} active{% endif %}" data-tab="models">
-        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}" data-initial-selected-model="{{ selectedModel|e }}"></form>
+        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}" data-initial-selected-model="{{ selectedModel|e }}" data-selected-language="{{ selectedLanguage|e }}"></form>
         <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_ModelsMarketplaceTab') }}</h4>
         <div class="ui info message">{{ t._('module_local_speech_to_text_ModelsMarketplaceHint') }}</div>
+        <div class="ui warning message hidden" id="stt-model-language-compatibility" aria-hidden="true">
+            {{ t._('module_local_speech_to_text_ModelLanguageIncompatible') }}
+        </div>
         <table class="ui selectable compact celled striped table stt-model-marketplace-table">
             <thead>
             <tr>
@@ -153,7 +156,7 @@
                 <tr{% if row['selected'] %} class="positive"{% endif %}>
                     <td class="center aligned collapsing">
                         <div class="ui radio checkbox">
-                            <input type="radio" form="module-local-speech-to-text-model-form" name="selected_model" value="{{ row['id']|e }}" {% if row['selected'] %}checked="checked"{% endif %}>
+                            <input type="radio" form="module-local-speech-to-text-model-form" name="selected_model" value="{{ row['id']|e }}" data-supported-languages="{{ row['supportedLanguagesAttribute']|e }}" {% if row['selected'] %}checked="checked"{% endif %}>
                             <label></label>
                         </div>
                     </td>

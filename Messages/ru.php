@@ -123,6 +123,7 @@ return [
     'module_local_speech_to_text_ProcessingTimeout' => 'Время ожидания задания, сек.',
     'module_local_speech_to_text_SelectedModel' => 'Модель распознавания',
     'module_local_speech_to_text_ModelsMarketplaceHint' => 'Выберите модель распознавания, которую MikoPBX будет передавать локальному обработчику в новые задания расшифровки звонков.',
+    'module_local_speech_to_text_ModelLanguageIncompatible' => 'Выбранный язык не поддерживается этой моделью. Выберите «Авто» или совместимый язык в настройках.',
     'module_local_speech_to_text_ModelTags' => 'Профиль модели',
     'module_local_speech_to_text_ModelFit' => 'Когда выбирать',
     'module_local_speech_to_text_ModelTechnicalName' => 'Техническое имя',

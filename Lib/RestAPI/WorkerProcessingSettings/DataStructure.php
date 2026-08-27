@@ -94,6 +94,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'type' => 'string',
                 'example' => 'Parakeet TDT 0.6B v3',
             ],
+            'model_revision' => [
+                'type' => 'string',
+                'pattern' => '^[a-f0-9]{40}$',
+                'description' => 'Immutable Hugging Face repository commit for WhisperKit artifacts',
+                'example' => '0f63a7800b00dd0226abd051b906c246e1907482',
+            ],
+            'model_sha256_manifest' => self::modelManifestSchema(),
         ];
 
         return [
@@ -116,7 +123,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 ],
                 'selected_model' => [
                     'type' => 'object',
-                    'required' => array_keys($selectedModelProperties),
+                    'required' => ['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'model_display_name'],
                     'properties' => $selectedModelProperties,
                     'additionalProperties' => false,
                 ],
@@ -173,6 +180,25 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'maximum' => $maximum,
             'description' => $description,
             'example' => $example,
+        ];
+    }
+
+    private static function modelManifestSchema(): array
+    {
+        return [
+            'type' => 'array',
+            'minItems' => 1,
+            'maxItems' => 128,
+            'items' => [
+                'type' => 'object',
+                'required' => ['path', 'size', 'sha256'],
+                'properties' => [
+                    'path' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 1024],
+                    'size' => ['type' => 'integer', 'minimum' => 1],
+                    'sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'],
+                ],
+                'additionalProperties' => false,
+            ],
         ];
     }
 }

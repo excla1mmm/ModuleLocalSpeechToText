@@ -21,6 +21,9 @@ class ModelMarketplaceService
         $selectedModel = STTSetting::selectedModelId();
 
         foreach (STTSetting::modelPresets() as $modelId => $model) {
+            $supportedLanguageIds = is_array($model['supported_languages'] ?? null)
+                ? array_values($model['supported_languages'])
+                : array_keys(STTSetting::LANGUAGE_PRESETS);
             $rows[] = [
                 'id' => $modelId,
                 'title' => $this->modelText((string)$model['label']),
@@ -33,6 +36,8 @@ class ModelMarketplaceService
                 'tradeoff' => $this->modelText((string)($model['tradeoff'] ?? '')),
                 'sourceUrl' => (string)($model['source_url'] ?? ''),
                 'selected' => $modelId === $selectedModel,
+                'supportedLanguageIds' => $supportedLanguageIds,
+                'supportedLanguagesAttribute' => implode(',', $supportedLanguageIds),
                 'technical' => implode(' · ', array_values(array_filter([
                     (string)($model['engine'] ?? 'WhisperKit'),
                     $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
