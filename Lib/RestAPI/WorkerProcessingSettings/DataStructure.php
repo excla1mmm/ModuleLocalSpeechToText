@@ -97,7 +97,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'model_revision' => [
                 'type' => 'string',
                 'pattern' => '^[a-f0-9]{40}$',
-                'description' => 'Immutable Hugging Face repository commit for WhisperKit artifacts',
+                'description' => 'module_local_speech_to_text_ApiFieldModelRevision',
                 'example' => '0f63a7800b00dd0226abd051b906c246e1907482',
             ],
             'model_sha256_manifest' => self::modelManifestSchema(),

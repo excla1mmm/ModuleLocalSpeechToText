@@ -93,10 +93,6 @@ foreach ($expectedEnglish as $key => $value) {
 
 $sourceKeys = array_keys($russian);
 $openApiKeys = array_fill_keys(array_keys($expectedEnglish), true);
-$intentionalOpenApiLabels = [
-    // Binary response descriptions are deliberately supplied by the REST response renderer.
-    'module_local_speech_to_text_ApiResponseRecordingDownloaded' => true,
-];
 // A non-English catalog may reuse the English text only when the value is purely technical.
 $technicalOnlyValues = [
     'API' => true, 'CDR' => true, 'HTTP' => true, 'JSON' => true, 'PBX' => true,
@@ -134,9 +130,7 @@ foreach (glob($root . '/Lib/RestAPI/*/{Controller,*DataStructure}.php', GLOB_BRA
 
     preg_match_all('/(?:module_local_speech_to_text_[A-Z][A-Za-z0-9_]+|rest_tag_[A-Za-z0-9_]+)/', $source, $matches);
     foreach ($matches[0] ?? [] as $key) {
-        if (!isset($intentionalOpenApiLabels[$key])) {
-            $openApiKeys[$key] = true;
-        }
+        $openApiKeys[$key] = true;
     }
     preg_match_all("/tags:\s*\[\s*'([^']+)'\s*\]/", $source, $tagMatches);
     foreach ($tagMatches[1] ?? [] as $tag) {

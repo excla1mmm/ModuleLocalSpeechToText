@@ -24,7 +24,7 @@ final class DataStructure extends AbstractDataStructure implements OpenApiSchema
     {
         return [
             'type' => 'object',
-            'description' => 'Worker API compatibility contract',
+            'description' => 'module_local_speech_to_text_WorkerApiContractApiDescription',
             'required' => ['contract', 'api_version', 'module', 'module_version', 'capabilities'],
             'properties' => [
                 'contract' => [

@@ -29,7 +29,7 @@ variables:
 
 test:
   stage: test
-  image: php:8.3-cli-bookworm
+  image: php:8.4-cli-bookworm
   tags: [x64_86, Linux]
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
