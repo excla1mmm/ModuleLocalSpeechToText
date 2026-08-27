@@ -31,7 +31,6 @@ use Throwable;
 class WorkerLocalSpeechToTextJobs extends WorkerBase
 {
     private const int SCAN_INTERVAL_SECONDS = 15;
-    private const int DEFAULT_SCAN_LIMIT = 200;
     private const int LONG_CALL_SECONDS = 1800;
     private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
     private const int MAX_DELAYED_RECORDINGS = 500;
@@ -1166,9 +1165,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function scanLimit(): int
     {
-        $limit = (int)STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, (string)self::DEFAULT_SCAN_LIMIT);
-
-        return max(1, min(1000, $limit));
+        return STTSetting::cdrScanLimit();
     }
 
     /**

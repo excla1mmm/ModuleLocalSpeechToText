@@ -44,7 +44,7 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             'max' => 1440,
         ]));
         $this->add(new Numeric('cdr_scan_limit', [
-            'value' => $entity->cdr_scan_limit ?? '200',
+            'value' => $entity->cdr_scan_limit ?? (string)STTSetting::DEFAULT_CDR_SCAN_LIMIT,
             'min' => 1,
             'max' => 1000,
         ]));

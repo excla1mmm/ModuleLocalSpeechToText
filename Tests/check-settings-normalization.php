@@ -76,6 +76,15 @@ namespace {
 
     ModulesModelsBase::$values = [];
 
+    expectSameSettingsNormalization(50, STTSetting::cdrScanLimit(), 'Fresh installations must scan 50 CDR records per pass');
+    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '75'];
+    expectSameSettingsNormalization(75, STTSetting::cdrScanLimit(), 'Saved CDR scan limits must remain unchanged');
+    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '0'];
+    expectSameSettingsNormalization(1, STTSetting::cdrScanLimit(), 'CDR scan limit must be at least one');
+    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '2000'];
+    expectSameSettingsNormalization(1000, STTSetting::cdrScanLimit(), 'CDR scan limit must remain capped at 1000');
+    ModulesModelsBase::$values = [];
+
     $defaults = WorkerProcessingSettingsService::defaults();
     expectSameSettingsNormalization(0.0, $defaults['temperature'], 'Temperature default must be 0.0');
     expectSameSettingsNormalization(0.2, $defaults['temperature_fallback_step'], 'Fallback step default must be 0.2');
@@ -141,9 +150,9 @@ namespace {
 
     expectSameSettingsNormalization('en', STTSetting::normalizeLanguageId(' EN '), 'Known language ids must normalize to lowercase');
     expectSameSettingsNormalization(STTSetting::AUTO_LANGUAGE, STTSetting::normalizeLanguageId('xx'), 'Unknown languages must fall back to auto');
-    expectSameSettingsNormalization('large-v3-turbo', STTSetting::DEFAULT_MODEL, 'Large V3 Turbo must remain the default model');
+    expectSameSettingsNormalization('parakeet-tdt-0.6b-v3', STTSetting::DEFAULT_MODEL, 'Parakeet must be the default model');
     expectSameSettingsNormalization('parakeet-tdt-0.6b-v3', STTSetting::normalizeModelId('parakeet-tdt-0.6b-v3'), 'Parakeet preset id must normalize without fallback');
-    expectSameSettingsNormalization('small', STTSetting::normalizeModelId('argmaxinc/whisperkit-coreml:openai_whisper-small_216MB'), 'Legacy small model id must normalize to the current preset id');
+    expectSameSettingsNormalization(STTSetting::DEFAULT_MODEL, STTSetting::normalizeModelId('argmaxinc/whisperkit-coreml:openai_whisper-small_216MB'), 'Removed Small aliases must fall back to the default model');
     expectSameSettingsNormalization('podlodka', STTSetting::normalizeModelId('smkrv/whisper-podlodka-turbo-coreml:bond005_whisper-podlodka-turbo'), 'Legacy Podlodka model id must normalize to the Podlodka preset');
     expectSameSettingsNormalization('podlodka', STTSetting::normalizeModelId('custom:c60f298fe61e0020d1932b4341e62fc30c6a9eac'), 'Legacy custom Podlodka id must normalize to the Podlodka preset');
     expectSameSettingsNormalization(STTSetting::DEFAULT_MODEL, STTSetting::normalizeModelId('unknown-model'), 'Unknown model ids must fall back to the default model');

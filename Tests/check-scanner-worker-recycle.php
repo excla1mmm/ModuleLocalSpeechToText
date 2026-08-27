@@ -341,6 +341,11 @@ namespace Modules\ModuleLocalSpeechToText\Models {
             self::$values[$key] = $value;
         }
 
+        public static function cdrScanLimit(): int
+        {
+            return max(1, min(1000, (int)self::getValue(self::CDR_SCAN_LIMIT, '50')));
+        }
+
         public static function cdrHistoryStartDateTime(): string
         {
             return '';

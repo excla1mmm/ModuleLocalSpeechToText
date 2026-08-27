@@ -51,9 +51,12 @@ class STTSetting extends ModulesModelsBase
     public const string MAX_SEGMENT_DURATION_MS = 'max_segment_duration_ms';
     public const string SEGMENT_OVERLAP_MS = 'segment_overlap_ms';
 
-    public const string DEFAULT_MODEL = 'large-v3-turbo';
+    public const string DEFAULT_MODEL = 'parakeet-tdt-0.6b-v3';
     public const string AUTO_LANGUAGE = 'auto';
+    public const int DEFAULT_CDR_SCAN_LIMIT = 50;
     private const int DEFAULT_MAX_RECORDING_DURATION_MIN = 60;
+    private const int MIN_CDR_SCAN_LIMIT = 1;
+    private const int MAX_CDR_SCAN_LIMIT = 1000;
     private const int MAX_RECORDING_DURATION_MINUTES = 1440;
     private const int FIXED_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     private const int DEFAULT_CDR_HISTORY_DAYS = 30;
@@ -88,42 +91,6 @@ class STTSetting extends ModulesModelsBase
     ];
 
     public const array MODEL_PRESETS = [
-        'base' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'base',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelBase',
-            'description' => 'module_local_speech_to_text_ModelBaseDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-base',
-            'profile' => 'module_local_speech_to_text_ModelProfileBase',
-            'best_for' => 'module_local_speech_to_text_ModelBaseBestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelBaseTradeoff',
-        ],
-        'small' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'small',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelSmall',
-            'description' => 'module_local_speech_to_text_ModelSmallDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small',
-            'profile' => 'module_local_speech_to_text_ModelProfileSmall',
-            'best_for' => 'module_local_speech_to_text_ModelSmallBestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelSmallTradeoff',
-        ],
-        'medium' => [
-            'repo' => 'argmaxinc/whisperkit-coreml',
-            'model' => 'medium',
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => 'module_local_speech_to_text_ModelMedium',
-            'description' => 'module_local_speech_to_text_ModelMediumDesc',
-            'source_url' => 'https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-medium',
-            'profile' => 'module_local_speech_to_text_ModelProfileMedium',
-            'best_for' => 'module_local_speech_to_text_ModelMediumBestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelMediumTradeoff',
-        ],
         'large-v3-turbo' => [
             'repo' => 'argmaxinc/whisperkit-coreml',
             'model' => 'large-v3-v20240930_turbo',
@@ -471,6 +438,13 @@ class STTSetting extends ModulesModelsBase
         return self::FIXED_MAX_FILE_SIZE_BYTES;
     }
 
+    public static function cdrScanLimit(): int
+    {
+        $limit = (int)self::getValue(self::CDR_SCAN_LIMIT, (string)self::DEFAULT_CDR_SCAN_LIMIT);
+
+        return max(self::MIN_CDR_SCAN_LIMIT, min(self::MAX_CDR_SCAN_LIMIT, $limit));
+    }
+
     public static function cdrHistoryDays(): int
     {
         return self::normalizeCdrHistoryDays(self::getValue(self::CDR_HISTORY_DAYS, (string)self::DEFAULT_CDR_HISTORY_DAYS));
@@ -633,8 +607,6 @@ class STTSetting extends ModulesModelsBase
     {
         $modelId = trim($modelId);
         $legacyAliases = [
-            'tiny' => 'base',
-            'argmaxinc/whisperkit-coreml:openai_whisper-small_216MB' => 'small',
             'argmaxinc/whisperkit-coreml:openai_whisper-large-v3-v20240930_turbo_632MB' => 'large-v3-turbo',
             'argmaxinc/whisperkit-coreml:openai_whisper-large-v3_947MB' => 'large-v3',
             'argmaxinc/whisperkit-coreml:distil-whisper_distil-large-v3_turbo_600MB' => 'large-v3-turbo',

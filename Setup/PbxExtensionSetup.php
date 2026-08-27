@@ -401,7 +401,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             STTSetting::DEFAULT_LANGUAGE => STTSetting::AUTO_LANGUAGE,
             STTSetting::POLL_INTERVAL_SEC => '30',
             STTSetting::MAX_RECORDING_DURATION_MIN => '60',
-            STTSetting::CDR_SCAN_LIMIT => '200',
+            STTSetting::CDR_SCAN_LIMIT => (string)STTSetting::DEFAULT_CDR_SCAN_LIMIT,
             STTSetting::CDR_HISTORY_DAYS => '30',
             STTSetting::PROCESSING_TIMEOUT_SEC => '1800',
             STTSetting::CALL_TRANSCRIPT_STABILITY_SEC => '30',

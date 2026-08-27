@@ -54,14 +54,23 @@ namespace {
         'language' => '25 languages',
         'license' => 'CC BY 4.0',
     ];
-    expectParakeet(STTSetting::DEFAULT_MODEL === 'large-v3-turbo', 'Default model must remain Large V3 Turbo');
+    expectParakeet(STTSetting::DEFAULT_MODEL === 'parakeet-tdt-0.6b-v3', 'Parakeet must be the default model');
+    expectParakeet(
+        array_keys(STTSetting::MODEL_PRESETS) === [
+            'large-v3-turbo',
+            'podlodka',
+            'large-v3',
+            'parakeet-tdt-0.6b-v3',
+        ],
+        'Built-in marketplace must contain only the four approved models in display order'
+    );
     expectParakeet(
         (STTSetting::MODEL_PRESETS['parakeet-tdt-0.6b-v3'] ?? null) === $expected,
         'Parakeet preset must match the reviewed runtime descriptor exactly'
     );
 
-    ModulesModelsBase::$values = [STTSetting::SELECTED_MODEL => 'parakeet-tdt-0.6b-v3'];
-    expectParakeet(STTSetting::selectedModelId() === 'parakeet-tdt-0.6b-v3', 'Parakeet selection must persist');
+    ModulesModelsBase::$values = [];
+    expectParakeet(STTSetting::selectedModelId() === 'parakeet-tdt-0.6b-v3', 'Fresh settings must select Parakeet by default');
     expectParakeet(STTSetting::selectedModelEngine() === 'parakeet', 'Selected engine must be Parakeet');
     expectParakeet(STTSetting::selectedModelArtifactType() === 'parakeet-coreml', 'Selected artifact must be Parakeet Core ML');
 
@@ -69,11 +78,93 @@ namespace {
         public function _(string $key): string { return $key; }
     };
     $rows = (new ModelMarketplaceService($translation))->modelMarketplaceRows();
+    expectParakeet(
+        array_column($rows, 'id') === ['large-v3-turbo', 'podlodka', 'large-v3', 'parakeet-tdt-0.6b-v3'],
+        'Marketplace rows must expose only the four approved models in display order'
+    );
     $matches = array_values(array_filter($rows, static fn (array $row): bool => ($row['id'] ?? '') === 'parakeet-tdt-0.6b-v3'));
     expectParakeet(count($matches) === 1, 'Marketplace must contain exactly one Parakeet row');
     expectParakeet(($matches[0]['selected'] ?? false) === true, 'Selected Parakeet row must use the generic selected state');
     expectParakeet(($matches[0]['sourceUrl'] ?? '') === $expected['source_url'], 'Marketplace must expose the official source URL');
     expectParakeet(($matches[0]['technical'] ?? '') === 'parakeet · Core ML · 25 languages · CC BY 4.0', 'Parakeet technical label mismatch');
+
+    $russianMessages = include __DIR__ . '/../Messages/ru.php';
+    $russianTranslation = new class($russianMessages) {
+        /** @param array<string, string> $messages */
+        public function __construct(private array $messages) {}
+        public function _(string $key): string { return $this->messages[$key] ?? $key; }
+    };
+    $russianRows = (new ModelMarketplaceService($russianTranslation))->modelMarketplaceRows();
+    $russianRowsById = array_column($russianRows, null, 'id');
+    $expectedGuidance = [
+        'large-v3-turbo' => [
+            'profile' => 'Универсальный WhisperKit',
+            'bestFor' => 'Если нужна проверенная модель WhisperKit',
+            'tradeoff' => 'Хороший баланс скорости и качества для обычных звонков на разных языках. Модель от OpenAI.',
+        ],
+        'podlodka' => [
+            'profile' => 'Русская речь',
+            'bestFor' => 'Если почти все разговоры проходят на русском',
+            'tradeoff' => 'Дообученная версия Whisper large-v3-turbo, созданная для улучшения качества транскрипции на русском языке.',
+        ],
+        'large-v3' => [
+            'profile' => 'Максимум качества',
+            'bestFor' => 'Если качество важнее скорости обработки',
+            'tradeoff' => 'Тяжёлая модель от OpenAI. Подходит для сложных и неразборчивых записей.',
+        ],
+        'parakeet-tdt-0.6b-v3' => [
+            'profile' => 'Рекомендуется',
+            'bestFor' => 'Лучший выбор для большинства звонков',
+            'tradeoff' => 'Быстро и точно распознаёт длинную речь на 25 языках. Оптимальный вариант для повседневной работы. Модель от NVIDIA.',
+        ],
+    ];
+    foreach ($expectedGuidance as $modelId => $guidance) {
+        foreach ($guidance as $field => $text) {
+            expectParakeet(
+                ($russianRowsById[$modelId][$field] ?? null) === $text,
+                "Russian marketplace guidance mismatch for {$modelId}.{$field}"
+            );
+        }
+    }
+
+    $englishMessages = include __DIR__ . '/../Messages/en.php';
+    $englishTranslation = new class($englishMessages) {
+        /** @param array<string, string> $messages */
+        public function __construct(private array $messages) {}
+        public function _(string $key): string { return $this->messages[$key] ?? $key; }
+    };
+    $englishRows = (new ModelMarketplaceService($englishTranslation))->modelMarketplaceRows();
+    $englishRowsById = array_column($englishRows, null, 'id');
+    $expectedEnglishGuidance = [
+        'large-v3-turbo' => [
+            'profile' => 'Universal WhisperKit',
+            'bestFor' => 'When you need a proven WhisperKit model',
+            'tradeoff' => 'A good balance of speed and quality for everyday calls in different languages. A model from OpenAI.',
+        ],
+        'podlodka' => [
+            'profile' => 'Russian speech',
+            'bestFor' => 'When nearly all conversations are in Russian',
+            'tradeoff' => 'A fine-tuned version of Whisper large-v3-turbo, created to improve transcription quality for Russian.',
+        ],
+        'large-v3' => [
+            'profile' => 'Highest quality',
+            'bestFor' => 'When quality matters more than processing speed',
+            'tradeoff' => 'A heavyweight model from OpenAI. Suitable for difficult and unclear recordings.',
+        ],
+        'parakeet-tdt-0.6b-v3' => [
+            'profile' => 'Recommended',
+            'bestFor' => 'The best choice for most calls',
+            'tradeoff' => 'Recognizes long-form speech quickly and accurately in 25 languages. The best choice for everyday use. A model from NVIDIA.',
+        ],
+    ];
+    foreach ($expectedEnglishGuidance as $modelId => $guidance) {
+        foreach ($guidance as $field => $text) {
+            expectParakeet(
+                ($englishRowsById[$modelId][$field] ?? null) === $text,
+                "English marketplace guidance mismatch for {$modelId}.{$field}"
+            );
+        }
+    }
 
     $translationKeys = [
         $expected['label'], $expected['description'], $expected['profile'],

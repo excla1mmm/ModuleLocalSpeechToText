@@ -94,7 +94,12 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::normalizeRecordingDurationMinutes(
                 $this->postInt(STTSetting::MAX_RECORDING_DURATION_MIN, 60, 1, 1440)
             ),
-            STTSetting::CDR_SCAN_LIMIT => (string)$this->postInt(STTSetting::CDR_SCAN_LIMIT, 200, 1, 1000),
+            STTSetting::CDR_SCAN_LIMIT => (string)$this->postInt(
+                STTSetting::CDR_SCAN_LIMIT,
+                STTSetting::DEFAULT_CDR_SCAN_LIMIT,
+                1,
+                1000
+            ),
             STTSetting::CDR_HISTORY_DAYS => (string)$nextHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$nextRetentionDays,
             STTSetting::PROCESSING_TIMEOUT_SEC => (string)$this->postInt(
@@ -116,7 +121,7 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::DEFAULT_LANGUAGE => STTSetting::selectedLanguageId(),
             STTSetting::POLL_INTERVAL_SEC => STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
             STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::maxRecordingDurationMinutes(),
-            STTSetting::CDR_SCAN_LIMIT => STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200'),
+            STTSetting::CDR_SCAN_LIMIT => (string)STTSetting::cdrScanLimit(),
             STTSetting::CDR_HISTORY_DAYS => (string)$previousHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$previousRetentionDays,
             STTSetting::PROCESSING_TIMEOUT_SEC => STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800'),
@@ -178,7 +183,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->default_language = STTSetting::selectedLanguageId();
         $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
         $settings->max_recording_duration_min = (string)STTSetting::maxRecordingDurationMinutes();
-        $settings->cdr_scan_limit = STTSetting::getValue(STTSetting::CDR_SCAN_LIMIT, '200');
+        $settings->cdr_scan_limit = (string)STTSetting::cdrScanLimit();
         $settings->cdr_history_days = (string)STTSetting::cdrHistoryDays();
         $settings->transcript_retention_days = (string)STTSetting::transcriptRetentionDays();
         $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
