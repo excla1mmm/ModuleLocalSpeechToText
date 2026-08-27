@@ -45,6 +45,7 @@ namespace {
         'model' => 'parakeet-tdt-0.6b-v3',
         'engine' => 'parakeet',
         'artifact_type' => 'parakeet-coreml',
+        'display_name' => 'Parakeet TDT 0.6B v3',
         'label' => 'module_local_speech_to_text_ModelParakeetV3',
         'description' => 'module_local_speech_to_text_ModelParakeetV3Desc',
         'source_url' => 'https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml',

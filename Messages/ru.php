@@ -64,6 +64,7 @@ return [
     'module_local_speech_to_text_RetryErrorsEmpty' => 'Ошибочных записей для повтора нет',
     'module_local_speech_to_text_QueueSkipReasonFileTooLarge' => 'Файл больше текущего лимита',
     'module_local_speech_to_text_QueueSkipReasonDurationTooLong' => 'Длительность записи превышает установленный лимит',
+    'module_local_speech_to_text_QueueSkipReasonDurationProbeFailed' => 'Не удалось определить длительность записи; запланирована повторная проверка',
     'module_local_speech_to_text_QueueSkipReasonMissingTimeout' => 'Файл записи не появился вовремя',
     'module_local_speech_to_text_QueueSkipReasonOutsideHistory' => 'Звонок вне периода обработки',
     'module_local_speech_to_text_Worker' => 'Обработчик',

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MikoPBX\Modules\Models {
     class ModulesModelsBase
     {
+        /** @var array<string, string> */
+        public static array $values = [];
+
         public function setSource(string $source): void
         {
         }
@@ -12,11 +15,27 @@ namespace MikoPBX\Modules\Models {
         public function initialize(): void
         {
         }
+
+        public static function findFirst(array $parameters = []): ?object
+        {
+            $key = $parameters['bind']['key'] ?? null;
+            if (!is_string($key) || !array_key_exists($key, self::$values)) {
+                return null;
+            }
+
+            $setting = new static();
+            $setting->key = $key;
+            $setting->value = self::$values[$key];
+
+            return $setting;
+        }
     }
 }
 
 namespace {
+    use MikoPBX\Modules\Models\ModulesModelsBase;
     use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
+    use Modules\ModuleLocalSpeechToText\Models\STTSetting;
     use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
     require_once __DIR__ . '/../Models/STTSetting.php';
@@ -146,6 +165,9 @@ namespace {
 
         $serviceA = new WorkerProcessingSettingsService($connectionA);
         $serviceB = new WorkerProcessingSettingsService($connectionB);
+        ModulesModelsBase::$values = [
+            STTSetting::SELECTED_MODEL => 'parakeet-tdt-0.6b-v3',
+        ];
         expectProcessingSettingsSqlite(
             $serviceA->save($defaults) === false,
             'Saving the canonical defaults twice must be a no-op'
@@ -162,6 +184,16 @@ namespace {
         expectProcessingSettingsSqlite(
             $payload['processing_settings']['temperature'] === 0.4,
             'Fetch must return the complete new profile'
+        );
+        expectProcessingSettingsSqlite(
+            ($payload['selected_model'] ?? null) === [
+                'model_id' => 'parakeet-tdt-0.6b-v3',
+                'model_repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+                'model_engine' => 'parakeet',
+                'model_artifact_type' => 'parakeet-coreml',
+                'model_display_name' => 'Parakeet TDT 0.6B v3',
+            ],
+            'Fetch must return the PBX-selected model descriptor'
         );
         expectProcessingSettingsSqlite(
             dirtyFlags($connectionA) === ['worker-a' => 0, 'worker-b' => 1],
@@ -183,6 +215,12 @@ namespace {
             $orderedPayload['processing_settings']['temperature'] === 0.6
                 && dirtyFlags($connectionA)['worker-a'] === 0,
             'Save followed by fetch must return the new profile and clear the worker'
+        );
+
+        WorkerProcessingSettingsService::markAllWorkersChanged($connectionA);
+        expectProcessingSettingsSqlite(
+            dirtyFlags($connectionA) === ['worker-a' => 1, 'worker-b' => 1],
+            'A selected-model change must request an immediate refresh from every worker'
         );
 
         echo "Worker processing settings SQLite contract OK\n";

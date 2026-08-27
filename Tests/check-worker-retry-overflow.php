@@ -51,6 +51,30 @@ namespace MikoPBX\Core\Workers {
 }
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services {
+    final class RecordingDurationProbe
+    {
+        public const string STATUS_OK = 'ok';
+        public const string STATUS_UNAVAILABLE = 'unavailable';
+        public const string STATUS_FAILED = 'failed';
+        public const string STATUS_TIMEOUT = 'timeout';
+
+        /** @var array<string, array{status: string, duration_sec: int|null}> */
+        public static array $results = [];
+        /** @var array<int, string> */
+        public static array $calls = [];
+
+        /** @return array{status: string, duration_sec: int|null} */
+        public function probe(string $recordingPath): array
+        {
+            self::$calls[] = $recordingPath;
+
+            return self::$results[$recordingPath] ?? [
+                'status' => self::STATUS_FAILED,
+                'duration_sec' => null,
+            ];
+        }
+    }
+
     final class LocalSpeechToTextLogger
     {
         public static array $messages = [];
@@ -226,6 +250,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 namespace {
     use MikoPBX\Core\System\Directories;
     use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+    use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
     use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
     use Modules\ModuleLocalSpeechToText\Models\RetryOverflowConnection;
     use Modules\ModuleLocalSpeechToText\Models\STTJob;
@@ -328,10 +353,14 @@ namespace {
 
     $durationCases = [
         8001 => ['file' => 'duration-boundary.wav', 'duration' => 3600],
-        8002 => ['file' => 'duration-too-long.wav', 'duration' => 3601],
+        8002 => ['file' => 'duration-too-long.wav', 'duration' => 7200],
         8003 => ['file' => 'duration-unknown.wav', 'duration' => 0],
     ];
     $durationDelayedCache = [];
+    RecordingDurationProbe::$results[(realpath($monitorDirectory) ?: $monitorDirectory) . '/duration-too-long.wav'] = [
+        'status' => RecordingDurationProbe::STATUS_OK,
+        'duration_sec' => 3601,
+    ];
     foreach ($durationCases as $id => $case) {
         file_put_contents($monitorDirectory . '/' . $case['file'], 'audio');
         $record = [
@@ -358,8 +387,9 @@ namespace {
     $durationSkipped = json_decode(STTSetting::$values[STTSetting::SKIPPED_RECORDINGS], true, 32, JSON_THROW_ON_ERROR);
     expectWorkerRetry(
         ($durationSkipped[8002]['reason'] ?? '') === 'duration_too_long'
-            && ($durationSkipped[8002]['recording_duration_sec'] ?? null) === 3601,
-        'Over-duration recordings must retain a dedicated reason and normalized duration'
+            && ($durationSkipped[8002]['recording_duration_sec'] ?? null) === 3601
+            && ($durationSkipped[8002]['recording_duration_source'] ?? '') === 'media_probe',
+        'Over-duration recordings must retain the measured duration and its source'
     );
     expectWorkerRetry(
         isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav'])
@@ -367,13 +397,97 @@ namespace {
         'Unknown zero duration must remain eligible and persist as null'
     );
 
+    $mismatchedPath = $monitorDirectory . '/duration-cdr-mismatch.webm';
+    file_put_contents($mismatchedPath, 'webm-audio');
+    $resolvedMismatchedPath = realpath($mismatchedPath) ?: $mismatchedPath;
+    RecordingDurationProbe::$results[$resolvedMismatchedPath] = [
+        'status' => RecordingDurationProbe::STATUS_OK,
+        'duration_sec' => 9,
+    ];
+    $mismatchedRecord = [
+        'id' => 8004,
+        'recordingfile' => 'duration-cdr-mismatch.webm',
+        'UNIQUEID' => 'duration-call-8004',
+        'endtime' => '2026-07-17 12:00:00',
+        'duration' => 515119,
+    ];
+    $arguments = [&$durationDelayedCache, $mismatchedRecord, ''];
+    $processCompleted->invokeArgs($worker, $arguments);
+    $mismatchJob = STTJob::$jobs[$resolvedMismatchedPath] ?? null;
+    expectWorkerRetry(
+        is_array($mismatchJob)
+            && $mismatchJob['recording_duration_sec'] === 9
+            && $mismatchJob['priority'] === 5,
+        'A short media file with an overlong CDR duration must create a normal pending job using probed duration'
+    );
+    expectWorkerRetry(
+        RecordingDurationProbe::$calls === [
+            $resolvedMonitorDirectory . '/duration-too-long.wav',
+            $resolvedMismatchedPath,
+        ],
+        'All and only over-limit CDR recordings must be probed'
+    );
+
+    $missingMismatchRecord = [
+        'id' => 8005,
+        'recordingfile' => 'duration-cdr-mismatch-missing.webm',
+        'UNIQUEID' => 'duration-call-8005',
+        'endtime' => '2026-07-17 12:00:00',
+        'duration' => 515119,
+    ];
+    $arguments = [&$durationDelayedCache, $missingMismatchRecord, ''];
+    $processCompleted->invokeArgs($worker, $arguments);
+    expectWorkerRetry(
+        isset($durationDelayedCache[8005]) && count(RecordingDurationProbe::$calls) === 2,
+        'A missing over-limit CDR recording must remain delayed without invoking the media probe'
+    );
+    $store->remove(8005);
+
     STTSetting::$maxRecordingDurationMinutes = 120;
     $retrySkipped->invoke($worker);
     expectWorkerRetry(
         isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-too-long.wav']) && $store->count() === 0,
         'Increasing the duration limit must allow skipped recordings to recover'
     );
+    expectWorkerRetry(
+        count(RecordingDurationProbe::$calls) === 2,
+        'A verified media duration must be reused during retries without another probe'
+    );
     STTSetting::$maxRecordingDurationMinutes = 60;
+
+    $probeRetryPath = $monitorDirectory . '/duration-probe-retry.webm';
+    file_put_contents($probeRetryPath, 'webm-audio');
+    $resolvedProbeRetryPath = realpath($probeRetryPath) ?: $probeRetryPath;
+    $probeRetryRecord = [
+        'id' => 8006,
+        'recordingfile' => 'duration-probe-retry.webm',
+        'UNIQUEID' => 'duration-call-8006',
+        'endtime' => '2026-07-17 12:00:00',
+        'duration' => 515119,
+    ];
+    $arguments = [&$durationDelayedCache, $probeRetryRecord, ''];
+    $processCompleted->invokeArgs($worker, $arguments);
+    $probeFailureSkipped = json_decode(
+        STTSetting::$values[STTSetting::SKIPPED_RECORDINGS],
+        true,
+        32,
+        JSON_THROW_ON_ERROR
+    );
+    expectWorkerRetry(
+        ($probeFailureSkipped[8006]['reason'] ?? '') === 'duration_probe_failed'
+            && !isset(STTJob::$jobs[$resolvedProbeRetryPath]),
+        'An indeterminate media duration must remain in explicit retryable state'
+    );
+    RecordingDurationProbe::$results[$resolvedProbeRetryPath] = [
+        'status' => RecordingDurationProbe::STATUS_OK,
+        'duration_sec' => 10,
+    ];
+    $retrySkipped->invoke($worker);
+    expectWorkerRetry(
+        isset(STTJob::$jobs[$resolvedProbeRetryPath])
+            && STTJob::$jobs[$resolvedProbeRetryPath]['recording_duration_sec'] === 10,
+        'A duration probe failure must recover automatically after a successful retry'
+    );
 
     STTSetting::$historyStart = '2026-07-17 00:00:00';
     $rememberSkipped->invoke($worker, [
@@ -397,6 +511,23 @@ namespace {
         $store->count() === 0,
         'Unlimited CDR history must still terminate permanently ineligible retry scans after a finite lifetime'
     );
+
+    $oldProbeFailurePath = $monitorDirectory . '/duration-probe-old.webm';
+    file_put_contents($oldProbeFailurePath, 'webm-audio');
+    $store->remember(703, RetryStateStore::TYPE_SKIPPED, [
+        'recordingfile' => 'duration-probe-old.webm',
+        'call_id' => 'duration-probe-old-call',
+        'endtime' => '2026-07-16 12:00:00',
+        'recording_duration_sec' => 515119,
+        'recording_duration_source' => '',
+        'first_seen' => time() - 2592001,
+    ], 'duration_probe_failed', time() - 2592001);
+    $retrySkipped->invoke($worker);
+    expectWorkerRetry(
+        $store->count() === 1 && $store->due(RetryStateStore::TYPE_SKIPPED, 10, time()) === [],
+        'An old duration probe failure must remain retryable while its CDR stays inside the history window'
+    );
+    $store->remove(703);
 
     $rememberSkipped->invoke($worker, [
         'id' => 701,

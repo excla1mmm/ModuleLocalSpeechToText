@@ -17,6 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyExcep
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerDatabaseFailurePolicy;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerIterationFailureHandler;
@@ -40,6 +41,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private const int TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600;
 
     private ?RetryStateStore $retryStateStore = null;
+    private ?RecordingDurationProbe $recordingDurationProbe = null;
     private bool $runtimePragmasConfigured = false;
 
     public static function getCheckInterval(): int
@@ -568,11 +570,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             return;
         }
 
-        if (!$this->recordingWithinDurationLimit($record)) {
-            $this->rememberSkippedRecording($record, 'duration_too_long');
-            return;
-        }
-
         $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
         if ($recordingPath === null) {
             $this->rememberDelayedRecording($delayedRecordings, $record);
@@ -585,25 +582,36 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             return;
         }
 
+        $duration = $this->recordingDurationDecision($record, $recordingPath);
+        if ($duration['state'] !== 'allowed') {
+            $record = $this->recordWithDurationDecision($record, $duration);
+            $this->rememberSkippedRecording(
+                $record,
+                $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed',
+                $recordingPath
+            );
+            return;
+        }
+
         if (STTJob::existsForFilePath($recordingPath)) {
             return;
         }
 
-        $this->createJob($record, $recordingPath);
+        $this->createJob($record, $recordingPath, $duration['duration_sec']);
     }
 
-    private function createJob(array $record, string $recordingPath): void
+    private function createJob(array $record, string $recordingPath, ?int $recordingDurationSeconds): void
     {
         $job = STTJob::createPending(
             $this->callId($record),
             $recordingPath,
-            $this->priority($record),
+            $this->priorityForDuration($recordingDurationSeconds),
             $this->recordEndtimeTimestamp($record),
             $this->recordingIdentity($record, $recordingPath),
-            $this->recordingDurationSeconds($record)
+            $recordingDurationSeconds
         );
 
-        $this->logJobCreated($job, $this->recordingDurationSeconds($record));
+        $this->logJobCreated($job, $recordingDurationSeconds);
     }
 
     private function retryDelayedRecordings(): void
@@ -639,13 +647,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
-            if (!$this->recordingWithinDurationLimit($record)) {
-                $this->rememberSkippedRecording($record, 'duration_too_long', '', (int)$recordId);
-                unset($delayedRecordings[$recordId]);
-                $changed = true;
-                continue;
-            }
-
             if ($now - (int)($record['first_seen'] ?? $now) > self::DELAYED_RECORDING_TTL_SECONDS) {
                 $this->rememberSkippedRecording($record, 'recording_missing_timeout', '', (int)$recordId);
                 unset($delayedRecordings[$recordId]);
@@ -670,18 +671,32 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
+            $duration = $this->recordingDurationDecision($record, $recordingPath);
+            if ($duration['state'] !== 'allowed') {
+                $record = $this->recordWithDurationDecision($record, $duration);
+                $this->rememberSkippedRecording(
+                    $record,
+                    $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed',
+                    $recordingPath,
+                    (int)$recordId
+                );
+                unset($delayedRecordings[$recordId]);
+                $changed = true;
+                continue;
+            }
+
             if (!STTJob::existsForFilePath($recordingPath)) {
                 $job = STTJob::createPending(
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
-                    (int)($record['priority'] ?? 5),
+                    $this->priorityForDuration($duration['duration_sec']),
                     (int)($record['cdr_endtime'] ?? 0) ?: null,
                     $this->recordingIdentity($record, $recordingPath),
-                    $this->recordingDurationSeconds($record)
+                    $duration['duration_sec']
                 );
                 $this->logJobCreated(
                     $job,
-                    $this->recordingDurationSeconds($record),
+                    $duration['duration_sec'],
                     'delayed_recording_recovered'
                 );
             }
@@ -734,20 +749,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
-            if (!$this->recordingWithinDurationLimit($record)) {
-                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
-                    $changed = true;
-                    continue;
-                }
-                $this->retryStateStore()->deferWithBackoff(
-                    $recordId,
-                    RetryStateStore::TYPE_SKIPPED,
-                    self::SCAN_INTERVAL_SECONDS,
-                    self::MAX_SKIPPED_RETRY_SECONDS
-                );
-                continue;
-            }
-
             $recordingFile = trim((string)($record['recordingfile'] ?? ''));
             if ($recordingFile === '') {
                 $recordingFile = (string)($record['recording_path'] ?? '');
@@ -781,18 +782,43 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 continue;
             }
 
+            $duration = $this->recordingDurationDecision($record, $recordingPath);
+            if ($duration['state'] !== 'allowed') {
+                $reason = $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed';
+                if (
+                    $reason !== (string)$retryRecord['reason']
+                    || $duration['source'] !== trim((string)($record['recording_duration_source'] ?? ''))
+                    || $duration['duration_sec'] !== $this->recordingDurationSeconds($record)
+                ) {
+                    $record = $this->recordWithDurationDecision($record, $duration);
+                    $this->rememberSkippedRecording($record, $reason, $recordingPath, $recordId);
+                }
+                $retryRecord['reason'] = $reason;
+                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
+                    $changed = true;
+                    continue;
+                }
+                $this->retryStateStore()->deferWithBackoff(
+                    $recordId,
+                    RetryStateStore::TYPE_SKIPPED,
+                    self::SCAN_INTERVAL_SECONDS,
+                    self::MAX_SKIPPED_RETRY_SECONDS
+                );
+                continue;
+            }
+
             if (!STTJob::existsForFilePath($recordingPath)) {
                 $job = STTJob::createPending(
                     (string)($record['call_id'] ?? ''),
                     $recordingPath,
-                    (int)($record['priority'] ?? 5),
+                    $this->priorityForDuration($duration['duration_sec']),
                     (int)($record['cdr_endtime'] ?? 0) ?: null,
                     $this->recordingIdentity($record, $recordingPath),
-                    $this->recordingDurationSeconds($record)
+                    $duration['duration_sec']
                 );
                 $this->logJobCreated(
                     $job,
-                    $this->recordingDurationSeconds($record),
+                    $duration['duration_sec'],
                     'skipped_recording_recovered'
                 );
             }
@@ -859,6 +885,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'cdr_start_ms' => $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
             'cdr_end_ms' => $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
             'recording_duration_sec' => $this->recordingDurationSeconds($record),
+            'recording_duration_source' => trim((string)($record['recording_duration_source'] ?? '')),
             'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
             'last_seen' => $now,
         ];
@@ -935,6 +962,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'cdr_start_ms' => (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
             'cdr_end_ms' => (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
             'recording_duration_sec' => $this->recordingDurationSeconds($record),
+            'recording_duration_source' => trim((string)($record['recording_duration_source'] ?? '')),
             'reason' => $reason,
             'created_at' => time(),
         ];
@@ -1041,6 +1069,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function expireSkippedRetry(array &$skippedRecordings, array $retryRecord): bool
     {
+        if ((string)($retryRecord['reason'] ?? '') === 'duration_probe_failed') {
+            return false;
+        }
+
         $firstSeen = (int)$retryRecord['first_seen'];
         if ($firstSeen <= 0 || time() - $firstSeen < self::MAX_SKIPPED_RETRY_AGE_SECONDS) {
             return false;
@@ -1230,8 +1262,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function priority(array $record): int
     {
-        $duration = (int)($record['duration'] ?? 0);
-        if ($duration >= self::LONG_CALL_SECONDS) {
+        return $this->priorityForDuration($this->recordingDurationSeconds($record));
+    }
+
+    private function priorityForDuration(?int $duration): int
+    {
+        if ($duration !== null && $duration >= self::LONG_CALL_SECONDS) {
             return 8;
         }
 
@@ -1288,10 +1324,70 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     /**
      * @param array<string, mixed> $record
+     * @return array{state: 'allowed'|'too_long'|'probe_failed', duration_sec: int|null, source: string}
      */
-    private function recordingWithinDurationLimit(array $record): bool
+    private function recordingDurationDecision(array $record, string $recordingPath): array
     {
-        return STTSetting::recordingDurationAllowed($this->recordingDurationSeconds($record));
+        $durationSeconds = $this->recordingDurationSeconds($record);
+        $source = trim((string)($record['recording_duration_source'] ?? ''));
+        if ($source === 'media_probe') {
+            if ($durationSeconds === null) {
+                return [
+                    'state' => 'probe_failed',
+                    'duration_sec' => null,
+                    'source' => '',
+                ];
+            }
+            return [
+                'state' => STTSetting::recordingDurationAllowed($durationSeconds) ? 'allowed' : 'too_long',
+                'duration_sec' => $durationSeconds,
+                'source' => $source,
+            ];
+        }
+        if (STTSetting::recordingDurationAllowed($durationSeconds)) {
+            return [
+                'state' => 'allowed',
+                'duration_sec' => $durationSeconds,
+                'source' => $durationSeconds === null ? '' : 'cdr',
+            ];
+        }
+
+        $probe = $this->recordingDurationProbe()->probe($recordingPath);
+        if ($probe['status'] !== RecordingDurationProbe::STATUS_OK || $probe['duration_sec'] === null) {
+            return [
+                'state' => 'probe_failed',
+                'duration_sec' => $durationSeconds,
+                'source' => '',
+            ];
+        }
+
+        return [
+            'state' => STTSetting::recordingDurationAllowed($probe['duration_sec']) ? 'allowed' : 'too_long',
+            'duration_sec' => $probe['duration_sec'],
+            'source' => 'media_probe',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     * @param array{state: string, duration_sec: int|null, source: string} $duration
+     * @return array<string, mixed>
+     */
+    private function recordWithDurationDecision(array $record, array $duration): array
+    {
+        $record['recording_duration_sec'] = $duration['duration_sec'];
+        $record['recording_duration_source'] = $duration['source'];
+
+        return $record;
+    }
+
+    private function recordingDurationProbe(): RecordingDurationProbe
+    {
+        if (!$this->recordingDurationProbe instanceof RecordingDurationProbe) {
+            $this->recordingDurationProbe = new RecordingDurationProbe();
+        }
+
+        return $this->recordingDurationProbe;
     }
 
     private function logJobCreated(STTJob $job, ?int $recordingDurationSeconds, ?string $reason = null): void

@@ -71,10 +71,35 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             ),
         ];
 
+        $selectedModelProperties = [
+            'model_id' => [
+                'type' => 'string',
+                'example' => 'parakeet-tdt-0.6b-v3',
+            ],
+            'model_repo' => [
+                'type' => 'string',
+                'example' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+            ],
+            'model_engine' => [
+                'type' => 'string',
+                'enum' => ['whisperKit', 'parakeet'],
+                'example' => 'parakeet',
+            ],
+            'model_artifact_type' => [
+                'type' => 'string',
+                'enum' => ['whisperkit-coreml', 'parakeet-coreml'],
+                'example' => 'parakeet-coreml',
+            ],
+            'model_display_name' => [
+                'type' => 'string',
+                'example' => 'Parakeet TDT 0.6B v3',
+            ],
+        ];
+
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaProcessingSettings',
-            'required' => ['schema_version', 'processing_settings'],
+            'required' => ['schema_version', 'processing_settings', 'selected_model'],
             'properties' => [
                 'schema_version' => [
                     'type' => 'integer',
@@ -87,6 +112,12 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'description' => 'module_local_speech_to_text_ApiFieldProcessingSettings',
                     'required' => array_keys($properties),
                     'properties' => $properties,
+                    'additionalProperties' => false,
+                ],
+                'selected_model' => [
+                    'type' => 'object',
+                    'required' => array_keys($selectedModelProperties),
+                    'properties' => $selectedModelProperties,
                     'additionalProperties' => false,
                 ],
             ],
@@ -106,6 +137,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'voice_activity_detection' => true,
                     'max_segment_duration_ms' => 30000,
                     'segment_overlap_ms' => 1000,
+                ],
+                'selected_model' => [
+                    'model_id' => 'parakeet-tdt-0.6b-v3',
+                    'model_repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+                    'model_engine' => 'parakeet',
+                    'model_artifact_type' => 'parakeet-coreml',
+                    'model_display_name' => 'Parakeet TDT 0.6B v3',
                 ],
             ],
         ];

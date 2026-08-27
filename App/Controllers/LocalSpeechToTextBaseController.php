@@ -156,6 +156,9 @@ class LocalSpeechToTextBaseController extends BaseController
         }
         $changedFields = array_values(array_unique($changedFields));
         sort($changedFields);
+        if (in_array(STTSetting::SELECTED_MODEL, $changedFields, true)) {
+            WorkerProcessingSettingsService::markAllWorkersChanged();
+        }
         if ($changedFields !== []) {
             LocalSpeechToTextLogger::event(
                 'settings',

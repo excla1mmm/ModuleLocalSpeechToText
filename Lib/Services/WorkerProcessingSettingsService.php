@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use PDO;
+use RuntimeException;
 
 final class WorkerProcessingSettingsService
 {
@@ -119,14 +120,27 @@ final class WorkerProcessingSettingsService
 
     /**
      * @param array<string, mixed> $profile
-     * @return array{schema_version: int, processing_settings: array<string, float|int|bool>}
+     * @return array{
+     *     schema_version: int,
+     *     processing_settings: array<string, float|int|bool>,
+     *     selected_model: array<string, string>
+     * }
      */
     public static function apiPayload(array $profile): array
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'processing_settings' => self::normalize($profile),
+            'selected_model' => self::selectedModelPayload(),
         ];
+    }
+
+    public static function markAllWorkersChanged(mixed $connection = null): void
+    {
+        $database = $connection ?? (new STTSetting())->getWriteConnection();
+        if (!$database->execute('UPDATE m_STTWorker SET has_settings_changed = 1')) {
+            throw new RuntimeException('Unable to notify workers about changed settings');
+        }
     }
 
     /**
@@ -156,7 +170,11 @@ final class WorkerProcessingSettingsService
     }
 
     /**
-     * @return array{schema_version: int, processing_settings: array<string, float|int|bool>}
+     * @return array{
+     *     schema_version: int,
+     *     processing_settings: array<string, float|int|bool>,
+     *     selected_model: array<string, string>
+     * }
      */
     public function fetchForWorker(STTWorker $worker): array
     {
@@ -168,6 +186,24 @@ final class WorkerProcessingSettingsService
 
             return self::apiPayload($this->readCurrent($database));
         });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function selectedModelPayload(): array
+    {
+        $preset = STTSetting::selectedModelPreset();
+        $modelId = (string)$preset['model'];
+        $repository = (string)$preset['repo'];
+
+        return [
+            'model_id' => $modelId,
+            'model_repo' => $repository,
+            'model_engine' => (string)$preset['engine'],
+            'model_artifact_type' => (string)$preset['artifact_type'],
+            'model_display_name' => (string)($preset['display_name'] ?? $repository . '/' . $modelId),
+        ];
     }
 
     private static function normalizeBoolean(string $field, mixed $value): bool

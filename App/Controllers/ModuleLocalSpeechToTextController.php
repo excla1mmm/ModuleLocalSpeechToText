@@ -16,6 +16,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerViewService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
@@ -61,6 +62,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 STTSetting::selectedModelId()
             ));
             STTSetting::setValue(STTSetting::SELECTED_MODEL, STTSetting::normalizeModelId(substr($modelId, 0, 255)));
+            WorkerProcessingSettingsService::markAllWorkersChanged();
             LocalSpeechToTextLogger::event(
                 'settings',
                 'settings_changed',

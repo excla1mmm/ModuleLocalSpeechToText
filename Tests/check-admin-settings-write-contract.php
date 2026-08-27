@@ -42,6 +42,12 @@ foreach ($settingsActions as $action => [$nextAction, $expectedWrite]) {
     );
 }
 
+$saveModelBody = adminActionBody($controller, 'saveModelAction', 'retryErrorsAction');
+expectAdminSettingsWrite(
+    str_contains($saveModelBody, 'WorkerProcessingSettingsService::markAllWorkersChanged()'),
+    'Saving a recognition model must notify every worker to refresh PBX-managed state'
+);
+
 foreach ([
     'retryErrorsAction' => ['generateWorkerApiKeyAction', 'STTJob::requeueErrors'],
     'generateWorkerApiKeyAction' => ['deleteWorkerApiKeyAction', 'createCoreWorkerApiKey'],
@@ -88,6 +94,11 @@ expectAdminSettingsWrite(
         && !str_contains($saveBody, 'hasPost(STTSetting::AUDIO_NORMALIZATION)')
         && !str_contains($saveBody, 'hasPost(STTSetting::VOICE_ACTIVITY_DETECTION)'),
     'Processing checkboxes must preserve their posted false values instead of using field presence'
+);
+expectAdminSettingsWrite(
+    str_contains($saveBody, 'in_array(STTSetting::SELECTED_MODEL, $changedFields, true)')
+        && str_contains($saveBody, 'WorkerProcessingSettingsService::markAllWorkersChanged()'),
+    'The full settings save path must notify workers when the selected model changes'
 );
 
 echo "Administrative settings write contract OK\n";

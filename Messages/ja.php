@@ -64,6 +64,7 @@ return [
     'module_local_speech_to_text_RetryErrorsEmpty' => 'There are no failed recordings to retry',
     'module_local_speech_to_text_QueueSkipReasonFileTooLarge' => 'File is larger than the current limit',
     'module_local_speech_to_text_QueueSkipReasonDurationTooLong' => 'Recording duration exceeds the configured limit',
+    'module_local_speech_to_text_QueueSkipReasonDurationProbeFailed' => 'Could not determine recording duration; retry scheduled',
     'module_local_speech_to_text_QueueSkipReasonMissingTimeout' => 'Recording file did not appear in time',
     'module_local_speech_to_text_QueueSkipReasonOutsideHistory' => 'Call is outside the processing period',
     'module_local_speech_to_text_Worker' => 'Worker',

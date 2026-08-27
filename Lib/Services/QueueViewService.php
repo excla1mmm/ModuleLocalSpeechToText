@@ -307,6 +307,7 @@ class QueueViewService
         return match ($reason) {
             'file_too_large' => $this->translation->_('module_local_speech_to_text_QueueSkipReasonFileTooLarge'),
             'duration_too_long' => $this->translation->_('module_local_speech_to_text_QueueSkipReasonDurationTooLong'),
+            'duration_probe_failed' => $this->translation->_('module_local_speech_to_text_QueueSkipReasonDurationProbeFailed'),
             'recording_missing_timeout' => $this->translation->_('module_local_speech_to_text_QueueSkipReasonMissingTimeout'),
             'outside_history_window' => $this->translation->_('module_local_speech_to_text_QueueSkipReasonOutsideHistory'),
             default => $reason,

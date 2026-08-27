@@ -75,6 +75,10 @@ expectDurationContract(
     'Queue must retain an over-duration skip reason'
 );
 expectDurationContract(
+    str_contains($worker, "'duration_probe_failed'"),
+    'Queue must retain an indeterminate-duration retry reason'
+);
+expectDurationContract(
     str_contains($worker, 'STTSetting::recordingDurationAllowed'),
     'Queue must use shared duration validation'
 );
@@ -110,11 +114,16 @@ expectDurationContract(
     str_contains($queueView, "'duration_too_long' =>"),
     'Queue view must label duration skips'
 );
+expectDurationContract(
+    str_contains($queueView, "'duration_probe_failed' =>"),
+    'Queue view must label duration probe retries'
+);
 
 $requiredMessageKeys = [
     'module_local_speech_to_text_MaxRecordingDuration',
     'module_local_speech_to_text_MaxRecordingDurationHint',
     'module_local_speech_to_text_QueueSkipReasonDurationTooLong',
+    'module_local_speech_to_text_QueueSkipReasonDurationProbeFailed',
 ];
 $messageFiles = glob(__DIR__ . '/../Messages/*.php') ?: [];
 expectDurationContract($messageFiles !== [], 'No translation catalogs found');
