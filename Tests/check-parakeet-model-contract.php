@@ -74,6 +74,26 @@ namespace {
     expectParakeet(STTSetting::selectedModelEngine() === 'parakeet', 'Selected engine must be Parakeet');
     expectParakeet(STTSetting::selectedModelArtifactType() === 'parakeet-coreml', 'Selected artifact must be Parakeet Core ML');
 
+    ModulesModelsBase::$values = [
+        'custom_models' => json_encode([
+            'custom:legacy' => [
+                'repo' => 'owner/legacy-whisperkit-coreml',
+                'model' => 'legacy-model',
+                'label' => 'Legacy custom model',
+            ],
+        ], JSON_UNESCAPED_SLASHES),
+    ];
+    expectParakeet(
+        array_keys(STTSetting::modelPresets()) === [
+            'large-v3-turbo',
+            'podlodka',
+            'large-v3',
+            'parakeet-tdt-0.6b-v3',
+        ],
+        'Saved custom model data must not extend the supported marketplace catalog'
+    );
+    ModulesModelsBase::$values = [];
+
     $translation = new class {
         public function _(string $key): string { return $key; }
     };
@@ -98,16 +118,19 @@ namespace {
     $russianRowsById = array_column($russianRows, null, 'id');
     $expectedGuidance = [
         'large-v3-turbo' => [
+            'title' => 'Whisper Large V3 Turbo',
             'profile' => 'Универсальный WhisperKit',
             'bestFor' => 'Если нужна проверенная модель WhisperKit',
             'tradeoff' => 'Хороший баланс скорости и качества для обычных звонков на разных языках. Модель от OpenAI.',
         ],
         'podlodka' => [
+            'title' => 'Whisper Podlodka Turbo',
             'profile' => 'Русская речь',
             'bestFor' => 'Если почти все разговоры проходят на русском',
             'tradeoff' => 'Дообученная версия Whisper large-v3-turbo, созданная для улучшения качества транскрипции на русском языке.',
         ],
         'large-v3' => [
+            'title' => 'Whisper Large V3',
             'profile' => 'Максимум качества',
             'bestFor' => 'Если качество важнее скорости обработки',
             'tradeoff' => 'Тяжёлая модель от OpenAI. Подходит для сложных и неразборчивых записей.',
@@ -137,16 +160,19 @@ namespace {
     $englishRowsById = array_column($englishRows, null, 'id');
     $expectedEnglishGuidance = [
         'large-v3-turbo' => [
+            'title' => 'Whisper Large V3 Turbo',
             'profile' => 'Universal WhisperKit',
             'bestFor' => 'When you need a proven WhisperKit model',
             'tradeoff' => 'A good balance of speed and quality for everyday calls in different languages. A model from OpenAI.',
         ],
         'podlodka' => [
+            'title' => 'Whisper Podlodka Turbo',
             'profile' => 'Russian speech',
             'bestFor' => 'When nearly all conversations are in Russian',
             'tradeoff' => 'A fine-tuned version of Whisper large-v3-turbo, created to improve transcription quality for Russian.',
         ],
         'large-v3' => [
+            'title' => 'Whisper Large V3',
             'profile' => 'Highest quality',
             'bestFor' => 'When quality matters more than processing speed',
             'tradeoff' => 'A heavyweight model from OpenAI. Suitable for difficult and unclear recordings.',

@@ -77,56 +77,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
     }
 
-    public function addCustomModelAction(): void
-    {
-        try {
-            STTSetting::addCustomModel([
-                'repo' => (string)$this->request->getPost('model_repo', 'string', ''),
-                'model' => (string)$this->request->getPost('runtime_model', 'string', ''),
-                'label' => (string)$this->request->getPost('model_title', 'string', ''),
-                'description' => (string)$this->request->getPost('model_description', 'string', ''),
-                'language' => (string)$this->request->getPost('model_language', 'string', ''),
-                'license' => (string)$this->request->getPost('model_license', 'string', ''),
-                'source_url' => (string)$this->request->getPost('source_url', 'string', ''),
-                'tags' => (string)$this->request->getPost('model_tags', 'string', ''),
-            ]);
-            LocalSpeechToTextLogger::event(
-                'settings',
-                'settings_changed',
-                'Custom recognition model added',
-                LOG_NOTICE,
-                ['changed_fields' => 'custom_models']
-            );
-            $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelAdded'));
-        } catch (Throwable $exception) {
-            $this->logControllerFailure('add_custom_model', $exception);
-            $this->flash->error($exception->getMessage());
-        }
-
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
-    }
-
-    public function deleteCustomModelAction(): void
-    {
-        try {
-            $modelId = (string)$this->request->getPost(STTSetting::SELECTED_MODEL, 'string', '');
-            STTSetting::removeCustomModel($modelId);
-            LocalSpeechToTextLogger::event(
-                'settings',
-                'settings_changed',
-                'Custom recognition model deleted',
-                LOG_NOTICE,
-                ['changed_fields' => 'custom_models']
-            );
-            $this->flash->success($this->translation->_('module_local_speech_to_text_CustomModelDeleted'));
-        } catch (Throwable $exception) {
-            $this->logControllerFailure('delete_custom_model', $exception);
-            $this->flash->error($exception->getMessage());
-        }
-
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
-    }
-
     public function retryErrorsAction(): void
     {
         try {

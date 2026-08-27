@@ -26,9 +26,7 @@ expectAdminSettingsWrite($controller !== false, 'Cannot read settings controller
 
 $settingsActions = [
     'saveAction' => ['saveModelAction', 'saveSettingsFromPost'],
-    'saveModelAction' => ['addCustomModelAction', 'STTSetting::setValue'],
-    'addCustomModelAction' => ['deleteCustomModelAction', 'STTSetting::addCustomModel'],
-    'deleteCustomModelAction' => ['retryErrorsAction', 'STTSetting::removeCustomModel'],
+    'saveModelAction' => ['retryErrorsAction', 'STTSetting::setValue'],
 ];
 
 foreach ($settingsActions as $action => [$nextAction, $expectedWrite]) {

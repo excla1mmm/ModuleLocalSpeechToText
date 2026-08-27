@@ -1057,8 +1057,7 @@
         }
 
         if (typeof $.fn.accordion === 'function') {
-            $('.module-local-speech-to-text .stt-custom-model-dropdown, '
-                + '.module-local-speech-to-text .stt-advanced-settings-dropdown').accordion();
+            $('.module-local-speech-to-text .stt-advanced-settings-dropdown').accordion();
         }
 
         $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').on('click', function (event) {
@@ -1128,9 +1127,6 @@
         }
 
         $('.module-local-speech-to-text .stt-delete-api-key-form').each(function () {
-            bindConfirmableForm($(this));
-        });
-        $('.module-local-speech-to-text .stt-delete-custom-model-form').each(function () {
             bindConfirmableForm($(this));
         });
     }
@@ -1329,13 +1325,6 @@
         $modelForm.form({
             fields: {
                 selected_model: ['empty']
-            }
-        });
-        $('.module-local-speech-to-text .stt-custom-model-form').form({
-            fields: {
-                model_repo: ['empty'],
-                runtime_model: ['empty'],
-                model_title: ['empty']
             }
         });
     });

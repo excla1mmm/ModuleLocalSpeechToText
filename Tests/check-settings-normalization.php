@@ -231,43 +231,5 @@ namespace {
         'Removed worker API key must remain known without remaining authorized'
     );
 
-    $repo = 'owner/model.repo';
-    $runtimeModel = 'model-v1';
-    $customModelId = 'custom:' . sha1($repo . ':' . $runtimeModel);
-    ModulesModelsBase::$values = [
-        STTSetting::CUSTOM_MODELS => json_encode([
-            'invalid' => [
-                'repo' => '../bad',
-                'model' => 'model',
-            ],
-            'valid' => [
-                'repo' => ' ' . $repo . ' ',
-                'model' => ' ' . $runtimeModel . ' ',
-                'label' => str_repeat('L', 200),
-                'description' => str_repeat('D', 300),
-                'license' => str_repeat('A', 100),
-                'source_url' => 'https://huggingface.co/owner/model.repo/tree/main/model-v1',
-                'tags' => ['tag', 'tag', ' ', str_repeat('x', 40)],
-            ],
-        ], JSON_UNESCAPED_SLASHES) ?: '{}',
-    ];
-
-    $models = STTSetting::customModelPresets();
-    expectTrueSettingsNormalization(isset($models[$customModelId]), 'Valid custom models must be exposed under a deterministic id');
-    expectSameSettingsNormalization([$customModelId], array_keys($models), 'Invalid custom models must be ignored');
-    expectSameSettingsNormalization(160, strlen($models[$customModelId]['label']), 'Custom model labels must be capped');
-    expectSameSettingsNormalization(240, strlen($models[$customModelId]['description']), 'Custom model descriptions must be capped');
-    expectSameSettingsNormalization(80, strlen($models[$customModelId]['license']), 'Custom model licenses must be capped');
-    expectSameSettingsNormalization(
-        ['tag', str_repeat('x', 32)],
-        $models[$customModelId]['tags'],
-        'Custom model tags must be deduplicated, trimmed and capped'
-    );
-    expectSameSettingsNormalization(
-        $customModelId,
-        STTSetting::normalizeModelId($customModelId),
-        'Known custom model ids must be selectable'
-    );
-
     echo "Settings normalization contract OK\n";
 }

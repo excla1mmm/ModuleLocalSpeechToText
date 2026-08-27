@@ -32,10 +32,6 @@
     vertical-align: top;
 }
 
-.module-local-speech-to-text .stt-custom-model-form {
-    margin-top: 0;
-}
-
 .module-local-speech-to-text .stt-model-title {
     font-weight: 700;
     overflow-wrap: anywhere;
@@ -63,18 +59,6 @@
     display: inline-block;
     max-width: 22em;
     overflow-wrap: anywhere;
-}
-
-.module-local-speech-to-text .stt-delete-custom-model-form {
-    margin: 0;
-}
-
-.module-local-speech-to-text .stt-custom-model-dropdown {
-    margin-top: 1.2em;
-}
-
-.module-local-speech-to-text .stt-custom-model-dropdown .content {
-    padding-top: 1em !important;
 }
 
 .module-local-speech-to-text .stt-form-actions {

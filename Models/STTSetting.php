@@ -37,7 +37,6 @@ class STTSetting extends ModulesModelsBase
     public const string WORKER_API_KEY_IDS = 'worker_api_key_ids';
     public const string WORKER_API_KEY_HISTORY_IDS = 'worker_api_key_history_ids';
     public const string WORKER_API_CONTRACT_MIGRATION_V2 = 'worker_api_contract_migration_v2';
-    public const string CUSTOM_MODELS = 'custom_models';
     public const string TEMPERATURE = 'temperature';
     public const string TEMPERATURE_FALLBACK_STEP = 'temperature_fallback_step';
     public const string TEMPERATURE_FALLBACK_COUNT = 'temperature_fallback_count';
@@ -248,91 +247,7 @@ class STTSetting extends ModulesModelsBase
      */
     public static function modelPresets(): array
     {
-        return self::MODEL_PRESETS + self::customModelPresets();
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    public static function customModelPresets(): array
-    {
-        $decoded = json_decode(self::getValue(self::CUSTOM_MODELS, '{}'), true);
-        if (!is_array($decoded)) {
-            return [];
-        }
-
-        $models = [];
-        foreach ($decoded as $modelId => $model) {
-            if (!is_array($model)) {
-                continue;
-            }
-
-            $repo = self::sanitizeModelRepo((string)($model['repo'] ?? ''));
-            $runtimeModel = self::sanitizeRuntimeModel((string)($model['model'] ?? ''));
-            if ($repo === '' || $runtimeModel === '') {
-                continue;
-            }
-
-            $modelId = self::customModelId($repo, $runtimeModel);
-            $models[$modelId] = [
-                'repo' => $repo,
-                'model' => $runtimeModel,
-                'engine' => 'whisperKit',
-                'artifact_type' => 'whisperkit-coreml',
-                'label' => self::truncateText((string)($model['label'] ?? $repo . '/' . $runtimeModel), 160),
-                'description' => self::truncateText((string)($model['description'] ?? ''), 240),
-                'license' => self::truncateText((string)($model['license'] ?? ''), 80),
-                'source_url' => self::sanitizeSourceUrl((string)($model['source_url'] ?? '')),
-                'language' => self::truncateText((string)($model['language'] ?? ''), 24),
-                'tags' => self::sanitizeModelTags($model['tags'] ?? []),
-                'custom' => true,
-            ];
-        }
-
-        return $models;
-    }
-
-    /**
-     * @param array<string, mixed> $model
-     */
-    public static function addCustomModel(array $model): string
-    {
-        $repo = self::sanitizeModelRepo((string)($model['repo'] ?? ''));
-        $runtimeModel = self::sanitizeRuntimeModel((string)($model['model'] ?? ''));
-        if ($repo === '' || $runtimeModel === '') {
-            throw new RuntimeException('Invalid Hugging Face model repository or model folder.');
-        }
-
-        $modelId = self::customModelId($repo, $runtimeModel);
-        $models = self::customModelPresets();
-        $models[$modelId] = [
-            'repo' => $repo,
-            'model' => $runtimeModel,
-            'engine' => 'whisperKit',
-            'artifact_type' => 'whisperkit-coreml',
-            'label' => self::truncateText((string)($model['label'] ?? $repo . '/' . $runtimeModel), 160),
-            'description' => self::truncateText((string)($model['description'] ?? ''), 240),
-            'license' => self::truncateText((string)($model['license'] ?? ''), 80),
-            'source_url' => self::sanitizeSourceUrl((string)($model['source_url'] ?? '')),
-            'language' => self::truncateText((string)($model['language'] ?? ''), 24),
-            'tags' => self::sanitizeModelTags($model['tags'] ?? []),
-            'custom' => true,
-        ];
-
-        self::setValue(self::CUSTOM_MODELS, json_encode($models, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-
-        return $modelId;
-    }
-
-    public static function removeCustomModel(string $modelId): void
-    {
-        $selectedModel = trim(self::getValue(self::SELECTED_MODEL, self::DEFAULT_MODEL));
-        $models = self::customModelPresets();
-        unset($models[$modelId]);
-        self::setValue(self::CUSTOM_MODELS, json_encode($models, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-        if ($selectedModel === $modelId) {
-            self::setValue(self::SELECTED_MODEL, self::DEFAULT_MODEL);
-        }
+        return self::MODEL_PRESETS;
     }
 
     public static function selectedLanguageId(): string
@@ -625,73 +540,4 @@ class STTSetting extends ModulesModelsBase
         return array_key_exists($languageId, self::LANGUAGE_PRESETS) ? $languageId : self::AUTO_LANGUAGE;
     }
 
-    private static function customModelId(string $repo, string $model): string
-    {
-        return 'custom:' . sha1($repo . ':' . $model);
-    }
-
-    private static function sanitizeModelRepo(string $repo): string
-    {
-        $repo = trim($repo);
-        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/', $repo)) {
-            return '';
-        }
-
-        return $repo;
-    }
-
-    private static function sanitizeRuntimeModel(string $model): string
-    {
-        $model = trim($model);
-        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,160}$/', $model)) {
-            return '';
-        }
-
-        return $model;
-    }
-
-    private static function sanitizeSourceUrl(string $url): string
-    {
-        $url = trim($url);
-        if ($url === '') {
-            return '';
-        }
-        if (!preg_match('/^https:\/\/huggingface\.co\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/.*)?$/', $url)) {
-            return '';
-        }
-
-        return self::truncateText($url, 300);
-    }
-
-    /**
-     * @param mixed $tags
-     * @return array<int, string>
-     */
-    private static function sanitizeModelTags(mixed $tags): array
-    {
-        if (is_string($tags)) {
-            $tags = preg_split('/[\r\n,;]+/', $tags) ?: [];
-        }
-        if (!is_array($tags)) {
-            return [];
-        }
-
-        $sanitized = [];
-        foreach ($tags as $tag) {
-            $tag = trim((string)$tag);
-            if ($tag === '') {
-                continue;
-            }
-            $sanitized[] = self::truncateText($tag, 32);
-        }
-
-        return array_slice(array_values(array_unique($sanitized)), 0, 8);
-    }
-
-    private static function truncateText(string $text, int $length): string
-    {
-        $text = trim($text);
-
-        return function_exists('mb_substr') ? mb_substr($text, 0, $length) : substr($text, 0, $length);
-    }
 }

@@ -21,8 +21,6 @@ class ModelMarketplaceService
         $selectedModel = STTSetting::selectedModelId();
 
         foreach (STTSetting::modelPresets() as $modelId => $model) {
-            $isCustom = (bool)($model['custom'] ?? false);
-
             $rows[] = [
                 'id' => $modelId,
                 'title' => $this->modelText((string)$model['label']),
@@ -30,12 +28,11 @@ class ModelMarketplaceService
                 'runtime' => (string)($model['model'] ?? $modelId),
                 'label' => $this->modelText((string)$model['label']),
                 'description' => $this->modelText((string)$model['description']),
-                'profile' => $this->modelText((string)($model['profile'] ?? ($isCustom ? 'module_local_speech_to_text_ModelProfileCustom' : ''))),
-                'bestFor' => $this->modelText((string)($model['best_for'] ?? ($isCustom ? 'module_local_speech_to_text_ModelCustomBestFor' : ''))),
-                'tradeoff' => $this->modelText((string)($model['tradeoff'] ?? ($isCustom ? 'module_local_speech_to_text_ModelCustomTradeoff' : ''))),
+                'profile' => $this->modelText((string)($model['profile'] ?? '')),
+                'bestFor' => $this->modelText((string)($model['best_for'] ?? '')),
+                'tradeoff' => $this->modelText((string)($model['tradeoff'] ?? '')),
                 'sourceUrl' => (string)($model['source_url'] ?? ''),
                 'selected' => $modelId === $selectedModel,
-                'custom' => $isCustom,
                 'technical' => implode(' · ', array_values(array_filter([
                     (string)($model['engine'] ?? 'WhisperKit'),
                     $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
