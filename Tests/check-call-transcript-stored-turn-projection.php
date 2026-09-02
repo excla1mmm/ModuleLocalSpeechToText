@@ -120,20 +120,13 @@ namespace {
     $transcript = $detail['transcript'] ?? [];
     $turns = is_array($transcript['turns'] ?? null) ? $transcript['turns'] : [];
 
-    expectStoredTurnProjection((int)($transcript['segment_count'] ?? 0) === 9, 'raw segment count must stay unchanged');
-    expectStoredTurnProjection((int)($transcript['turn_count'] ?? 0) === 3, 'stored one-to-one turns must be coalesced on read');
-    expectStoredTurnProjection(count($turns) === 3, 'projected turn list must match turn_count');
+    expectStoredTurnProjection(!isset($transcript['segment_count'], $transcript['turn_count']), 'derived transcript counts must not be public');
+    expectStoredTurnProjection(count($turns) === 3, 'stored one-to-one turns must be coalesced on read');
     expectStoredTurnProjection(
         !array_key_exists('_identity', $turns[0] ?? []),
         'internal grouping identity must not leak into the API payload'
     );
-    expectStoredTurnProjection(
-        ($turns[0]['source_segment_ids'] ?? []) === array_map(
-            static fn (int $index): string => "call:regression:r4:s{$index}",
-            range(8, 14)
-        ),
-        'merged turn must retain every source segment id'
-    );
+    expectStoredTurnProjection(!isset($turns[0]['source_segment_ids'], $turns[0]['source_result_ids']), 'turn internals must not leak into the API payload');
     expectStoredTurnProjection(
         ($turns[0]['start_ms'] ?? null) === 24_500 && ($turns[0]['end_ms'] ?? null) === 60_620,
         'merged turn range must cover all source segments'

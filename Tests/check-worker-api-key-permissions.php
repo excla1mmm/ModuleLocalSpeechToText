@@ -67,7 +67,6 @@ foreach ([
     '/pbxcore/api/v3/module-local-speech-to-text/jobs:getNext',
     '/pbxcore/api/v3/module-local-speech-to-text/jobs/42:download',
     '/pbxcore/api/v3/module-local-speech-to-text/transcripts',
-    '/pbxcore/api/v3/module-local-speech-to-text/transcripts/events',
     '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/42',
     '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events',
 ] as $path) {

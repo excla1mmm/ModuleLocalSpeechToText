@@ -66,8 +66,8 @@ expectTranscriptPublicProjection(
     'turns must preserve an explicit speaker and omit duplicate public fields'
 );
 expectTranscriptPublicProjection(
-    ($projected['segment_count'] ?? null) === 1 && ($projected['turn_count'] ?? null) === 1,
-    'projection must preserve transcript metadata'
+    !isset($projected['segment_count'], $projected['turn_count']),
+    'projection must omit derived transcript counts'
 );
 
 echo "Transcript public projection OK\n";

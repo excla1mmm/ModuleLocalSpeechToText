@@ -37,7 +37,7 @@ $snapshotStart = strpos($main, 'private static function prepareJobSnapshot');
 $snapshotEnd = $snapshotStart === false ? false : strpos($main, 'private static function formatJob', $snapshotStart);
 $snapshot = $snapshotStart === false || $snapshotEnd === false ? '' : substr($main, $snapshotStart, $snapshotEnd - $snapshotStart);
 expectNextJobSettings($snapshot !== '', 'Cannot inspect prepareJobSnapshot()');
-foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'whisperkit_model', 'model_display_name', 'model_source_url', 'model_revision', 'model_sha256_manifest', 'vocabulary_terms'] as $field) {
+foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'whisperkit_model', 'model_display_name', 'model_revision', 'model_sha256_manifest', 'vocabulary_terms'] as $field) {
     expectNextJobSettings(str_contains($snapshot, "'{$field}'"), "Worker job snapshot lost {$field}");
 }
 expectNextJobSettings(

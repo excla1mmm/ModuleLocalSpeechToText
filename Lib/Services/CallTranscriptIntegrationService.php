@@ -21,8 +21,7 @@ final class CallTranscriptIntegrationService
         $limit = max(1, min(200, (int)($filters['limit'] ?? 100)));
         [$createdAt, $eventId] = $this->decodeCursor((string)($filters['cursor'] ?? '0:0'));
         $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
-            'SELECT id, event_type, call_transcript_id, call_id, revision,
-                    content_hash, parts_hash, completeness_status, created_at
+            'SELECT id, event_type, call_transcript_id, revision, created_at
                FROM m_STTCallTranscriptEvent
               WHERE CAST(created_at AS INTEGER) > :created_at
                  OR (CAST(created_at AS INTEGER) = :created_at AND CAST(id AS INTEGER) > :event_id)
@@ -41,17 +40,12 @@ final class CallTranscriptIntegrationService
                 'cursor' => $this->encodeCursor($rowCreatedAt, $rowId),
                 'event_type' => (string)($row['event_type'] ?? ''),
                 'aggregate_id' => (int)($row['call_transcript_id'] ?? 0),
-                'call_id' => (string)($row['call_id'] ?? ''),
                 'revision' => (int)($row['revision'] ?? 0),
-                'content_hash' => (string)($row['content_hash'] ?? ''),
-                'parts_hash' => (string)($row['parts_hash'] ?? ''),
-                'completeness_status' => (string)($row['completeness_status'] ?? ''),
-                'created_at' => $rowCreatedAt,
             ];
             $nextCursor = $this->encodeCursor($rowCreatedAt, $rowId);
         }
 
-        return ['events' => $events, 'next_cursor' => $nextCursor, 'limit' => $limit];
+        return ['events' => $events, 'next_cursor' => $nextCursor];
     }
 
     /** @return array<string, mixed> */

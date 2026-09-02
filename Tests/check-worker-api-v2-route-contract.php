@@ -276,7 +276,7 @@ namespace {
         'PATCH /jobs patchCollection', 'DELETE /jobs/{id} delete', 'DELETE /jobs deleteCollection',
     ];
     $root = dirname(__DIR__);
-    $nonWorkerResources = ['/transcripts', '/transcripts/events', '/call-transcripts', '/call-transcripts/events'];
+    $nonWorkerResources = ['/transcripts', '/call-transcripts', '/call-transcripts/events'];
     $operations = reflectedWorkerApiV2Operations($root, $v2Resources, $nonWorkerResources);
     $allowed = $expected;
     $actual = [];

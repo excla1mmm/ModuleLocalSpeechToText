@@ -87,8 +87,8 @@ expectDurationContract(
     'Retry payload must retain known duration'
 );
 expectDurationContract(
-    str_contains($main, "'duration_hint' => self::jobDurationSeconds(\$job)"),
-    'Claim response must expose job duration'
+    !str_contains($main, "'duration_hint' =>"),
+    'Claim response must not expose unused job duration'
 );
 expectDurationContract(
     str_contains($main, "self::error('duration_too_long'"),

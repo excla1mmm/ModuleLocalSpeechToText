@@ -14,7 +14,6 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
-use Modules\ModuleLocalSpeechToText\Lib\Services\STTWorkerResourceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
@@ -87,7 +86,7 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success(STTWorkerResourceService::formatWorker($worker));
+            return self::success(['id' => (int)$worker->id]);
         } catch (WorkerApiKeyBindingConflictException $exception) {
             $result = self::error($exception->errorCode, $exception->getMessage(), 409);
             $result->data['error_code'] = $exception->errorCode;
@@ -610,7 +609,6 @@ class LocalSpeechToTextMain
             'model_artifact_type' => (string)$modelPreset['artifact_type'],
             'whisperkit_model' => $modelEngine === 'whisperKit' ? $modelRuntimeId : null,
             'model_display_name' => $modelRepo . '/' . $modelRuntimeId,
-            'model_source_url' => (string)($modelPreset['source_url'] ?? ''),
             'model_revision' => $modelEngine === 'whisperKit' ? (string)($modelPreset['revision'] ?? '') : null,
             'model_sha256_manifest' => $modelEngine === 'whisperKit' ? ($modelPreset['sha256_manifest'] ?? []) : null,
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
@@ -625,7 +623,6 @@ class LocalSpeechToTextMain
             'file_url' => '/job-recordings/'.(int)$job->id,
             'lease_token' => (string)$job->lease_token,
             'lease_expires_at' => (int)$job->lease_expires_at,
-            'duration_hint' => self::jobDurationSeconds($job),
             'language_hint' => $snapshot['language_hint'],
             'model_id' => $snapshot['model_id'],
             'model_repo' => $snapshot['model_repo'],
@@ -633,7 +630,6 @@ class LocalSpeechToTextMain
             'model_artifact_type' => $snapshot['model_artifact_type'],
             'whisperkit_model' => $snapshot['whisperkit_model'],
             'model_display_name' => $snapshot['model_display_name'],
-            'model_source_url' => $snapshot['model_source_url'],
             'model_revision' => $snapshot['model_revision'],
             'model_sha256_manifest' => $snapshot['model_sha256_manifest'],
             'vocabulary_terms' => $snapshot['vocabulary_terms'],

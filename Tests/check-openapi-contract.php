@@ -131,7 +131,6 @@ namespace {
         'JobFailures' => 'Local STT Jobs',
         'JobRecordings' => 'Local STT Jobs',
         'Transcripts' => 'Local STT Transcripts',
-        'TranscriptEvents' => 'Local STT Transcripts',
         'CallTranscripts' => 'Local STT Call Transcripts',
         'CallTranscriptEvents' => 'Local STT Call Transcripts',
     ];
@@ -225,6 +224,7 @@ namespace {
 
     foreach ([
         '../Lib/RestAPI/Jobs/DataStructure.php',
+        '../Lib/RestAPI/JobLeases/DataStructure.php',
         '../Lib/RestAPI/JobRecordings/DataStructure.php',
         '../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php',
     ] as $file) {
@@ -257,11 +257,12 @@ namespace {
         }
     }
 
-    $jobSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::getDetailSchema();
-    $jobProperties = $jobSchema['properties'] ?? [];
-    foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'model_display_name', 'model_source_url'] as $field) {
+    $jobSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobLeases\DataStructure::getDetailSchema();
+    $jobProperties = $jobSchema['properties']['job']['properties'] ?? [];
+    foreach (['model_id', 'model_repo', 'model_engine', 'model_artifact_type', 'model_display_name'] as $field) {
         expectOpenApi(($jobProperties[$field]['type'] ?? null) === 'string', "Worker v2 job schema must document generic {$field}");
     }
+    expectOpenApi(!isset($jobProperties['model_source_url'], $jobProperties['duration_hint']), 'Worker v2 job schema must omit unused model source and duration aliases');
     expectOpenApi(
         ($jobProperties['model_revision']['type'] ?? null) === ['string', 'null'],
         'Worker v2 job schema must document nullable model_revision'
@@ -295,7 +296,7 @@ namespace {
 
     foreach ([
         '../Lib/RestAPI/Transcripts/DataStructure.php', '../Lib/RestAPI/Transcripts/ListDataStructure.php',
-        '../Lib/RestAPI/TranscriptEvents/DataStructure.php', '../Lib/RestAPI/CallTranscripts/DataStructure.php',
+        '../Lib/RestAPI/CallTranscripts/DataStructure.php',
         '../Lib/RestAPI/CallTranscriptEvents/DataStructure.php',
     ] as $file) {
         require_once __DIR__ . '/' . $file;
@@ -313,23 +314,19 @@ namespace {
     }
     expectOpenApi(array_keys($transcriptList['properties'] ?? []) === ['items', 'pagination'], 'Transcript list wrapper changed');
     expectOpenApi(($transcriptList['example']['items'][0]['result_id'] ?? null) === ($transcriptDetail['example']['result_id'] ?? null), 'Transcript list/detail examples must remain linked');
-    foreach ([\Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\DataStructure::class, \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::class] as $eventSchema) {
-        $parameters = $eventSchema::getParameterDefinitions()['request'];
-        expectOpenApi(($parameters['cursor']['pattern'] ?? null) === '^\\d+:\\d+$' && ($parameters['limit']['minimum'] ?? null) === 1 && ($parameters['limit']['maximum'] ?? null) === 200, "{$eventSchema} cursor constraints changed");
-        $schema = $eventSchema::getDetailSchema();
-        expectOpenApi(array_keys($schema['properties'] ?? []) === ['events', 'next_cursor', 'limit'], "{$eventSchema} event wrapper changed");
-    }
-    $eventSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\DataStructure::getDetailSchema();
-    expectOpenApi(($eventSchema['example']['events'][0]['result_id'] ?? null) === ($transcriptDetail['example']['result_id'] ?? null), 'Transcript event/detail examples must remain linked');
+    $callEventParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getParameterDefinitions()['request'];
+    expectOpenApi(($callEventParameters['cursor']['pattern'] ?? null) === '^\\d+:\\d+$' && ($callEventParameters['limit']['minimum'] ?? null) === 1 && ($callEventParameters['limit']['maximum'] ?? null) === 200, 'Call transcript event cursor constraints changed');
+    $callEventSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
+    expectOpenApi(array_keys($callEventSchema['properties'] ?? []) === ['events', 'next_cursor'], 'Call transcript event wrapper must stay minimal');
     $callParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getParameterDefinitions()['request'];
     expectOpenApi(($callParameters['id']['minimum'] ?? null) === 1 && ($callParameters['revision']['minimum'] ?? null) === 1, 'Call transcript revision constraints changed');
     $callSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getDetailSchema();
-    expectOpenApi(isset($callSchema['properties']['part_manifest']['items']['properties']['result_id'], $callSchema['properties']['transcript']['properties']['segments']['items']['properties']['absolute_start_ms'], $callSchema['properties']['transcript']['properties']['turns']['items']['properties']['source_result_ids']), 'Call transcript part, segment, and turn schemas changed');
+    expectOpenApi(isset($callSchema['properties']['part_manifest']['items']['properties']['result_id']), 'Call transcript part schema changed');
     $callTranscriptProperties = $callSchema['properties']['transcript']['properties'] ?? [];
     foreach (['segments', 'turns'] as $collection) {
         $properties = $callTranscriptProperties[$collection]['items']['properties'] ?? [];
         expectOpenApi(isset($properties['start_ms'], $properties['end_ms'], $properties['speaker']), 'Call transcript schema must expose milliseconds and speaker');
-        expectOpenApi(!isset($properties['channel']), 'Call transcript public schema must not expose physical channel');
+        expectOpenApi(!isset($properties['channel'], $properties['absolute_start_ms'], $properties['absolute_end_ms'], $properties['source_result_ids']), 'Call transcript public schema must not expose internal projection fields');
     }
     $callEvents = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
     expectOpenApi(($callEvents['example']['events'][0]['aggregate_id'] ?? null) === ($callSchema['example']['aggregate_id'] ?? null) && ($callEvents['example']['events'][0]['revision'] ?? null) === ($callSchema['example']['revision'] ?? null), 'Call transcript event/detail examples must remain linked');
@@ -387,7 +384,6 @@ namespace {
         'PUT /pbxcore/api/v3/module-local-speech-to-text/job-failures/{id} updateLocalSTTJobFailure',
         'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts listLocalSpeechToTextTranscripts',
         'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/{id} getLocalSpeechToTextTranscript',
-        'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/events listLocalSpeechToTextTranscriptEvents',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/{id} getLocalSpeechToTextCallTranscript',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events listLocalSpeechToTextCallTranscriptEvents',
     ];
@@ -406,7 +402,6 @@ namespace {
             || str_ends_with($tuple, ' updateLocalSTTJobFailure')
             || str_ends_with($tuple, ' listLocalSpeechToTextTranscripts')
             || str_ends_with($tuple, ' getLocalSpeechToTextTranscript')
-            || str_ends_with($tuple, ' listLocalSpeechToTextTranscriptEvents')
             || str_ends_with($tuple, ' getLocalSpeechToTextCallTranscript')
             || str_ends_with($tuple, ' listLocalSpeechToTextCallTranscriptEvents')
     ));

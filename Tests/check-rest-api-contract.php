@@ -33,8 +33,6 @@ namespace Phalcon\Di {
 namespace {
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure as JobsDataStructure;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Processor as JobsProcessor;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\DataStructure as TranscriptEventsDataStructure;
-    use Modules\ModuleLocalSpeechToText\Lib\RestAPI\TranscriptEvents\Processor as TranscriptEventsProcessor;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\DataStructure as TranscriptsDataStructure;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts\Processor as TranscriptsProcessor;
     use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
@@ -44,10 +42,8 @@ namespace {
     require_once __DIR__ . '/../Lib/RestAPI/Common/WorkerRequestContext.php';
     require_once __DIR__ . '/../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Transcripts/DataStructure.php';
-    require_once __DIR__ . '/../Lib/RestAPI/TranscriptEvents/DataStructure.php';
     require_once __DIR__ . '/../Lib/RestAPI/Jobs/Processor.php';
     require_once __DIR__ . '/../Lib/RestAPI/Transcripts/Processor.php';
-    require_once __DIR__ . '/../Lib/RestAPI/TranscriptEvents/Processor.php';
 
     function expectSameRestApiContract(mixed $expected, mixed $actual, string $message): void
     {
@@ -107,13 +103,6 @@ namespace {
             && isset($transcriptDetail['properties']['transcript']['properties']['segments']),
         'Transcript detail schema must expose both coalesced turns and raw segments'
     );
-
-    $eventsParameters = TranscriptEventsDataStructure::getParameterDefinitions();
-    expectSameRestApiContract('cursor', array_key_first($eventsParameters['request']), 'Transcript events must be cursor-first for polling clients');
-    $eventItem = TranscriptEventsDataStructure::getListItemSchema();
-    foreach (['cursor', 'event_type', 'result_id', 'job_id', 'call_id', 'created_at', 'update_type'] as $property) {
-        expectTrueRestApiContract(isset($eventItem['properties'][$property]), "Transcript event schema must expose {$property}");
-    }
 
     $trustedRequest = [
         'data' => [

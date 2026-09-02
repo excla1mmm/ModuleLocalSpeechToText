@@ -164,7 +164,21 @@ foreach (array_keys($openApiKeys) as $key) {
  * supplied by an annotation/resource reference collected above or be listed
  * here with a justification.
  */
-$rendererOwnedCatalogKeys = [];
+$rendererOwnedCatalogKeys = array_fill_keys([
+    // Retained for upgrade compatibility with cached OpenAPI documents from older module builds.
+    'module_local_speech_to_text_TranscriptEventsApiDescription',
+    'module_local_speech_to_text_ApiFieldAbsoluteEndMs',
+    'module_local_speech_to_text_ApiFieldAbsoluteStartMs',
+    'module_local_speech_to_text_ApiFieldNormalizedText',
+    'module_local_speech_to_text_ApiFieldPartOrder',
+    'module_local_speech_to_text_ApiFieldSourceIndex',
+    'module_local_speech_to_text_ApiFieldSourceResultIds',
+    'module_local_speech_to_text_ApiFieldTranscriptEventType',
+    'module_local_speech_to_text_ApiFieldTranscriptEvents',
+    'module_local_speech_to_text_ApiFieldUpdateType',
+    'module_local_speech_to_text_ApiSchemaTranscriptEvent',
+    'module_local_speech_to_text_ApiSchemaTranscriptEventList',
+], true);
 foreach (array_keys($english) as $key) {
     $isOpenApiShaped = (bool)preg_match(
         '/^(?:module_local_speech_to_text_Api[A-Za-z0-9_]*|module_local_speech_to_text_[A-Za-z0-9_]*ApiDescription)$/',

@@ -74,7 +74,7 @@ class Controller extends BaseRestController
         // Implementation handled by BaseRestController.
     }
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorker')]
+    #[ApiDataSchema(schemaClass: RegistrationDataStructure::class, type: 'detail', schemaName: 'LocalSTTWorkerRegistration')]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_RegisterWorker',
         description: 'module_local_speech_to_text_RegisterWorkerDesc',

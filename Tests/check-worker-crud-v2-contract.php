@@ -719,8 +719,7 @@ namespace {
     expectWorkerCrud(
         str_contains($main, 'WorkerApiContract::API_VERSION')
             && str_contains($main, "self::stringField(\$data, 'app_version')")
-            && str_contains($main, 'STTWorkerResourceService::formatWorker($worker)')
-            && str_contains($resourceService, "'id' => (int)\$worker->id"),
+            && str_contains($main, "return self::success(['id' => (int)\$worker->id]);"),
         'Registration must pass v2/app versions and return the numeric resource id',
     );
 
