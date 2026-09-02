@@ -115,7 +115,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                             'source_label' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldSourceLabel', 'example' => 'part:501'],
                             'recording_fingerprint' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldRecordingFingerprint', 'example' => str_repeat('c', 64)],
                             'resolution_status' => ['type' => 'string', 'enum' => ['complete', 'legacy_unresolved'], 'description' => 'module_local_speech_to_text_ApiFieldResolutionStatus', 'example' => 'complete'],
-                            'channel' => ['type' => 'string', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldChannel', 'example' => 'left'],
                             'speaker' => ['type' => 'string', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldSpeaker', 'example' => 'operator'],
                         ],
                     ],
@@ -135,7 +134,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                             'absolute_end_ms' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldAbsoluteEndMs', 'example' => 1784455204210],
                             'text' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldText', 'example' => 'Здравствуйте, чем я могу помочь?'],
                             'speaker' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldSourceLabel', 'example' => 'part:501'],
-                            'channel' => ['type' => 'string', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldChannel', 'example' => 'left'],
                             'source_segment_ids' => ['type' => 'array', 'description' => 'module_local_speech_to_text_ApiFieldSourceSegmentIds', 'items' => ['type' => 'string'], 'example' => ['call:55d14f21df10a70e:r501:s0']],
                             'source_result_ids' => ['type' => 'array', 'description' => 'module_local_speech_to_text_ApiFieldSourceResultIds', 'items' => ['type' => 'integer'], 'example' => [501]],
                         ],
@@ -179,7 +177,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'source_label' => 'part:501',
             'recording_fingerprint' => $fingerprint,
             'resolution_status' => 'complete',
-            'channel' => 'left',
             'speaker' => 'operator',
         ];
         $turn = [
@@ -191,7 +188,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'absolute_end_ms' => 1784455204210,
             'text' => 'Здравствуйте, чем я могу помочь?',
             'speaker' => 'part:501',
-            'channel' => 'left',
             'source_segment_ids' => [$segmentId],
             'source_result_ids' => [501],
         ];

@@ -11,6 +11,7 @@ use Phalcon\Db\Enum;
 use RuntimeException;
 
 require_once __DIR__ . '/CallTranscriptTurnProjector.php';
+require_once __DIR__ . '/TranscriptPublicProjection.php';
 
 final class CallTranscriptIntegrationService
 {
@@ -76,6 +77,7 @@ final class CallTranscriptIntegrationService
         $payload = is_array($payload) ? $payload : [];
         if (is_array($payload['transcript'] ?? null)) {
             $payload['transcript'] = (new CallTranscriptTurnProjector())->project($payload['transcript']);
+            $payload['transcript'] = (new TranscriptPublicProjection())->project($payload['transcript']);
         }
 
         return [

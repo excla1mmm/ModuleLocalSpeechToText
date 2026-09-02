@@ -97,15 +97,17 @@ class TranscriptIntegrationService
         $segments = $this->segments($result);
         $turns = $this->turns($result, $segments);
 
+        $transcript = (new TranscriptPublicProjection())->project([
+            'segments' => $segments,
+            'segment_count' => count($segments),
+            'turns' => $turns,
+            'turn_count' => count($turns),
+            'text' => $this->plainText($turns),
+        ]);
+
         return $summary + [
             'technical_info' => $this->technicalInfo($result),
-            'transcript' => [
-                'segments' => $segments,
-                'segment_count' => count($segments),
-                'turns' => $turns,
-                'turn_count' => count($turns),
-                'text' => $this->plainText($turns),
-            ],
+            'transcript' => $transcript,
         ];
     }
 

@@ -138,8 +138,16 @@ namespace {
         ($turns[0]['start_ms'] ?? null) === 24_500 && ($turns[0]['end_ms'] ?? null) === 60_620,
         'merged turn range must cover all source segments'
     );
-    expectStoredTurnProjection(($turns[1]['channel'] ?? '') === 'right', 'opposite channel must start a new turn');
-    expectStoredTurnProjection(($turns[2]['channel'] ?? '') === 'left', 'speaker returning after interruption must start a new turn');
+    expectStoredTurnProjection(
+        !array_key_exists('channel', $turns[1] ?? [])
+            && !array_key_exists('channel', $turns[2] ?? []),
+        'physical channels must not leak into public turns'
+    );
+    expectStoredTurnProjection(
+        !array_key_exists('channel', $transcript['segments'][0] ?? [])
+            && ($transcript['segments'][0]['speaker'] ?? '') === 'left',
+        'public segments must retain speaker identity without exposing channel'
+    );
     expectStoredTurnProjection(
         ($detail['content_hash'] ?? '') === 'content-hash-before-projection',
         'presentation projection must not change revision content identity'
