@@ -97,7 +97,6 @@ final class IndexViewService
         $view->queueFileRows = $queue->queueFileRows($delayed, $skipped);
         (new WorkerViewService())->prepare($view);
         $view->workerApiKeyRows = (new WorkerApiKeyService())->workerApiKeyRows();
-        $view->workerDownloadConfigured = (new WorkerDownloadService())->isConfigured();
         $view->generatedApiKey = $generatedApiKey['apiKey'];
         $view->logsDataPath = MenuProvider::LOGS_PATH;
     }

@@ -86,7 +86,6 @@ return [
     'module_local_speech_to_text_WorkerDownloadTitle' => 'Worker application',
     'module_local_speech_to_text_WorkerDownloadDescription' => 'Install macOS STT Worker for local recording transcription.',
     'module_local_speech_to_text_DownloadWorker' => 'Download for macOS',
-    'module_local_speech_to_text_WorkerDownloadNoLicense' => 'A valid MikoPBX license key is required. Set it on the licensing tab.',
     'module_local_speech_to_text_WorkerDownloadUnavailable' => 'The worker is not available for your license. Make sure the license is active and the release is published.',
     'module_local_speech_to_text_WorkerDownloadServerError' => 'The licensing server is unavailable. Please try again later.',
     'module_local_speech_to_text_WorkerApiKeys' => 'Worker API keys',

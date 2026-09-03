@@ -305,26 +305,16 @@
                         </span>
                     </h4>
                     <div class="stt-table-muted stt-worker-download-meta">
-                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>lm.miko.ru</strong>
+                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>lic.miko.ru</strong>
                     </div>
                 </div>
                 <div class="six wide right aligned column stt-worker-download-action">
-                    {% if workerDownloadConfigured %}
-                        <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
-                            <button class="ui left labeled icon blue button" type="submit">
-                                <i class="download icon"></i>
-                                {{ t._('module_local_speech_to_text_DownloadWorker') }}
-                            </button>
-                        </form>
-                    {% else %}
-                        <button class="ui left labeled icon blue disabled button" type="button" disabled="disabled" aria-disabled="true">
+                    <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
+                        <button class="ui left labeled icon blue button" type="submit">
                             <i class="download icon"></i>
                             {{ t._('module_local_speech_to_text_DownloadWorker') }}
                         </button>
-                        <div class="stt-table-muted stt-worker-download-hint">
-                            {{ t._('module_local_speech_to_text_WorkerDownloadNoLicense') }}
-                        </div>
-                    {% endif %}
+                    </form>
                 </div>
             </div>
         </div>

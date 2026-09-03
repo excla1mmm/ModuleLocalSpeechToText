@@ -150,20 +150,20 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         try {
             $service = new WorkerDownloadService();
-            $availability = $service->probeAvailability();
+            $resolution = $service->resolveDownload();
             LocalSpeechToTextLogger::event(
                 'settings',
                 'worker_download_requested',
                 'Worker dmg download requested',
-                $availability === WorkerDownloadAvailability::AVAILABLE ? LOG_NOTICE : LOG_WARNING,
-                ['availability' => $availability->value]
+                $resolution->availability === WorkerDownloadAvailability::AVAILABLE ? LOG_NOTICE : LOG_WARNING,
+                ['availability' => $resolution->availability->value]
             );
-            if ($availability === WorkerDownloadAvailability::AVAILABLE) {
+            if ($resolution->availability === WorkerDownloadAvailability::AVAILABLE) {
                 // External redirect keeps the license key out of the page HTML.
-                $this->response->redirect($service->downloadUrl(), true);
+                $this->response->redirect($resolution->url, true);
                 return;
             }
-            $this->flash->error($this->translation->_($service->failureTranslationKey($availability)));
+            $this->flash->error($this->translation->_($service->failureTranslationKey($resolution->availability)));
         } catch (Throwable $exception) {
             $this->logControllerFailure('download_worker', $exception);
             $this->flash->error($this->settingsSaveErrorMessage($exception));

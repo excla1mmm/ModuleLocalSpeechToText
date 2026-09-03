@@ -6,38 +6,49 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use Closure;
 use MikoPBX\Common\Models\PbxSettings;
-use RuntimeException;
 
 enum WorkerDownloadAvailability: string
 {
     case AVAILABLE = 'available';
-    case NO_LICENSE = 'no_license';
     case NOT_ENTITLED = 'not_entitled';
     case SERVER_ERROR = 'server_error';
 }
 
+final class WorkerDownloadResolution
+{
+    public function __construct(
+        public readonly WorkerDownloadAvailability $availability,
+        public readonly string $url = ''
+    ) {
+    }
+}
+
 /**
- * Resolves the licensed download link for the macOS worker application.
+ * Resolves the latest macOS worker release through the licensing server.
  *
- * The license key never reaches the browser through the settings page: the
- * controller builds the URL server-side and hands it out only as a redirect
- * target after the availability probe.
+ * The POST getLatestRelease endpoint is the primary contract: an unprotected
+ * release answers with files[].download_link for anyone, an entitled one
+ * only for a valid license key. The resolved link never reaches the browser
+ * through the settings page — the controller hands it out as a redirect.
  */
 class WorkerDownloadService
 {
-    /** Query parameter carrying the license key on the licensing server. */
+    /** Request/body field carrying the license key on the licensing server. */
     public const string LICENSE_PARAM = 'KEY';
+    public const string PRODUCT_TYPE = 'LocalSTTWorkerMac';
 
-    private const string DOWNLOAD_ENDPOINT = 'https://lm.miko.ru/releases/v1/other/downloadLatest/LocalSTTWorkerMac';
+    private const string RELEASE_INFO_ENDPOINT = 'https://lic.miko.ru/releases/v1/other/getLatestRelease';
+    // The dmg is published as a universal build: an empty arch token in the
+    // response matches every requested architecture, an explicit token only
+    // its own.
     private const string DOWNLOAD_ARCH = 'arm64';
-    private const string DOWNLOAD_EXT = 'dmg';
-    private const int PROBE_CONNECT_TIMEOUT = 3;
-    private const int PROBE_TIMEOUT = 5;
-    private const string PROBE_USER_AGENT = 'MikoPBX-ModuleLocalSpeechToText';
+    private const int REQUEST_CONNECT_TIMEOUT = 3;
+    private const int REQUEST_TIMEOUT = 10;
+    private const string REQUEST_USER_AGENT = 'MikoPBX-ModuleLocalSpeechToText';
 
     public function __construct(
         private readonly ?Closure $licenseKeyProvider = null,
-        private readonly ?Closure $headStatusProbe = null
+        private readonly ?Closure $postJson = null
     ) {
     }
 
@@ -62,49 +73,39 @@ class WorkerDownloadService
         return self::isLicenseKeyShape($key) ? $key : '';
     }
 
-    public function isConfigured(): bool
+    public function resolveDownload(): WorkerDownloadResolution
     {
-        return $this->licenseKey() !== '';
-    }
-
-    /**
-     * @throws RuntimeException when no valid license key is configured
-     */
-    public function downloadUrl(): string
-    {
+        $body = ['TYPE' => self::PRODUCT_TYPE];
         $key = $this->licenseKey();
-        if ($key === '') {
-            throw new RuntimeException('A valid MikoPBX license key is required for the worker download');
+        if ($key !== '') {
+            // The server ignores the key while the release is unprotected and
+            // gates the download link on it once entitlement is enabled.
+            $body[self::LICENSE_PARAM] = $key;
         }
 
-        return self::DOWNLOAD_ENDPOINT . '?' . http_build_query([
-            'arch' => self::DOWNLOAD_ARCH,
-            'ext' => self::DOWNLOAD_EXT,
-            self::LICENSE_PARAM => $key,
-        ]);
-    }
+        $raw = $this->postJson !== null
+            ? (string)($this->postJson)(self::RELEASE_INFO_ENDPOINT, $body)
+            : $this->postJsonWithCurl(self::RELEASE_INFO_ENDPOINT, $body);
 
-    /**
-     * Availability is classified without following the redirect: the licensing
-     * server answers 2xx/3xx for an entitled key and 404/403 otherwise.
-     */
-    public function probeAvailability(): WorkerDownloadAvailability
-    {
-        try {
-            $url = $this->downloadUrl();
-        } catch (RuntimeException) {
-            return WorkerDownloadAvailability::NO_LICENSE;
+        $payload = json_decode($raw, true);
+        if (!is_array($payload)) {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::SERVER_ERROR);
+        }
+        if (($payload['result'] ?? '') !== 'SUCCESS') {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::NOT_ENTITLED);
         }
 
-        $status = $this->headStatusProbe !== null
-            ? (int)($this->headStatusProbe)($url)
-            : $this->probeStatusWithCurl($url);
+        $files = $payload['modules']['files'] ?? null;
+        if (!is_array($files)) {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::NOT_ENTITLED);
+        }
 
-        return match (true) {
-            $status >= 200 && $status < 400 => WorkerDownloadAvailability::AVAILABLE,
-            in_array($status, [401, 403, 404, 410], true) => WorkerDownloadAvailability::NOT_ENTITLED,
-            default => WorkerDownloadAvailability::SERVER_ERROR,
-        };
+        $link = $this->selectDownloadLink($files);
+        if ($link === '') {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::NOT_ENTITLED);
+        }
+
+        return new WorkerDownloadResolution(WorkerDownloadAvailability::AVAILABLE, $link);
     }
 
     /**
@@ -114,31 +115,60 @@ class WorkerDownloadService
     {
         return match ($availability) {
             WorkerDownloadAvailability::AVAILABLE => '',
-            WorkerDownloadAvailability::NO_LICENSE => 'module_local_speech_to_text_WorkerDownloadNoLicense',
             WorkerDownloadAvailability::NOT_ENTITLED => 'module_local_speech_to_text_WorkerDownloadUnavailable',
             WorkerDownloadAvailability::SERVER_ERROR => 'module_local_speech_to_text_WorkerDownloadServerError',
         };
     }
 
-    private function probeStatusWithCurl(string $url): int
+    /**
+     * @param array<int, mixed> $files
+     */
+    private function selectDownloadLink(array $files): string
+    {
+        foreach ($files as $file) {
+            if (!is_array($file)) {
+                continue;
+            }
+            $arch = (string)($file['arch'] ?? '');
+            if ($arch !== '' && $arch !== self::DOWNLOAD_ARCH) {
+                continue;
+            }
+            $link = (string)($file['download_link'] ?? '');
+            if (self::isTrustedDownloadLink($link)) {
+                return $link;
+            }
+        }
+
+        return '';
+    }
+
+    private static function isTrustedDownloadLink(string $link): bool
+    {
+        return str_starts_with($link, 'https://')
+            && filter_var($link, FILTER_VALIDATE_URL) !== false;
+    }
+
+    /**
+     * @param array<string, string> $body
+     */
+    private function postJsonWithCurl(string $url, array $body): string
     {
         $handle = curl_init($url);
         if ($handle === false) {
-            return 0;
+            return '';
         }
 
         curl_setopt_array($handle, [
-            CURLOPT_NOBODY => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => (string)(json_encode($body) ?: ''),
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_CONNECTTIMEOUT => self::PROBE_CONNECT_TIMEOUT,
-            CURLOPT_TIMEOUT => self::PROBE_TIMEOUT,
-            CURLOPT_USERAGENT => self::PROBE_USER_AGENT,
+            CURLOPT_CONNECTTIMEOUT => self::REQUEST_CONNECT_TIMEOUT,
+            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT,
+            CURLOPT_USERAGENT => self::REQUEST_USER_AGENT,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json; charset=utf-8'],
         ]);
-        curl_exec($handle);
-        $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
+        $raw = curl_exec($handle);
 
-        return $status;
+        return is_string($raw) ? $raw : '';
     }
 }

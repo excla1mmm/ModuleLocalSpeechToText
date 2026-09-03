@@ -86,7 +86,6 @@ return [
     'module_local_speech_to_text_WorkerDownloadTitle' => 'Программа обработчика',
     'module_local_speech_to_text_WorkerDownloadDescription' => 'Установите macOS STT Worker для локального распознавания записей.',
     'module_local_speech_to_text_DownloadWorker' => 'Скачать для macOS',
-    'module_local_speech_to_text_WorkerDownloadNoLicense' => 'Для загрузки обработчика укажите действующий лицензионный ключ MikoPBX на вкладке лицензирования.',
     'module_local_speech_to_text_WorkerDownloadUnavailable' => 'Обработчик недоступен для вашей лицензии. Убедитесь, что лицензия активна и выпуск опубликован.',
     'module_local_speech_to_text_WorkerDownloadServerError' => 'Сервер лицензирования недоступен. Попробуйте позже.',
     'module_local_speech_to_text_WorkerApiKeys' => 'Ключи подключения обработчиков',

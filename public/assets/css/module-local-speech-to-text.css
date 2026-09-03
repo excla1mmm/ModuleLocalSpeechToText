@@ -176,11 +176,6 @@
     margin: 0 !important;
 }
 
-.module-local-speech-to-text .stt-worker-download-hint {
-    margin-top: 0.45em;
-    text-align: right;
-}
-
 .module-local-speech-to-text .stt-worker-api-key {
     margin-bottom: 1em;
 }
@@ -855,10 +850,6 @@
 
     .module-local-speech-to-text .stt-worker-download-action .button {
         width: 100%;
-    }
-
-    .module-local-speech-to-text .stt-worker-download-hint {
-        text-align: left;
     }
 
     .module-local-speech-to-text .stt-vocabulary-actions {
