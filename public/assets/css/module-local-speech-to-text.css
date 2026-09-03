@@ -176,7 +176,7 @@
     margin: 0 !important;
 }
 
-.module-local-speech-to-text .stt-worker-download-pending {
+.module-local-speech-to-text .stt-worker-download-hint {
     margin-top: 0.45em;
     text-align: right;
 }
@@ -857,7 +857,7 @@
         width: 100%;
     }
 
-    .module-local-speech-to-text .stt-worker-download-pending {
+    .module-local-speech-to-text .stt-worker-download-hint {
         text-align: left;
     }
 

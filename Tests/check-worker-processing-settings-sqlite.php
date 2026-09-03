@@ -46,12 +46,18 @@ namespace {
 
     final class ProcessingSettingsSqliteConnection
     {
+        public ?string $failOnSqlContaining = null;
+
         public function __construct(private readonly PDO $pdo)
         {
         }
 
         public function execute(string $sql, array $bind = []): bool
         {
+            if ($this->failOnSqlContaining !== null && str_contains($sql, $this->failOnSqlContaining)) {
+                return false;
+            }
+
             $statement = $this->pdo->prepare($sql);
 
             return $statement->execute($bind);
@@ -121,6 +127,17 @@ namespace {
         $worker->has_settings_changed = (int)$rows[0]['has_settings_changed'];
 
         return $worker;
+    }
+
+    function settingValue(ProcessingSettingsSqliteConnection $connection, string $key): string
+    {
+        $rows = $connection->fetchAll(
+            'SELECT value FROM m_STTSetting WHERE key = :key',
+            PDO::FETCH_ASSOC,
+            ['key' => $key]
+        );
+
+        return (string)($rows[0]['value'] ?? '');
     }
 
     if (!extension_loaded('pdo_sqlite')) {
@@ -232,6 +249,35 @@ namespace {
         expectProcessingSettingsSqlite(
             dirtyFlags($connectionA) === ['worker-a' => 1, 'worker-b' => 1],
             'A selected-model change must request an immediate refresh from every worker'
+        );
+
+        $beforeFailedSave = settingValue($connectionA, STTSetting::TEMPERATURE);
+        $connectionA->failOnSqlContaining = 'UPDATE m_STTWorker SET has_settings_changed = 1';
+        $saveRejected = false;
+        try {
+            $serviceA->save(array_merge($beforeFetch, ['temperature' => 0.7]));
+        } catch (RuntimeException) {
+            $saveRejected = true;
+        }
+        $connectionA->failOnSqlContaining = null;
+        expectProcessingSettingsSqlite($saveRejected, 'A false worker notification write must fail the settings save');
+        expectProcessingSettingsSqlite(
+            settingValue($connectionA, STTSetting::TEMPERATURE) === $beforeFailedSave,
+            'A false worker notification write must roll back preceding setting writes'
+        );
+
+        $connectionA->failOnSqlContaining = 'SET has_settings_changed = 0';
+        $fetchRejected = false;
+        try {
+            $serviceA->fetchForWorker(workerByUid($connectionA, 'worker-a'));
+        } catch (RuntimeException) {
+            $fetchRejected = true;
+        }
+        $connectionA->failOnSqlContaining = null;
+        expectProcessingSettingsSqlite($fetchRejected, 'A false settings acknowledgement write must fail the fetch');
+        expectProcessingSettingsSqlite(
+            dirtyFlags($connectionA)['worker-a'] === 1,
+            'A failed settings acknowledgement must leave the worker dirty'
         );
 
         echo "Worker processing settings SQLite contract OK\n";

@@ -164,5 +164,39 @@ namespace {
         assertJobResultNumericContract(($data['httpMethod'] ?? null) === 'PUT', "{$engineName}: HTTP method metadata was not forwarded");
     }
 
+    $request->data = [
+        'id' => 42.0,
+        'worker_uid' => '  worker-one  ',
+        'lease_token' => '  lease-one  ',
+        'duration_ms' => 65_570.5,
+        'transcript' => [[
+            'start_ms' => 10.5,
+            'end_ms' => 20.5,
+            'text' => '  malformed timing  ',
+        ]],
+    ];
+    $controller = new Controller();
+    $controller->setFakeRequest($request);
+    $controller->handleCRUDRequest('42');
+    $data = $controller->dispatches[0]['data'] ?? [];
+
+    assertJobResultNumericContract(
+        ($data['_idFromRequestBody'] ?? null) === 42.0,
+        'Body job ID type was changed before canonical validation'
+    );
+    assertJobResultNumericContract(
+        ($data['duration_ms'] ?? null) === 65_570.5,
+        'Fractional duration_ms was changed before strict validation'
+    );
+    assertJobResultNumericContract(
+        ($data['transcript'][0]['start_ms'] ?? null) === 10.5
+            && ($data['transcript'][0]['end_ms'] ?? null) === 20.5,
+        'Fractional transcript timestamps were changed before strict validation'
+    );
+    assertJobResultNumericContract(
+        ($data['transcript'][0]['text'] ?? null) === 'malformed timing',
+        'Transcript strings bypassed standard sanitization'
+    );
+
     echo "Job result controller numeric contract OK\n";
 }

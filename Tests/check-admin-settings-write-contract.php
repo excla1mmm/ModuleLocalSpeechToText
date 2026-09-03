@@ -26,7 +26,7 @@ expectAdminSettingsWrite($controller !== false, 'Cannot read settings controller
 
 $settingsActions = [
     'saveAction' => ['saveModelAction', 'saveSettingsFromPost'],
-    'saveModelAction' => ['retryErrorsAction', 'STTSetting::setValue'],
+    'saveModelAction' => ['retryErrorsAction', 'AdministrativeSettingsWriter'],
 ];
 
 foreach ($settingsActions as $action => [$nextAction, $expectedWrite]) {
@@ -42,9 +42,17 @@ foreach ($settingsActions as $action => [$nextAction, $expectedWrite]) {
     );
 }
 
+$saveActionBody = adminActionBody($controller, 'saveAction', 'saveModelAction');
+expectAdminSettingsWrite(
+    str_contains($saveActionBody, "logControllerFailure('save_settings', \$exception)")
+        && str_contains($saveActionBody, 'settingsSaveErrorMessage($exception)'),
+    'The full settings save path must log failures and hide internal exception details'
+);
+
 $saveModelBody = adminActionBody($controller, 'saveModelAction', 'retryErrorsAction');
 expectAdminSettingsWrite(
-    str_contains($saveModelBody, 'WorkerProcessingSettingsService::markAllWorkersChanged()'),
+    str_contains($saveModelBody, 'new AdministrativeSettingsWriter()')
+        && str_contains($saveModelBody, "null,\n                true"),
     'Saving a recognition model must notify every worker to refresh PBX-managed state'
 );
 
@@ -73,7 +81,7 @@ $saveBody = $saveStart === false || $saveEnd === false
     : substr($baseController, $saveStart, $saveEnd - $saveStart);
 $profileBuild = strpos($saveBody, '$processingInput = [');
 $profileValidation = strpos($saveBody, 'WorkerProcessingSettingsService::normalize($processingInput)');
-$firstWrite = strpos($saveBody, 'STTSetting::setValue(');
+$firstWrite = strpos($saveBody, 'new AdministrativeSettingsWriter()');
 expectAdminSettingsWrite(
     $profileBuild !== false
         && $profileValidation !== false
@@ -97,7 +105,7 @@ expectAdminSettingsWrite(
 );
 expectAdminSettingsWrite(
     str_contains($saveBody, 'in_array(STTSetting::SELECTED_MODEL, $changedFields, true)')
-        && str_contains($saveBody, 'WorkerProcessingSettingsService::markAllWorkersChanged()'),
+        && str_contains($saveBody, 'new AdministrativeSettingsWriter()'),
     'The full settings save path must notify workers when the selected model changes'
 );
 

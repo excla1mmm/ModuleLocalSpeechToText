@@ -157,13 +157,20 @@ final class WorkerProcessingSettingsService
             }
 
             foreach ($next as $key => $value) {
-                $database->execute(
+                self::executeOrFail(
+                    $database,
                     'INSERT INTO m_STTSetting (key, value) VALUES (:key, :value)
                      ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-                    ['key' => $key, 'value' => self::storageValue($value)]
+                    ['key' => $key, 'value' => self::storageValue($value)],
+                    'Unable to save worker processing settings'
                 );
             }
-            $database->execute('UPDATE m_STTWorker SET has_settings_changed = 1');
+            self::executeOrFail(
+                $database,
+                'UPDATE m_STTWorker SET has_settings_changed = 1',
+                [],
+                'Unable to notify workers about changed settings'
+            );
 
             return true;
         });
@@ -179,9 +186,11 @@ final class WorkerProcessingSettingsService
     public function fetchForWorker(STTWorker $worker): array
     {
         return $this->withTransaction(function (mixed $database) use ($worker): array {
-            $database->execute(
+            self::executeOrFail(
+                $database,
                 'UPDATE m_STTWorker SET has_settings_changed = 0 WHERE id = :id',
-                ['id' => (int)$worker->id]
+                ['id' => (int)$worker->id],
+                'Unable to acknowledge worker processing settings'
             );
 
             return self::apiPayload($this->readCurrent($database));
@@ -294,8 +303,22 @@ final class WorkerProcessingSettingsService
     private function withTransaction(callable $operation): mixed
     {
         $database = $this->database();
+        if ($database->isUnderTransaction()) {
+            return $operation($database);
+        }
 
         return (new ModuleTransaction())->run($database, $operation);
+    }
+
+    private static function executeOrFail(
+        mixed $database,
+        string $sql,
+        array $bind,
+        string $message
+    ): void {
+        if (!$database->execute($sql, $bind)) {
+            throw new RuntimeException($message);
+        }
     }
 
     private static function storageValue(float|int|bool $value): string

@@ -18,7 +18,7 @@ $save = substr($controller, $saveStart, $saveEnd - $saveStart);
 $processingReadPosition = strpos($save, 'normalizeCdrHistoryDays');
 $retentionReadPosition = strpos($save, 'normalizeTranscriptRetentionDays');
 $compatibilityPosition = strpos($save, 'retentionAllowsProcessing');
-$firstWritePosition = strpos($save, 'STTSetting::setValue');
+$firstWritePosition = strpos($save, 'new AdministrativeSettingsWriter()');
 expectRetentionSave(
     $processingReadPosition !== false
         && $retentionReadPosition !== false

@@ -23,17 +23,26 @@ class Controller extends BaseRestController
         }
 
         $rawData = $this->request->getData();
-        $technicalInfo = $rawData['technical_info'] ?? null;
-        if (is_array($technicalInfo)) {
-            unset($rawData['technical_info']);
+        $hasBodyId = array_key_exists('id', $rawData);
+        $bodyId = $hasBodyId ? $rawData['id'] : null;
+        $hasDurationMs = array_key_exists('duration_ms', $rawData);
+        $durationMs = $hasDurationMs ? $rawData['duration_ms'] : null;
+        $structuredFields = [];
+        foreach (['technical_info', 'transcript'] as $field) {
+            if (is_array($rawData[$field] ?? null)) {
+                $structuredFields[$field] = $rawData[$field];
+                unset($rawData[$field]);
+            }
         }
         $requestData = self::sanitizeData($rawData, $this->filter);
-        if (is_array($technicalInfo)) {
-            $requestData['technical_info'] = $this->sanitizeTechnicalInfo($technicalInfo);
+        foreach ($structuredFields as $field => $value) {
+            $requestData[$field] = $this->sanitizeStructuredPayload($value);
         }
-
-        if (isset($requestData['id'])) {
-            $requestData['_idFromRequestBody'] = $requestData['id'];
+        if ($hasDurationMs) {
+            $requestData['duration_ms'] = $durationMs;
+        }
+        if ($hasBodyId) {
+            $requestData['_idFromRequestBody'] = $bodyId;
         }
         if ($id !== null && $id !== '') {
             $requestData['id'] = $id;
@@ -54,27 +63,27 @@ class Controller extends BaseRestController
     }
 
     /**
-     * Preserve JSON numeric types inside worker diagnostics while applying the
-     * standard Core string sanitization recursively.
+     * Preserve JSON scalar types inside structured worker payloads while
+     * applying the standard Core string sanitization recursively.
      *
-     * @param array<array-key, mixed> $technicalInfo
+     * @param array<array-key, mixed> $payload
      * @return array<array-key, mixed>
      */
-    private function sanitizeTechnicalInfo(array $technicalInfo): array
+    private function sanitizeStructuredPayload(array $payload): array
     {
-        foreach ($technicalInfo as $key => $value) {
+        foreach ($payload as $key => $value) {
             if (is_array($value)) {
-                $technicalInfo[$key] = $this->sanitizeTechnicalInfo($value);
+                $payload[$key] = $this->sanitizeStructuredPayload($value);
                 continue;
             }
 
             if (is_string($value)) {
                 $sanitized = self::sanitizeData(['value' => $value], $this->filter);
-                $technicalInfo[$key] = $sanitized['value'] ?? '';
+                $payload[$key] = $sanitized['value'] ?? '';
             }
         }
 
-        return $technicalInfo;
+        return $payload;
     }
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJobResult')]

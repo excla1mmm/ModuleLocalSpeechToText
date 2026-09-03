@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\Common\Models\ApiKeys;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
+use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
@@ -16,11 +17,14 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerViewService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use InvalidArgumentException;
 use Throwable;
 
 class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
@@ -44,7 +48,8 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->view->success = true;
             $this->view->reload = MenuProvider::DASHBOARD_PATH;
         } catch (Throwable $exception) {
-            $this->flash->error($exception->getMessage());
+            $this->logControllerFailure('save_settings', $exception);
+            $this->flash->error($this->settingsSaveErrorMessage($exception));
             $this->view->success = false;
         }
 
@@ -63,8 +68,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             ));
             $normalizedModelId = STTSetting::normalizeModelId(substr($modelId, 0, 255));
             $this->assertModelLanguageCompatibility($normalizedModelId, STTSetting::selectedLanguageId());
-            STTSetting::setValue(STTSetting::SELECTED_MODEL, $normalizedModelId);
-            WorkerProcessingSettingsService::markAllWorkersChanged();
+            (new AdministrativeSettingsWriter())->save(
+                [STTSetting::SELECTED_MODEL => $normalizedModelId],
+                null,
+                true
+            );
             LocalSpeechToTextLogger::event(
                 'settings',
                 'settings_changed',
@@ -75,7 +83,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
         } catch (Throwable $exception) {
             $this->logControllerFailure('save_model', $exception);
-            $this->flash->error($exception->getMessage());
+            $this->flash->error($this->settingsSaveErrorMessage($exception));
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=models');
@@ -105,6 +113,32 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=queue');
+    }
+
+    public function downloadWorkerAction(): void
+    {
+        try {
+            $service = new WorkerDownloadService();
+            $availability = $service->probeAvailability();
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'worker_download_requested',
+                'Worker dmg download requested',
+                $availability === WorkerDownloadAvailability::AVAILABLE ? LOG_NOTICE : LOG_WARNING,
+                ['availability' => $availability->value]
+            );
+            if ($availability === WorkerDownloadAvailability::AVAILABLE) {
+                // External redirect keeps the license key out of the page HTML.
+                $this->response->redirect($service->downloadUrl(), true);
+                return;
+            }
+            $this->flash->error($this->translation->_($service->failureTranslationKey($availability)));
+        } catch (Throwable $exception) {
+            $this->logControllerFailure('download_worker', $exception);
+            $this->flash->error($this->settingsSaveErrorMessage($exception));
+        }
+
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
     }
 
     public function generateWorkerApiKeyAction(): void
@@ -364,6 +398,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->queueFileRows = $queueView->queueFileRows($delayedRecordings, $skippedRecordings);
         (new WorkerViewService())->prepare($this->view);
         $this->view->workerApiKeyRows = $this->workerApiKeyService()->workerApiKeyRows();
+        $this->view->workerDownloadConfigured = (new WorkerDownloadService())->isConfigured();
         $this->view->generatedApiKey = $generatedApiKey['apiKey'];
         $this->view->transcriptRows = $transcripts->transcriptRows(100, $transcriptFilter);
         $this->view->transcriptFilter = $transcripts->transcriptFilterView($transcriptFilter);
@@ -415,6 +450,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
                 'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
             ]
         );
+    }
+
+    private function settingsSaveErrorMessage(Throwable $exception): string
+    {
+        if ($exception instanceof InvalidArgumentException) {
+            return $exception->getMessage();
+        }
+
+        return $this->translation->_('module_local_speech_to_text_SettingsSaveError');
     }
 
     private function conversationService(): TranscriptConversationService

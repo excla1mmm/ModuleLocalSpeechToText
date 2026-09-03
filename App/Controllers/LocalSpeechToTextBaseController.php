@@ -8,6 +8,7 @@ use MikoPBX\AdminCabinet\Controllers\BaseController;
 use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
+use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
@@ -133,19 +134,16 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::CUSTOM_VOCABULARY_TERMS => STTSetting::customVocabularyTermsText(),
         ];
 
-        foreach ($nextValues as $key => $value) {
-            STTSetting::setValue($key, (string)$value);
-        }
+        $settingsToPersist = $nextValues;
         if ($previousHistoryDays !== $nextHistoryDays) {
-            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
-            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
-            STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '');
-            STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0');
+            $settingsToPersist[STTSetting::CDR_SCAN_CURSOR_ENDTIME] = date('Y-m-d H:i:s');
+            $settingsToPersist[STTSetting::CDR_SCAN_CURSOR_ID] = '0';
+            $settingsToPersist[STTSetting::CDR_BACKFILL_CURSOR_ENDTIME] = '';
+            $settingsToPersist[STTSetting::CDR_BACKFILL_CURSOR_ID] = '0';
         }
         if ($previousRetentionDays !== $nextRetentionDays) {
-            STTSetting::setValue(STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT, '0');
+            $settingsToPersist[STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT] = '0';
         }
-        (new WorkerProcessingSettingsService())->save($normalizedProcessing);
 
         $changedFields = [];
         foreach ($nextValues as $key => $value) {
@@ -160,9 +158,11 @@ class LocalSpeechToTextBaseController extends BaseController
         }
         $changedFields = array_values(array_unique($changedFields));
         sort($changedFields);
-        if (in_array(STTSetting::SELECTED_MODEL, $changedFields, true)) {
-            WorkerProcessingSettingsService::markAllWorkersChanged();
-        }
+        (new AdministrativeSettingsWriter())->save(
+            $settingsToPersist,
+            $normalizedProcessing,
+            in_array(STTSetting::SELECTED_MODEL, $changedFields, true)
+        );
         if ($changedFields !== []) {
             LocalSpeechToTextLogger::event(
                 'settings',
