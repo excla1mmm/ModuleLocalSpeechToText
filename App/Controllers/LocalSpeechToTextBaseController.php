@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use MikoPBX\AdminCabinet\Controllers\BaseController;
+use MikoPBX\Common\Providers\AclProvider;
+use MikoPBX\Common\Providers\JwtProvider;
 use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
@@ -12,6 +14,10 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUIAccessService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUICallScope;
+use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUIRequestIdentity;
+use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUIViewCapabilities;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use InvalidArgumentException;
@@ -22,6 +28,9 @@ class LocalSpeechToTextBaseController extends BaseController
     protected const string MODULE_UNIQUE_ID = 'ModuleLocalSpeechToText';
 
     protected string $moduleDir;
+    private ?UsersUIAccessService $usersUIAccess = null;
+    /** @var array{_role: string, _username: string}|null */
+    private ?array $usersUIIdentity = null;
 
     public function initialize(): void
     {
@@ -193,6 +202,87 @@ class LocalSpeechToTextBaseController extends BaseController
                 'status' => $status,
             ],
         ]);
+    }
+
+    /** @return array{_role: string, _username: string} */
+    protected function usersUIIdentity(): array
+    {
+        if ($this->usersUIIdentity !== null) {
+            return $this->usersUIIdentity;
+        }
+
+        $jwt = $this->di->getShared(JwtProvider::SERVICE_NAME);
+        $resolver = new UsersUIRequestIdentity(
+            static function (string $authorizationHeader) use ($jwt): ?array {
+                if (!str_starts_with($authorizationHeader, 'Bearer ')) {
+                    return null;
+                }
+
+                $payload = $jwt->validate(substr($authorizationHeader, 7));
+
+                return is_array($payload) ? $payload : null;
+            },
+            static fn(string $refreshToken): ?string => $jwt->extractRoleFromRefreshToken($refreshToken),
+            static fn(string $refreshToken): ?string => $jwt->extractUserIdFromRefreshToken($refreshToken),
+        );
+
+        $refreshToken = '';
+        try {
+            if ($this->cookies->has('refreshToken')) {
+                $refreshToken = (string)$this->cookies->get('refreshToken')->getValue();
+            }
+        } catch (\Throwable) {
+            $refreshToken = '';
+        }
+
+        $identity = $resolver->resolve((string)$this->request->getHeader('Authorization'), $refreshToken);
+        if ($identity['_role'] === '') {
+            $identity['_role'] = trim((string)$this->session->get('role', ''));
+        }
+        if ($identity['_username'] === '') {
+            $identity['_username'] = trim((string)$this->session->get('userName', ''));
+        }
+        $this->usersUIIdentity = $identity;
+
+        return $identity;
+    }
+
+    protected function usersUIViewCapabilities(): UsersUIViewCapabilities
+    {
+        $identity = $this->usersUIIdentity();
+        $access = $this->usersUIAccessService();
+        $administrator = $identity['_role'] === AclProvider::ROLE_ADMINS
+            || ($identity['_role'] === '' && !$access->isAvailable());
+
+        return new UsersUIViewCapabilities(
+            $administrator,
+            $access->canViewTranscripts($identity),
+            $access->canManageSettings($identity),
+            $access->canManageSystem($identity),
+        );
+    }
+
+    protected function usersUICallScope(): UsersUICallScope
+    {
+        $identity = $this->usersUIIdentity();
+        if ($identity['_role'] === AclProvider::ROLE_ADMINS) {
+            return UsersUICallScope::all();
+        }
+
+        return $this->usersUIAccessService()->callScopeFor($identity);
+    }
+
+    protected function denyUsersUIAccess(): void
+    {
+        $this->view->disable();
+        $this->response->setStatusCode(403, 'Forbidden');
+        $this->response->setContentType('text/plain', 'UTF-8');
+        $this->response->setContent('Forbidden');
+    }
+
+    protected function usersUIAccessService(): UsersUIAccessService
+    {
+        return $this->usersUIAccess ??= new UsersUIAccessService();
     }
 
     private function settingsEntity(): stdClass

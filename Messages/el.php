@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'προβολή απομαγνητοφωνήσεων και εγγραφών κλήσεων',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'διαχείριση ρυθμίσεων μονάδας',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'σύνδεση workers και διαχείριση ουράς και αρχείων καταγραφής',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',

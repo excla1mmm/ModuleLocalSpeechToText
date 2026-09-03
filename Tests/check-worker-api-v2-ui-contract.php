@@ -10,15 +10,15 @@ function expectWorkerApiV2Ui(bool $condition, string $message): void
 }
 
 $root = dirname(__DIR__);
-$controller = (string)file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$indexViewService = (string)file_get_contents($root . '/Lib/Services/IndexViewService.php');
 $workerViewService = (string)file_get_contents($root . '/Lib/Services/WorkerViewService.php');
 $view = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/index.volt');
 
-expectWorkerApiV2Ui(str_contains($controller, 'use Modules\\ModuleLocalSpeechToText\\Lib\\Services\\WorkerViewService;'), 'Controller must delegate worker view preparation to WorkerViewService');
+expectWorkerApiV2Ui($indexViewService !== '', 'IndexViewService must exist');
 expectWorkerApiV2Ui($workerViewService !== '', 'WorkerViewService must exist');
 expectWorkerApiV2Ui(
-    str_contains($controller, '(new WorkerViewService())->prepare($this->view);'),
-    'Controller must prepare the worker view through WorkerViewService'
+    str_contains($indexViewService, '(new WorkerViewService())->prepare($view);'),
+    'Dashboard preparation must use WorkerViewService'
 );
 expectWorkerApiV2Ui(
     str_contains($workerViewService, '$view->workerApiVersion = WorkerApiContract::API_VERSION;')

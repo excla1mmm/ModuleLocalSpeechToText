@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'дуудлагын бичлэг болон хөрвүүлгийг харах',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'модулийн тохиргоог удирдах',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'worker холбох, дараалал болон журналыг удирдах',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',

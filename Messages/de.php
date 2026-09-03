@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'Transkripte und Anrufaufzeichnungen anzeigen',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'Moduleinstellungen verwalten',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'Worker verbinden und Warteschlange und Protokolle verwalten',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',

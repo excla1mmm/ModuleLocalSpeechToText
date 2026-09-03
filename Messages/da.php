@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'se transskriptioner og opkaldsoptagelser',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'administrer modulindstillinger',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'tilslut workers og administrer kø og logfiler',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',

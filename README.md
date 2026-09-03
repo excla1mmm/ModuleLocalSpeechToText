@@ -61,6 +61,18 @@ The main module page has six tabs:
 
 The conversation view includes source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker. For playback display the module can resolve both raw monitor paths and matching `pretty-monitor` files after `realpath` validation.
 
+### Access control through ModuleUsersUI
+
+When `ModuleUsersUI` (System Access Management) is installed and enabled, Local Speech To Text exposes three independent permissions:
+
+- view transcripts and call recordings;
+- manage module settings and the model catalog;
+- connect workers and view the queue and logs.
+
+The transcript list, transcript detail, and recording stream all follow the access group's call-history restrictions. Each selected employee expands to all of their internal extensions and active external phones, and every CDR leg of the logical call is checked so transfers and calls answered on a mobile phone are covered. Restricted access fails closed when the rule cannot be resolved. Web-user permissions never expose the worker transport API.
+
+When `ModuleUsersUI` is absent or disabled, the previous administrator-only behavior remains unchanged and no additional access section is required.
+
 The maximum recognizable recording duration defaults to 60 minutes and accepts values from 1–1440 minutes. A recording exactly at the limit is allowed. A missing, invalid, or zero CDR duration is treated as unknown and does not block processing. To avoid probing every backfill file, the scanner invokes `ffprobe` only when the CDR duration exceeds the configured limit. The measured duration then decides whether the recording enters the queue or remains skipped. A failed probe is retained in retry state instead of losing the recording. The accepted duration is persisted with the job and exposed to the worker as `duration_hint` in seconds.
 
 ## Worker Setup Flow

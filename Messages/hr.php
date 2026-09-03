@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'pregled transkripata i snimki poziva',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'upravljanje postavkama modula',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'povezivanje workera i upravljanje redom i zapisnicima',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',

@@ -8,19 +8,18 @@ use MikoPBX\Common\Models\ApiKeys;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\IndexViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
-use Modules\ModuleLocalSpeechToText\Lib\Services\ModelMarketplaceService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
-use Modules\ModuleLocalSpeechToText\Lib\Services\QueueViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUITranscriptAccessService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerViewService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -32,16 +31,39 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
     private const string SESSION_GENERATED_API_KEY = 'ModuleLocalSpeechToTextGeneratedApiKey';
     public function indexAction(): void
     {
-        $generatedApiKey = $this->generatedApiKeyFromSession();
+        $capabilities = $this->usersUIViewCapabilities();
+        if ($capabilities->visibleTabs() === []) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
+        $generatedApiKey = $capabilities->canManageSystem()
+            ? $this->generatedApiKeyFromSession()
+            : ['apiKey' => '', 'apiKeyId' => 0];
         if ($generatedApiKey['apiKey'] !== '') {
             $this->session->remove(self::SESSION_GENERATED_API_KEY);
         }
 
-        $this->prepareIndexView($generatedApiKey, $this->activeTabFromRequest($generatedApiKey['apiKey']));
+        $activeTab = $capabilities->normalizeTab($this->activeTabFromRequest($generatedApiKey['apiKey']));
+        $this->addModuleAssets();
+        (new IndexViewService($this->translation, $this->request, $this->callRecordingService()))->prepare(
+            $this->view,
+            $this->buildSettingsForm(...),
+            $generatedApiKey,
+            $activeTab,
+            $capabilities,
+            $this->usersUICallScope(),
+        );
+        $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/index');
     }
 
     public function saveAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSettings()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $this->saveSettingsFromPost();
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
@@ -60,6 +82,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function saveModelAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSettings()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $modelId = trim((string)$this->request->getPost(
                 STTSetting::SELECTED_MODEL,
@@ -91,6 +118,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function retryErrorsAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $count = STTJob::requeueErrors();
             if ($count > 0) {
@@ -117,6 +149,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function downloadWorkerAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $service = new WorkerDownloadService();
             $availability = $service->probeAvailability();
@@ -143,6 +180,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function generateWorkerApiKeyAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $plainApiKey = ApiKeys::generateApiKey();
             $service = $this->workerApiKeyService();
@@ -200,6 +242,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function deleteWorkerApiKeyAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         try {
             $apiKeyId = (int)$this->request->getPost('api_key_id', 'int', 0);
             if (!STTSetting::isWorkerApiKeyIdAllowed($apiKeyId)) {
@@ -258,6 +305,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function transcriptsAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canViewTranscripts()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         $transcripts = $this->transcriptListService();
         $transcriptFilter = $transcripts->transcriptDateFilterFromRequest();
 
@@ -273,6 +325,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function transcriptAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canViewTranscripts()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         $this->addModuleAssets();
 
         $resultId = (int)$this->request->getQuery('id', 'int', 0);
@@ -285,6 +342,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $job = $result->STTJob;
         $job = $job instanceof STTJob ? $job : null;
+        if (!$this->canAccessTranscript($job)) {
+            $this->flash->error($this->translation->_('module_local_speech_to_text_TranscriptNotFound'));
+            $this->response->redirect(MenuProvider::TRANSCRIPTS_PATH);
+            return;
+        }
         $recordings = $this->callRecordingService();
         $cdr = $job instanceof STTJob
             ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
@@ -312,6 +374,10 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->disable();
 
         $recordings = $this->callRecordingService();
+        if (!$this->usersUIViewCapabilities()->canViewTranscripts()) {
+            $recordings->sendRecordingError(403, 'Forbidden');
+            return;
+        }
         $result = STTResult::findFirstById((int)$this->request->getQuery('id', 'int', 0));
         if (!$result instanceof STTResult) {
             $recordings->sendRecordingError(404, 'Recording not found');
@@ -320,6 +386,10 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $job = $result->STTJob;
         $job = $job instanceof STTJob ? $job : null;
+        if (!$this->canAccessTranscript($job)) {
+            $recordings->sendRecordingError(404, 'Recording not found');
+            return;
+        }
         $cdr = $job instanceof STTJob
             ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
             : $recordings->cdrRecordForResult($result);
@@ -334,6 +404,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function logsAction(): void
     {
+        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+            $this->denyUsersUIAccess();
+            return;
+        }
+
         $period = (int)$this->request->getQuery('period', 'int', 3600);
         if (!in_array($period, [0, 3600, 10800, 43200, 86400], true)) {
             $period = 3600;
@@ -351,61 +426,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->truncated = $payload['truncated'];
         $this->view->sourceStatus = $payload['sourceStatus'];
         $this->view->malformedCount = $payload['malformedCount'];
-    }
-
-    /**
-     * @param array{apiKey: string, apiKeyId: int} $generatedApiKey
-     */
-    private function prepareIndexView(array $generatedApiKey, string $activeTab): void
-    {
-        $this->addModuleAssets();
-
-        $queueView = $this->queueViewService();
-        $transcripts = $this->transcriptListService();
-        $transcriptFilter = $transcripts->transcriptDateFilterFromRequest();
-        $delayedRecordings = $queueView->storedRecords(STTSetting::DELAYED_RECORDINGS);
-        $skippedRecordings = $queueView->storedRecords(STTSetting::SKIPPED_RECORDINGS);
-        $pendingCount = $this->countJobsByStatus(STTJob::STATUS_PENDING);
-        $processingCount = $this->countJobsByStatus(STTJob::STATUS_PROCESSING);
-        $doneTodayCount = (int)STTJob::count([
-            'conditions' => 'status = :status: AND finished_at >= :since:',
-            'bind' => ['status' => STTJob::STATUS_DONE, 'since' => strtotime('today')],
-        ]);
-        $errorCount = $this->countJobsByStatus(STTJob::STATUS_ERROR);
-
-        $this->view->activeTab = $activeTab;
-        $this->view->form = $this->buildSettingsForm();
-        $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-        $this->view->modelPresets = STTSetting::modelPresets();
-        $this->view->selectedModel = STTSetting::selectedModelId();
-        $this->view->selectedLanguage = STTSetting::selectedLanguageId();
-        $this->view->modelMarketplaceRows = $this->modelMarketplaceService()->modelMarketplaceRows();
-        $this->view->selectedVocabularyTermsCount = count(STTSetting::selectedVocabularyTerms());
-        $this->view->pendingCount = $pendingCount;
-        $this->view->processingCount = $processingCount;
-        $this->view->doneTodayCount = $doneTodayCount;
-        $this->view->errorCount = $errorCount;
-        $this->view->delayedRecordingCount = count($delayedRecordings);
-        $this->view->skippedRecordingCount = count($skippedRecordings);
-        $this->view->queueSummaryRows = $queueView->queueSummaryRows(
-            $pendingCount,
-            $processingCount,
-            $doneTodayCount,
-            $errorCount,
-            $delayedRecordings,
-            $skippedRecordings
-        );
-        $this->view->queueFileRows = $queueView->queueFileRows($delayedRecordings, $skippedRecordings);
-        (new WorkerViewService())->prepare($this->view);
-        $this->view->workerApiKeyRows = $this->workerApiKeyService()->workerApiKeyRows();
-        $this->view->workerDownloadConfigured = (new WorkerDownloadService())->isConfigured();
-        $this->view->generatedApiKey = $generatedApiKey['apiKey'];
-        $this->view->transcriptRows = $transcripts->transcriptRows(100, $transcriptFilter);
-        $this->view->transcriptFilter = $transcripts->transcriptFilterView($transcriptFilter);
-        $this->view->transcriptFilterAction = MenuProvider::DASHBOARD_PATH;
-        $this->view->transcriptFilterKeepTab = true;
-        $this->view->logsDataPath = MenuProvider::LOGS_PATH;
-        $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/index');
     }
 
     /**
@@ -476,14 +496,27 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return new CallRecordingService($this->translation, $this->url, $this->request, $this->response);
     }
 
-    private function queueViewService(): QueueViewService
-    {
-        return new QueueViewService($this->translation, $this->callRecordingService());
-    }
-
     private function transcriptListService(): TranscriptListService
     {
-        return new TranscriptListService($this->translation, $this->request, $this->callRecordingService());
+        return new TranscriptListService(
+            $this->translation,
+            $this->request,
+            $this->callRecordingService(),
+            $this->usersUICallScope(),
+            $this->usersUITranscriptAccessService(),
+        );
+    }
+
+    private function canAccessTranscript(?STTJob $job): bool
+    {
+        $callId = $job instanceof STTJob ? (string)$job->call_id : '';
+
+        return $this->usersUITranscriptAccessService()->allowsCallId($callId, $this->usersUICallScope());
+    }
+
+    private function usersUITranscriptAccessService(): UsersUITranscriptAccessService
+    {
+        return new UsersUITranscriptAccessService();
     }
 
     private function workerApiKeyService(): WorkerApiKeyService
@@ -491,8 +524,4 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         return new WorkerApiKeyService();
     }
 
-    private function modelMarketplaceService(): ModelMarketplaceService
-    {
-        return new ModelMarketplaceService($this->translation);
-    }
 }

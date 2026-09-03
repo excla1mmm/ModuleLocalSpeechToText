@@ -1,13 +1,22 @@
 <div class="ui basic segment module-local-speech-to-text" id="module-local-speech-to-text">
     <div class="ui top attached tabular menu" id="module-local-speech-to-text-menu">
+        {% if canManageSettings %}
         <a class="item{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">{{ t._('module_local_speech_to_text_SettingsTab') }}</a>
         <a class="item{% if activeTab === 'models' %} active{% endif %}" data-tab="models">{{ t._('module_local_speech_to_text_ModelsMarketplaceTab') }}</a>
+        {% endif %}
+        {% if canManageSystem %}
         <a class="item{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">{{ t._('module_local_speech_to_text_QueueTab') }}</a>
         <a class="item{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">{{ t._('module_local_speech_to_text_WorkersTab') }}</a>
+        {% endif %}
+        {% if canViewTranscripts %}
         <a class="item{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">{{ t._('module_local_speech_to_text_Transcripts') }}</a>
+        {% endif %}
+        {% if canManageSystem %}
         <a class="item{% if activeTab === 'logs' %} active{% endif %}" data-tab="logs">{{ t._('module_local_speech_to_text_LogsTab') }}</a>
+        {% endif %}
     </div>
 
+    {% if canManageSettings %}
     <div class="ui bottom attached tab segment{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">
         <form class="ui form large" id="module-local-speech-to-text-form" method="post" enctype="multipart/form-data" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
             <div class="three fields stt-settings-fields">
@@ -196,7 +205,9 @@
             </button>
         </div>
     </div>
+    {% endif %}
 
+    {% if canManageSystem %}
     <div class="ui bottom attached tab segment{% if activeTab === 'queue' %} active{% endif %}" data-tab="queue">
         <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_QueueStatusSummary') }}</h4>
         <table class="ui compact celled table stt-queue-summary-table">
@@ -435,7 +446,9 @@
             <a href="https://docs.mikopbx.com/extensions/ModuleLocalSpeechToText/worker-update" target="_blank" rel="noopener noreferrer">{{ t._('module_local_speech_to_text_WorkerUpdateHelp') }}</a>
         </div>
     </div>
+    {% endif %}
 
+    {% if canViewTranscripts %}
     <div class="ui bottom attached tab segment{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">
         <form class="ui form stt-transcripts-filter-form" id="stt-transcripts-filter-form" method="get" action="{{ url(transcriptFilterAction) }}">
             {% if transcriptFilterKeepTab %}
@@ -511,7 +524,9 @@
             </table>
         </div>
     </div>
+    {% endif %}
 
+    {% if canManageSystem %}
     <div class="ui bottom attached tab segment{% if activeTab === 'logs' %} active{% endif %}" data-tab="logs">
         <div class="ui basic segment stt-system-logs-segment" id="system-logs-segment">
             <div class="ui active dimmer stt-logs-dimmer" id="get-logs-dimmer">
@@ -567,6 +582,7 @@
             <div class="stt-log-results" id="stt-log-results" aria-live="polite"></div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <div class="ui tiny modal" id="stt-confirm-modal" style="display:none">

@@ -10,11 +10,18 @@ use Modules\ModuleLocalSpeechToText\Models\STTResult;
 
 class TranscriptListService
 {
+    private readonly UsersUICallScope $callScope;
+    private readonly UsersUITranscriptAccessService $transcriptAccess;
+
     public function __construct(
         private mixed $translation,
         private mixed $request,
-        private CallRecordingService $recordings
+        private CallRecordingService $recordings,
+        ?UsersUICallScope $callScope = null,
+        ?UsersUITranscriptAccessService $transcriptAccess = null,
     ) {
+        $this->callScope = $callScope ?? UsersUICallScope::all();
+        $this->transcriptAccess = $transcriptAccess ?? new UsersUITranscriptAccessService();
     }
 
     public function transcriptRows(int $limit = 100, ?array $dateFilter = null): array
@@ -23,7 +30,8 @@ class TranscriptListService
         $findParams = [
             'order' => 'created_at DESC, id DESC',
         ];
-        if (!($dateFilter['isActive'] ?? false)) {
+        $dateFilterActive = (bool)($dateFilter['isActive'] ?? false);
+        if (!$dateFilterActive && $this->callScope->allowsEveryCall()) {
             $findParams['limit'] = $limit;
         }
 
@@ -36,6 +44,10 @@ class TranscriptListService
 
             $job = $result->STTJob;
             $job = $job instanceof STTJob ? $job : null;
+            $callId = $job instanceof STTJob ? trim((string)$job->call_id) : '';
+            if (!$this->transcriptAccess->allowsCallId($callId, $this->callScope)) {
+                continue;
+            }
             $cdr = $job instanceof STTJob
                 ? ($this->recordings->cdrRecordForJob($job) ?? $this->recordings->cdrRecordForResult($result))
                 : $this->recordings->cdrRecordForResult($result);
@@ -51,7 +63,6 @@ class TranscriptListService
             if ($recordingName === '' && $cdr instanceof CallDetailRecords) {
                 $recordingName = basename((string)$cdr->recordingfile);
             }
-            $callId = $job instanceof STTJob ? (string)$job->call_id : '';
             if ($callId === '' && $cdr instanceof CallDetailRecords) {
                 $callId = trim((string)$cdr->linkedid) !== '' ? (string)$cdr->linkedid : (string)$cdr->UNIQUEID;
             }
@@ -85,6 +96,10 @@ class TranscriptListService
                 (int)$left['result']->id,
             ]
         );
+
+        if (!$dateFilterActive && count($rows) > $limit) {
+            return array_slice($rows, 0, $limit);
+        }
 
         return $rows;
     }

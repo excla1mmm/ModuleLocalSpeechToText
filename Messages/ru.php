@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'просмотр расшифровок и записей звонков',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'управление настройками модуля',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'подключение обработчиков, просмотр очереди и журналов',
     'repModuleLocalSpeechToText' => 'Модуль локальной транскрибации - %represent%',
     'mo_ModuleModuleLocalSpeechToText' => 'Модуль локальной транскрибации',
     'BreadcrumbModuleLocalSpeechToText' => 'Модуль локальной транскрибации',
