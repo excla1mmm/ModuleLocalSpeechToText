@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'xem bản ghi và bản chép lời cuộc gọi',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'xem bản ghi và bản chép lời cuộc gọi',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'quản lý cài đặt mô-đun',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'kết nối worker và quản lý hàng đợi cùng nhật ký',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

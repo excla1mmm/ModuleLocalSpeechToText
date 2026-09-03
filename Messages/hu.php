@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'átiratok és hívásfelvételek megtekintése',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'átiratok és hívásfelvételek megtekintése',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modulbeállítások kezelése',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'workerek csatlakoztatása, a várólista és a naplók kezelése',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

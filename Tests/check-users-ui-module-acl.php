@@ -27,19 +27,32 @@ namespace {
     $rules = ModuleLocalSpeechToTextACL::getLinkedControllerActions();
     $actions = $rules[$controller] ?? [];
 
-    expectUsersUiAcl(array_keys($actions) === ['index', 'settings', 'system'], 'STT must expose three cohesive UI permissions');
+    expectUsersUiAcl(array_keys($actions) === ['transcripts', 'settings', 'system'], 'STT must expose three cohesive UI permissions');
     expectUsersUiAcl(
-        ($actions['index'][$controller] ?? []) === ['transcripts', 'transcript', 'recording'],
-        'Transcript access must own list, detail, and recording MVC actions'
+        ($actions['transcripts'][$controller] ?? []) === ['index', 'transcript', 'recording'],
+        'Transcript access must open the shared page and own detail and recording MVC actions'
     );
     expectUsersUiAcl(
         ($actions['settings'][$controller] ?? []) === ['index', 'save', 'saveModel'],
         'Settings access must open the shared page and own both settings write actions'
     );
     expectUsersUiAcl(
-        ($actions['system'][$controller] ?? []) === ['index', 'retryErrors', 'generateWorkerApiKey', 'deleteWorkerApiKey', 'logs'],
-        'System access must open the shared page and own queue, worker-key, and log actions'
+        ($actions['system'][$controller] ?? []) === ['index', 'retryErrors', 'downloadWorker', 'generateWorkerApiKey', 'deleteWorkerApiKey', 'logs'],
+        'System access must open the shared page and own queue, worker download, worker-key, and log actions'
     );
+
+    foreach (glob(__DIR__ . '/../Messages/*.php') ?: [] as $messageFile) {
+        $messages = require $messageFile;
+        expectUsersUiAcl(
+            isset($messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts'])
+                && trim((string)$messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts']) !== '',
+            basename($messageFile) . ' must label the visible transcripts permission'
+        );
+        expectUsersUiAcl(
+            !isset($messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index']),
+            basename($messageFile) . ' must not retain the hidden index permission label'
+        );
+    }
 
     $denied = ModuleLocalSpeechToTextACL::getAlwaysDenied();
     foreach ([

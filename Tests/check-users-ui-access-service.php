@@ -25,12 +25,12 @@ $service = new UsersUIAccessService(
         ? ['204', '+7 (812) 555-01-02']
         : [],
     groupActions: static fn(string $groupId): array|string|null => $groupId === '7'
-        ? ['index', 'system']
+        ? ['transcripts', 'system']
         : null,
 );
 
 $request = ['_role' => 'UsersUIRoleID7'];
-expectUsersUiAccess($service->canViewTranscripts($request), 'index must grant transcript access');
+expectUsersUiAccess($service->canViewTranscripts($request), 'transcripts must grant transcript access');
 expectUsersUiAccess(!$service->canManageSettings($request), 'missing settings action must deny settings');
 expectUsersUiAccess($service->canManageSystem($request), 'system action must grant operational access');
 

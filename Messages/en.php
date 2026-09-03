@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'view transcripts and call recordings',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'view transcripts and call recordings',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'manage module settings',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'connect workers and manage the queue and logs',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

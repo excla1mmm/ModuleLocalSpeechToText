@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'transkriptleri ve çağrı kayıtlarını görüntüleme',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'transkriptleri ve çağrı kayıtlarını görüntüleme',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modül ayarlarını yönetme',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'worker bağlantısı, kuyruk ve günlük yönetimi',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

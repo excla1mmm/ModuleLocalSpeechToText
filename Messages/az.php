@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'transkriptlərə və zəng yazılarına baxış',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'transkriptlərə və zəng yazılarına baxış',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modul parametrlərinin idarə edilməsi',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'işçiləri qoşmaq, növbəyə və jurnallara baxmaq',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

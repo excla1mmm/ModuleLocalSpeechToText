@@ -17,14 +17,21 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
     {
         return [
             self::CONTROLLER => [
-                'index' => [
-                    self::CONTROLLER => ['transcripts', 'transcript', 'recording'],
+                'transcripts' => [
+                    self::CONTROLLER => ['index', 'transcript', 'recording'],
                 ],
                 'settings' => [
                     self::CONTROLLER => ['index', 'save', 'saveModel'],
                 ],
                 'system' => [
-                    self::CONTROLLER => ['index', 'retryErrors', 'generateWorkerApiKey', 'deleteWorkerApiKey', 'logs'],
+                    self::CONTROLLER => [
+                        'index',
+                        'retryErrors',
+                        'downloadWorker',
+                        'generateWorkerApiKey',
+                        'deleteWorkerApiKey',
+                        'logs',
+                    ],
                 ],
             ],
         ];

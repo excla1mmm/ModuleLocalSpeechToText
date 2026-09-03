@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'przeglądanie transkrypcji i nagrań rozmów',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'przeglądanie transkrypcji i nagrań rozmów',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'zarządzanie ustawieniami modułu',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'podłączanie workerów i zarządzanie kolejką oraz dziennikami',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

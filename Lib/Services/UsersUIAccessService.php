@@ -96,7 +96,7 @@ final class UsersUIAccessService
     /** @param array<string, mixed> $requestData */
     public function canViewTranscripts(array $requestData): bool
     {
-        return $this->hasAction($requestData, 'index');
+        return $this->hasAction($requestData, 'transcripts');
     }
 
     /** @param array<string, mixed> $requestData */

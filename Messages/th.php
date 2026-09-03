@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'ดูข้อความถอดเสียงและบันทึกการโทร',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'ดูข้อความถอดเสียงและบันทึกการโทร',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'จัดการการตั้งค่าโมดูล',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'เชื่อมต่อ worker และจัดการคิวกับบันทึก',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

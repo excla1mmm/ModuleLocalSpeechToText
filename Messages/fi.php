@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'tarkastele litterointeja ja puhelutallenteita',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'tarkastele litterointeja ja puhelutallenteita',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'hallitse moduulin asetuksia',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'yhdistä workerit ja hallitse jonoa ja lokeja',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',

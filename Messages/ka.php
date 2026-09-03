@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index' => 'ტრანსკრიპტებისა და ზარის ჩანაწერების ნახვა',
+    'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'ტრანსკრიპტებისა და ზარის ჩანაწერების ნახვა',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'მოდულის პარამეტრების მართვა',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'ვორკერების დაკავშირება, რიგისა და ჟურნალების მართვა',
     'repModuleLocalSpeechToText' => 'Local Speech To Text - %represent%',
