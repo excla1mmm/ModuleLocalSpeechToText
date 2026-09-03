@@ -13,6 +13,7 @@ $root = dirname(__DIR__);
 $view = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/index.volt');
 $css = (string)file_get_contents($root . '/public/assets/css/module-local-speech-to-text.css');
 $controller = (string)file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$indexViewService = (string)file_get_contents($root . '/Lib/Services/IndexViewService.php');
 
 $downloadPosition = strpos($view, 'stt-worker-download');
 $apiKeyPosition = strpos($view, 'stt-worker-api-key');
@@ -78,7 +79,7 @@ expectWorkerDownloadUi(
 
 expectWorkerDownloadUi(
     str_contains($controller, 'downloadWorkerAction')
-        && str_contains($controller, 'workerDownloadConfigured')
+        && str_contains($indexViewService, 'workerDownloadConfigured')
         && str_contains($controller, 'WorkerDownloadAvailability::AVAILABLE'),
     'Controller must expose the download action and the configured view state'
 );

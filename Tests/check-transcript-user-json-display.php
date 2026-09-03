@@ -11,14 +11,16 @@ function expectTrueTranscriptUserJsonDisplay(bool $condition, string $message): 
 
 $root = dirname(__DIR__);
 $controller = file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$baseController = file_get_contents($root . '/App/Controllers/LocalSpeechToTextBaseController.php');
 $template = file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/transcript.volt');
 $css = file_get_contents($root . '/public/assets/css/module-local-speech-to-text.css');
 
 expectTrueTranscriptUserJsonDisplay($controller !== false, 'Cannot read transcript controller');
+expectTrueTranscriptUserJsonDisplay($baseController !== false, 'Cannot read base transcript controller');
 expectTrueTranscriptUserJsonDisplay($template !== false, 'Cannot read transcript template');
 expectTrueTranscriptUserJsonDisplay($css !== false, 'Cannot read transcript stylesheet');
 expectTrueTranscriptUserJsonDisplay(
-    str_contains($controller, 'TranscriptUserJsonService'),
+    str_contains($baseController, 'TranscriptUserJsonService'),
     'Transcript controller must use the presentation-only JSON formatter'
 );
 expectTrueTranscriptUserJsonDisplay(

@@ -7,16 +7,10 @@ namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 use MikoPBX\Common\Models\ApiKeys;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
-use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\IndexViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
-use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUITranscriptAccessService;
-use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
@@ -479,49 +473,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         return $this->translation->_('module_local_speech_to_text_SettingsSaveError');
-    }
-
-    private function conversationService(): TranscriptConversationService
-    {
-        return new TranscriptConversationService($this->translation);
-    }
-
-    private function transcriptUserJsonService(): TranscriptUserJsonService
-    {
-        return new TranscriptUserJsonService($this->translation);
-    }
-
-    private function callRecordingService(): CallRecordingService
-    {
-        return new CallRecordingService($this->translation, $this->url, $this->request, $this->response);
-    }
-
-    private function transcriptListService(): TranscriptListService
-    {
-        return new TranscriptListService(
-            $this->translation,
-            $this->request,
-            $this->callRecordingService(),
-            $this->usersUICallScope(),
-            $this->usersUITranscriptAccessService(),
-        );
-    }
-
-    private function canAccessTranscript(?STTJob $job): bool
-    {
-        $callId = $job instanceof STTJob ? (string)$job->call_id : '';
-
-        return $this->usersUITranscriptAccessService()->allowsCallId($callId, $this->usersUICallScope());
-    }
-
-    private function usersUITranscriptAccessService(): UsersUITranscriptAccessService
-    {
-        return new UsersUITranscriptAccessService();
-    }
-
-    private function workerApiKeyService(): WorkerApiKeyService
-    {
-        return new WorkerApiKeyService();
     }
 
 }

@@ -24,6 +24,7 @@ foreach ([
     'saveAction' => 'canManageSettings()',
     'saveModelAction' => 'canManageSettings()',
     'retryErrorsAction' => 'canManageSystem()',
+    'downloadWorkerAction' => 'canManageSystem()',
     'generateWorkerApiKeyAction' => 'canManageSystem()',
     'deleteWorkerApiKeyAction' => 'canManageSystem()',
     'logsAction' => 'canManageSystem()',
@@ -43,8 +44,8 @@ expectUsersUIWeb(
     'Transcript details and recording playback must both enforce the logical-call scope'
 );
 expectUsersUIWeb(
-    str_contains($controller, '$this->usersUICallScope()')
-        && str_contains($controller, '$this->usersUITranscriptAccessService()'),
+    str_contains($base, '$this->usersUICallScope()')
+        && str_contains($base, '$this->usersUITranscriptAccessService()'),
     'Transcript list service must receive both the CDR scope and logical-call resolver'
 );
 expectUsersUIWeb(
