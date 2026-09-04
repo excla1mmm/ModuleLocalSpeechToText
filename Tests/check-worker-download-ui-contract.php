@@ -58,8 +58,8 @@ foreach (array_merge($requiredKeys, ['module_local_speech_to_text_Source']) as $
 expectWorkerDownloadUi(
     str_contains($view, 'macOS')
         && str_contains($view, 'Apple Silicon')
-        && str_contains($view, 'lic.miko.ru'),
-    'Worker download metadata must point at the licensing server'
+        && str_contains($view, 'releases.mikopbx.com'),
+    'Worker download metadata must point at the release server'
 );
 expectWorkerDownloadUi(
     str_contains($css, '.stt-worker-download-action')
@@ -80,10 +80,10 @@ expectWorkerDownloadUi(
     'The dashboard view must not gate the download button on license state'
 );
 expectWorkerDownloadUi(
-    str_contains($service, 'getLatestRelease')
-        && str_contains($service, "const string LICENSE_PARAM = 'KEY'")
-        && str_contains($service, "const string PRODUCT_TYPE = 'LocalSTTWorkerMac'"),
-    'Service must resolve the release through the licensing server POST contract'
+    str_contains($service, '/appcast/downloadLatest/LocalSTTWorkerMac')
+        && str_contains($service, "'arch' => 'arm64'")
+        && str_contains($service, "'ext' => 'dmg'"),
+    'Service must resolve the arm64 DMG through the public release endpoint'
 );
 
 $russian = include $root . '/Messages/ru.php';

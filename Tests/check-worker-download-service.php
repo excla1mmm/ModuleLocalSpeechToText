@@ -15,151 +15,82 @@ function expectWorkerDownloadService(bool $condition, string $message): void
 }
 
 /**
- * @param array<int, array<string, mixed>> $files
+ * @param array<int, string> $requests
  */
-function workerDownloadSuccessPayload(array $files): string
-{
-    return (string)json_encode([
-        'modules' => [
-            'release_id' => 2203,
-            'uniqid' => 'LocalSTTWorkerMac',
-            'version' => '1.83',
-            'files' => $files,
-        ],
-        'result' => 'SUCCESS',
-    ]);
-}
-
-/**
- * @param array<int, string> $requests Captured [endpoint => json body] pairs
- */
-function workerDownloadServiceUnderTest(string $licenseKey, string $response, array &$requests): WorkerDownloadService
-{
+function workerDownloadServiceUnderTest(
+    ?string $licenseHash,
+    int $status,
+    string $location,
+    array &$requests
+): WorkerDownloadService {
     return new WorkerDownloadService(
-        static fn (): string => $licenseKey,
-        static function (string $endpoint, array $body) use (&$requests, $response): string {
-            $requests[$endpoint] = (string)json_encode($body);
+        static fn (): ?string => $licenseHash,
+        static function (string $url) use (&$requests, $status, $location): array {
+            $requests[] = $url;
 
-            return $response;
+            return ['status' => $status, 'location' => $location];
         }
     );
 }
 
-$validKey = 'MIKO-5YSFR-ENOU5-Q29SY-Q3HSM';
-$endpoint = 'https://lic.miko.ru/releases/v1/other/getLatestRelease';
-$universal = [
-    'name' => 'LocalSTTWorkerMac.1.83.dmg',
-    'arch' => '',
-    'size' => 45882491,
-    'hash' => '59b691d4274584d625c2731a33f83a0b',
-    'download_link' => 'https://filescdn.miko.ru/s/TrWGzmzPAa4BNjG/download',
-];
+$licenseHash = str_repeat('a', 64);
+$downloadLocation = 'https://filescdn.miko.ru/s/arm64-worker/download';
+$licensedEndpoint = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerMac'
+    . '?lk=' . $licenseHash . '&arch=arm64&ext=dmg';
+$publicEndpoint = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerMac'
+    . '?arch=arm64&ext=dmg';
 
-expectWorkerDownloadService(WorkerDownloadService::LICENSE_PARAM === 'KEY', 'License key body field must be KEY');
+// A valid hash must authorize the arm64 DMG request without exposing the raw PBX key.
+$requests = [];
+$service = workerDownloadServiceUnderTest($licenseHash, 302, $downloadLocation, $requests);
+$resolution = $service->resolveDownload();
 expectWorkerDownloadService(
-    WorkerDownloadService::PRODUCT_TYPE === 'LocalSTTWorkerMac',
-    'Product type must select the macOS worker release'
+    $resolution->availability === WorkerDownloadAvailability::AVAILABLE,
+    'A 302 release redirect must resolve as available'
 );
+expectWorkerDownloadService($resolution->url === $downloadLocation, 'The trusted redirect target must be returned');
+expectWorkerDownloadService($requests === [$licensedEndpoint], 'The request must contain lk, arm64, and dmg parameters');
+
+// Public releases remain downloadable when the PBX has no license.
+$requests = [];
+$service = workerDownloadServiceUnderTest(null, 302, $downloadLocation, $requests);
 expectWorkerDownloadService(
-    WorkerDownloadService::isLicenseKeyShape($validKey),
-    'A 28-char MIKO- key must pass the shape check'
+    $service->resolveDownload()->availability === WorkerDownloadAvailability::AVAILABLE,
+    'A public release must resolve without a license hash'
 );
+expectWorkerDownloadService($requests === [$publicEndpoint], 'An absent license hash must be omitted from the URL');
+
+// Only a canonical lowercase SHA-256 value may be sent as lk.
+foreach ([str_repeat('A', 64), str_repeat('a', 63), 'not-a-hash'] as $invalidHash) {
+    $requests = [];
+    $service = workerDownloadServiceUnderTest($invalidHash, 302, $downloadLocation, $requests);
+    $service->resolveDownload();
+    expectWorkerDownloadService($requests === [$publicEndpoint], 'An invalid hash must not be sent to the release server');
+}
+
+$requests = [];
+$service = workerDownloadServiceUnderTest($licenseHash, 403, '', $requests);
+expectWorkerDownloadService(
+    $service->resolveDownload()->availability === WorkerDownloadAvailability::NOT_ENTITLED,
+    'HTTP 403 must report a missing update entitlement'
+);
+
 foreach (
     [
-        'MIKO-5YSFR-ENOU5-Q29SY-Q3HS' => 'short',
-        'MIKO-5YSFR-ENOU5-Q29SY-Q3HSMX' => 'long',
-        'XXXX-5YSFR-ENOU5-Q29SY-Q3HSM' => 'wrong prefix',
-        '' => 'empty',
-    ] as $key => $shape
+        'unexpected success response' => [200, $downloadLocation],
+        'release service error' => [500, ''],
+        'missing redirect target' => [302, ''],
+        'insecure redirect target' => [302, 'http://filescdn.miko.ru/download'],
+    ] as $case => [$status, $location]
 ) {
-    expectWorkerDownloadService(
-        !WorkerDownloadService::isLicenseKeyShape($key),
-        "A {$shape} key must fail the shape check"
-    );
-}
-
-// A valid key must be attached to the licensing request.
-$requests = [];
-$service = workerDownloadServiceUnderTest($validKey, workerDownloadSuccessPayload([$universal]), $requests);
-$resolution = $service->resolveDownload();
-expectWorkerDownloadService(
-    $resolution->availability === WorkerDownloadAvailability::AVAILABLE,
-    'A published release with a link must resolve as available'
-);
-expectWorkerDownloadService(
-    $resolution->url === $universal['download_link'],
-    'The resolved url must be the file download_link'
-);
-expectWorkerDownloadService(
-    ($requests[$endpoint] ?? '') === (string)json_encode(['TYPE' => 'LocalSTTWorkerMac', 'KEY' => $validKey]),
-    'A valid license key must be attached to the request body'
-);
-
-// Without a key the request still carries the product selector only.
-$requests = [];
-$service = workerDownloadServiceUnderTest('not-a-license-key', workerDownloadSuccessPayload([$universal]), $requests);
-$resolution = $service->resolveDownload();
-expectWorkerDownloadService(
-    $resolution->availability === WorkerDownloadAvailability::AVAILABLE,
-    'An unprotected release must resolve without a license key'
-);
-expectWorkerDownloadService(
-    ($requests[$endpoint] ?? '') === (string)json_encode(['TYPE' => 'LocalSTTWorkerMac']),
-    'A malformed key must not be attached to the request body'
-);
-
-// File selection: universal and exact arch match, other arches are skipped.
-$requests = [];
-$armFile = array_merge($universal, ['arch' => 'arm64', 'download_link' => 'https://filescdn.miko.ru/arm/download']);
-$x86File = array_merge($universal, ['arch' => 'x86_64', 'download_link' => 'https://filescdn.miko.ru/x86/download']);
-$service = workerDownloadServiceUnderTest(
-    $validKey,
-    workerDownloadSuccessPayload([$x86File, $armFile]),
-    $requests
-);
-expectWorkerDownloadService(
-    $service->resolveDownload()->url === $armFile['download_link'],
-    'The arm64 file must win over x86_64 when both are registered'
-);
-$service = workerDownloadServiceUnderTest(
-    $validKey,
-    workerDownloadSuccessPayload([$x86File, $universal]),
-    $requests
-);
-expectWorkerDownloadService(
-    $service->resolveDownload()->url === $universal['download_link'],
-    'A universal file must be selectable among foreign arch tokens'
-);
-
-// Responses without a usable link mean the license has no entitlement.
-$notEntitledResponses = [
-    'result FAILURE' => '{"modules":[],"result":"FAILURE"}',
-    'history without files' => '{"modules":{"version":"1.83","changelog":"..."},"result":"SUCCESS"}',
-    'empty files list' => workerDownloadSuccessPayload([]),
-    'foreign arch only' => workerDownloadSuccessPayload([$x86File]),
-    'plain http link' => workerDownloadSuccessPayload([array_merge($universal, ['download_link' => 'http://filescdn.miko.ru/s/x/download'])]),
-    'link missing' => workerDownloadSuccessPayload([['name' => 'LocalSTTWorkerMac.1.83.dmg', 'arch' => '', 'size' => 1, 'hash' => 'x']]),
-];
-foreach ($notEntitledResponses as $case => $response) {
     $requests = [];
-    $service = workerDownloadServiceUnderTest($validKey, $response, $requests);
-    $resolution = $service->resolveDownload();
-    expectWorkerDownloadService(
-        $resolution->availability === WorkerDownloadAvailability::NOT_ENTITLED,
-        "{$case}: expected NOT_ENTITLED, got {$resolution->availability->value}"
-    );
-    expectWorkerDownloadService($resolution->url === '', "{$case}: no url may be resolved");
-}
-
-// Transport and payload failures are server errors, not entitlement answers.
-foreach (['empty body' => '', 'garbage json' => 'not json at all'] as $case => $response) {
-    $requests = [];
-    $service = workerDownloadServiceUnderTest($validKey, $response, $requests);
+    $service = workerDownloadServiceUnderTest($licenseHash, $status, $location, $requests);
     $resolution = $service->resolveDownload();
     expectWorkerDownloadService(
         $resolution->availability === WorkerDownloadAvailability::SERVER_ERROR,
         "{$case}: expected SERVER_ERROR, got {$resolution->availability->value}"
     );
+    expectWorkerDownloadService($resolution->url === '', "{$case}: no redirect URL may be returned");
 }
 
 $expectedFailureKeys = [

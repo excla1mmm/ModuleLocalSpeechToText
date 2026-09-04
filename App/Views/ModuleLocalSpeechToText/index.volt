@@ -305,7 +305,7 @@
                         </span>
                     </h4>
                     <div class="stt-table-muted stt-worker-download-meta">
-                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>lic.miko.ru</strong>
+                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>releases.mikopbx.com</strong>
                     </div>
                 </div>
                 <div class="six wide right aligned column stt-worker-download-action">
