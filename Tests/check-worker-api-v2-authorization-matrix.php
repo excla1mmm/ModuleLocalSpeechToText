@@ -14,6 +14,7 @@ $expected = [
     '/api/v3/module-local-speech-to-text/worker-api-contract' => 'read',
     '/api/v3/module-local-speech-to-text/workers' => 'write',
     '/api/v3/module-local-speech-to-text/worker-processing-settings' => 'read',
+    '/api/v3/module-local-speech-to-text/worker-update-license' => 'read',
     '/api/v3/module-local-speech-to-text/job-leases' => 'write',
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
@@ -21,7 +22,7 @@ $expected = [
 ];
 expectAuthorizationMatrix(WorkerApiKeyService::WORKER_ALLOWED_PATHS === $expected, 'Exact v2 worker permission map changed');
 
-foreach (['Workers','WorkerProcessingSettings','JobLeases','JobRecordings','JobResults','JobFailures','Jobs'] as $resource) {
+foreach (['Workers','WorkerProcessingSettings','WorkerUpdateLicense','JobLeases','JobRecordings','JobResults','JobFailures','Jobs'] as $resource) {
     $source = (string)file_get_contents(__DIR__ . "/../Lib/RestAPI/{$resource}/Processor.php");
     expectAuthorizationMatrix($source !== '', "Missing {$resource} processor");
     if ($resource === 'Jobs') expectAuthorizationMatrix(str_contains($source, 'WorkerRequestContext::isRestrictedWorkerKey($data)') && str_contains($source, '403'), 'Restricted keys must be denied management Jobs');

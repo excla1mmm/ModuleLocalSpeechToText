@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modul əlçatan deyil',
     'module_version' => 'Tətbiq versiyası',
     'rest_response_200_created' => 'Resurs uğurla yaradıldı',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'İşçi yeniləmələrini təsdiqləmək üçün PBX lisenziya heşini təqdim edir.',
 ];

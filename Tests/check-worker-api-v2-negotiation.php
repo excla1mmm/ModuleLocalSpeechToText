@@ -259,6 +259,7 @@ namespace {
         'capabilities' => [
             'worker-crud',
             'worker-processing-settings',
+            'worker-update-license',
             'job-leases',
             'job-recordings',
             'job-results',

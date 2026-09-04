@@ -520,4 +520,5 @@ return [
     'module_unavailable' => '模块不可用',
     'module_version' => '应用版本',
     'rest_response_200_created' => '资源创建成功',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => '提供 PBX 许可证哈希以授权 worker 更新。',
 ];

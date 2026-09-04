@@ -520,4 +520,5 @@ return [
     'module_unavailable' => '모듈을 사용할 수 없습니다',
     'module_version' => '앱 버전',
     'rest_response_200_created' => '리소스가 생성되었습니다',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => '인증된 worker 업데이트를 위한 PBX 라이선스 해시를 제공합니다.',
 ];

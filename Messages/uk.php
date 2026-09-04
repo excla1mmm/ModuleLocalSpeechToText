@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Модуль недоступний',
     'module_version' => 'Версія застосунку',
     'rest_response_200_created' => 'Ресурс успішно створено',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Повертає хеш ліцензії PBX для авторизованого оновлення воркера.',
 ];

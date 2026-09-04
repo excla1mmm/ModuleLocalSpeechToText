@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modulet er ikke tilgængeligt',
     'module_version' => 'App-version',
     'rest_response_200_created' => 'Ressourcen blev oprettet',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Leverer en PBX-licenshash til autoriserede workeropdateringer.',
 ];

@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Module unavailable',
     'module_version' => 'Module version',
     'rest_response_200_created' => 'Resource created successfully',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Provides a PBX license hash for authorized worker updates.',
 ];

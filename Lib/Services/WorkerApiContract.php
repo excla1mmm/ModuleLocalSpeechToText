@@ -17,6 +17,7 @@ final class WorkerApiContract
     public const array CAPABILITIES = [
         'worker-crud',
         'worker-processing-settings',
+        'worker-update-license',
         'job-leases',
         'job-recordings',
         'job-results',

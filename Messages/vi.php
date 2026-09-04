@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Mô-đun không khả dụng',
     'module_version' => 'Phiên bản ứng dụng',
     'rest_response_200_created' => 'Đã tạo tài nguyên thành công',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Cung cấp hàm băm giấy phép PBX cho các bản cập nhật worker được ủy quyền.',
 ];

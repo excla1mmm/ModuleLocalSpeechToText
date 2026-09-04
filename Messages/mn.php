@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Модуль ашиглах боломжгүй',
     'module_version' => 'Аппын хувилбар',
     'rest_response_200_created' => 'Нөөцийг амжилттай үүсгэлээ',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Зөвшөөрөгдсөн worker шинэчлэлтэд PBX лицензийн хэшийг олгоно.',
 ];

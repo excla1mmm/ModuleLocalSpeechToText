@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'モジュールを利用できません',
     'module_version' => 'アプリのバージョン',
     'rest_response_200_created' => 'リソースが正常に作成されました',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'worker の認証済み更新用に PBX ライセンスハッシュを提供します。',
 ];

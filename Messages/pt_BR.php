@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Módulo indisponível',
     'module_version' => 'Versão do aplicativo',
     'rest_response_200_created' => 'Recurso criado com sucesso',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Fornece um hash da licença PBX para atualizações autorizadas do worker.',
 ];

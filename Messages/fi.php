@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Moduuli ei ole käytettävissä',
     'module_version' => 'Sovellusversio',
     'rest_response_200_created' => 'Resurssi luotiin onnistuneesti',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Tarjoaa PBX-lisenssin tiivisteen workerin valtuutettuja päivityksiä varten.',
 ];

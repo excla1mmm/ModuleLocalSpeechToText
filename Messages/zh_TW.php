@@ -520,4 +520,5 @@ return [
     'module_unavailable' => '模組無法使用',
     'module_version' => '應用程式版本',
     'rest_response_200_created' => '資源建立成功',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => '提供 PBX 授權雜湊以授權 worker 更新。',
 ];

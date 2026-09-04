@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modül kullanılamıyor',
     'module_version' => 'Uygulama sürümü',
     'rest_response_200_created' => 'Kaynak başarıyla oluşturuldu',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Yetkili worker güncellemeleri için PBX lisans karması sağlar.',
 ];

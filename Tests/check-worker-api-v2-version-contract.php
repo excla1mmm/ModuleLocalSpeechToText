@@ -175,6 +175,7 @@ namespace {
             $allowed = [
                 '/Lib/RestAPI/Common/WorkerRequestContext.php',
                 '/Lib/RestAPI/WorkerProcessingSettings/Processor.php',
+                '/Lib/RestAPI/WorkerUpdateLicense/Processor.php',
                 '/Lib/RestAPI/JobRecordings/Processor.php',
                 '/Lib/Services/JobSubmissionReceiptService.php',
                 '/Lib/Services/STTWorkerResourceService.php',
@@ -528,6 +529,7 @@ namespace {
 
     $workerOperationsByProcessor = [
         'WorkerProcessingSettings' => ['GET /worker-processing-settings getList'],
+        'WorkerUpdateLicense' => ['GET /worker-update-license getList'],
         'JobLeases' => ['POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete'],
         'JobRecordings' => ['GET /job-recordings/{job_id} getRecord'],
         'JobResults' => ['PUT /job-results/{job_id} update'],

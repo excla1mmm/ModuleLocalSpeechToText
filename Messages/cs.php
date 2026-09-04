@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modul není dostupný',
     'module_version' => 'Verze aplikace',
     'rest_response_200_created' => 'Prostředek byl úspěšně vytvořen',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Poskytuje hash licence PBX pro autorizované aktualizace workeru.',
 ];

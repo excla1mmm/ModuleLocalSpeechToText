@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'A modul nem érhető el',
     'module_version' => 'Alkalmazásverzió',
     'rest_response_200_created' => 'Az erőforrás sikeresen létrejött',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'PBX-licenckivonatot biztosít az engedélyezett workerfrissítésekhez.',
 ];

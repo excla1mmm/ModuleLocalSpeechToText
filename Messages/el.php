@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Η μονάδα δεν είναι διαθέσιμη',
     'module_version' => 'Έκδοση εφαρμογής',
     'rest_response_200_created' => 'Ο πόρος δημιουργήθηκε με επιτυχία',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Παρέχει κατακερματισμό άδειας PBX για εξουσιοδοτημένες ενημερώσεις worker.',
 ];

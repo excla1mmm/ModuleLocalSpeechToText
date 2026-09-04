@@ -125,6 +125,7 @@ namespace {
         'Workers' => 'Local STT Workers',
         'WorkerApiContract' => 'Local STT Workers',
         'WorkerProcessingSettings' => 'Local STT Workers',
+        'WorkerUpdateLicense' => 'Local STT Workers',
         'Jobs' => 'Local STT Jobs',
         'JobLeases' => 'Local STT Jobs',
         'JobResults' => 'Local STT Jobs',
@@ -177,6 +178,7 @@ namespace {
     $operationContracts = [
         'WorkerApiContract' => ['getList' => ['getLocalSTTWorkerApiContract', 'LocalSTTWorkerApiContract', [200, 401, 403, 500]]],
         'WorkerProcessingSettings' => ['getList' => ['getLocalSTTWorkerProcessingSettings', 'LocalSTTWorkerProcessingSettings', [200, 403, 426]]],
+        'WorkerUpdateLicense' => ['getList' => ['getLocalSTTWorkerUpdateLicense', 'LocalSTTWorkerUpdateLicense', [200, 403, 409, 426]]],
         'JobLeases' => [
             'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200, 426]],
             'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200, 426]],
@@ -209,6 +211,7 @@ namespace {
 
     $requiredParameters = [
         ['WorkerProcessingSettings', 'getList', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID']],
+        ['WorkerUpdateLicense', 'getList', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID']],
         ['JobLeases', 'create', ['X-MikoPBX-Worker-API-Version', 'worker_uid']],
         ['JobLeases', 'patch', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
         ['JobLeases', 'delete', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
@@ -227,6 +230,7 @@ namespace {
         '../Lib/RestAPI/JobLeases/DataStructure.php',
         '../Lib/RestAPI/JobRecordings/DataStructure.php',
         '../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php',
+        '../Lib/RestAPI/WorkerUpdateLicense/DataStructure.php',
     ] as $file) {
         require_once __DIR__ . '/' . $file;
     }
@@ -240,6 +244,10 @@ namespace {
             'X-MikoPBX-Job-Lease-Token' => ['string', 'module_local_speech_to_text_ApiParamLeaseToken', null, 'lease-token'],
         ],
         \Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerProcessingSettings\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+            'X-MikoPBX-Worker-UID' => ['string', 'module_local_speech_to_text_ApiParamWorkerUid', null, 'mac-mini-stt-01'],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\WorkerUpdateLicense\DataStructure::class => [
             'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
             'X-MikoPBX-Worker-UID' => ['string', 'module_local_speech_to_text_ApiParamWorkerUid', null, 'mac-mini-stt-01'],
         ],
@@ -376,6 +384,7 @@ namespace {
     $expectedGeneratedTuples = [
         'GET /pbxcore/api/v3/module-local-speech-to-text/worker-api-contract getLocalSTTWorkerApiContract',
         'GET /pbxcore/api/v3/module-local-speech-to-text/worker-processing-settings getLocalSTTWorkerProcessingSettings',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/worker-update-license getLocalSTTWorkerUpdateLicense',
         'POST /pbxcore/api/v3/module-local-speech-to-text/job-leases createLocalSTTJobLease',
         'PATCH /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id} patchLocalSTTJobLease',
         'DELETE /pbxcore/api/v3/module-local-speech-to-text/job-leases/{id} deleteLocalSTTJobLease',
@@ -394,6 +403,7 @@ namespace {
         static fn(string $tuple): bool => in_array($tuple, $expectedGeneratedTuples, true)
             || str_ends_with($tuple, ' getLocalSTTWorkerApiContract')
             || str_ends_with($tuple, ' getLocalSTTWorkerProcessingSettings')
+            || str_ends_with($tuple, ' getLocalSTTWorkerUpdateLicense')
             || str_ends_with($tuple, ' createLocalSTTJobLease')
             || str_ends_with($tuple, ' patchLocalSTTJobLease')
             || str_ends_with($tuple, ' deleteLocalSTTJobLease')

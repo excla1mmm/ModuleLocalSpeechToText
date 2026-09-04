@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'โมดูลไม่พร้อมใช้งาน',
     'module_version' => 'เวอร์ชันแอป',
     'rest_response_200_created' => 'สร้างทรัพยากรสำเร็จแล้ว',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'ให้แฮชใบอนุญาต PBX สำหรับการอัปเดต worker ที่ได้รับอนุญาต',
 ];

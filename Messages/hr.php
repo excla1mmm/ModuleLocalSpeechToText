@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modul nije dostupan',
     'module_version' => 'Verzija aplikacije',
     'rest_response_200_created' => 'Resurs je uspješno stvoren',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Pruža sažetak PBX licence za autorizirana ažuriranja workera.',
 ];

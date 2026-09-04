@@ -20,6 +20,7 @@ $expectedPaths = [
     '/api/v3/module-local-speech-to-text/worker-api-contract' => 'read',
     '/api/v3/module-local-speech-to-text/workers' => 'write',
     '/api/v3/module-local-speech-to-text/worker-processing-settings' => 'read',
+    '/api/v3/module-local-speech-to-text/worker-update-license' => 'read',
     '/api/v3/module-local-speech-to-text/job-leases' => 'write',
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
@@ -35,7 +36,7 @@ expectWorkerPermission(
 $allowedPaths = WorkerApiKeyService::WORKER_ALLOWED_PATHS;
 expectWorkerPermission(
     $allowedPaths === $expectedPaths,
-    'Worker credentials must contain the exact seven worker API v2 paths'
+    'Worker credentials must contain the exact eight worker API v2 paths'
 );
 
 $key = (object)[
@@ -49,6 +50,7 @@ foreach ([
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/worker-api-contract'],
     ['POST', '/pbxcore/api/v3/module-local-speech-to-text/workers'],
     ['GET', '/pbxcore/api/v3/module-local-speech-to-text/worker-processing-settings'],
+    ['GET', '/pbxcore/api/v3/module-local-speech-to-text/worker-update-license'],
     ['POST', '/pbxcore/api/v3/module-local-speech-to-text/job-leases'],
     ['PATCH', '/pbxcore/api/v3/module-local-speech-to-text/job-leases/42'],
     ['DELETE', '/pbxcore/api/v3/module-local-speech-to-text/job-leases/42'],

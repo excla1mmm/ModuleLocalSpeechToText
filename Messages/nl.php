@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Module niet beschikbaar',
     'module_version' => 'App-versie',
     'rest_response_200_created' => 'Resource is aangemaakt',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Levert een PBX-licentiehash voor geautoriseerde workerupdates.',
 ];

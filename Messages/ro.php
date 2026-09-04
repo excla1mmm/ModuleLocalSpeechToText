@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Modul indisponibil',
     'module_version' => 'Versiunea aplicației',
     'rest_response_200_created' => 'Resursa a fost creată',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Furnizează hash-ul licenței PBX pentru actualizări autorizate ale workerului.',
 ];

@@ -17,6 +17,7 @@ class WorkerApiKeyService
         '/api/v3/module-local-speech-to-text/worker-api-contract' => 'read',
         '/api/v3/module-local-speech-to-text/workers' => 'write',
         '/api/v3/module-local-speech-to-text/worker-processing-settings' => 'read',
+        '/api/v3/module-local-speech-to-text/worker-update-license' => 'read',
         '/api/v3/module-local-speech-to-text/job-leases' => 'write',
         '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
         '/api/v3/module-local-speech-to-text/job-results' => 'write',

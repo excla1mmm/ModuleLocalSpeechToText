@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'მოდული მიუწვდომელია',
     'module_version' => 'აპლიკაციის ვერსია',
     'rest_response_200_created' => 'რესურსი წარმატებით შეიქმნა',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'ავტორიზებული worker განახლებებისთვის PBX ლიცენზიის ჰეშს აბრუნებს.',
 ];

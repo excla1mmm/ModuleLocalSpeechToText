@@ -520,4 +520,5 @@ return [
     'module_unavailable' => 'Moduł jest niedostępny',
     'module_version' => 'Wersja aplikacji',
     'rest_response_200_created' => 'Zasób został utworzony',
+    'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Udostępnia skrót licencji PBX do autoryzowanych aktualizacji workera.',
 ];
