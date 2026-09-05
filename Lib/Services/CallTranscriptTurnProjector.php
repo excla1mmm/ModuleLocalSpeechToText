@@ -93,7 +93,7 @@ final class CallTranscriptTurnProjector
         $segmentId = trim((string)($segment['segment_id'] ?? ''));
         $resultId = max(0, (int)($segment['result_id'] ?? 0));
         $sourceLabel = trim((string)($segment['source_label'] ?? ''));
-        $speaker = $sourceLabel !== '' ? $sourceLabel : trim((string)($segment['speaker'] ?? ''));
+        $speaker = trim((string)($segment['speaker'] ?? ''));
 
         return [
             'turn_id' => $segmentId !== '' ? $segmentId : sprintf('call-turn:%d', $turnIndex),
@@ -105,6 +105,7 @@ final class CallTranscriptTurnProjector
             'text' => trim((string)$segment['text']),
             'speaker' => $speaker,
             'channel' => isset($segment['channel']) ? (string)$segment['channel'] : null,
+            'source_label' => $sourceLabel,
             'source_segment_ids' => $segmentId === '' ? [] : [$segmentId],
             'source_result_ids' => $resultId > 0 ? [$resultId] : [],
             '_identity' => self::identity($segment),
@@ -203,8 +204,9 @@ final class CallTranscriptTurnProjector
             if ($text === '') {
                 continue;
             }
-            $speaker = trim((string)($turn['speaker'] ?? ''));
-            $lines[] = $speaker === '' ? $text : sprintf('[%s] %s', $speaker, $text);
+            $channel = trim((string)($turn['channel'] ?? ''));
+            $label = $channel !== '' ? $channel : trim((string)($turn['source_label'] ?? ''));
+            $lines[] = $label === '' ? $text : sprintf('[%s] %s', $label, $text);
         }
         return implode("\n", $lines);
     }

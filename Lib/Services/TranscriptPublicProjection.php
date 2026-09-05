@@ -20,6 +20,10 @@ final class TranscriptPublicProjection
             $transcript['turns'] ?? [],
             ['turn_id', 'index', 'start_ms', 'end_ms', 'text']
         );
+        $channelText = $this->channelText($transcript['turns']);
+        if ($channelText !== null) {
+            $transcript['text'] = $channelText;
+        }
         unset($transcript['segment_count'], $transcript['turn_count']);
 
         return $transcript;
@@ -43,12 +47,29 @@ final class TranscriptPublicProjection
                     $projected[$field] = $item[$field];
                 }
             }
-            $projected['speaker'] = $this->nonEmptyScalar($item['speaker'] ?? null)
-                ?? $this->nonEmptyScalar($item['channel'] ?? null);
+            $projected['channel'] = $this->nonEmptyScalar($item['channel'] ?? null);
             $items[] = $projected;
         }
 
         return $items;
+    }
+
+    /** @param list<array<string, mixed>> $turns */
+    private function channelText(array $turns): ?string
+    {
+        $lines = [];
+        $hasChannel = false;
+        foreach ($turns as $turn) {
+            $text = trim((string)($turn['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+            $channel = $this->nonEmptyScalar($turn['channel'] ?? null);
+            $hasChannel = $hasChannel || $channel !== null;
+            $lines[] = $channel === null ? $text : sprintf('[%s] %s', $channel, $text);
+        }
+
+        return $hasChannel ? implode("\n", $lines) : null;
     }
 
     private function nonEmptyScalar(mixed $value): ?string

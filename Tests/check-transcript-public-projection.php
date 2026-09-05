@@ -42,6 +42,7 @@ $projected = (new \Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptPublic
     ],
     'segment_count' => 1,
     'turn_count' => 1,
+    'text' => 'operator: Это Людмила.',
 ]);
 
 $segment = $projected['segments'][0] ?? [];
@@ -54,20 +55,24 @@ expectTranscriptPublicProjection(
         'start_ms' => 5440,
         'end_ms' => 10080,
         'text' => 'Это Людмила.',
-        'speaker' => 'left',
+        'channel' => 'left',
     ],
-    'segments must expose milliseconds and speaker with channel fallback only'
+    'segments must expose channel without a redundant speaker field'
 );
 expectTranscriptPublicProjection(
     !array_key_exists('start', $turn)
         && !array_key_exists('end', $turn)
-        && !array_key_exists('channel', $turn)
-        && ($turn['speaker'] ?? null) === 'operator',
-    'turns must preserve an explicit speaker and omit duplicate public fields'
+        && !array_key_exists('speaker', $turn)
+        && ($turn['channel'] ?? null) === 'left',
+    'turns must expose physical channel only'
 );
 expectTranscriptPublicProjection(
     !isset($projected['segment_count'], $projected['turn_count']),
     'projection must omit derived transcript counts'
+);
+expectTranscriptPublicProjection(
+    ($projected['text'] ?? '') === '[left] Это Людмила.',
+    'public transcript text must use physical channels instead of worker speaker aliases'
 );
 
 echo "Transcript public projection OK\n";

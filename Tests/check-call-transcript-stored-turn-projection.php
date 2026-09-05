@@ -74,7 +74,7 @@ namespace {
             'recording_fingerprint' => 'recording-fingerprint',
             'resolution_status' => 'complete',
             'channel' => $channel,
-            'speaker' => $channel,
+            'speaker' => $channel === 'left' ? 'agent' : 'customer',
         ];
     }
 
@@ -132,14 +132,25 @@ namespace {
         'merged turn range must cover all source segments'
     );
     expectStoredTurnProjection(
-        !array_key_exists('channel', $turns[1] ?? [])
-            && !array_key_exists('channel', $turns[2] ?? []),
-        'physical channels must not leak into public turns'
+        !array_key_exists('speaker', $turns[0] ?? [])
+            && !array_key_exists('speaker', $turns[1] ?? [])
+            && !array_key_exists('speaker', $turns[2] ?? []),
+        'public turns must not expose a redundant speaker field'
     );
     expectStoredTurnProjection(
-        !array_key_exists('channel', $transcript['segments'][0] ?? [])
-            && ($transcript['segments'][0]['speaker'] ?? '') === 'left',
-        'public segments must retain speaker identity without exposing channel'
+        array_column($turns, 'channel') === ['left', 'right', 'left'],
+        'physical channels must remain available to downstream role mapping'
+    );
+    expectStoredTurnProjection(
+        str_contains((string)($transcript['text'] ?? ''), '[left]')
+            && str_contains((string)($transcript['text'] ?? ''), '[right]')
+            && !str_contains((string)($transcript['text'] ?? ''), '[agent]'),
+        'public transcript text must identify physical channels, not worker speaker aliases'
+    );
+    expectStoredTurnProjection(
+        ($transcript['segments'][0]['channel'] ?? '') === 'left'
+            && !array_key_exists('speaker', $transcript['segments'][0] ?? []),
+        'public segments must expose channel without speaker duplication'
     );
     expectStoredTurnProjection(
         ($detail['content_hash'] ?? '') === 'content-hash-before-projection',

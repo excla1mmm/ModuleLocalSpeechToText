@@ -317,8 +317,8 @@ namespace {
     $transcriptSegmentProperties = $transcriptProperties['segments']['items']['properties'] ?? [];
     $transcriptTurnProperties = $transcriptProperties['turns']['items']['properties'] ?? [];
     foreach ([$transcriptSegmentProperties, $transcriptTurnProperties] as $properties) {
-        expectOpenApi(isset($properties['start_ms'], $properties['end_ms'], $properties['speaker']), 'Transcript public schema must expose milliseconds and speaker');
-        expectOpenApi(!isset($properties['start'], $properties['end'], $properties['channel']), 'Transcript public schema must not expose duplicate seconds or physical channel');
+        expectOpenApi(isset($properties['start_ms'], $properties['end_ms'], $properties['channel']), 'Transcript public schema must expose milliseconds and physical channel');
+        expectOpenApi(!isset($properties['start'], $properties['end'], $properties['speaker'], $properties['speaker_key']), 'Transcript public schema must not expose duplicate seconds or speaker aliases');
     }
     expectOpenApi(array_keys($transcriptList['properties'] ?? []) === ['items', 'pagination'], 'Transcript list wrapper changed');
     expectOpenApi(($transcriptList['example']['items'][0]['result_id'] ?? null) === ($transcriptDetail['example']['result_id'] ?? null), 'Transcript list/detail examples must remain linked');
@@ -333,8 +333,8 @@ namespace {
     $callTranscriptProperties = $callSchema['properties']['transcript']['properties'] ?? [];
     foreach (['segments', 'turns'] as $collection) {
         $properties = $callTranscriptProperties[$collection]['items']['properties'] ?? [];
-        expectOpenApi(isset($properties['start_ms'], $properties['end_ms'], $properties['speaker']), 'Call transcript schema must expose milliseconds and speaker');
-        expectOpenApi(!isset($properties['channel'], $properties['absolute_start_ms'], $properties['absolute_end_ms'], $properties['source_result_ids']), 'Call transcript public schema must not expose internal projection fields');
+        expectOpenApi(isset($properties['start_ms'], $properties['end_ms'], $properties['channel']), 'Call transcript schema must expose milliseconds and physical channel');
+        expectOpenApi(!isset($properties['speaker'], $properties['absolute_start_ms'], $properties['absolute_end_ms'], $properties['source_result_ids']), 'Call transcript public schema must not expose internal projection fields');
     }
     $callEvents = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
     expectOpenApi(($callEvents['example']['events'][0]['aggregate_id'] ?? null) === ($callSchema['example']['aggregate_id'] ?? null) && ($callEvents['example']['events'][0]['revision'] ?? null) === ($callSchema['example']['revision'] ?? null), 'Call transcript event/detail examples must remain linked');

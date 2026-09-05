@@ -160,7 +160,7 @@ The module exposes read-only completed transcript endpoints for other local modu
 
 Transcript list responses return compact summaries only. Transcript detail responses return normalized raw segments with stable `segment_id` values in the form `stt:{result_id}:{index}`, plus readable coalesced `turns` and plain `text` for downstream modules that do not need low-level STT chunks.
 
-Public segments and turns use integer `start_ms`/`end_ms` and one `speaker` field. Physical `channel` metadata and duplicate floating-point `start`/`end` seconds remain internal. Historical rows without a speaker label are projected with their stored channel label as `speaker`.
+Public segments and turns use integer `start_ms`/`end_ms` and expose only the physical audio `channel` used by downstream modules for participant-role mapping. Worker speaker aliases, technical source labels, and duplicate floating-point `start`/`end` seconds remain internal. A distinct speaker identifier should be added only with an actual diarization contract.
 
 Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling. Event rows preserve `result_id`, `job_id`, and `call_id` when available. Summary generation can fall back from job data to event and CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
 
