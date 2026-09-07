@@ -10,6 +10,7 @@ use Modules\ModuleUsersUI\Lib\ACL\ACLInterface;
 final class ModuleLocalSpeechToTextACL implements ACLInterface
 {
     private const string API_BASE = '/pbxcore/api/v3/module-local-speech-to-text';
+    private const string LEGACY_API = '/pbxcore/api/modules/module-local-speech-to-text';
     private const string CONTROLLER =
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
 
@@ -55,10 +56,11 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
             '/transcripts',
             '/worker-api-contract',
             '/worker-processing-settings',
+            '/worker-update-license',
             '/workers',
         ];
 
-        return array_fill_keys(
+        return [self::LEGACY_API => '*'] + array_fill_keys(
             array_map(static fn(string $path): string => self::API_BASE . $path, $paths),
             '*'
         );

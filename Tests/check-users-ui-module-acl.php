@@ -56,6 +56,7 @@ namespace {
 
     $denied = ModuleLocalSpeechToTextACL::getAlwaysDenied();
     foreach ([
+        '/pbxcore/api/modules/module-local-speech-to-text',
         '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts',
         '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events',
         '/pbxcore/api/v3/module-local-speech-to-text/job-failures',
@@ -66,6 +67,7 @@ namespace {
         '/pbxcore/api/v3/module-local-speech-to-text/transcripts',
         '/pbxcore/api/v3/module-local-speech-to-text/worker-api-contract',
         '/pbxcore/api/v3/module-local-speech-to-text/worker-processing-settings',
+        '/pbxcore/api/v3/module-local-speech-to-text/worker-update-license',
         '/pbxcore/api/v3/module-local-speech-to-text/workers',
     ] as $path) {
         expectUsersUiAcl(($denied[$path] ?? null) === '*', "Human access groups must not receive transport API {$path}");
