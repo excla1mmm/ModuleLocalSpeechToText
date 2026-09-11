@@ -4,9 +4,75 @@
     const MAX_LOOKUP_BATCH = 100;
 
     $(function () {
+        function translate(key) {
+            if (typeof globalTranslate !== 'undefined' && globalTranslate && globalTranslate[key]) {
+                return String(globalTranslate[key]);
+            }
+            return key;
+        }
+
+        function ensureModal() {
+            let $modal = $('#stt-cdr-transcript-modal');
+            if ($modal.length > 0) {
+                return $modal;
+            }
+
+            const labels = {
+                button: translate('module_local_speech_to_text_CdrTranscriptButton'),
+                title: translate('module_local_speech_to_text_CdrTranscriptModalTitle'),
+                loading: translate('module_local_speech_to_text_CdrTranscriptLoading'),
+                loadError: translate('module_local_speech_to_text_CdrTranscriptLoadError'),
+                notFound: translate('module_local_speech_to_text_CdrTranscriptNotFound'),
+                empty: translate('module_local_speech_to_text_NoConversationSegments'),
+            };
+            const $header = $('<div>', { class: 'header' }).append(
+                $('<i>', { class: 'comment alternate outline icon' }),
+                document.createTextNode(labels.title)
+            );
+            const $loading = $('<div>', {
+                class: 'stt-cdr-transcript-loading',
+                role: 'status',
+                'aria-live': 'polite',
+            }).append(
+                $('<div>', { class: 'ui active centered inline loader stt-cdr-transcript-loader' }),
+                $('<div>').text(labels.loading)
+            );
+            const $callMeta = $('<div>', {
+                class: 'stt-cdr-transcript-call-meta',
+                hidden: true,
+            }).append(
+                $('<span>', { 'data-field': 'date' }),
+                $('<span>', { 'data-field': 'source' }),
+                $('<span>', { 'data-field': 'destination' }),
+                $('<span>', { 'data-field': 'duration' })
+            );
+            $modal = $('<div>', {
+                class: 'ui large modal module-local-speech-to-text stt-cdr-transcript-modal',
+                id: 'stt-cdr-transcript-modal',
+                'data-label-button': labels.button,
+                'data-label-load-error': labels.loadError,
+                'data-label-not-found': labels.notFound,
+                'data-label-empty': labels.empty,
+            }).append(
+                $('<i>', { class: 'close icon' }),
+                $header,
+                $('<div>', { class: 'content' }).append(
+                    $loading,
+                    $('<div>', { class: 'ui message stt-cdr-transcript-error', hidden: true }),
+                    $callMeta,
+                    $('<div>', { class: 'stt-cdr-transcript-conversation', hidden: true })
+                )
+            );
+            $('body').append($modal);
+            return $modal;
+        }
+
         const $table = $('#cdr-table');
-        const $modal = $('#stt-cdr-transcript-modal');
-        if ($table.length === 0 || $modal.length === 0 || typeof $.fn.DataTable === 'undefined') {
+        if ($table.length === 0) {
+            return;
+        }
+        const $modal = ensureModal();
+        if ($modal.length === 0 || typeof $.fn.DataTable === 'undefined') {
             return;
         }
 

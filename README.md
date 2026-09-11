@@ -16,6 +16,7 @@ The package version is defined in `module.json`.
 - Stores transcript segments, detected language, duration, model used, and worker technical metrics.
 - Applies a server-side transcript quality filter that trims or rejects obvious hallucination artifacts before saving results.
 - Shows transcripts as a conversation view, including left/right speaker columns for stereo recordings.
+- Adds a transcript button to each MikoPBX call-history row that has a published transcript and opens the conversation in a modal window.
 - Exposes queue, delayed recording, skipped recording, worker, transcript, and log status in the MikoPBX admin UI.
 - Publishes idempotent `transcript.completed` events for downstream modules such as `ModuleAISupervisor`.
 
@@ -60,6 +61,8 @@ The main module page has six tabs:
 - `Logging`: aggregated recent module logs with quick time filters.
 
 The conversation view includes source recording metadata, playback/download links when the recording is still available, transcript timeline, speaker columns, and technical information submitted by the worker. For playback display the module can resolve both raw monitor paths and matching `pretty-monitor` files after `realpath` validation.
+
+The standard MikoPBX call-history page also shows a transcript button for calls with a published revision. The button uses the same access rules as the module transcript list and opens the dialogue without leaving the CDR page.
 
 ### Access control through ModuleUsersUI
 

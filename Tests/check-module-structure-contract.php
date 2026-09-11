@@ -20,7 +20,7 @@ expectTrueModuleStructure(is_file($controllerPath), 'Cannot read ModuleLocalSpee
 expectTrueModuleStructure(is_file($workerPath), 'Worker must live under bin/WorkerLocalSpeechToTextJobs.php');
 expectTrueModuleStructure(!file_exists($legacyWorkerPath), 'Legacy Lib/WorkerCreateTranscriptionJobs.php must not exist');
 expectTrueModuleStructure(is_array($manifest), 'module.json must be valid JSON');
-expectTrueModuleStructure(($manifest['version'] ?? null) === '1.45', 'module.json version must be exactly 1.45');
+expectTrueModuleStructure(($manifest['version'] ?? null) === '1.46', 'module.json version must be exactly 1.46');
 expectTrueModuleStructure(($manifest['min_pbx_version'] ?? null) === '2025.1.1', 'module.json min_pbx_version must be exactly 2025.1.1');
 expectTrueModuleStructure($conf !== false, 'Cannot read LocalSpeechToTextConf.php');
 

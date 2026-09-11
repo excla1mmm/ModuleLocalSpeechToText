@@ -44,6 +44,11 @@ foreach (glob(__DIR__ . '/../Messages/*.php') ?: [] as $messageFile) {
 $sourcePath = __DIR__ . '/../public/assets/js/src/module-local-speech-to-text-cdr.js';
 $compiledPath = __DIR__ . '/../public/assets/js/module-local-speech-to-text-cdr.js';
 $sourceJs = is_file($sourcePath) ? (file_get_contents($sourcePath) ?: '') : '';
+expectCdrUi(
+    str_contains($sourceJs, 'function ensureModal()')
+    && str_contains($sourceJs, "\$('body').append(\$modal)"),
+    'CDR JavaScript must create the modal when the Core template has no Volt hook'
+);
 foreach ([
     'init.dt',
     'draw.dt',

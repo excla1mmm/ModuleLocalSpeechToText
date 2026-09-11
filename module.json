@@ -2,7 +2,7 @@
   "developer": "MIKO",
   "moduleUniqueID": "ModuleLocalSpeechToText",
   "support_email": "help@miko.ru",
-  "version": "1.45",
+  "version": "1.46",
   "min_pbx_version": "2025.1.1",
   "lic_product_id": 306,
   "lic_feature_id": 73,

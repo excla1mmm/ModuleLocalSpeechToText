@@ -11,5 +11,5 @@ jobs:
   build:
     uses: mikopbx/.github-workflows/.github/workflows/extension-publish.yml@master
     with:
-      initial_version: "1.45"
+      initial_version: "1.46"
     secrets: inherit
