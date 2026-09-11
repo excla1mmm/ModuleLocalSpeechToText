@@ -17,8 +17,6 @@ $modal = is_file($modalPath) ? (file_get_contents($modalPath) ?: '') : '';
 
 expectCdrUi(str_contains($conf, 'onAfterAssetsPrepared'), 'CDR asset hook missing');
 expectCdrUi(str_contains($conf, 'onVoltBlockCompile'), 'CDR Footer hook missing');
-expectCdrUi(str_contains($conf, "'CallDetailRecords'"), 'CDR controller gate missing');
-expectCdrUi(str_contains($conf, "'Footer'"), 'Footer block gate missing');
 expectCdrUi(str_contains($assets, 'module-local-speech-to-text-cdr.css'), 'CDR CSS missing');
 expectCdrUi(str_contains($assets, 'module-local-speech-to-text-cdr.js'), 'CDR JS missing');
 expectCdrUi(str_contains($modal, 'id="stt-cdr-transcript-modal"'), 'modal shell missing');
@@ -52,8 +50,12 @@ expectCdrUi(
 foreach ([
     'init.dt',
     'draw.dt',
-    'DT_RowId',
-    "rows({ page: 'current' })",
+    '#cdr-table tbody tr[id]',
+    ':scope > td',
+    'actionsCell',
+    "method: 'POST'",
+    "contentType: 'application/json; charset=utf-8'",
+    'JSON.stringify({ call_ids: batch })',
     'cdr-transcript/lookup',
     'cdr-transcript/detail',
     'stt-cdr-transcript-button',

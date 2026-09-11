@@ -29,17 +29,25 @@ class LocalSpeechToTextConf extends ConfigClass
 
     public function onAfterAssetsPrepared(Manager $assets, Dispatcher $dispatcher): void
     {
+        $controller = strtolower((string)preg_replace(
+            '/[^A-Za-z0-9]+/',
+            '',
+            (string)$dispatcher->getControllerName()
+        ));
         if (
-            $dispatcher->getControllerName() === 'CallDetailRecords'
-            && $dispatcher->getActionName() === 'index'
+            $controller !== 'calldetailrecords'
+            || strtolower((string)$dispatcher->getActionName()) !== 'index'
         ) {
-            AssetProvider::addCdrAssets($assets);
+            return;
         }
+
+        AssetProvider::addCdrAssets($assets);
     }
 
     public function onVoltBlockCompile(string $controller, string $blockName, View $view): string
     {
-        if ($controller !== 'CallDetailRecords' || $blockName !== 'Footer') {
+        $controller = strtolower((string)preg_replace('/[^A-Za-z0-9]+/', '', $controller));
+        if ($controller !== 'calldetailrecords' || strtolower($blockName) !== 'footer') {
             return '';
         }
 

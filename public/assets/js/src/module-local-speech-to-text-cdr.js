@@ -98,13 +98,25 @@
 
         function currentRows(dataTable) {
             const rows = [];
-            dataTable.rows({ page: 'current' }).every(function () {
-                const data = this.data();
-                const callId = data && typeof data.DT_RowId === 'string' ? data.DT_RowId.trim() : '';
-                const node = this.node();
-                if (callId !== '' && node) {
-                    rows.push({ node: $(node), data, callId });
+            document.querySelectorAll('#cdr-table tbody tr[id]').forEach(function (node) {
+                const callId = String(node.id || '').trim();
+                if (
+                    callId.length > 255
+                    || !/^mikopbx-[A-Za-z0-9._-]+$/.test(callId)
+                ) {
+                    return;
                 }
+                const cells = node.querySelectorAll(':scope > td');
+                if (cells.length < 2) {
+                    return;
+                }
+                rows.push({
+                    node: $(node),
+                    data: dataTable.row(node).data(),
+                    callId,
+                    actionsCell: $(cells[cells.length - 1]),
+                    hasActionColumn: cells.length > 5,
+                });
             });
             return rows;
         }
@@ -114,9 +126,7 @@
         }
 
         function addButton(row) {
-            const $cells = row.node.children('td');
-            const hasActionColumn = $cells.length > 5;
-            const $target = hasActionColumn ? $cells.eq(5) : $cells.eq(4);
+            const $target = row.actionsCell;
             if ($target.length === 0 || $target.find('.stt-cdr-transcript-button').length > 0) {
                 return;
             }
@@ -130,7 +140,7 @@
             }).attr('data-call-id', row.callId).append(
                 $('<i>', { class: 'comment alternate outline icon' })
             );
-            if (hasActionColumn) {
+            if (row.hasActionColumn) {
                 $target.prepend($button);
             } else {
                 $button.addClass('stt-cdr-transcript-duration-button');
@@ -157,9 +167,10 @@
             });
             $.ajax({
                 url: lookupUrl,
-                method: 'GET',
+                method: 'POST',
+                contentType: 'application/json; charset=utf-8',
                 dataType: 'json',
-                data: { call_ids: JSON.stringify(batch) },
+                data: JSON.stringify({ call_ids: batch }),
                 beforeSend: addAuthorizationHeader,
             }).done(function (response) {
                 const transcriptMap = response && response.transcriptMap && typeof response.transcriptMap === 'object'
@@ -353,7 +364,9 @@
                 event.stopPropagation();
                 openTranscript(dataTable, $(this));
             });
-            refreshButtons(dataTable);
+            setTimeout(function () {
+                refreshButtons(dataTable);
+            }, 0);
         }
 
         if ($.fn.DataTable.isDataTable($table)) {

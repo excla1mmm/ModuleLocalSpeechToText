@@ -15,10 +15,12 @@ final class CdrTranscriptController extends LocalSpeechToTextBaseController
             return;
         }
 
-        $raw = (string)$this->request->getQuery('call_ids', 'string', '[]');
-        $callIds = json_decode($raw);
+        $body = $this->request->getJsonRawBody(true);
+        $callIds = is_array($body) && is_array($body['call_ids'] ?? null)
+            ? $body['call_ids']
+            : [];
         $this->view->transcriptMap = $this->cdrTranscriptService()->lookup(
-            is_array($callIds) ? $callIds : [],
+            $callIds,
             $this->usersUICallScope(),
         );
     }

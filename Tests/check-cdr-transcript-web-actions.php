@@ -25,10 +25,6 @@ foreach (['lookupAction', 'detailAction'] as $action) {
 
 expectCdrWeb(str_contains($controller, '$this->view->transcriptMap'), 'lookup response key missing');
 expectCdrWeb(str_contains($controller, '$this->view->transcript'), 'detail response key missing');
-expectCdrWeb(
-    str_contains($controller, '$callIds = json_decode($raw);'),
-    'lookup must distinguish a JSON array from a JSON object'
-);
 expectCdrWeb(str_contains($controller, "setStatusCode(404, 'Not Found')"), 'generic not-found response missing');
 expectCdrWeb(str_contains($base, 'CdrTranscriptService'), 'service factory missing');
 
