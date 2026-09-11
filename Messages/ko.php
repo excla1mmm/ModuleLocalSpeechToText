@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => '통화 타임라인에서 세그먼트의 절대 종료 시각(Unix 밀리초)이며, 없으면 null입니다.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => '통화 타임라인에서 세그먼트의 절대 시작 시각(Unix 밀리초)이며, 없으면 null입니다.',
     'module_local_speech_to_text_ApiFieldAggregateId' => '통합 통화 전사본의 안정적인 식별자입니다.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => '로컬 녹취 ID의 범위를 지정하는 Local STT 데이터 세트의 영구 ID입니다.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => '하나의 공통 타임라인에 정렬된 모든 통화 부분의 세그먼트입니다.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => '논리적 통화의 사용 가능한 모든 부분을 결합한 전사본입니다.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => '원본 인식 결과에 연결된 통합 발화입니다.',

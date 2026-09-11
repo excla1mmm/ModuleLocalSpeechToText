@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Apsolutni kraj segmenta na vremenskoj crti poziva u Unix milisekundama ili null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Apsolutni početak segmenta na vremenskoj crti poziva u Unix milisekundama ili null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stabilni identifikator objedinjenog prijepisa poziva.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Trajni identitet skupa podataka Local STT koji određuje opseg lokalnih identifikatora transkripata.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenti svih dijelova poziva poredani na jednoj zajedničkoj vremenskoj crti.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Objedinjeni prijepis svih dostupnih dijelova logičkog poziva.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Objedinjene replike povezane s izvornim rezultatima prepoznavanja.',

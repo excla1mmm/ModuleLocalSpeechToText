@@ -93,5 +93,8 @@ expectSourceIdentity((int)$rollbackPdo->query("SELECT COUNT(*) FROM m_STTSetting
 expectSourceIdentity(str_contains($setting, 'SOURCE_INSTANCE_ID'), 'STTSetting must expose SOURCE_INSTANCE_ID');
 expectSourceIdentity(str_contains($setup, "new ModuleSchemaMigration(\n                15,"), 'STT schema migration 15 is missing');
 expectSourceIdentity(str_contains($setup, 'SttSourceInstance'), 'setup must enforce stable source identity');
+expectSourceIdentity(str_contains($integration, "'source_instance_id'"), 'event/detail service must publish source_instance_id');
+expectSourceIdentity(str_contains($eventsSchema, "'source_instance_id'"), 'event OpenAPI schema lacks source_instance_id');
+expectSourceIdentity(str_contains($detailSchema, "'source_instance_id'"), 'detail OpenAPI schema lacks source_instance_id');
 
 echo "STT source instance contract OK\n";

@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Абсолютное время окончания сегмента на шкале звонка в Unix-миллисекундах или null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Абсолютное время начала сегмента на шкале звонка в Unix-миллисекундах или null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Стабильный идентификатор объединённой расшифровки звонка.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Постоянный идентификатор набора данных Local STT, в пределах которого действуют локальные идентификаторы расшифровок.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Сегменты всех частей звонка, упорядоченные на общей временной шкале.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Объединённая расшифровка всех доступных частей логического звонка.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Реплики объединённой расшифровки с привязкой к исходным результатам.',

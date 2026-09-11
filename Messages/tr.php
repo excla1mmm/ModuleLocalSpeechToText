@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Çağrı zaman çizelgesinde segmentin mutlak bitişi, Unix milisaniyesi olarak veya null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Çağrı zaman çizelgesinde segmentin mutlak başlangıcı, Unix milisaniyesi olarak veya null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Birleştirilmiş çağrı dökümünün kararlı tanımlayıcısı.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Yerel transkript kimliklerinin kapsamını belirleyen Local STT veri kümesinin kalıcı kimliği.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Tüm çağrı bölümlerinden gelen, tek bir ortak zaman çizelgesinde sıralanmış segmentler.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Mantıksal çağrının tüm kullanılabilir bölümlerinin birleşik dökümü.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Kaynak tanıma sonuçlarına bağlı birleştirilmiş konuşma sıraları.',

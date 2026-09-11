@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Absoluut einde van het segment op de gesprekstijdlijn in Unix-milliseconden, of null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Absoluut begin van het segment op de gesprekstijdlijn in Unix-milliseconden, of null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stabiele identificatie van de samengevoegde gesprekstranscriptie.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Persistente identiteit van de Local STT-gegevensset die het bereik van lokale transcriptie-ID’s bepaalt.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenten uit alle gespreksdelen, geordend op één gezamenlijke tijdlijn.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Gecombineerde transcriptie van alle beschikbare delen van het logische gesprek.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Samengevoegde spreekbeurten die aan hun bronherkenningsresultaten zijn gekoppeld.',

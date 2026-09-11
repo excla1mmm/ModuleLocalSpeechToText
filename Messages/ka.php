@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'სეგმენტის აბსოლუტური დასრულება ზარის ქრონოლოგიაზე Unix-მილიწამებში, ან null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'სეგმენტის აბსოლუტური დასაწყისი ზარის ქრონოლოგიაზე Unix-მილიწამებში, ან null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'გაერთიანებული ზარის ტრანსკრიფციის სტაბილური იდენტიფიკატორი.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Local STT მონაცემთა ნაკრების მუდმივი იდენტიფიკატორი, რომელიც ლოკალური ტრანსკრიფციის ID-ების ფარგლებს განსაზღვრავს.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'ყველა ზარის ნაწილის სეგმენტები, დალაგებული ერთ საერთო ქრონოლოგიაზე.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'ლოგიკური ზარის ყველა ხელმისაწვდომი ნაწილის გაერთიანებული ტრანსკრიფცია.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'გაერთიანებული რეპლიკები, რომლებიც მათ საწყის ამოცნობის შედეგებთანაა დაკავშირებული.',

@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Segmentets absoluta slut på samtalets tidslinje i Unix-millisekunder eller null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Segmentets absoluta start på samtalets tidslinje i Unix-millisekunder eller null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Beständig identifierare för den aggregerade samtalstranskriptionen.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Beständig identitet för Local STT-datauppsättningen som avgränsar lokala transkriptions-ID:n.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segment från alla samtalsdelar ordnade på en gemensam tidslinje.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Sammanfogad transkription av alla tillgängliga delar av det logiska samtalet.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Aggregerade talarrepliker kopplade till sina ursprungliga igenkänningsresultat.',

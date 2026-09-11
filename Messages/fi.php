@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Segmentin absoluuttinen päättymisaika puhelun aikajanalla Unix-millisekunteina tai null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Segmentin absoluuttinen alkamisaika puhelun aikajanalla Unix-millisekunteina tai null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Yhdistetyn puhelulitteroinnin pysyvä tunniste.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Local STT -tietoaineiston pysyvä tunniste, joka rajaa paikalliset transkriptiotunnisteet.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Kaikkien puheluosien segmentit yhdelle yhteiselle aikajanalle järjestettyinä.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Loogisen puhelun kaikkien saatavilla olevien osien yhdistetty litterointi.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Yhdistetyt puheenvuorot linkitettyinä lähteenä oleviin tunnistustuloksiin.',

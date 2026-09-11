@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Thời điểm kết thúc tuyệt đối của phân đoạn trên dòng thời gian cuộc gọi, tính bằng mili giây Unix, hoặc null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Thời điểm bắt đầu tuyệt đối của phân đoạn trên dòng thời gian cuộc gọi, tính bằng mili giây Unix, hoặc null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Định danh ổn định của bản chép lời cuộc gọi tổng hợp.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Danh tính cố định của tập dữ liệu Local STT dùng để giới hạn phạm vi các mã bản ghi cục bộ.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Các phân đoạn từ mọi phần cuộc gọi được sắp xếp trên một dòng thời gian chung.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Bản chép lời kết hợp của mọi phần có sẵn của cuộc gọi logic.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Các lượt thoại tổng hợp được liên kết với kết quả nhận dạng nguồn của chúng.',

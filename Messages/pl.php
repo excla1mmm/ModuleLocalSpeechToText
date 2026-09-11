@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Bezwzględny koniec segmentu na osi czasu rozmowy w milisekundach Unix albo null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Bezwzględny początek segmentu na osi czasu rozmowy w milisekundach Unix albo null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stały identyfikator zagregowanej transkrypcji rozmowy.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Trwały identyfikator zestawu danych Local STT, który wyznacza zakres lokalnych identyfikatorów transkrypcji.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenty wszystkich części rozmowy uporządkowane na jednej wspólnej osi czasu.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Połączona transkrypcja wszystkich dostępnych części połączenia logicznego.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Zagregowane wypowiedzi powiązane ze źródłowymi wynikami rozpoznawania.',

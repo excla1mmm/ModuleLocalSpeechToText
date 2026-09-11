@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Absolutes Segmentende auf der Anrufzeitleiste in Unix-Millisekunden oder null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Absoluter Segmentbeginn auf der Anrufzeitleiste in Unix-Millisekunden oder null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stabile Kennung der zusammengeführten Anruftranskription.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Dauerhafte Identität des Local-STT-Datensatzes, in dessen Gültigkeitsbereich lokale Transkript-IDs gelten.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmente aller Anrufteile, auf einer gemeinsamen Zeitleiste angeordnet.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Zusammengeführte Transkription aller verfügbaren Teile des logischen Anrufs.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Zusammengeführte Sprecherbeiträge mit Verweisen auf ihre ursprünglichen Erkennungsergebnisse.',

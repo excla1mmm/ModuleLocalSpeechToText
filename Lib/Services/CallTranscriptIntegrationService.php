@@ -12,6 +12,7 @@ use RuntimeException;
 
 require_once __DIR__ . '/CallTranscriptTurnProjector.php';
 require_once __DIR__ . '/TranscriptPublicProjection.php';
+require_once __DIR__ . '/SttSourceInstance.php';
 
 final class CallTranscriptIntegrationService
 {
@@ -21,11 +22,17 @@ final class CallTranscriptIntegrationService
         $limit = max(1, min(200, (int)($filters['limit'] ?? 100)));
         [$createdAt, $eventId] = $this->decodeCursor((string)($filters['cursor'] ?? '0:0'));
         $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
-            'SELECT id, event_type, call_transcript_id, revision, created_at
-               FROM m_STTCallTranscriptEvent
-              WHERE CAST(created_at AS INTEGER) > :created_at
-                 OR (CAST(created_at AS INTEGER) = :created_at AND CAST(id AS INTEGER) > :event_id)
-              ORDER BY CAST(created_at AS INTEGER) ASC, CAST(id AS INTEGER) ASC
+            'SELECT event.id, event.event_type, event.call_transcript_id, event.revision, event.created_at,
+                    aggregate.call_id, revision.content_hash, revision.parts_hash,
+                    revision.completeness_status
+               FROM m_STTCallTranscriptEvent event
+               JOIN m_STTCallTranscript aggregate ON aggregate.id = event.call_transcript_id
+               JOIN m_STTCallTranscriptRevision revision
+                 ON revision.call_transcript_id = event.call_transcript_id
+                AND revision.revision = event.revision
+              WHERE CAST(event.created_at AS INTEGER) > :created_at
+                 OR (CAST(event.created_at AS INTEGER) = :created_at AND CAST(event.id AS INTEGER) > :event_id)
+              ORDER BY CAST(event.created_at AS INTEGER) ASC, CAST(event.id AS INTEGER) ASC
               LIMIT ' . $limit,
             Enum::FETCH_ASSOC,
             ['created_at' => $createdAt, 'event_id' => $eventId]
@@ -36,16 +43,37 @@ final class CallTranscriptIntegrationService
         foreach ($rows as $row) {
             $rowCreatedAt = (int)($row['created_at'] ?? 0);
             $rowId = (int)($row['id'] ?? 0);
-            $events[] = [
+            $event = [
                 'cursor' => $this->encodeCursor($rowCreatedAt, $rowId),
                 'event_type' => (string)($row['event_type'] ?? ''),
+                'call_id' => trim((string)($row['call_id'] ?? '')),
                 'aggregate_id' => (int)($row['call_transcript_id'] ?? 0),
                 'revision' => (int)($row['revision'] ?? 0),
+                'content_hash' => trim((string)($row['content_hash'] ?? '')),
+                'parts_hash' => trim((string)($row['parts_hash'] ?? '')),
+                'completeness_status' => trim((string)($row['completeness_status'] ?? '')),
             ];
+            if (!$this->validEvent($event)) {
+                if (class_exists(LocalSpeechToTextLogger::class)) {
+                    LocalSpeechToTextLogger::event(
+                        'transcript_import',
+                        'contract_event_rejected',
+                        'Stored transcript event identity is invalid',
+                        LOG_ERR,
+                        ['event_id' => $rowId, 'aggregate_id' => $event['aggregate_id']]
+                    );
+                }
+                break;
+            }
+            $events[] = $event;
             $nextCursor = $this->encodeCursor($rowCreatedAt, $rowId);
         }
 
-        return ['events' => $events, 'next_cursor' => $nextCursor];
+        return [
+            'source_instance_id' => (new SttSourceInstance())->current(),
+            'events' => $events,
+            'next_cursor' => $nextCursor,
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -75,6 +103,7 @@ final class CallTranscriptIntegrationService
         }
 
         return [
+            'source_instance_id' => (new SttSourceInstance())->current(),
             'aggregate_id' => $aggregateId,
             'call_id' => (string)$call->call_id,
             'revision' => (int)$stored->revision,
@@ -99,5 +128,19 @@ final class CallTranscriptIntegrationService
     private function encodeCursor(int $createdAt, int $eventId): string
     {
         return max(0, $createdAt) . ':' . max(0, $eventId);
+    }
+
+    /** @param array<string, mixed> $event */
+    private function validEvent(array $event): bool
+    {
+        return in_array($event['event_type'] ?? '', ['call-transcript.completed', 'call-transcript.updated'], true)
+            && is_string($event['call_id'] ?? null)
+            && $event['call_id'] !== ''
+            && strlen($event['call_id']) <= 255
+            && (int)($event['aggregate_id'] ?? 0) > 0
+            && (int)($event['revision'] ?? 0) > 0
+            && preg_match('/\A[a-f0-9]{64}\z/', (string)($event['content_hash'] ?? '')) === 1
+            && preg_match('/\A[a-f0-9]{64}\z/', (string)($event['parts_hash'] ?? '')) === 1
+            && in_array($event['completeness_status'] ?? '', ['complete', 'legacy_unresolved'], true);
     }
 }

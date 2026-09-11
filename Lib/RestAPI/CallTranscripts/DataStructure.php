@@ -42,9 +42,11 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaCallTranscript',
+            'required' => ['source_instance_id', 'aggregate_id', 'call_id', 'revision', 'content_hash', 'parts_hash', 'completeness_status'],
             'properties' => [
+                'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
                 'aggregate_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldAggregateId', 'example' => 77],
-                'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => 'mikopbx-1784455200.42'],
+                'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => '1784455200.42'],
                 'revision' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldRevision', 'example' => 2],
                 'content_hash' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$', 'description' => 'module_local_speech_to_text_ApiFieldContentHash', 'example' => str_repeat('a', 64)],
                 'parts_hash' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$', 'description' => 'module_local_speech_to_text_ApiFieldPartsHash', 'example' => str_repeat('b', 64)],
@@ -165,8 +167,9 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         ];
 
         return [
+            'source_instance_id' => '0123456789abcdef0123456789abcdef',
             'aggregate_id' => 77,
-            'call_id' => 'mikopbx-1784455200.42',
+            'call_id' => '1784455200.42',
             'revision' => 2,
             'content_hash' => str_repeat('a', 64),
             'parts_hash' => str_repeat('b', 64),

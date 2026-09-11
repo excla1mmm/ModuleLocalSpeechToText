@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => '通話タイムライン上のセグメント絶対終了時刻（Unix ミリ秒）。null 可。',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => '通話タイムライン上のセグメント絶対開始時刻（Unix ミリ秒）。null 可。',
     'module_local_speech_to_text_ApiFieldAggregateId' => '集約通話文字起こしの安定した識別子。',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'ローカル文字起こし ID のスコープを定める Local STT データセットの永続 ID。',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => '共通タイムラインに並べたすべての通話部分のセグメント。',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => '論理通話で利用可能なすべての部分を結合した文字起こし。',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => '元の認識結果に関連付けられた集約発話。',

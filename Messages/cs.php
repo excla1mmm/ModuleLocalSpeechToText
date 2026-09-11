@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Absolutní konec segmentu na časové ose hovoru v milisekundách Unix, nebo null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Absolutní začátek segmentu na časové ose hovoru v milisekundách Unix, nebo null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stálý identifikátor agregovaného přepisu hovoru.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Trvalý identifikátor datové sady Local STT, který vymezuje platnost místních identifikátorů přepisů.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenty ze všech částí hovoru seřazené na jedné společné časové ose.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Sloučený přepis všech dostupných částí logického hovoru.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Agregované promluvy propojené se zdrojovými výsledky rozpoznávání.',

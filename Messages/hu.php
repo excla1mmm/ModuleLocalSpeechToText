@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'A szegmens abszolút vége a hívás idővonalán Unix-ezredmásodpercben, vagy null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'A szegmens abszolút kezdete a hívás idővonalán Unix-ezredmásodpercben, vagy null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Az összesített hívásátirat állandó azonosítója.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'A Local STT-adatkészlet állandó azonosítója, amely meghatározza a helyi átiratazonosítók hatókörét.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Az összes hívásrész szegmensei egy közös idővonalon rendezve.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'A logikai hívás összes elérhető részének egyesített átirata.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'A forrásként szolgáló felismerési eredményekhez kapcsolt összesített megszólalások.',

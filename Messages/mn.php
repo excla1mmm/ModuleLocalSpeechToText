@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Дуудлагын цагийн шугам дээрх сегментийн үнэмлэхүй төгсгөл, Unix миллисекундээр, эсвэл null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Дуудлагын цагийн шугам дээрх сегментийн үнэмлэхүй эхлэл, Unix миллисекундээр, эсвэл null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Нэгтгэсэн дуудлагын транскрипцийн тогтвортой танигч.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Локал транскрипцийн ID-уудын хүрээг тогтоох Local STT өгөгдлийн сангийн тогтвортой ID.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Бүх дуудлагын хэсгийн сегментүүдийг нэг нийтлэг цагийн шугамд эрэмбэлсэн байна.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Логик дуудлагын боломжтой бүх хэсгийн нэгтгэсэн транскрипц.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Эх таних үр дүнтэй нь холбосон нэгтгэсэн ярианы ээлжүүд.',

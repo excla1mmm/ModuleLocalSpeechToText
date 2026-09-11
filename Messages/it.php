@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Fine assoluta del segmento sulla linea temporale della chiamata in millisecondi Unix, oppure null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Inizio assoluto del segmento sulla linea temporale della chiamata in millisecondi Unix, oppure null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Identificatore stabile della trascrizione aggregata della chiamata.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Identità persistente del set di dati Local STT che delimita gli identificatori locali delle trascrizioni.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenti di tutte le parti della chiamata ordinati su una linea temporale condivisa.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Trascrizione combinata di tutte le parti disponibili della chiamata logica.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Turni aggregati collegati ai rispettivi risultati di riconoscimento sorgente.',

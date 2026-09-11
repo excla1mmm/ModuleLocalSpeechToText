@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Segmentets absolutte sluttid på opkaldets tidslinje i Unix-millisekunder eller null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Segmentets absolutte starttid på opkaldets tidslinje i Unix-millisekunder eller null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stabil identifikator for den samlede opkaldstransskription.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Vedvarende identitet for Local STT-datasættet, som afgrænser lokale transskriptions-id’er.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmenter fra alle opkaldsdele ordnet på én fælles tidslinje.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Samlet transskription af alle tilgængelige dele af det logiske opkald.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Samlede replikker knyttet til deres oprindelige genkendelsesresultater.',

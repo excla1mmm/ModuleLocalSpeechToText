@@ -325,10 +325,12 @@ namespace {
     $callEventParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getParameterDefinitions()['request'];
     expectOpenApi(($callEventParameters['cursor']['pattern'] ?? null) === '^\\d+:\\d+$' && ($callEventParameters['limit']['minimum'] ?? null) === 1 && ($callEventParameters['limit']['maximum'] ?? null) === 200, 'Call transcript event cursor constraints changed');
     $callEventSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
-    expectOpenApi(array_keys($callEventSchema['properties'] ?? []) === ['events', 'next_cursor'], 'Call transcript event wrapper must stay minimal');
+    expectOpenApi(array_keys($callEventSchema['properties'] ?? []) === ['source_instance_id', 'events', 'next_cursor'], 'Call transcript event wrapper must expose source identity');
+    expectOpenApi(($callEventSchema['properties']['source_instance_id']['pattern'] ?? null) === '^[a-f0-9]{32}$', 'Call transcript event source identity constraint changed');
     $callParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getParameterDefinitions()['request'];
     expectOpenApi(($callParameters['id']['minimum'] ?? null) === 1 && ($callParameters['revision']['minimum'] ?? null) === 1, 'Call transcript revision constraints changed');
     $callSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getDetailSchema();
+    expectOpenApi(($callSchema['properties']['source_instance_id']['pattern'] ?? null) === '^[a-f0-9]{32}$', 'Call transcript detail source identity constraint changed');
     expectOpenApi(isset($callSchema['properties']['part_manifest']['items']['properties']['result_id']), 'Call transcript part schema changed');
     $callTranscriptProperties = $callSchema['properties']['transcript']['properties'] ?? [];
     foreach (['segments', 'turns'] as $collection) {
@@ -338,6 +340,9 @@ namespace {
     }
     $callEvents = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
     expectOpenApi(($callEvents['example']['events'][0]['aggregate_id'] ?? null) === ($callSchema['example']['aggregate_id'] ?? null) && ($callEvents['example']['events'][0]['revision'] ?? null) === ($callSchema['example']['revision'] ?? null), 'Call transcript event/detail examples must remain linked');
+    foreach (['source_instance_id','call_id','aggregate_id','revision','content_hash','parts_hash','completeness_status'] as $identityField) {
+        expectOpenApi(($callEvents['example']['events'][0][$identityField] ?? $callEvents['example'][$identityField] ?? null) === ($callSchema['example'][$identityField] ?? null), "Call transcript event/detail identity differs for {$identityField}");
+    }
 
     $removedWorkerMethods = [
         ['Workers', 'register'], ['Workers', 'getProcessingSettings'],

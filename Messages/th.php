@@ -354,6 +354,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'เวลาสิ้นสุดสัมบูรณ์ของเซกเมนต์บนไทม์ไลน์การโทร หน่วยเป็นมิลลิวินาที Unix หรือ null',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'เวลาเริ่มต้นสัมบูรณ์ของเซกเมนต์บนไทม์ไลน์การโทร หน่วยเป็นมิลลิวินาที Unix หรือ null',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'ตัวระบุที่คงที่ของบทถอดเสียงการโทรแบบรวม',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'รหัสถาวรของชุดข้อมูล Local STT ที่กำหนดขอบเขตของรหัสการถอดเสียงภายในระบบ',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'เซกเมนต์จากทุกส่วนของการโทร เรียงตามไทม์ไลน์ร่วมเดียว',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'บทถอดเสียงรวมของทุกส่วนที่มีอยู่ของการโทรเชิงตรรกะ',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'เทิร์นที่รวมแล้วซึ่งเชื่อมโยงกับผลการรู้จำต้นทาง',
