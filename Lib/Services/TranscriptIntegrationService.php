@@ -17,7 +17,7 @@ class TranscriptIntegrationService
 {
     private const int DEFAULT_LIMIT = 50;
     private const int MAX_LIMIT = 200;
-    private const int TURN_MAX_GAP_MS = 2000;
+    private const int TURN_MAX_GAP_MS = 4000;
     private const int TURN_MAX_DURATION_MS = 45000;
     private const int TURN_MAX_TEXT_CHARS = 700;
 
