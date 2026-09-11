@@ -186,6 +186,7 @@ return [
     'module_local_speech_to_text_Direction' => 'Направление',
     'module_local_speech_to_text_Client' => 'Клиент',
     'module_local_speech_to_text_Employees' => 'Сотрудники',
+    'module_local_speech_to_text_Employee' => 'Сотрудник',
     'module_local_speech_to_text_IncomingCall' => 'Входящий',
     'module_local_speech_to_text_OutgoingCall' => 'Исходящий',
     'module_local_speech_to_text_InternalCall' => 'Внутренний',

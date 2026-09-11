@@ -8,7 +8,7 @@ use Modules\ModuleLocalSpeechToText\Lib\TranscriptTimeNormalizer;
 
 class TranscriptConversationService
 {
-    private const float TRANSCRIPT_TURN_MAX_GAP_SECONDS = 2.0;
+    private const float TRANSCRIPT_TURN_MAX_GAP_SECONDS = 4.0;
     private const float TRANSCRIPT_TURN_MAX_DURATION_SECONDS = 45.0;
     private const int TRANSCRIPT_TURN_MAX_TEXT_CHARS = 700;
     private const float TRANSCRIPT_SILENCE_MIN_SECONDS = 10.0;
@@ -18,16 +18,26 @@ class TranscriptConversationService
     {
     }
 
-    public function conversationFromTranscript(string $transcript, bool $timelineReliable = true): array
-    {
+    /** @param array{left: string, right: string}|null $speakerLabels */
+    public function conversationFromTranscript(
+        string $transcript,
+        bool $timelineReliable = true,
+        ?array $speakerLabels = null
+    ): array {
         $segments = json_decode($transcript, true);
         if (!is_array($segments)) {
-            return $this->emptyConversation($timelineReliable);
+            return $this->emptyConversation($timelineReliable, $speakerLabels);
         }
 
         $speakers = [
-            'left' => $this->speakerColumn('left', $this->translation->_('module_local_speech_to_text_Speaker1')),
-            'right' => $this->speakerColumn('right', $this->translation->_('module_local_speech_to_text_Speaker2')),
+            'left' => $this->speakerColumn(
+                'left',
+                $speakerLabels['left'] ?? $this->translation->_('module_local_speech_to_text_Speaker1')
+            ),
+            'right' => $this->speakerColumn(
+                'right',
+                $speakerLabels['right'] ?? $this->translation->_('module_local_speech_to_text_Speaker2')
+            ),
         ];
 
         $utterances = [];
@@ -218,14 +228,21 @@ class TranscriptConversationService
     }
 
     /**
+     * @param array{left: string, right: string}|null $speakerLabels
      * @return array<string, mixed>
      */
-    private function emptyConversation(bool $timelineReliable): array
+    private function emptyConversation(bool $timelineReliable, ?array $speakerLabels = null): array
     {
         return [
             'speakers' => [
-                $this->speakerColumn('left', $this->translation->_('module_local_speech_to_text_Speaker1')),
-                $this->speakerColumn('right', $this->translation->_('module_local_speech_to_text_Speaker2')),
+                $this->speakerColumn(
+                    'left',
+                    $speakerLabels['left'] ?? $this->translation->_('module_local_speech_to_text_Speaker1')
+                ),
+                $this->speakerColumn(
+                    'right',
+                    $speakerLabels['right'] ?? $this->translation->_('module_local_speech_to_text_Speaker2')
+                ),
             ],
             'timeline' => [],
             'hasSegments' => false,

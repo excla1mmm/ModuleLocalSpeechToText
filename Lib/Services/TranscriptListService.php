@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use MikoPBX\Common\Models\CallDetailRecords;
-use MikoPBX\Common\Models\Extensions;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
-use Throwable;
 
 class TranscriptListService
 {
     private readonly UsersUICallScope $callScope;
     private readonly UsersUITranscriptAccessService $transcriptAccess;
-    /** @var array<string, bool> */
-    private readonly array $internalNumbers;
+    private readonly CallDirectionResolver $directionResolver;
 
     public function __construct(
         private mixed $translation,
@@ -27,7 +24,9 @@ class TranscriptListService
     ) {
         $this->callScope = $callScope ?? UsersUICallScope::all();
         $this->transcriptAccess = $transcriptAccess ?? new UsersUITranscriptAccessService();
-        $this->internalNumbers = $internalNumbers ?? $this->loadInternalNumbers();
+        $this->directionResolver = new CallDirectionResolver(
+            $internalNumbers ?? CallDirectionResolver::loadInternalNumbers()
+        );
     }
 
     public function transcriptRows(int $limit = 100, ?array $dateFilter = null): array
@@ -222,24 +221,6 @@ class TranscriptListService
         ];
     }
 
-    /** @return array<string, bool> */
-    private function loadInternalNumbers(): array
-    {
-        $numbers = [];
-        try {
-            foreach (Extensions::find(['columns' => 'number']) as $extension) {
-                $number = trim((string)$extension->number);
-                if ($number !== '') {
-                    $numbers[$number] = true;
-                }
-            }
-        } catch (Throwable) {
-            return [];
-        }
-
-        return $numbers;
-    }
-
     /** @return array<string, string> */
     private function callPresentation(?CallDetailRecords $cdr): array
     {
@@ -250,26 +231,19 @@ class TranscriptListService
         $source = trim((string)($cdr->src_num ?? ''));
         $destination = trim((string)($cdr->dst_num ?? ''));
         $duration = (float)($cdr->duration ?? 0);
-        $sourceInternal = isset($this->internalNumbers[$source]);
-        $destinationInternal = isset($this->internalNumbers[$destination]);
+        $direction = $this->directionResolver->resolve($cdr)['direction'];
 
-        if ($sourceInternal && $destinationInternal) {
-            return $this->presentCall('internal', '—', $this->routeLabel($source, $destination), $duration);
-        }
-        if ($sourceInternal && !$destinationInternal) {
-            return $this->presentCall('outgoing', $destination, $source, $duration);
-        }
-        if (!$sourceInternal && $destinationInternal) {
-            return $this->presentCall('incoming', $source, $destination, $duration);
-        }
-        if (trim((string)($cdr->did ?? '')) !== '' || trim((string)($cdr->from_account ?? '')) !== '') {
-            return $this->presentCall('incoming', $source, $destination, $duration);
-        }
-        if (trim((string)($cdr->to_account ?? '')) !== '') {
-            return $this->presentCall('outgoing', $destination, $source, $duration);
-        }
-
-        return $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration);
+        return match ($direction) {
+            CallDirectionResolver::DIRECTION_INTERNAL => $this->presentCall(
+                'internal',
+                '—',
+                $this->routeLabel($source, $destination),
+                $duration
+            ),
+            CallDirectionResolver::DIRECTION_OUTGOING => $this->presentCall('outgoing', $destination, $source, $duration),
+            CallDirectionResolver::DIRECTION_INCOMING => $this->presentCall('incoming', $source, $destination, $duration),
+            default => $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration),
+        };
     }
 
     /** @return array<string, string> */

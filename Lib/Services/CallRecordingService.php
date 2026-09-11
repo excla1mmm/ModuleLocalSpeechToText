@@ -296,6 +296,20 @@ class CallRecordingService
         return $this->cdrRecordForCallId($callId);
     }
 
+    public function cdrRecordById(int $cdrId): ?CallDetailRecords
+    {
+        if ($cdrId <= 0) {
+            return null;
+        }
+
+        $record = CallDetailRecords::findFirst([
+            'conditions' => 'id = :id:',
+            'bind' => ['id' => $cdrId],
+        ]);
+
+        return $record instanceof CallDetailRecords ? $record : null;
+    }
+
     public function cdrRecordForCallId(string $callId): ?CallDetailRecords
     {
         $callId = trim($callId);

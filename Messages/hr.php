@@ -186,6 +186,7 @@ return [
     'module_local_speech_to_text_Direction' => 'Direction',
     'module_local_speech_to_text_Client' => 'Client',
     'module_local_speech_to_text_Employees' => 'Employees',
+    'module_local_speech_to_text_Employee' => 'Employee',
     'module_local_speech_to_text_IncomingCall' => 'Incoming',
     'module_local_speech_to_text_OutgoingCall' => 'Outgoing',
     'module_local_speech_to_text_InternalCall' => 'Internal',

@@ -346,9 +346,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
             : $recordings->cdrRecordForResult($result);
 
+        $speakerLabels = $this->conversationSpeakerLabelResolver()->resolve($cdr);
+
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->result = $result;
-        $this->view->conversation = $this->conversationService()->conversationFromTranscript((string)$result->transcript);
+        $this->view->conversation = $this->conversationService()->conversationFromTranscript(
+            (string)$result->transcript,
+            true,
+            $speakerLabels
+        );
         $this->view->recording = $recordings->recordingCard($result, $job, $cdr);
         $this->view->transcriptJson = $this->transcriptUserJsonService()->transcriptJson([
             'id' => $job instanceof STTJob ? (string)$job->call_id : null,

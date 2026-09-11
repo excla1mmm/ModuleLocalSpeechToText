@@ -19,6 +19,8 @@ final class CdrTranscriptService
     public function __construct(
         private readonly mixed $translation,
         private readonly UsersUITranscriptAccessService $access,
+        private readonly ?ConversationSpeakerLabelResolver $speakerLabelResolver = null,
+        private readonly ?CallRecordingService $recordings = null,
     ) {
     }
 
@@ -121,8 +123,13 @@ final class CdrTranscriptService
             ? array_values($cdrIds)[0]
             : null;
 
+        $speakerLabels = null;
+        if ($playbackCdrId !== null && $this->speakerLabelResolver !== null && $this->recordings !== null) {
+            $speakerLabels = $this->speakerLabelResolver->resolve($this->recordings->cdrRecordById($playbackCdrId));
+        }
+
         $conversation = (new TranscriptConversationService($this->translation))
-            ->conversationFromTranscript($segmentsJson, $timelineReliable);
+            ->conversationFromTranscript($segmentsJson, $timelineReliable, $speakerLabels);
 
         return [
             'aggregateId' => (int)$call->id,

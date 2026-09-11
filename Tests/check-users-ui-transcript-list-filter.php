@@ -65,6 +65,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 namespace {
     require_once dirname(__DIR__) . '/Lib/Services/UsersUICallScope.php';
     require_once dirname(__DIR__) . '/Lib/Services/UsersUITranscriptAccessService.php';
+    require_once dirname(__DIR__) . '/Lib/Services/CallDirectionResolver.php';
     require_once dirname(__DIR__) . '/Lib/Services/TranscriptListService.php';
 
     use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
