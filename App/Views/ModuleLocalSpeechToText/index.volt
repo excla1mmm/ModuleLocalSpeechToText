@@ -458,56 +458,48 @@
         </form>
 
         <div class="stt-transcripts-table-wrap">
-            <table class="ui selectable compact celled striped table stt-transcripts-table">
+            <table class="ui selectable table stt-transcripts-table">
                 <thead>
                 <tr>
+                    <th aria-label="{{ t._('module_local_speech_to_text_Direction') }}"></th>
                     <th>{{ t._('module_local_speech_to_text_CallDate') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_CallId') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_RecordingFile') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_Language') }}</th>
+                    <th>{{ t._('module_local_speech_to_text_Client') }}</th>
+                    <th>{{ t._('module_local_speech_to_text_Employees') }}</th>
                     <th>{{ t._('module_local_speech_to_text_Duration') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_Model') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_TranscriptCreatedAt') }}</th>
-                    <th>{{ t._('module_local_speech_to_text_Conversation') }}</th>
+                    <th>{{ t._('module_local_speech_to_text_UpdatedAt') }}</th>
                 </tr>
                 </thead>
                 <tbody>
-                {% set currentDateKey = '' %}
                 {% for row in transcriptRows %}
                     {% set result = row['result'] %}
-                    {% if row['dateKey'] !== currentDateKey %}
-                        <tr class="stt-date-group-row">
-                            <td colspan="8">
-                                <i class="calendar alternate outline icon"></i>{{ row['dateGroupLabel']|e }}
-                            </td>
-                        </tr>
-                        {% set currentDateKey = row['dateKey'] %}
-                    {% endif %}
                     <tr>
+                        <td class="stt-direction-cell">
+                            <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="stt-direction-link" title="{{ row['directionLabel']|e }}" aria-label="{{ t._('module_local_speech_to_text_OpenConversation') }}: {{ row['directionLabel']|e }}">
+                                {{ row['directionIcon']|e }}
+                            </a>
+                        </td>
                         <td class="stt-call-date-cell">
-                            <div class="stt-call-date">{{ row['callDateLabel']|e }}</div>
+                            <div class="stt-transcript-primary">{{ row['callDateLabel']|e }}</div>
                             {% if row['callTimeLabel'] !== '' %}
                                 <div class="stt-table-muted">{{ row['callTimeLabel']|e }}</div>
                             {% endif %}
                         </td>
                         <td>
-                            <div>{{ row['callId']|e }}</div>
-                            <div class="stt-table-muted">#{{ result.job_id|e }}</div>
+                            <div class="stt-transcript-primary">{{ row['clientLabel']|e }}</div>
+                            <div class="stt-table-muted">{{ row['directionLabel']|e }}</div>
                         </td>
-                        <td><span class="stt-recording-file">{{ row['recordingName']|e }}</span></td>
-                        <td>{{ result.language|e }}</td>
-                        <td>{{ result.duration|e }}</td>
-                        <td><span class="stt-model-text">{{ result.model_used|e }}</span></td>
-                        <td>{{ row['createdAtLabel']|e }}</td>
-                        <td class="right aligned">
-                            <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="ui compact icon button stt-open-conversation" title="{{ t._('module_local_speech_to_text_OpenConversation') }}">
-                                <i class="eye icon"></i>
-                            </a>
+                        <td><div class="stt-transcript-primary">{{ row['employeesLabel']|e }}</div></td>
+                        <td><div class="stt-duration-value">{{ row['callDurationLabel']|e }}</div></td>
+                        <td>
+                            <div class="stt-updated-value">{{ row['createdDateLabel']|e }}</div>
+                            {% if row['createdTimeLabel'] !== '' %}
+                                <div class="stt-table-muted">{{ row['createdTimeLabel']|e }}</div>
+                            {% endif %}
                         </td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoTranscripts') }}</td>
+                        <td colspan="6" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoTranscripts') }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>

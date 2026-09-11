@@ -225,108 +225,134 @@
 }
 
 .module-local-speech-to-text .stt-transcripts-table-wrap {
+    border: 1px solid rgba(71, 91, 99, 0.13);
+    border-radius: 0.75em;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
+    overflow-x: auto;
 }
 
 .module-local-speech-to-text .stt-transcripts-table {
-    margin-bottom: 0 !important;
-    min-width: 0;
+    border: 0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    min-width: 54em;
     table-layout: fixed;
     width: 100% !important;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th,
 .module-local-speech-to-text .stt-transcripts-table td {
+    border-left: 0 !important;
     min-width: 0;
     overflow: hidden;
     overflow-wrap: anywhere;
-    vertical-align: top;
+    vertical-align: middle;
+}
+
+.module-local-speech-to-text .stt-transcripts-table thead th {
+    background: #f4f7f7;
+    color: rgba(45, 58, 63, 0.62);
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    padding: 0.9em 1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-transcripts-table tbody td {
+    border-top: 1px solid rgba(71, 91, 99, 0.13) !important;
+    padding: 1.05em 1em;
+}
+
+.module-local-speech-to-text .stt-transcripts-table tbody tr:hover {
+    background: #fafcfc !important;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(1),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(1) {
-    width: 10%;
+    padding-left: 1.1em;
+    padding-right: 0.25em;
+    width: 4.5em;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(2),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(2) {
-    width: 14%;
+    width: 18%;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(3),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(3) {
-    width: 32%;
+    width: 24%;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(4),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(4) {
-    width: 5%;
+    width: 22%;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(5),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(5) {
-    width: 9%;
+    width: 15%;
 }
 
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(6),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(6) {
-    width: 11%;
+    width: 21%;
 }
 
-.module-local-speech-to-text .stt-transcripts-table th:nth-child(7),
-.module-local-speech-to-text .stt-transcripts-table td:nth-child(7) {
-    width: 12%;
+.module-local-speech-to-text .stt-direction-cell {
+    text-align: left;
+    white-space: nowrap;
 }
 
-.module-local-speech-to-text .stt-transcripts-table th:nth-child(8),
-.module-local-speech-to-text .stt-transcripts-table td:nth-child(8) {
-    width: 7%;
-}
-
-.module-local-speech-to-text .stt-date-group-row td {
-    background: #f7f7f8 !important;
-    color: rgba(0, 0, 0, 0.64);
+.module-local-speech-to-text .stt-direction-link {
+    align-items: center;
+    background: #f4f7f7;
+    border: 1px solid rgba(71, 91, 99, 0.16);
+    border-radius: 0.55em;
+    color: #4f8078;
+    display: inline-flex;
+    font-size: 1.2em;
     font-weight: 700;
+    height: 2.5em;
+    justify-content: center;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    width: 2.5em;
 }
 
-.module-local-speech-to-text .stt-date-group-row .icon {
-    width: 1.5em;
-    margin-right: 0.2em;
+.module-local-speech-to-text .stt-direction-link:hover,
+.module-local-speech-to-text .stt-direction-link:focus {
+    background: #e8f1ef;
+    border-color: rgba(79, 128, 120, 0.34);
+    color: #416f68;
 }
 
 .module-local-speech-to-text .stt-call-date-cell {
     white-space: nowrap;
 }
 
-.module-local-speech-to-text .stt-call-date {
+.module-local-speech-to-text .stt-transcript-primary {
+    color: rgba(31, 39, 43, 0.9);
     font-weight: 700;
+    line-height: 1.25;
 }
 
 .module-local-speech-to-text .stt-table-muted {
-    margin-top: 0.15em;
-    color: rgba(0, 0, 0, 0.48);
-    font-size: 0.9em;
-    line-height: 1.2;
+    color: rgba(45, 58, 63, 0.56);
+    font-size: 0.92em;
+    line-height: 1.25;
+    margin-top: 0.25em;
 }
 
-.module-local-speech-to-text .stt-recording-file {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.module-local-speech-to-text .stt-duration-value,
+.module-local-speech-to-text .stt-updated-value {
+    color: rgba(45, 58, 63, 0.68);
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-.module-local-speech-to-text .stt-transcripts-table .stt-model-text {
-    display: -webkit-box;
-    line-height: 1.22;
-    max-height: 4.88em;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
 }
 
 .module-local-speech-to-text .stt-transcripts-filter-form {
@@ -337,10 +363,6 @@
     display: block;
     margin-bottom: 0.35em;
     font-weight: 700;
-}
-
-.module-local-speech-to-text .stt-open-conversation {
-    min-width: 2.6em;
 }
 
 .module-local-speech-to-text #system-logs-segment {

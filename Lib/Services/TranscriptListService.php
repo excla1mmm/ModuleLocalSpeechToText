@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use MikoPBX\Common\Models\CallDetailRecords;
+use MikoPBX\Common\Models\Extensions;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
+use Throwable;
 
 class TranscriptListService
 {
     private readonly UsersUICallScope $callScope;
     private readonly UsersUITranscriptAccessService $transcriptAccess;
+    /** @var array<string, bool> */
+    private readonly array $internalNumbers;
 
     public function __construct(
         private mixed $translation,
@@ -19,9 +23,11 @@ class TranscriptListService
         private CallRecordingService $recordings,
         ?UsersUICallScope $callScope = null,
         ?UsersUITranscriptAccessService $transcriptAccess = null,
+        ?array $internalNumbers = null,
     ) {
         $this->callScope = $callScope ?? UsersUICallScope::all();
         $this->transcriptAccess = $transcriptAccess ?? new UsersUITranscriptAccessService();
+        $this->internalNumbers = $internalNumbers ?? $this->loadInternalNumbers();
     }
 
     public function transcriptRows(int $limit = 100, ?array $dateFilter = null): array
@@ -67,8 +73,9 @@ class TranscriptListService
                 $callId = trim((string)$cdr->linkedid) !== '' ? (string)$cdr->linkedid : (string)$cdr->UNIQUEID;
             }
             $createdAt = (int)$result->created_at;
+            $callPresentation = $this->callPresentation($cdr);
 
-            $rows[] = [
+            $rows[] = array_merge([
                 'result' => $result,
                 'job' => $job,
                 'callId' => $callId,
@@ -79,11 +86,12 @@ class TranscriptListService
                     ? date('Y-m-d', $callTimestamp)
                     : $this->translation->_('module_local_speech_to_text_CallDateUnknown'),
                 'callDateLabel' => $hasCallTimestamp
-                    ? date('Y-m-d', $callTimestamp)
+                    ? date('d.m.Y', $callTimestamp)
                     : $this->translation->_('module_local_speech_to_text_CallDateUnknown'),
-                'callTimeLabel' => $hasCallTimestamp ? date('H:i:s', $callTimestamp) : '',
-                'createdAtLabel' => $createdAt > 0 ? date('Y-m-d H:i:s', $createdAt) : '',
-            ];
+                'callTimeLabel' => $hasCallTimestamp ? date('H:i', $callTimestamp) : '',
+                'createdDateLabel' => $createdAt > 0 ? date('d.m.Y', $createdAt) : '',
+                'createdTimeLabel' => $createdAt > 0 ? date('H:i', $createdAt) : '',
+            ], $callPresentation);
         }
 
         usort(
@@ -212,6 +220,106 @@ class TranscriptListService
             'displayRange' => $displayRange,
             'isActive' => $dateFilter['isActive'],
         ];
+    }
+
+    /** @return array<string, bool> */
+    private function loadInternalNumbers(): array
+    {
+        $numbers = [];
+        try {
+            foreach (Extensions::find(['columns' => 'number']) as $extension) {
+                $number = trim((string)$extension->number);
+                if ($number !== '') {
+                    $numbers[$number] = true;
+                }
+            }
+        } catch (Throwable) {
+            return [];
+        }
+
+        return $numbers;
+    }
+
+    /** @return array<string, string> */
+    private function callPresentation(?CallDetailRecords $cdr): array
+    {
+        if (!$cdr instanceof CallDetailRecords) {
+            return $this->presentCall('unknown', '', '', 0);
+        }
+
+        $source = trim((string)($cdr->src_num ?? ''));
+        $destination = trim((string)($cdr->dst_num ?? ''));
+        $duration = (float)($cdr->duration ?? 0);
+        $sourceInternal = isset($this->internalNumbers[$source]);
+        $destinationInternal = isset($this->internalNumbers[$destination]);
+
+        if ($sourceInternal && $destinationInternal) {
+            return $this->presentCall('internal', '—', $this->routeLabel($source, $destination), $duration);
+        }
+        if ($sourceInternal && !$destinationInternal) {
+            return $this->presentCall('outgoing', $destination, $source, $duration);
+        }
+        if (!$sourceInternal && $destinationInternal) {
+            return $this->presentCall('incoming', $source, $destination, $duration);
+        }
+        if (trim((string)($cdr->did ?? '')) !== '' || trim((string)($cdr->from_account ?? '')) !== '') {
+            return $this->presentCall('incoming', $source, $destination, $duration);
+        }
+        if (trim((string)($cdr->to_account ?? '')) !== '') {
+            return $this->presentCall('outgoing', $destination, $source, $duration);
+        }
+
+        return $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration);
+    }
+
+    /** @return array<string, string> */
+    private function presentCall(string $direction, string $client, string $employees, float $duration): array
+    {
+        $directionKeys = [
+            'incoming' => 'module_local_speech_to_text_IncomingCall',
+            'outgoing' => 'module_local_speech_to_text_OutgoingCall',
+            'internal' => 'module_local_speech_to_text_InternalCall',
+            'unknown' => 'module_local_speech_to_text_UnknownDirection',
+        ];
+        $directionIcons = [
+            'incoming' => '↙',
+            'outgoing' => '↗',
+            'internal' => '↔',
+            'unknown' => '↔',
+        ];
+
+        return [
+            'direction' => $direction,
+            'directionIcon' => $directionIcons[$direction],
+            'directionLabel' => $this->translation->_($directionKeys[$direction]),
+            'clientLabel' => $client !== '' ? $client : '—',
+            'employeesLabel' => $employees !== '' ? $employees : '—',
+            'callDurationLabel' => $duration > 0 ? $this->durationLabel($duration) : '—',
+        ];
+    }
+
+    private function routeLabel(string $source, string $destination): string
+    {
+        if ($source === '') {
+            return $destination;
+        }
+        if ($destination === '') {
+            return $source;
+        }
+
+        return $source . ' → ' . $destination;
+    }
+
+    private function durationLabel(float $seconds): string
+    {
+        $seconds = max(0, (int)round($seconds));
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $remainingSeconds = $seconds % 60;
+
+        return $hours > 0
+            ? sprintf('%d:%02d:%02d', $hours, $minutes, $remainingSeconds)
+            : sprintf('%02d:%02d', $minutes, $remainingSeconds);
     }
 
 }
