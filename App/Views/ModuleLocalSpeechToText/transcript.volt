@@ -100,7 +100,6 @@
                                 <span class="stt-speaker-dot"></span>
                                 <strong class="stt-turn-speaker">{{ turn['speakerLabel']|e }}</strong>
                                 <span class="stt-turn-duration">{{ turn['durationLabel']|e }}</span>
-                                {% if turn['overlap'] %}<span class="stt-turn-overlap" aria-hidden="true">∥</span>{% endif %}
                             </div>
                             <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
                         </div>

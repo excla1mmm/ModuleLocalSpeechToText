@@ -25,11 +25,12 @@ foreach (['stt-transcript-overview', 'stt-transcript-toolbar', 'stt-transcript-l
 }
 expectTranscriptUi(str_contains($template, 'data-speaker='), 'module transcript rows must expose their speaker');
 expectTranscriptUi(str_contains($template, "turn['gapBeforeLabel']"), 'module transcript must render silence markers');
-expectTranscriptUi(str_contains($template, "turn['overlap']"), 'module transcript must render overlap badges');
+expectTranscriptUi(!str_contains($template, 'stt-turn-overlap'), 'module transcript must not render overlap badges');
 expectTranscriptUi(str_contains($assets, 'module-local-speech-to-text-conversation.js'), 'shared transcript interaction asset missing');
 expectTranscriptUi(str_contains($viewJs, 'window.SttTranscriptView'), 'shared transcript view API missing');
 expectTranscriptUi(str_contains($viewJs, 'function initialize'), 'shared transcript filter initializer missing');
 expectTranscriptUi(str_contains($viewJs, 'stt-transcript-search'), 'shared transcript search behavior missing');
+expectTranscriptUi(!str_contains($viewJs, 'stt-turn-overlap'), 'CDR transcript must not render overlap badges');
 expectTranscriptUi(str_contains($template, 'stt-transcript-range'), 'speech timeline must contain the player range control');
 expectTranscriptUi(str_contains($template, 'stt-transcript-playhead'), 'speech timeline must render the live playhead');
 expectTranscriptUi(!str_contains($template, 'stt-player-range-wrap'), 'separate recording slider must be removed');

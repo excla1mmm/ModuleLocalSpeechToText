@@ -966,15 +966,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-.module-local-speech-to-text .stt-turn-overlap {
-    background: #e5efed;
-    border-radius: 999px;
-    color: #4f756f;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0.25em 0.55em;
-}
-
 .module-local-speech-to-text .stt-turn-text {
     color: rgba(0, 0, 0, 0.82);
     font-size: 1.02em;

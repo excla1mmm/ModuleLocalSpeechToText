@@ -158,10 +158,6 @@
             $('<span>', { class: 'stt-turn-duration' }).text(String(turn.durationLabel || ''))
         );
 
-        if (turn.overlap) {
-            $meta.append($('<span>', { class: 'stt-turn-overlap', 'aria-hidden': 'true' }).text('∥'));
-        }
-
         return $row.append(
             $('<time>', { class: 'stt-turn-time' }).text(String(turn.startLabel || '')),
             $('<div>', { class: 'stt-turn-content' }).append(
