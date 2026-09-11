@@ -586,21 +586,6 @@
         return compatible;
     }
 
-    function vocabularyTemplateTerms() {
-        return [
-            'MikoPBX',
-            'Asterisk',
-            'SIP',
-            'VoIP',
-            'CRM',
-            'API',
-            'Quality control',
-            'Customer profile',
-            'Call queue',
-            'Voice analytics'
-        ];
-    }
-
     function splitVocabularyTerms(text) {
         return String(text || '')
             .replace(/^\uFEFF/, '')
@@ -635,50 +620,8 @@
         $('#stt-vocabulary-terms-count').text(uniqueVocabularyTerms(splitVocabularyTerms($textarea.val())).length);
     }
 
-    function refreshSettingsDirtyState() {
-        if (typeof Form === 'undefined') {
-            return;
-        }
-        if (typeof Form.checkValues === 'function') {
-            Form.checkValues();
-            return;
-        }
-        if (typeof Form.dataChanged === 'function') {
-            Form.dataChanged();
-        }
-    }
-
-    function downloadVocabularyTemplate() {
-        var text = vocabularyTemplateTerms().join(', ') + '\n';
-        var fileName = 'stt-terms-template.txt';
-        var link = document.createElement('a');
-        var objectUrl = '';
-
-        if (window.Blob && window.URL && window.URL.createObjectURL) {
-            objectUrl = window.URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
-            link.href = objectUrl;
-        } else {
-            link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
-        }
-
-        link.download = fileName;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        if (objectUrl !== '') {
-            window.setTimeout(function () {
-                window.URL.revokeObjectURL(objectUrl);
-            }, 0);
-        }
-    }
-
     function initializeVocabularyTermsTools($settingsForm) {
         var $textarea = $settingsForm.find('textarea[name="custom_vocabulary_terms"]');
-        var $fileInput = $('#stt-vocabulary-terms-file');
-        var $fileName = $('#stt-vocabulary-file-name');
-        var $downloadButton = $('#stt-vocabulary-template-download');
 
         if ($textarea.length === 0) {
             return;
@@ -688,63 +631,6 @@
 
         $textarea.on('input change', function () {
             updateVocabularyTermsCount($textarea);
-        });
-
-        $downloadButton.on('click', function () {
-            downloadVocabularyTemplate();
-        });
-
-        $fileInput.on('change', function () {
-            var file = this.files && this.files[0] ? this.files[0] : null;
-            var reader;
-
-            if (!file) {
-                return;
-            }
-
-            if (!/\.txt$/i.test(file.name || '')) {
-                window.alert(translation(
-                    'module_local_speech_to_text_VocabularyTxtInvalid',
-                    'Choose a TXT file with comma-separated terms.'
-                ));
-                $fileInput.val('');
-                return;
-            }
-
-            if (typeof FileReader === 'undefined') {
-                window.alert(translation(
-                    'module_local_speech_to_text_VocabularyTxtReadError',
-                    'Could not read the TXT file.'
-                ));
-                return;
-            }
-
-            reader = new FileReader();
-            reader.onload = function (event) {
-                var importedTerms = splitVocabularyTerms(event.target.result || '');
-                var mergedTerms = uniqueVocabularyTerms(splitVocabularyTerms($textarea.val()).concat(importedTerms));
-
-                if (importedTerms.length === 0) {
-                    window.alert(translation(
-                        'module_local_speech_to_text_VocabularyTxtInvalid',
-                        'Choose a TXT file with comma-separated terms.'
-                    ));
-                    $fileInput.val('');
-                    return;
-                }
-
-                $textarea.val(mergedTerms.join(', ')).trigger('input').trigger('change');
-                $fileName.text(translation('module_local_speech_to_text_VocabularyTxtLoaded', 'TXT file added:') + ' ' + file.name);
-                updateVocabularyTermsCount($textarea);
-                refreshSettingsDirtyState();
-            };
-            reader.onerror = function () {
-                window.alert(translation(
-                    'module_local_speech_to_text_VocabularyTxtReadError',
-                    'Could not read the TXT file.'
-                ));
-            };
-            reader.readAsText(file);
         });
     }
 

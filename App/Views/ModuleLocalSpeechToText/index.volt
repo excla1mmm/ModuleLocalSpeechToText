@@ -123,16 +123,6 @@
                 </div>
             </div>
             <div class="field stt-vocabulary-terms-field">
-                <div class="stt-vocabulary-actions">
-                    <label class="ui basic labeled icon button stt-vocabulary-upload-button" for="stt-vocabulary-terms-file">
-                        <i class="file alternate outline icon"></i>{{ t._('module_local_speech_to_text_UploadVocabularyTxt') }}
-                    </label>
-                    <input type="file" id="stt-vocabulary-terms-file" name="vocabulary_terms_file" accept=".txt,text/plain" hidden>
-                    <button class="ui basic labeled icon button stt-vocabulary-template-button" type="button" id="stt-vocabulary-template-download">
-                        <i class="download icon"></i>{{ t._('module_local_speech_to_text_DownloadVocabularyTemplate') }}
-                    </button>
-                    <span class="stt-vocabulary-file-name" id="stt-vocabulary-file-name"></span>
-                </div>
                 {{ form.render('custom_vocabulary_terms') }}
                 <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}</div>
             </div>

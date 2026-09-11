@@ -119,30 +119,6 @@
     display: flex;
 }
 
-.module-local-speech-to-text .stt-vocabulary-actions {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65em;
-    margin: 0 0 0.75em;
-}
-
-.module-local-speech-to-text .stt-vocabulary-actions .ui.button {
-    margin: 0 !important;
-}
-
-.module-local-speech-to-text .stt-vocabulary-upload-button {
-    cursor: pointer;
-}
-
-.module-local-speech-to-text .stt-vocabulary-file-name {
-    color: rgba(0, 0, 0, 0.55);
-    font-size: 0.92em;
-    line-height: 1.35;
-    min-width: 8em;
-    overflow-wrap: anywhere;
-}
-
 .module-local-speech-to-text .stt-vocabulary-terms-field textarea {
     min-height: 11em;
 }
@@ -1052,22 +1028,7 @@
         width: 100%;
     }
 
-    .module-local-speech-to-text .stt-vocabulary-actions {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .module-local-speech-to-text .stt-vocabulary-actions .ui.button,
-    .module-local-speech-to-text .stt-vocabulary-upload-button {
-        justify-content: center;
-        text-align: center;
-        width: 100%;
-    }
-
-    .module-local-speech-to-text .stt-vocabulary-file-name {
-        min-width: 0;
-    }
-
+    .module-local-speech-to-text .stt-recording-player,
     .module-local-speech-to-text .stt-recording-details {
         grid-template-columns: minmax(0, 1fr);
     }
