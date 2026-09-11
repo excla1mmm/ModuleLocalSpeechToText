@@ -22,8 +22,8 @@ expectVocabularyUi(
     'Vocabulary guidance must remain available'
 );
 expectVocabularyUi(
-    str_contains($view, 'stt-vocabulary-terms-file') && str_contains($view, 'stt-vocabulary-template-download'),
-    'Vocabulary upload and template controls must remain available'
+    !str_contains($view, 'stt-vocabulary-terms-file') && !str_contains($view, 'stt-vocabulary-template-download'),
+    'Vocabulary upload and template controls must not be rendered'
 );
 
 $document = new DOMDocument();
@@ -36,11 +36,7 @@ $xpath = new DOMXPath($document);
 $fileInput = $xpath->query('//*[@id="stt-vocabulary-terms-file"]')->item(0);
 $uploadLabel = $xpath->query('//label[@for="stt-vocabulary-terms-file"]')->item(0);
 
-expectVocabularyUi($fileInput instanceof DOMElement, 'Vocabulary file input must be rendered');
-expectVocabularyUi(
-    $fileInput->hasAttribute('hidden'),
-    'Vocabulary file input must stay out of layout and hit testing'
-);
-expectVocabularyUi($uploadLabel instanceof DOMElement, 'Vocabulary upload label must activate the hidden file input');
+expectVocabularyUi($fileInput === null, 'Vocabulary file input must not be rendered');
+expectVocabularyUi($uploadLabel === null, 'Vocabulary upload label must not be rendered');
 
 echo "Vocabulary UI contract OK\n";

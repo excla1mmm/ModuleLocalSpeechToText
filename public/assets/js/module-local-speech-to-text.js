@@ -586,54 +586,6 @@
         return compatible;
     }
 
-    function splitVocabularyTerms(text) {
-        return String(text || '')
-            .replace(/^\uFEFF/, '')
-            .split(/[\r\n,;]+/)
-            .map(function (term) {
-                return term.trim().slice(0, 120);
-            })
-            .filter(function (term) {
-                return term !== '';
-            });
-    }
-
-    function uniqueVocabularyTerms(terms) {
-        var seen = {};
-        var result = [];
-
-        terms.forEach(function (term) {
-            var key = term.toLowerCase();
-
-            if (seen[key]) {
-                return;
-            }
-
-            seen[key] = true;
-            result.push(term);
-        });
-
-        return result.slice(0, 100);
-    }
-
-    function updateVocabularyTermsCount($textarea) {
-        $('#stt-vocabulary-terms-count').text(uniqueVocabularyTerms(splitVocabularyTerms($textarea.val())).length);
-    }
-
-    function initializeVocabularyTermsTools($settingsForm) {
-        var $textarea = $settingsForm.find('textarea[name="custom_vocabulary_terms"]');
-
-        if ($textarea.length === 0) {
-            return;
-        }
-
-        updateVocabularyTermsCount($textarea);
-
-        $textarea.on('input change', function () {
-            updateVocabularyTermsCount($textarea);
-        });
-    }
-
     function initializeModelMarketplace($modelForm) {
         var $saveButton = $('#module-local-speech-to-text-model-save');
         var $modelInputs = $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]');
@@ -792,7 +744,6 @@
         initializeCdrHistorySlider($settingsForm);
         initializeTranscriptRetentionSlider($settingsForm);
         updateRetentionConflict($settingsForm);
-        initializeVocabularyTermsTools($settingsForm);
         initializeConfirmModal();
         initializeTranscriptRows();
 

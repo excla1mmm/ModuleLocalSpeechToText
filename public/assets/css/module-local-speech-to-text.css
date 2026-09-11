@@ -114,11 +114,6 @@
     pointer-events: none;
 }
 
-.module-local-speech-to-text .stt-vocabulary-summary {
-    align-items: center;
-    display: flex;
-}
-
 .module-local-speech-to-text .stt-vocabulary-terms-field textarea {
     min-height: 11em;
 }

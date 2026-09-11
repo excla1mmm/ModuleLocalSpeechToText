@@ -21,7 +21,7 @@
         <form class="ui form large" id="module-local-speech-to-text-form" method="post" enctype="multipart/form-data" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
             <div class="three fields stt-settings-fields">
                 <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }}</label>
+                    <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_DefaultLanguageHint') }}" data-variation="wide"></i></label>
                     {{ form.render('default_language') }}
                 </div>
                 <div class="field">
@@ -44,20 +44,18 @@
                 </div>
             </div>
             <div class="field">
-                <label>{{ t._('module_local_speech_to_text_CdrHistoryDays') }}</label>
+                <label>{{ t._('module_local_speech_to_text_CdrHistoryDays') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}" data-variation="wide"></i></label>
                 <div class="ui segment stt-cdr-history-slider">
                     <div class="ui bottom aligned ticked labeled slider" id="stt-cdr-history-days-slider"></div>
                     {{ form.render('cdr_history_days') }}
                 </div>
-                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}</div>
             </div>
             <div class="field">
-                <label>{{ t._('module_local_speech_to_text_TranscriptRetentionDays') }}</label>
+                <label>{{ t._('module_local_speech_to_text_TranscriptRetentionDays') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_TranscriptRetentionDaysHint') }}" data-variation="wide"></i></label>
                 <div class="ui segment stt-cdr-history-slider stt-transcript-retention-slider">
                     <div class="ui bottom aligned ticked labeled slider" id="stt-transcript-retention-days-slider"></div>
                     {{ form.render('transcript_retention_days') }}
                 </div>
-                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_TranscriptRetentionDaysHint') }}</div>
                 <div class="ui negative hidden message stt-retention-conflict-message" role="alert" aria-hidden="true">
                     {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
                 </div>
@@ -114,17 +112,9 @@
                     </div>
                 </div>
             </div>
-            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }}</h4>
-            <div class="ui info message stt-vocabulary-summary">
-                <i class="info circle icon"></i>
-                <div class="content">
-                    {{ t._('module_local_speech_to_text_VocabularyTermsHint') }}
-                    <strong id="stt-vocabulary-terms-count">{{ selectedVocabularyTermsCount|e }}</strong>
-                </div>
-            </div>
+            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_VocabularyTermsHint') }} {{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}" data-variation="wide"></i></h4>
             <div class="field stt-vocabulary-terms-field">
                 {{ form.render('custom_vocabulary_terms') }}
-                <div class="stt-table-muted">{{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}</div>
             </div>
             <div class="ui clearing basic segment stt-form-actions">
                 <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" id="submitbutton">

@@ -42,7 +42,6 @@ final class IndexViewService
             $view->selectedModel = STTSetting::selectedModelId();
             $view->selectedLanguage = STTSetting::selectedLanguageId();
             $view->modelMarketplaceRows = (new ModelMarketplaceService($this->translation))->modelMarketplaceRows();
-            $view->selectedVocabularyTermsCount = count(STTSetting::selectedVocabularyTerms());
         }
 
         if ($capabilities->canManageSystem()) {
