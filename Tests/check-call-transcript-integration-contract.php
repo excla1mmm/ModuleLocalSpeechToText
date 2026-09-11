@@ -107,4 +107,40 @@ foreach (['source_instance_id','call_id','aggregate_id','revision','content_hash
     expectCallIntegration(($detail[$field] ?? null) === $expected, "event/detail identity mismatch for {$field}");
 }
 
+$reinstallFixtures = dirname($root) . '/ModuleAISupervisor/Tests/fixtures/stt-reinstall';
+$fixtureDatabases = [];
+foreach (['source-a.sql' => 100, 'source-b.sql' => 75] as $fixture => $expectedCalls) {
+    $fixturePath = $reinstallFixtures . '/' . $fixture;
+    expectCallIntegration(is_file($fixturePath), "missing shared reinstall fixture {$fixture}");
+    $fixtureDatabase = new PDO('sqlite::memory:');
+    $fixtureDatabase->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $fixtureSql = file_get_contents($fixturePath);
+    expectCallIntegration(is_string($fixtureSql) && $fixtureDatabase->exec($fixtureSql) !== false, "invalid reinstall fixture {$fixture}");
+    expectCallIntegration($fixtureDatabase->query('PRAGMA integrity_check')->fetchColumn() === 'ok', "fixture integrity failed {$fixture}");
+    expectCallIntegration(
+        (int)$fixtureDatabase->query('SELECT COUNT(*) FROM m_STTCallTranscript')->fetchColumn() === $expectedCalls,
+        "fixture call count changed {$fixture}"
+    );
+    $fixtureDatabases[$fixture] = $fixtureDatabase;
+}
+$sourceA = $fixtureDatabases['source-a.sql'];
+$sourceB = $fixtureDatabases['source-b.sql'];
+expectCallIntegration(
+    $sourceA->query("SELECT value FROM m_STTSetting WHERE key='source_instance_id'")->fetchColumn()
+        !== $sourceB->query("SELECT value FROM m_STTSetting WHERE key='source_instance_id'")->fetchColumn(),
+    'clean-reinstall fixtures must represent different source instances'
+);
+expectCallIntegration(
+    $sourceA->query('SELECT call_id FROM m_STTCallTranscript WHERE id=66')->fetchColumn() === 'call-066'
+        && $sourceB->query('SELECT call_id FROM m_STTCallTranscript WHERE id=66')->fetchColumn() === 'call-101',
+    'source B must deliberately reuse source-local IDs for unrelated calls'
+);
+expectCallIntegration(
+    (int)$sourceB->query("SELECT COUNT(*) FROM m_STTCallTranscript b
+        WHERE b.id <= 60 AND b.current_content_hash = printf('%064x', b.id)")->fetchColumn() === 60
+        && (int)$sourceB->query("SELECT COUNT(*) FROM m_STTCallTranscript b
+            WHERE b.id BETWEEN 61 AND 65 AND b.current_content_hash <> printf('%064x', b.id)")->fetchColumn() === 5,
+    'source B unchanged/changed hash distribution is invalid'
+);
+
 echo "Call transcript integration contract OK\n";
