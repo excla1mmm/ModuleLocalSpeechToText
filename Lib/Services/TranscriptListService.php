@@ -237,11 +237,21 @@ class TranscriptListService
             CallDirectionResolver::DIRECTION_INTERNAL => $this->presentCall(
                 'internal',
                 '—',
-                $this->routeLabel($source, $destination),
+                $this->routeLabel($this->employeeLabel($source), $this->employeeLabel($destination)),
                 $duration
             ),
-            CallDirectionResolver::DIRECTION_OUTGOING => $this->presentCall('outgoing', $destination, $source, $duration),
-            CallDirectionResolver::DIRECTION_INCOMING => $this->presentCall('incoming', $source, $destination, $duration),
+            CallDirectionResolver::DIRECTION_OUTGOING => $this->presentCall(
+                'outgoing',
+                $destination,
+                $this->employeeLabel($source),
+                $duration
+            ),
+            CallDirectionResolver::DIRECTION_INCOMING => $this->presentCall(
+                'incoming',
+                $source,
+                $this->employeeLabel($destination),
+                $duration
+            ),
             default => $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration),
         };
     }
@@ -270,6 +280,11 @@ class TranscriptListService
             'employeesLabel' => $employees !== '' ? $employees : '—',
             'callDurationLabel' => $duration > 0 ? $this->durationLabel($duration) : '—',
         ];
+    }
+
+    private function employeeLabel(string $number): string
+    {
+        return $number === '' ? '' : $this->recordings->numberWithEmployeeName($number);
     }
 
     private function routeLabel(string $source, string $destination): string

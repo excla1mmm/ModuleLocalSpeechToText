@@ -466,7 +466,6 @@
                         </td>
                         <td>
                             <div class="stt-transcript-primary">{{ row['clientLabel']|e }}</div>
-                            <div class="stt-table-muted">{{ row['directionLabel']|e }}</div>
                         </td>
                         <td><div class="stt-transcript-primary">{{ row['employeesLabel']|e }}</div></td>
                         <td><div class="stt-duration-value">{{ row['callDurationLabel']|e }}</div></td>

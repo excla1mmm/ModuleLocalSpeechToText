@@ -201,7 +201,7 @@ class CallRecordingService
         };
     }
 
-    private function numberWithEmployeeName(string $number): string
+    public function numberWithEmployeeName(string $number): string
     {
         $number = trim($number);
         if ($number === '') {
