@@ -16,6 +16,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Phalcon\Assets\Manager;
 use Phalcon\Mvc\Dispatcher;
 use Phalcon\Mvc\View;
@@ -94,6 +95,8 @@ class LocalSpeechToTextConf extends ConfigClass
             return true;
         }
 
+        $diagnostics = $this->drainFailureDiagnostics();
+
         LocalSpeechToTextLogger::event(
             'system',
             'operation_failed',
@@ -102,9 +105,60 @@ class LocalSpeechToTextConf extends ConfigClass
             [
                 'operation' => 'disable_writer_drain',
                 'error_code' => 'writer_drain_timeout',
+                'pending_jobs' => $diagnostics['pending'],
+                'processing_jobs' => $diagnostics['processing'],
+                'online_workers' => $diagnostics['onlineWorkers'],
             ]
         );
+
+        $this->messages[] = $this->describeDrainFailure($diagnostics);
         return false;
+    }
+
+    /**
+     * @return array{pending: ?int, processing: ?int, onlineWorkers: ?int}
+     */
+    private function drainFailureDiagnostics(): array
+    {
+        try {
+            return [
+                'pending' => (int)STTJob::count([
+                    'conditions' => 'status = :status:',
+                    'bind' => ['status' => STTJob::STATUS_PENDING],
+                ]),
+                'processing' => (int)STTJob::count([
+                    'conditions' => 'status = :status:',
+                    'bind' => ['status' => STTJob::STATUS_PROCESSING],
+                ]),
+                'onlineWorkers' => (int)STTWorker::count([
+                    'conditions' => 'status = :status:',
+                    'bind' => ['status' => STTWorker::STATUS_ONLINE],
+                ]),
+            ];
+        } catch (Throwable $exception) {
+            self::logDatabaseFailure('disable_drain_diagnostics', $exception, LOG_WARNING);
+            return ['pending' => null, 'processing' => null, 'onlineWorkers' => null];
+        }
+    }
+
+    /**
+     * @param array{pending: ?int, processing: ?int, onlineWorkers: ?int} $diagnostics
+     */
+    private function describeDrainFailure(array $diagnostics): string
+    {
+        if ($diagnostics['pending'] === null) {
+            return 'Module disable aborted: database writers remained active and the current '
+                . 'queue state could not be read. Check the module logs and try again.';
+        }
+
+        return sprintf(
+            'Module disable aborted: database writers remained active (%d job(s) pending, '
+                . '%d job(s) processing, %d worker(s) online). Wait for the queue to clear '
+                . 'and try again.',
+            $diagnostics['pending'],
+            $diagnostics['processing'],
+            $diagnostics['onlineWorkers']
+        );
     }
 
     public function onAfterModuleDisable(): void

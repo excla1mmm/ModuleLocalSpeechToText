@@ -145,7 +145,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
                 $iterationSucceeded = false;
                 try {
-                    (new ModuleDatabaseWriterMutex())->synchronized(function () use (&$cdrTablesInitialized, &$scanPhase): void {
+                    (new ModuleDatabaseWriterMutex())->synchronized(function () use (&$cdrTablesInitialized, &$scanPhase, $lifecycleGate): void {
                         if (!$this->runtimePragmasConfigured) {
                             $scanPhase = 'runtime_pragmas';
                             (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
@@ -169,6 +169,22 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                                 ['recovered_count' => $requeued]
                             );
                         }
+
+                        // A module disable was requested while this iteration was already
+                        // running. Skip the discretionary work below (new job creation,
+                        // retries, publishing, retention) so the write lease is released
+                        // as soon as possible instead of racing the drain timeout.
+                        if ($lifecycleGate->currentState() !== ModuleLifecycleGate::STATE_OPEN) {
+                            LocalSpeechToTextLogger::event(
+                                'system',
+                                'scanner_iteration_curtailed',
+                                'STT scanner skipped discretionary work because a module disable drain is in progress',
+                                LOG_NOTICE,
+                                ['scan_phase' => $scanPhase]
+                            );
+                            return;
+                        }
+
                         $scanPhase = 'delayed_recordings';
                         $this->retryDelayedRecordings();
                         $scanPhase = 'skipped_recordings';
