@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => '通話時間軸上片段的絕對結束時間，以 Unix 毫秒表示；或為 null。',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => '通話時間軸上片段的絕對開始時間，以 Unix 毫秒表示；或為 null。',
     'module_local_speech_to_text_ApiFieldAggregateId' => '彙總通話逐字稿的穩定識別碼。',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Local STT 資料集的持久識別碼，用於限定本機轉錄識別碼的範圍。',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => '依同一共用時間軸排序的所有通話部分片段。',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => '邏輯通話所有可用部分合併而成的逐字稿。',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => '連結其來源辨識結果的彙總話輪。',

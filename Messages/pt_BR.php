@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Fim absoluto do segmento na cronologia da chamada, em milissegundos Unix, ou null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Início absoluto do segmento na cronologia da chamada, em milissegundos Unix, ou null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Identificador estável da transcrição agregada da chamada.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Identidade persistente do conjunto de dados Local STT que delimita os identificadores locais de transcrição.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmentos de todas as partes da chamada ordenados numa cronologia partilhada.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Transcrição combinada de todas as partes disponíveis da chamada lógica.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Falas agregadas ligadas aos respectivos resultados de reconhecimento de origem.',

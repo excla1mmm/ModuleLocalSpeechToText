@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Sfârșitul absolut al segmentului pe cronologia apelului, în milisecunde Unix, sau null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Începutul absolut al segmentului pe cronologia apelului, în milisecunde Unix, sau null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Identificator stabil al transcrierii agregate a apelului.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Identitatea persistentă a setului de date Local STT care delimitează identificatorii locali ai transcrierilor.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segmente din toate părțile apelului, ordonate pe o cronologie comună.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Transcriere combinată a tuturor părților disponibile ale apelului logic.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Replici agregate legate de rezultatele lor sursă de recunoaștere.',

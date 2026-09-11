@@ -14,6 +14,7 @@ use RuntimeException;
  */
 class STTSetting extends ModulesModelsBase
 {
+    public const string SOURCE_INSTANCE_ID = 'source_instance_id';
     public const string DEFAULT_LANGUAGE = 'default_language';
     public const string POLL_INTERVAL_SEC = 'poll_interval_sec';
     public const string MAX_RECORDING_DURATION_MIN = 'max_recording_duration_min';

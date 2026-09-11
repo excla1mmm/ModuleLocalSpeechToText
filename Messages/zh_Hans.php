@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => '通话时间线上片段的绝对结束时间，以 Unix 毫秒表示；或为 null。',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => '通话时间线上片段的绝对开始时间，以 Unix 毫秒表示；或为 null。',
     'module_local_speech_to_text_ApiFieldAggregateId' => '汇总通话转录的稳定标识符。',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Local STT 数据集的持久标识，用于限定本地转录标识符的作用域。',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => '按同一共享时间线排序的所有通话部分片段。',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => '逻辑通话所有可用部分的合并转录。',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => '与源识别结果关联的汇总话轮。',

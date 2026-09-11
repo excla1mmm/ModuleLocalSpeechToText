@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Absolute segment end on the call timeline in Unix milliseconds, or null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Absolute segment start on the call timeline in Unix milliseconds, or null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Stable identifier of the aggregated call transcript.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Persistent identity of the Local STT dataset that scopes local transcript identifiers.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segments from all call parts ordered on one shared timeline.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Combined transcript of all available parts of the logical call.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Aggregated turns linked to their source recognition results.',

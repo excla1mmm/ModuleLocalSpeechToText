@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Zəng zaman xəttində seqmentin Unix millisaniyələri ilə mütləq sonu və ya null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Zəng zaman xəttində seqmentin Unix millisaniyələri ilə mütləq başlanğıcı və ya null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Birləşdirilmiş zəng transkripsiyasının sabit identifikatoru.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Yerli transkripsiya identifikatorlarının əhatəsini müəyyən edən Local STT məlumat dəstinin daimi identifikatoru.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Zəngin bütün hissələrindən vahid zaman xəttində sıralanmış seqmentlər.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Məntiqi zəngin bütün əlçatan hissələrinin birləşdirilmiş transkripsiyası.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Mənbə tanıma nəticələri ilə əlaqələndirilmiş birləşdirilmiş replikalar.',

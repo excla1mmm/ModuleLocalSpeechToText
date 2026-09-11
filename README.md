@@ -6,6 +6,20 @@ Local speech-to-text module for MikoPBX.
 
 The package version is defined in `module.json`.
 
+## Upgrade and clean-reinstall compatibility
+
+Ordinary in-place upgrades are zero-touch in either order: Local STT keeps one persistent source identity, and source-aware AI Supervisor adopts it automatically. A clean Local STT database creates a new source identity and restarts source-local integer IDs from 1; those IDs are locators only and must never be used as cross-module call identity.
+
+| Operation | Compatibility |
+|---|---|
+| Upgrade Local STT, then source-aware AI Supervisor | Safe and automatic |
+| Upgrade source-aware AI Supervisor, then Local STT | Safe and automatic |
+| Normal Local STT update with its database preserved | Source identity and AI cursor remain stable |
+| Delete/reset the Local STT database while AI Supervisor 1.73 is still installed | **Not safe** |
+| Install source-aware AI Supervisor first, then intentionally create a clean Local STT database | Safe; replay and reconciliation are automatic |
+
+Before intentionally deleting an old Local STT database, install the new source-aware AI Supervisor build first. No administrator button or cursor reset is required. AI Supervisor permanently retains canonical call identity, analysis results, scores, workflow, reviews, and notes. Full transcript snapshots in AI Supervisor remain limited to 30 days; Local STT remains the long-term full-text source. An unchanged `call_id + content_hash` is not analyzed again. Changed or uncertain content is queued automatically.
+
 ## What It Does
 
 - Scans completed CDR records and creates transcription jobs for readable recordings in the MikoPBX monitor directory.

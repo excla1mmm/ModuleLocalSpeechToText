@@ -3,6 +3,24 @@
 declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Models {
+    final class StoredTurnConnection
+    {
+        public function fetchOne(string $sql, int $mode, array $bind = []): array
+        {
+            return ['value' => '0123456789abcdef0123456789abcdef'];
+        }
+    }
+
+    final class STTSetting
+    {
+        public const string SOURCE_INSTANCE_ID = 'source_instance_id';
+
+        public function getReadConnection(): StoredTurnConnection
+        {
+            return new StoredTurnConnection();
+        }
+    }
+
     final class STTCallTranscript
     {
         public string $call_id = 'mikopbx-regression-call';
@@ -42,6 +60,10 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 }
 
 namespace {
+    if (!class_exists('Phalcon\\Db\\Enum')) {
+        eval('namespace Phalcon\\Db; class Enum { public const int FETCH_ASSOC = 2; }');
+    }
+    require_once __DIR__ . '/../Lib/Services/SttSourceInstance.php';
     require_once __DIR__ . '/../Lib/Services/CallTranscriptIntegrationService.php';
 
     use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptIntegrationService;

@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Απόλυτος χρόνος λήξης του τμήματος στη χρονογραμμή της κλήσης, σε χιλιοστά του δευτερολέπτου Unix, ή null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Απόλυτος χρόνος έναρξης του τμήματος στη χρονογραμμή της κλήσης, σε χιλιοστά του δευτερολέπτου Unix, ή null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Σταθερό αναγνωριστικό της ενοποιημένης απομαγνητοφώνησης κλήσης.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Μόνιμη ταυτότητα του συνόλου δεδομένων Local STT που οριοθετεί τα τοπικά αναγνωριστικά μεταγραφών.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Τμήματα από όλα τα μέρη της κλήσης, ταξινομημένα σε μία κοινή χρονογραμμή.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Συνδυασμένη απομαγνητοφώνηση όλων των διαθέσιμων μερών της λογικής κλήσης.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Ενοποιημένες εκφωνήσεις συνδεδεμένες με τα αποτελέσματα αναγνώρισης προέλευσής τους.',

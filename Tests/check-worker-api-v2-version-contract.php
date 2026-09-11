@@ -490,8 +490,8 @@ namespace {
     $setup = (string)file_get_contents($root . '/Setup/PbxExtensionSetup.php');
     preg_match_all('/new ModuleSchemaMigration\(\s*(?<version>\d+),.*?[\'\"](?<key>stt-schema-[^\'\"]+)[\'\"]/s', $setup, $migrations);
     expectWorkerApiV2Version(
-        array_map('intval', $migrations['version'] ?? []) === range(1, 14)
-            && ($migrations['key'][13] ?? null) === 'stt-schema-014-job-submission-receipts',
+        array_map('intval', $migrations['version'] ?? []) === range(1, 15)
+            && ($migrations['key'][14] ?? null) === 'stt-schema-015-source-instance-identity',
         'Database schema migration registry changed'
     );
 

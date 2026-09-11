@@ -367,6 +367,7 @@ return [
     'module_local_speech_to_text_ApiFieldAbsoluteEndMs' => 'Fin absolue du segment sur la chronologie de l’appel, en millisecondes Unix, ou null.',
     'module_local_speech_to_text_ApiFieldAbsoluteStartMs' => 'Début absolu du segment sur la chronologie de l’appel, en millisecondes Unix, ou null.',
     'module_local_speech_to_text_ApiFieldAggregateId' => 'Identifiant stable de la transcription agrégée de l’appel.',
+    'module_local_speech_to_text_ApiFieldSourceInstanceId' => 'Identité persistante du jeu de données Local STT qui délimite les identifiants locaux de transcription.',
     'module_local_speech_to_text_ApiFieldAggregatedSegments' => 'Segments de toutes les parties de l’appel ordonnés sur une chronologie commune.',
     'module_local_speech_to_text_ApiFieldAggregatedTranscript' => 'Transcription combinée de toutes les parties disponibles de l’appel logique.',
     'module_local_speech_to_text_ApiFieldAggregatedTurns' => 'Tours de parole agrégés liés à leurs résultats de reconnaissance sources.',
