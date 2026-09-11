@@ -14,6 +14,7 @@ $root = dirname(__DIR__);
 $template = file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/transcript.volt') ?: '';
 $assets = file_get_contents($root . '/App/Providers/AssetProvider.php') ?: '';
 $cdrJs = file_get_contents($root . '/public/assets/js/src/module-local-speech-to-text-cdr.js') ?: '';
+$moduleJs = file_get_contents($root . '/public/assets/js/src/module-local-speech-to-text.js') ?: '';
 $viewJsPath = $root . '/public/assets/js/src/module-local-speech-to-text-conversation.js';
 $viewJs = is_file($viewJsPath) ? (file_get_contents($viewJsPath) ?: '') : '';
 $css = file_get_contents($root . '/public/assets/css/module-local-speech-to-text.css') ?: '';
@@ -29,7 +30,14 @@ expectTranscriptUi(str_contains($assets, 'module-local-speech-to-text-conversati
 expectTranscriptUi(str_contains($viewJs, 'window.SttTranscriptView'), 'shared transcript view API missing');
 expectTranscriptUi(str_contains($viewJs, 'function initialize'), 'shared transcript filter initializer missing');
 expectTranscriptUi(str_contains($viewJs, 'stt-transcript-search'), 'shared transcript search behavior missing');
+expectTranscriptUi(str_contains($template, 'stt-transcript-range'), 'speech timeline must contain the player range control');
+expectTranscriptUi(str_contains($template, 'stt-transcript-playhead'), 'speech timeline must render the live playhead');
+expectTranscriptUi(!str_contains($template, 'stt-player-range-wrap'), 'separate recording slider must be removed');
+expectTranscriptUi(str_contains($viewJs, 'function initializePlayer'), 'shared interactive timeline player missing');
+expectTranscriptUi(str_contains($viewJs, "audio.currentTime = (duration * value) / 1000"), 'timeline range must seek the recording');
+expectTranscriptUi(!str_contains($moduleJs, 'function initializeTranscriptPlayer'), 'legacy separate player implementation must be removed');
 expectTranscriptUi(str_contains($cdrJs, 'SttTranscriptView.create'), 'CDR modal must use the shared transcript renderer');
+expectTranscriptUi(str_contains($cdrJs, 'audioUrl:'), 'CDR modal must pass its recording to the shared timeline player');
 expectTranscriptUi(!str_contains($cdrJs, 'function dialogueTurn'), 'legacy CDR dialogue renderer must be removed');
 expectTranscriptUi(str_contains($css, '--stt-speaker-left'), 'calm transcript palette tokens missing');
 

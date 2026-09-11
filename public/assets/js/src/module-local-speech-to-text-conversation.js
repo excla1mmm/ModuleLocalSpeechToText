@@ -26,11 +26,47 @@
         return $legend;
     }
 
-    function createOverview(conversation) {
+    function createPlayer(labels, durationLabel) {
+        var $player = $('<div>', {
+            class: 'stt-transcript-player',
+            'data-duration': safeNumber(labels.durationSeconds)
+        }).append(
+            $('<audio>', {
+                class: 'stt-transcript-audio',
+                preload: 'metadata',
+                'data-src': String(labels.audioUrl || '')
+            }),
+            $('<button>', {
+                type: 'button',
+                class: 'stt-player-play',
+                'aria-label': labels.play,
+                'data-content': labels.play
+            }).append($('<i>', { class: 'play icon' })),
+            $('<span>', { class: 'stt-player-duration' }).text('00:00 / ' + durationLabel)
+        );
+
+        if (labels.downloadUrl) {
+            $player.append(
+                $('<a>', {
+                    class: 'stt-player-download',
+                    href: String(labels.downloadUrl),
+                    'data-content': labels.download
+                }).append($('<i>', { class: 'download icon' }))
+            );
+        }
+
+        return $player;
+    }
+
+    function createOverview(conversation, labels) {
         var speakers = Array.isArray(conversation.speakers) ? conversation.speakers : [];
+        var durationLabel = String(conversation.durationLabel || '0:00');
+        var playable = Boolean(labels.audioUrl);
         var $overview = $('<div>', { class: 'stt-transcript-overview' });
         var $overviewHeader = $('<div>', { class: 'stt-transcript-overview-header' }).append(
-            $('<span>', { class: 'stt-transcript-duration' }).text(String(conversation.durationLabel || '0:00')),
+            playable
+                ? createPlayer(labels, durationLabel)
+                : $('<span>', { class: 'stt-transcript-duration' }).text(durationLabel),
             createLegend(speakers)
         );
         var $lanes = $('<div>', { class: 'stt-transcript-lanes' });
@@ -49,12 +85,28 @@
             $lanes.append($lane);
         });
 
+        var $seek = $('<div>', { class: 'stt-transcript-seek' }).append($lanes);
+        if (playable) {
+            $seek.addClass('is-playable').append(
+                $('<span>', { class: 'stt-transcript-playhead' }),
+                $('<span>', { class: 'stt-transcript-seek-tooltip' }).text('0:00'),
+                $('<input>', {
+                    class: 'stt-transcript-range',
+                    type: 'range',
+                    min: 0,
+                    max: 1000,
+                    value: 0,
+                    'aria-label': labels.play
+                })
+            );
+        }
+
         return $overview.append(
             $overviewHeader,
-            $lanes,
+            $seek,
             $('<div>', { class: 'stt-transcript-scale' }).append(
                 $('<span>').text('0:00'),
-                $('<span>').text(String(conversation.durationLabel || '0:00'))
+                $('<span>').text(durationLabel)
             )
         );
     }
@@ -91,13 +143,14 @@
         );
     }
 
-    function createTurn(turn) {
+    function createTurn(turn, playable) {
         var key = speakerClass(turn.speakerKey);
         var $row = $('<article>', {
-            class: 'stt-transcript-turn stt-turn-' + key,
+            class: 'stt-transcript-turn stt-turn-' + key + (playable ? ' stt-playable-turn' : ''),
             'data-speaker': key,
             'data-start': safeNumber(turn.start),
-            'data-end': safeNumber(turn.end)
+            'data-end': safeNumber(turn.end),
+            tabindex: playable ? 0 : null
         });
         var $meta = $('<div>', { class: 'stt-turn-meta' }).append(
             $('<span>', { class: 'stt-speaker-dot' }),
@@ -122,7 +175,8 @@
         var data = conversation && typeof conversation === 'object' ? conversation : {};
         var speakers = Array.isArray(data.speakers) ? data.speakers : [];
         var timeline = Array.isArray(data.timeline) ? data.timeline : [];
-        var text = Object.assign({ all: 'All', search: 'Search', empty: '' }, labels || {});
+        var text = Object.assign({ all: 'All', search: 'Search', empty: '', play: '', download: '' }, labels || {});
+        var playable = Boolean(text.audioUrl);
         var $root = $('<div>', { class: 'stt-transcript-view' });
         var $list = $('<div>', { class: 'stt-transcript-list' });
 
@@ -137,11 +191,11 @@
                     )
                 );
             }
-            $list.append(createTurn(turn));
+            $list.append(createTurn(turn, playable));
         });
 
         $root.append(
-            createOverview(data),
+            createOverview(data, text),
             createToolbar(speakers, text),
             $list,
             $('<div>', { class: 'stt-transcript-empty ui message', hidden: true }).text(text.empty)
@@ -149,6 +203,181 @@
         initialize($root);
 
         return $root;
+    }
+
+    function formatTime(seconds) {
+        var total = Math.floor(Math.max(0, seconds || 0));
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var rest = total % 60;
+
+        if (hours > 0) {
+            return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(rest).padStart(2, '0');
+        }
+
+        return Math.floor(total / 60) + ':' + String(rest).padStart(2, '0');
+    }
+
+    function initializePlayer($root) {
+        var audio = $root.find('.stt-transcript-audio').get(0);
+        var $player = $root.find('.stt-transcript-player');
+        var $playButton = $player.find('.stt-player-play');
+        var $playIcon = $playButton.find('i');
+        var $duration = $player.find('.stt-player-duration');
+        var $seek = $root.find('.stt-transcript-seek.is-playable');
+        var $range = $seek.find('.stt-transcript-range');
+        var $playhead = $seek.find('.stt-transcript-playhead');
+        var $tooltip = $seek.find('.stt-transcript-seek-tooltip');
+        var $turns = $root.find('.stt-playable-turn');
+        var pendingRangeValue = null;
+        var waitingForMetadata = false;
+
+        if (!audio || $range.length === 0 || $root.data('stt-player-initialized')) {
+            return;
+        }
+        $root.data('stt-player-initialized', true);
+
+        function fallbackDuration() {
+            return safeNumber($player.data('duration'));
+        }
+
+        function currentDuration() {
+            return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : fallbackDuration();
+        }
+
+        function ensureSource() {
+            if (audio.getAttribute('src')) {
+                return true;
+            }
+            var source = String(audio.getAttribute('data-src') || '');
+            if (!source) {
+                return false;
+            }
+            audio.setAttribute('src', source);
+            audio.load();
+
+            return true;
+        }
+
+        function setPlayIcon(playing) {
+            $playIcon.toggleClass('play', !playing).toggleClass('pause', playing);
+        }
+
+        function setActiveTurns() {
+            var current = audio.currentTime;
+            $turns.each(function () {
+                var $turn = $(this);
+                var start = safeNumber($turn.data('start'));
+                var end = safeNumber($turn.data('end'));
+                $turn.toggleClass('stt-turn-active', current >= start && current <= Math.max(end, start + 1));
+            });
+        }
+
+        function update() {
+            var duration = currentDuration();
+            var value = duration > 0 ? Math.min(1000, Math.round((audio.currentTime / duration) * 1000)) : 0;
+            $range.val(value).attr('aria-valuetext', formatTime(audio.currentTime));
+            $playhead.css('left', (value / 10) + '%');
+            $duration.text(formatTime(audio.currentTime) + ' / ' + (duration > 0 ? formatTime(duration) : '--:--'));
+            setActiveTurns();
+        }
+
+        function play() {
+            if (!ensureSource()) {
+                return;
+            }
+            var result = audio.play();
+            if (result && typeof result.catch === 'function') {
+                result.catch(function () {
+                    setPlayIcon(false);
+                });
+            }
+        }
+
+        function seekByRange(value) {
+            function applySeek() {
+                var duration = currentDuration();
+                if (duration <= 0) {
+                    return;
+                }
+                var value = pendingRangeValue;
+                pendingRangeValue = null;
+                audio.currentTime = (duration * value) / 1000;
+                update();
+            }
+
+            pendingRangeValue = value;
+            if (!ensureSource()) {
+                return;
+            }
+            if (audio.readyState >= 1) {
+                applySeek();
+            } else if (!waitingForMetadata) {
+                waitingForMetadata = true;
+                audio.addEventListener('loadedmetadata', function () {
+                    waitingForMetadata = false;
+                    applySeek();
+                }, { once: true });
+            }
+        }
+
+        function seekTurn($turn) {
+            var seconds = safeNumber($turn.data('start'));
+
+            function applySeek() {
+                audio.currentTime = Math.min(seconds, currentDuration() || seconds);
+                update();
+                play();
+            }
+
+            if (!ensureSource()) {
+                return;
+            }
+            if (audio.readyState >= 1) {
+                applySeek();
+            } else {
+                audio.addEventListener('loadedmetadata', applySeek, { once: true });
+            }
+        }
+
+        $playButton.on('click.sttTranscript', function () {
+            if (audio.paused) {
+                play();
+            } else {
+                audio.pause();
+            }
+        });
+        $range.on('input.sttTranscript change.sttTranscript', function () {
+            seekByRange(safeNumber(this.value));
+        });
+        $seek.on('mousemove.sttTranscript', function (event) {
+            var offset = $seek.offset();
+            var width = $seek.width();
+            var percent = width > 0 ? Math.max(0, Math.min(100, ((event.pageX - offset.left) / width) * 100)) : 0;
+            $tooltip.text(formatTime((currentDuration() * percent) / 100)).css('left', percent + '%');
+        });
+        $turns.on('click.sttTranscript', function () {
+            seekTurn($(this));
+        }).on('keydown.sttTranscript', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                seekTurn($(this));
+            }
+        });
+
+        audio.addEventListener('loadedmetadata', update);
+        audio.addEventListener('timeupdate', update);
+        audio.addEventListener('play', function () {
+            setPlayIcon(true);
+        });
+        audio.addEventListener('pause', function () {
+            setPlayIcon(false);
+        });
+        audio.addEventListener('ended', function () {
+            audio.currentTime = 0;
+            update();
+        });
+        update();
     }
 
     function initialize(root) {
@@ -193,6 +422,7 @@
             apply();
         });
         apply();
+        initializePlayer($root);
     }
 
     window.SttTranscriptView = {

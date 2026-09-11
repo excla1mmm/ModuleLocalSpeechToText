@@ -238,8 +238,10 @@
             $modal.find('.stt-cdr-transcript-error').removeAttr('hidden').addClass('error').text(message);
         }
 
-        function renderConversation(conversation) {
+        function renderConversation(conversation, rowData) {
             const timeline = conversation && Array.isArray(conversation.timeline) ? conversation.timeline : [];
+            const recordings = rowData && Array.isArray(rowData[4]) ? rowData[4] : [];
+            const recording = recordings.length > 0 && recordings[0] ? recordings[0] : {};
             const $target = $modal.find('.stt-cdr-transcript-conversation').empty().removeAttr('hidden');
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
             $modal.find('.stt-cdr-transcript-error').attr('hidden', true).text('');
@@ -255,6 +257,11 @@
                 all: translate('module_local_speech_to_text_CdrHistoryAll'),
                 search: translate('module_local_speech_to_text_LogsSearch'),
                 empty: labels.empty,
+                play: translate('module_local_speech_to_text_PlayRecording'),
+                download: translate('module_local_speech_to_text_DownloadRecording'),
+                audioUrl: String(recording.playback_url || ''),
+                downloadUrl: String(recording.download_url || ''),
+                durationSeconds: conversation.durationSeconds,
             }));
         }
 
@@ -277,7 +284,7 @@
                 data: { call_id: callId },
                 beforeSend: addAuthorizationHeader,
             }).done(function (response) {
-                renderConversation(response && response.transcript ? response.transcript.conversation : null);
+                renderConversation(response && response.transcript ? response.transcript.conversation : null, rowData);
             }).fail(function (xhr, status) {
                 if (status === 'abort') {
                     return;

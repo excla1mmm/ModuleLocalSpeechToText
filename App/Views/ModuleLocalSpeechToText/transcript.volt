@@ -9,36 +9,6 @@
     </div>
 
     <div class="stt-recording-panel">
-        <div class="stt-recording-player">
-            <div>
-                <div class="stt-recording-title">
-                    <i class="file audio outline icon"></i>
-                    <span>{{ t._('module_local_speech_to_text_CallRecording') }}</span>
-                </div>
-            </div>
-            <div class="stt-recording-actions">
-                {% if recording['hasPlayback'] %}
-                    <div class="stt-cdr-player" id="stt-transcript-player" data-duration="{{ recording['durationSeconds']|e }}">
-                        <audio id="stt-transcript-audio" preload="none" data-src="{{ recording['playbackUrl']|e }}"></audio>
-                        <button type="button" class="ui compact basic icon button stt-player-play" data-content="{{ t._('module_local_speech_to_text_PlayRecording') }}">
-                            <i class="play icon"></i>
-                        </button>
-                        <div class="stt-player-range-wrap">
-                            <div class="ui range cdr-player stt-player-range"></div>
-                        </div>
-                        <span class="stt-player-duration cdr-duration">00:00/{% if recording['durationLabel'] !== '' %}{{ recording['durationLabel']|e }}{% else %}--:--{% endif %}</span>
-                        {% if recording['downloadUrl'] !== '' %}
-                            <a class="ui compact basic icon button stt-player-download" href="{{ recording['downloadUrl']|e }}" data-content="{{ t._('module_local_speech_to_text_DownloadRecording') }}">
-                                <i class="download icon"></i>
-                            </a>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <span class="ui small grey label">{{ t._('module_local_speech_to_text_RecordingPlaybackUnavailable') }}</span>
-                {% endif %}
-            </div>
-        </div>
-
         <div class="stt-recording-details">
             {% for row in recording['rows'] %}
                 <div class="stt-recording-detail">
@@ -53,7 +23,22 @@
         <div class="stt-transcript-view">
             <div class="stt-transcript-overview">
                 <div class="stt-transcript-overview-header">
-                    <span class="stt-transcript-duration">{{ conversation['durationLabel']|e }}</span>
+                    {% if recording['hasPlayback'] %}
+                        <div class="stt-transcript-player" data-duration="{{ recording['durationSeconds']|e }}">
+                            <audio class="stt-transcript-audio" preload="metadata" data-src="{{ recording['playbackUrl']|e }}"></audio>
+                            <button type="button" class="stt-player-play" aria-label="{{ t._('module_local_speech_to_text_PlayRecording')|e }}" data-content="{{ t._('module_local_speech_to_text_PlayRecording')|e }}">
+                                <i class="play icon"></i>
+                            </button>
+                            <span class="stt-player-duration">00:00 / {% if recording['durationLabel'] !== '' %}{{ recording['durationLabel']|e }}{% else %}{{ conversation['durationLabel']|e }}{% endif %}</span>
+                            {% if recording['downloadUrl'] !== '' %}
+                                <a class="stt-player-download" href="{{ recording['downloadUrl']|e }}" data-content="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}">
+                                    <i class="download icon"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <span class="stt-transcript-duration">{{ conversation['durationLabel']|e }}</span>
+                    {% endif %}
                     <div class="stt-transcript-legend">
                         {% for speaker in conversation['speakers'] %}
                             <span class="stt-transcript-legend-item stt-speaker-{{ speaker['key']|e }}">
@@ -64,14 +49,21 @@
                     </div>
                 </div>
 
-                <div class="stt-transcript-lanes">
-                    {% for speaker in conversation['speakers'] %}
-                        <div class="stt-transcript-lane stt-speaker-{{ speaker['key']|e }}">
-                            {% for turn in speaker['segments'] %}
-                                <span class="stt-transcript-lane-segment" style="left: {{ turn['startPercent']|e }}%; width: {{ turn['widthPercent']|e }}%"></span>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
+                <div class="stt-transcript-seek{% if recording['hasPlayback'] %} is-playable{% endif %}">
+                    <div class="stt-transcript-lanes">
+                        {% for speaker in conversation['speakers'] %}
+                            <div class="stt-transcript-lane stt-speaker-{{ speaker['key']|e }}">
+                                {% for turn in speaker['segments'] %}
+                                    <span class="stt-transcript-lane-segment" style="left: {{ turn['startPercent']|e }}%; width: {{ turn['widthPercent']|e }}%"></span>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if recording['hasPlayback'] %}
+                        <span class="stt-transcript-playhead"></span>
+                        <span class="stt-transcript-seek-tooltip">0:00</span>
+                        <input class="stt-transcript-range" type="range" min="0" max="1000" value="0" aria-label="{{ t._('module_local_speech_to_text_PlayRecording')|e }}">
+                    {% endif %}
                 </div>
                 <div class="stt-transcript-scale">
                     <span>0:00</span>
