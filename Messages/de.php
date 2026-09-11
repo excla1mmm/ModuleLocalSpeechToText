@@ -109,6 +109,8 @@ return [
     'module_local_speech_to_text_DeleteWorkerApiKey' => 'Delete API key',
     'module_local_speech_to_text_DeleteWorkerApiKeyConfirm' => 'Delete worker API key?',
     'module_local_speech_to_text_WorkerApiKeyShownOnce' => 'Copy the key now. It will not be shown again after page refresh.',
+    'module_local_speech_to_text_InsecureConnectionTitle' => 'Insecure connection',
+    'module_local_speech_to_text_InsecureConnectionWarning' => 'You are connected over HTTP. Some features are unavailable — for example, the API key will not be shown after it is created. Use HTTPS to access the web interface.',
     'module_local_speech_to_text_Copy' => 'Copy',
     'module_local_speech_to_text_DefaultLanguage' => 'Default language',
     'module_local_speech_to_text_DefaultLanguageHint' => 'Language passed to the model as a recognition hint. "Auto - detect automatically" enables automatic language detection.',

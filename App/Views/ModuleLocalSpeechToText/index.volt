@@ -274,6 +274,15 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">
+        {% if not isSecureConnection %}
+            <div class="ui warning message stt-insecure-connection-warning">
+                <i class="exclamation triangle icon"></i>
+                <div class="content">
+                    <div class="header">{{ t._('module_local_speech_to_text_InsecureConnectionTitle') }}</div>
+                    {{ t._('module_local_speech_to_text_InsecureConnectionWarning') }}
+                </div>
+            </div>
+        {% endif %}
         <div class="ui segment stt-worker-download">
             <div class="ui middle aligned stackable grid">
                 <div class="ten wide column">

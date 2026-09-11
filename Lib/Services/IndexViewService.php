@@ -97,6 +97,7 @@ final class IndexViewService
         (new WorkerViewService())->prepare($view);
         $view->workerApiKeyRows = (new WorkerApiKeyService())->workerApiKeyRows();
         $view->generatedApiKey = $generatedApiKey['apiKey'];
+        $view->isSecureConnection = $this->request->isSecure();
         $view->logsDataPath = MenuProvider::LOGS_PATH;
     }
 

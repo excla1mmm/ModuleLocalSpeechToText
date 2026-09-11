@@ -109,6 +109,8 @@ return [
     'module_local_speech_to_text_DeleteWorkerApiKey' => 'Удалить ключ',
     'module_local_speech_to_text_DeleteWorkerApiKeyConfirm' => 'Удалить ключ подключения обработчика?',
     'module_local_speech_to_text_WorkerApiKeyShownOnce' => 'Скопируйте ключ сейчас. После обновления страницы он больше не будет показан.',
+    'module_local_speech_to_text_InsecureConnectionTitle' => 'Небезопасное соединение',
+    'module_local_speech_to_text_InsecureConnectionWarning' => 'Вы подключены по HTTP. Некоторые функции недоступны — например, ключ API не будет показан после создания. Используйте HTTPS для доступа к веб-интерфейсу.',
     'module_local_speech_to_text_Copy' => 'Скопировать',
     'module_local_speech_to_text_DefaultLanguage' => 'Язык по умолчанию',
     'module_local_speech_to_text_DefaultLanguageHint' => 'Язык, который передаётся модели как подсказка при распознавании. Вариант «Определять автоматически» включает автоопределение языка звонка.',
