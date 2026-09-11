@@ -92,6 +92,10 @@ find "${TMP_MODULE_DIR}" -maxdepth 1 \
   \( -name '.setup-database-snapshot-*' -o -name '.module-lifecycle-*' \) \
   -exec rm -rf {} +
 
+# Finder metadata is harmless locally but must not ship in a module archive.
+find "${TMP_MODULE_DIR}" -type f -name '.DS_Store' -delete
+find "${TMP_MODULE_DIR}" -type d -name '__MACOSX' -prune -exec rm -rf {} +
+
 php -r '
   $path = $argv[1];
   $version = $argv[2];
@@ -201,6 +205,11 @@ php -r '
       if (preg_match("#^db/(?:.*-(?:wal|shm|journal)|\\.module-lifecycle-.*|\\.setup-database-snapshot-.*|\\.stt-safe-backup-.*)$#", $normalized) === 1) {
           $zip->close();
           fwrite(STDERR, "Invalid module package: runtime database state included: {$name}\n");
+          exit(1);
+      }
+      if (preg_match("#(^|/)(?:\\.DS_Store|__MACOSX)(?:/|$)#", $normalized) === 1) {
+          $zip->close();
+          fwrite(STDERR, "Invalid module package: macOS metadata included: {$name}\n");
           exit(1);
       }
       foreach ($forbiddenPrefixes as $prefix) {

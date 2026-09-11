@@ -53,8 +53,10 @@ expectModuleSetupRollback(
         && str_contains($package, ".module-lifecycle-")
         && str_contains($package, "-wal")
         && str_contains($package, "-shm")
-        && str_contains($package, "-journal"),
-    'Packages must exclude setup snapshots, lifecycle state, and SQLite sidecars'
+        && str_contains($package, "-journal")
+        && str_contains($package, ".DS_Store")
+        && str_contains($package, "__MACOSX"),
+    'Packages must exclude setup snapshots, lifecycle state, SQLite sidecars, and macOS metadata'
 );
 
 echo "Module setup rollback contract OK\n";
