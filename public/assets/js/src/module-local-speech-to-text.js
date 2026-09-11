@@ -875,6 +875,19 @@
         });
     }
 
+    function initializeTranscriptRows() {
+        $('.module-local-speech-to-text .stt-transcript-row').on('click', function (event) {
+            if ($(event.target).closest('a, button, input, select, textarea').length > 0) {
+                return;
+            }
+
+            var destination = $(this).data('transcript-url');
+            if (destination) {
+                window.location.href = destination;
+            }
+        });
+    }
+
     $(function () {
         var $tabItems = $('#module-local-speech-to-text-menu .item');
         var $settingsForm = $('#module-local-speech-to-text-form');
@@ -895,6 +908,7 @@
         updateRetentionConflict($settingsForm);
         initializeVocabularyTermsTools($settingsForm);
         initializeConfirmModal();
+        initializeTranscriptRows();
 
         if ($.fn.form && $.fn.form.settings && $.fn.form.settings.rules) {
             $.fn.form.settings.rules.sttProcessingRange = function (value, range) {

@@ -472,7 +472,7 @@
                 <tbody>
                 {% for row in transcriptRows %}
                     {% set result = row['result'] %}
-                    <tr>
+                    <tr class="stt-transcript-row" data-transcript-url="{{ url(transcriptPath~'?id='~result.id) }}">
                         <td class="stt-direction-cell">
                             <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="stt-direction-link" title="{{ row['directionLabel']|e }}" aria-label="{{ t._('module_local_speech_to_text_OpenConversation') }}: {{ row['directionLabel']|e }}">
                                 {{ row['directionIcon']|e }}
