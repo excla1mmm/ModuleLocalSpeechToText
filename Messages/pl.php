@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Pokaż transkrypcję',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transkrypcja połączenia',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Wczytywanie transkrypcji…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Nie udało się wczytać transkrypcji',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Transkrypcja połączenia jest niedostępna',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'przeglądanie transkrypcji i nagrań rozmów',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'zarządzanie ustawieniami modułu',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'podłączanie workerów i zarządzanie kolejką oraz dziennikami',

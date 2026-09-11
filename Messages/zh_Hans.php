@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => '查看转写',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => '通话转写',
+    'module_local_speech_to_text_CdrTranscriptLoading' => '正在加载转写…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => '无法加载转写',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => '通话转写不可用',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => '查看转录和通话录音',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => '管理模块设置',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => '连接工作进程并管理队列和日志',

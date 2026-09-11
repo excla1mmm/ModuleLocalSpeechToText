@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Zobrazit přepis',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Přepis hovoru',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Načítání přepisu…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Přepis se nepodařilo načíst',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Přepis hovoru není k dispozici',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'zobrazení přepisů a nahrávek hovorů',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'správa nastavení modulu',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'připojení workerů a správa fronty a protokolů',

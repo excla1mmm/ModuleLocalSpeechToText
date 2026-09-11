@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Transkript anzeigen',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Anruftranskript',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Transkript wird geladen…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transkript konnte nicht geladen werden',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Anruftranskript ist nicht verfügbar',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'Transkripte und Anrufaufzeichnungen anzeigen',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'Moduleinstellungen verwalten',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'Worker verbinden und Warteschlange und Protokolle verwalten',

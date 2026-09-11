@@ -13,6 +13,8 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
     private const string LEGACY_API = '/pbxcore/api/modules/module-local-speech-to-text';
     private const string CONTROLLER =
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
+    private const string CDR_CONTROLLER =
+        'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
 
     public static function getLinkedControllerActions(): array
     {
@@ -20,6 +22,7 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
             self::CONTROLLER => [
                 'transcripts' => [
                     self::CONTROLLER => ['index', 'transcript', 'recording'],
+                    self::CDR_CONTROLLER => ['lookup', 'detail'],
                 ],
                 'settings' => [
                     self::CONTROLLER => ['index', 'save', 'saveModel'],

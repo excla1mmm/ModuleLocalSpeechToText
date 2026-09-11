@@ -12,6 +12,8 @@ class AssetProvider
     private const string MODULE_UNIQUE_ID = 'ModuleLocalSpeechToText';
     private const string CSS_FILE = 'module-local-speech-to-text.css';
     private const string JS_FILE = 'module-local-speech-to-text.js';
+    private const string CDR_CSS_FILE = 'module-local-speech-to-text-cdr.css';
+    private const string CDR_JS_FILE = 'module-local-speech-to-text-cdr.js';
 
     public static function addCss(Manager $assets): void
     {
@@ -32,5 +34,16 @@ class AssetProvider
             ->addJs('js/vendor/moment/moment.min.js', true)
             ->addJs('js/vendor/datepicker/daterangepicker.js', true)
             ->addJs('js/cache/' . self::MODULE_UNIQUE_ID . '/' . self::JS_FILE, true);
+    }
+
+    public static function addCdrAssets(Manager $assets): void
+    {
+        $assets
+            ->collection(AdminAssetProvider::HEADER_CSS)
+            ->addCss('css/cache/' . self::MODULE_UNIQUE_ID . '/' . self::CSS_FILE, true)
+            ->addCss('css/cache/' . self::MODULE_UNIQUE_ID . '/' . self::CDR_CSS_FILE, true);
+        $assets
+            ->collection(AdminAssetProvider::FOOTER_JS)
+            ->addJs('js/cache/' . self::MODULE_UNIQUE_ID . '/' . self::CDR_JS_FILE, true);
     }
 }

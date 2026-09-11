@@ -9,12 +9,16 @@ use MikoPBX\Core\Workers\Cron\WorkerSafeScriptsCore;
 use MikoPBX\Core\Workers\Libs\WorkerModelsEvents\Actions\ReloadRestAPIWorkerAction;
 use MikoPBX\Core\Workers\WorkerModelsEvents;
 use MikoPBX\Modules\Config\ConfigClass;
+use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\bin\WorkerLocalSpeechToTextJobs;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Phalcon\Assets\Manager;
+use Phalcon\Mvc\Dispatcher;
+use Phalcon\Mvc\View;
 use Throwable;
 
 class LocalSpeechToTextConf extends ConfigClass
@@ -22,6 +26,25 @@ class LocalSpeechToTextConf extends ConfigClass
     private const int DRAIN_TIMEOUT_MILLISECONDS = 30000;
 
     private ?ModuleLifecycleGate $lifecycleGate = null;
+
+    public function onAfterAssetsPrepared(Manager $assets, Dispatcher $dispatcher): void
+    {
+        if (
+            $dispatcher->getControllerName() === 'CallDetailRecords'
+            && $dispatcher->getActionName() === 'index'
+        ) {
+            AssetProvider::addCdrAssets($assets);
+        }
+    }
+
+    public function onVoltBlockCompile(string $controller, string $blockName, View $view): string
+    {
+        if ($controller !== 'CallDetailRecords' || $blockName !== 'Footer') {
+            return '';
+        }
+
+        return 'Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/cdrTranscriptModal';
+    }
 
     public function getModuleWorkers(): array
     {

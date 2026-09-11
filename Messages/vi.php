@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Hiển thị bản ghi',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Bản ghi cuộc gọi',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Đang tải bản ghi…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Không thể tải bản ghi',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Bản ghi cuộc gọi không khả dụng',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'xem bản ghi và bản chép lời cuộc gọi',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'quản lý cài đặt mô-đun',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'kết nối worker và quản lý hàng đợi cùng nhật ký',

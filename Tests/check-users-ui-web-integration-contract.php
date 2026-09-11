@@ -11,12 +11,14 @@ function expectUsersUIWeb(bool $condition, string $message): void
 }
 
 $controller = file_get_contents(dirname(__DIR__) . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$cdrControllerPath = dirname(__DIR__) . '/App/Controllers/CdrTranscriptController.php';
+$cdrController = is_file($cdrControllerPath) ? file_get_contents($cdrControllerPath) : false;
 $base = file_get_contents(dirname(__DIR__) . '/App/Controllers/LocalSpeechToTextBaseController.php');
 $indexView = file_get_contents(dirname(__DIR__) . '/Lib/Services/IndexViewService.php');
 $template = file_get_contents(dirname(__DIR__) . '/App/Views/ModuleLocalSpeechToText/index.volt');
 
 expectUsersUIWeb(
-    is_string($controller) && is_string($base) && is_string($indexView) && is_string($template),
+    is_string($controller) && is_string($cdrController) && is_string($base) && is_string($indexView) && is_string($template),
     'Unable to read STT web integration files'
 );
 
@@ -37,6 +39,14 @@ foreach ([
     $next = strpos($controller, "\n    public function ", $start + 1);
     $body = substr($controller, $start, $next === false ? null : $next - $start);
     expectUsersUIWeb(str_contains($body, $capability), "{$action} is not guarded by {$capability}");
+}
+foreach (['lookupAction', 'detailAction'] as $action) {
+    $start = strpos($cdrController, 'public function ' . $action);
+    expectUsersUIWeb($start !== false, "Missing CDR {$action}");
+    $next = strpos($cdrController, "\n    public function ", $start + 1);
+    $body = substr($cdrController, $start, $next === false ? null : $next - $start);
+    expectUsersUIWeb(str_contains($body, 'canViewTranscripts()'), "CDR {$action} lacks transcript permission");
+    expectUsersUIWeb(str_contains($body, 'usersUICallScope()'), "CDR {$action} lacks logical-call scope");
 }
 
 expectUsersUIWeb(

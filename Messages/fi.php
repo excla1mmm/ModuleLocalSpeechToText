@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Näytä litterointi',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Puhelun litterointi',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Ladataan litterointia…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Litterointia ei voitu ladata',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Puhelun litterointi ei ole saatavilla',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'tarkastele litterointeja ja puhelutallenteita',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'hallitse moduulin asetuksia',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'yhdistä workerit ja hallitse jonoa ja lokeja',

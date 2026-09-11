@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Átirat megjelenítése',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Hívásátirat',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Átirat betöltése…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Az átirat nem tölthető be',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'A hívásátirat nem érhető el',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'átiratok és hívásfelvételek megtekintése',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modulbeállítások kezelése',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'workerek csatlakoztatása, a várólista és a naplók kezelése',

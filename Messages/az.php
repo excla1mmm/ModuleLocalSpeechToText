@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Transkripsiyanı göstər',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Zəng transkripsiyası',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Transkripsiya yüklənir…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transkripsiyanı yükləmək mümkün olmadı',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Zəng transkripsiyası mövcud deyil',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'transkriptlərə və zəng yazılarına baxış',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modul parametrlərinin idarə edilməsi',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'işçiləri qoşmaq, növbəyə və jurnallara baxmaq',

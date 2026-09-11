@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Транскрипцийг харуулах',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Дуудлагын транскрипц',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Транскрипцийг ачаалж байна…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Транскрипцийг ачаалж чадсангүй',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Дуудлагын транскрипц боломжгүй',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'дуудлагын бичлэг болон хөрвүүлгийг харах',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'модулийн тохиргоог удирдах',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'worker холбох, дараалал болон журналыг удирдах',

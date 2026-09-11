@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Transcript tonen',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Gesprekstranscript',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Transcript laden…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transcript kon niet worden geladen',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Gesprekstranscript is niet beschikbaar',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'transcripties en gespreksopnamen bekijken',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'module-instellingen beheren',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'workers verbinden en wachtrij en logboeken beheren',

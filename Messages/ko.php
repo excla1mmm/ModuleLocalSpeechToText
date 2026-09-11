@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => '통화 기록 보기',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => '통화 기록',
+    'module_local_speech_to_text_CdrTranscriptLoading' => '통화 기록을 불러오는 중…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => '통화 기록을 불러오지 못했습니다',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => '통화 기록을 사용할 수 없습니다',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => '통화 녹음 및 전사 보기',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => '모듈 설정 관리',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => '워커 연결, 대기열 및 로그 관리',

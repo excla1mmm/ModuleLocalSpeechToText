@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Dökümü göster',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Arama dökümü',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Döküm yükleniyor…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Döküm yüklenemedi',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Arama dökümü kullanılamıyor',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'transkriptleri ve çağrı kayıtlarını görüntüleme',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'modül ayarlarını yönetme',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'worker bağlantısı, kuyruk ve günlük yönetimi',

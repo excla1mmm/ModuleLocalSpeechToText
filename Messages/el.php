@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Προβολή απομαγνητοφώνησης',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Απομαγνητοφώνηση κλήσης',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Φόρτωση απομαγνητοφώνησης…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Αποτυχία φόρτωσης απομαγνητοφώνησης',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Η απομαγνητοφώνηση κλήσης δεν είναι διαθέσιμη',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'προβολή απομαγνητοφωνήσεων και εγγραφών κλήσεων',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'διαχείριση ρυθμίσεων μονάδας',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'σύνδεση workers και διαχείριση ουράς και αρχείων καταγραφής',

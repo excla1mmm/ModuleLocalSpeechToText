@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Afficher la transcription',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcription de l’appel',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Chargement de la transcription…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Impossible de charger la transcription',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'La transcription de l’appel est indisponible',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'consulter les transcriptions et les enregistrements d’appels',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'gérer les paramètres du module',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'connecter les workers et gérer la file et les journaux',

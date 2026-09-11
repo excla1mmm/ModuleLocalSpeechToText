@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Показать расшифровку',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Расшифровка звонка',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Загрузка расшифровки…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Не удалось загрузить расшифровку',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Расшифровка звонка недоступна',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'просмотр расшифровок и записей звонков',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'управление настройками модуля',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'подключение обработчиков, просмотр очереди и журналов',

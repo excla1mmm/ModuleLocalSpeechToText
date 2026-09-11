@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Vis transskription',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Opkaldstransskription',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Indlæser transskription…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transskriptionen kunne ikke indlæses',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Opkaldstransskriptionen er ikke tilgængelig',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'se transskriptioner og opkaldsoptagelser',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'administrer modulindstillinger',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'tilslut workers og administrer kø og logfiler',

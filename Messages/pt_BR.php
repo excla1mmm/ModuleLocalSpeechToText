@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Mostrar transcrição',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcrição da chamada',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Carregando transcrição…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Não foi possível carregar a transcrição',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'A transcrição da chamada não está disponível',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'ver transcrições e gravações de chamadas',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'gerenciar as configurações do módulo',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'conectar workers e gerenciar a fila e os registros',

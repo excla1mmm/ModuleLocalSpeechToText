@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'แสดงข้อความถอดเสียง',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ข้อความถอดเสียงการโทร',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'กำลังโหลดข้อความถอดเสียง…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'โหลดข้อความถอดเสียงไม่สำเร็จ',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'ไม่มีข้อความถอดเสียงการโทร',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'ดูข้อความถอดเสียงและบันทึกการโทร',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'จัดการการตั้งค่าโมดูล',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'เชื่อมต่อ worker และจัดการคิวกับบันทึก',

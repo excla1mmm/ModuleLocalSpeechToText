@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => '查看轉寫',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => '通話轉寫',
+    'module_local_speech_to_text_CdrTranscriptLoading' => '正在載入轉寫…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => '無法載入轉寫',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => '通話轉寫無法使用',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => '檢視轉錄與通話錄音',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => '管理模組設定',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => '連接工作程序並管理佇列和日誌',

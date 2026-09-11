@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'ტრანსკრიპტის ჩვენება',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ზარის ტრანსკრიპტი',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'ტრანსკრიპტი იტვირთება…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'ტრანსკრიპტის ჩატვირთვა ვერ მოხერხდა',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'ზარის ტრანსკრიპტი მიუწვდომელია',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'ტრანსკრიპტებისა და ზარის ჩანაწერების ნახვა',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'მოდულის პარამეტრების მართვა',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'ვორკერების დაკავშირება, რიგისა და ჟურნალების მართვა',

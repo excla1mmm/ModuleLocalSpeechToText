@@ -1,0 +1,58 @@
+.stt-cdr-transcript-button {
+    margin-right: .5em !important;
+}
+
+.stt-cdr-transcript-duration-button {
+    margin-left: .5em !important;
+    margin-right: 0 !important;
+}
+
+.stt-cdr-transcript-modal .content {
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+.stt-cdr-transcript-modal [hidden] {
+    display: none !important;
+}
+
+.stt-cdr-transcript-loading {
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.stt-cdr-transcript-loader {
+    margin-bottom: 1rem !important;
+}
+
+.stt-cdr-transcript-call-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1.25rem;
+    color: rgba(0, 0, 0, .6);
+}
+
+.stt-cdr-transcript-call-meta span:not(:empty) + span:not(:empty)::before {
+    content: "·";
+    margin-right: 1.25rem;
+}
+
+.stt-cdr-transcript-conversation {
+    margin-top: 1rem;
+}
+
+@media only screen and (max-width: 767px) {
+    .ui.modal.stt-cdr-transcript-modal {
+        width: calc(100% - 2rem);
+        margin: 0 0 0 -1rem;
+    }
+
+    .stt-cdr-transcript-call-meta {
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .stt-cdr-transcript-call-meta span:not(:empty) + span:not(:empty)::before {
+        content: none;
+    }
+}

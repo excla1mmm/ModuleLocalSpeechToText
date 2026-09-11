@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => '文字起こしを表示',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => '通話の文字起こし',
+    'module_local_speech_to_text_CdrTranscriptLoading' => '文字起こしを読み込み中…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => '文字起こしを読み込めませんでした',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => '通話の文字起こしを利用できません',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => '文字起こしと通話録音の表示',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'モジュール設定の管理',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'ワーカーの接続、キューとログの管理',

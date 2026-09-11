@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Afișează transcrierea',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcrierea apelului',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Se încarcă transcrierea…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transcrierea nu a putut fi încărcată',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Transcrierea apelului nu este disponibilă',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'vizualizarea transcrierilor și înregistrărilor apelurilor',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'gestionarea setărilor modulului',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'conectarea workerilor și gestionarea cozii și jurnalelor',

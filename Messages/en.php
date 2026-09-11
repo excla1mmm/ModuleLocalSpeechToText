@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Show transcript',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Call transcript',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Loading transcript…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Failed to load transcript',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Call transcript is unavailable',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'view transcripts and call recordings',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'manage module settings',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'connect workers and manage the queue and logs',

@@ -24,13 +24,15 @@ namespace {
     }
 
     $controller = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
+    $cdrController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
     $rules = ModuleLocalSpeechToTextACL::getLinkedControllerActions();
     $actions = $rules[$controller] ?? [];
 
     expectUsersUiAcl(array_keys($actions) === ['transcripts', 'settings', 'system'], 'STT must expose three cohesive UI permissions');
     expectUsersUiAcl(
-        ($actions['transcripts'][$controller] ?? []) === ['index', 'transcript', 'recording'],
-        'Transcript access must open the shared page and own detail and recording MVC actions'
+        ($actions['transcripts'][$controller] ?? []) === ['index', 'transcript', 'recording']
+            && ($actions['transcripts'][$cdrController] ?? []) === ['lookup', 'detail'],
+        'Transcript access must own page, recording, and isolated CDR transcript actions'
     );
     expectUsersUiAcl(
         ($actions['settings'][$controller] ?? []) === ['index', 'save', 'saveModel'],

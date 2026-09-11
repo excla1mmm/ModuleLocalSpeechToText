@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CdrTranscriptButton' => 'Prikaži transkript',
+    'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transkript poziva',
+    'module_local_speech_to_text_CdrTranscriptLoading' => 'Učitavanje transkripta…',
+    'module_local_speech_to_text_CdrTranscriptLoadError' => 'Transkript se nije mogao učitati',
+    'module_local_speech_to_text_CdrTranscriptNotFound' => 'Transkript poziva nije dostupan',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts' => 'pregled transkripata i snimki poziva',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_settings' => 'upravljanje postavkama modula',
     'module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_system' => 'povezivanje workera i upravljanje redom i zapisnicima',

@@ -12,6 +12,8 @@ use Modules\ModuleLocalSpeechToText\App\Forms\ModuleLocalSpeechToTextForm;
 use Modules\ModuleLocalSpeechToText\App\Providers\AssetProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallRecordingService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptIntegrationService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CdrTranscriptService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
@@ -294,6 +296,15 @@ class LocalSpeechToTextBaseController extends BaseController
     protected function conversationService(): TranscriptConversationService
     {
         return new TranscriptConversationService($this->translation);
+    }
+
+    protected function cdrTranscriptService(): CdrTranscriptService
+    {
+        return new CdrTranscriptService(
+            $this->translation,
+            $this->usersUITranscriptAccessService(),
+            new CallTranscriptIntegrationService(),
+        );
     }
 
     protected function transcriptUserJsonService(): TranscriptUserJsonService
