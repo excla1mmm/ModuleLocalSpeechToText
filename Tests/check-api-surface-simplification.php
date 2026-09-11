@@ -39,13 +39,19 @@ expectSimplifiedSTTSurface(
 
 $events = $read('Lib/Services/CallTranscriptIntegrationService.php');
 $events = strstr($events, 'public function callTranscriptDetail', true) ?: $events;
-foreach (["'call_id' =>", "'content_hash' =>", "'parts_hash' =>", "'completeness_status' =>", "'created_at' => \$rowCreatedAt", "'limit' => \$limit"] as $redundantEventField) {
+foreach (["'call_id' =>", "'content_hash' =>", "'parts_hash' =>", "'completeness_status' =>"] as $identityField) {
+    expectSimplifiedSTTSurface(str_contains($events, $identityField), "call transcript event identity missing: {$identityField}");
+}
+foreach (["'created_at' => \$rowCreatedAt", "'limit' => \$limit"] as $redundantEventField) {
     expectSimplifiedSTTSurface(!str_contains($events, $redundantEventField), "call transcript event duplicate remains: {$redundantEventField}");
 }
 
 $callEventsSchema = $read('Lib/RestAPI/CallTranscriptEvents/DataStructure.php');
 $callEventsSchema = strstr($callEventsSchema, 'public static function getListItemSchema') ?: $callEventsSchema;
-foreach (["'call_id' =>", "'content_hash' =>", "'parts_hash' =>", "'completeness_status' =>", "'created_at' =>", "'limit' =>"] as $redundantEventSchemaField) {
+foreach (["'call_id' =>", "'content_hash' =>", "'parts_hash' =>", "'completeness_status' =>"] as $identitySchemaField) {
+    expectSimplifiedSTTSurface(str_contains($callEventsSchema, $identitySchemaField), "call transcript event schema identity missing: {$identitySchemaField}");
+}
+foreach (["'created_at' =>", "'limit' =>"] as $redundantEventSchemaField) {
     expectSimplifiedSTTSurface(!str_contains($callEventsSchema, $redundantEventSchemaField), "call transcript event schema duplicate remains: {$redundantEventSchemaField}");
 }
 
