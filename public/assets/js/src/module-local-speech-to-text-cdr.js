@@ -238,47 +238,7 @@
             $modal.find('.stt-cdr-transcript-error').removeAttr('hidden').addClass('error').text(message);
         }
 
-        function dialogueHeader(speaker) {
-            const isRight = speaker && speaker.key === 'right';
-            return $('<div>', {
-                class: `stt-dialogue-header ${isRight ? 'stt-speaker-right' : 'stt-speaker-left'}`,
-            }).append(
-                $('<span>', { class: 'stt-speaker-dot' }),
-                document.createTextNode(String(speaker && speaker.label ? speaker.label : ''))
-            );
-        }
-
-        function dialogueTurn(turn) {
-            const isRight = turn && turn.speakerKey === 'right';
-            const $row = $('<div>', {
-                class: `stt-dialogue-row ${isRight ? 'stt-dialogue-row-right' : 'stt-dialogue-row-left'}`,
-            });
-            const $left = $('<div>', { class: 'stt-dialogue-cell stt-dialogue-cell-left' });
-            const $right = $('<div>', { class: 'stt-dialogue-cell stt-dialogue-cell-right' });
-            const $bubble = $('<div>', {
-                class: `stt-dialogue-turn ${isRight ? 'stt-turn-right' : 'stt-turn-left'}`,
-            });
-            const $rail = $('<div>', { class: 'stt-turn-rail' }).append(
-                $('<span>', { class: 'stt-turn-line' }),
-                $('<span>', { class: 'stt-turn-time' }).text(String(turn.endLabel || ''))
-            );
-            const $card = $('<div>', { class: 'stt-turn-card' });
-            const $meta = $('<div>', { class: 'stt-turn-meta' }).append(
-                $('<span>').text(String(turn.rangeLabel || '')),
-                $('<span>').text(String(turn.speakerLabel || ''))
-            );
-            $card.append($meta, $('<div>', { class: 'stt-turn-text', dir: 'auto' }).text(String(turn.text || '')));
-            $bubble.append($rail, $card);
-            if (isRight) {
-                $right.append($bubble);
-            } else {
-                $left.append($bubble);
-            }
-            return $row.append($left, $right);
-        }
-
         function renderConversation(conversation) {
-            const speakers = conversation && Array.isArray(conversation.speakers) ? conversation.speakers : [];
             const timeline = conversation && Array.isArray(conversation.timeline) ? conversation.timeline : [];
             const $target = $modal.find('.stt-cdr-transcript-conversation').empty().removeAttr('hidden');
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
@@ -287,19 +247,15 @@
                 $target.append($('<div>', { class: 'ui message' }).text(labels.empty));
                 return;
             }
-
-            const $board = $('<div>', { class: 'stt-dialogue-board' });
-            const $headers = $('<div>', { class: 'stt-dialogue-headers' });
-            speakers.forEach(function (speaker) {
-                $headers.append(dialogueHeader(speaker));
-            });
-            const $timeline = $('<div>', { class: 'stt-dialogue-timeline' });
-            timeline.forEach(function (turn) {
-                if (turn && typeof turn === 'object') {
-                    $timeline.append(dialogueTurn(turn));
-                }
-            });
-            $target.append($board.append($headers, $timeline));
+            if (!window.SttTranscriptView || typeof window.SttTranscriptView.create !== 'function') {
+                showError(labels.loadError);
+                return;
+            }
+            $target.append(window.SttTranscriptView.create(conversation, {
+                all: translate('module_local_speech_to_text_CdrHistoryAll'),
+                search: translate('module_local_speech_to_text_LogsSearch'),
+                empty: labels.empty,
+            }));
         }
 
         function openTranscript(dataTable, $button) {

@@ -11,6 +11,8 @@ class TranscriptConversationService
     private const float TRANSCRIPT_TURN_MAX_GAP_SECONDS = 2.0;
     private const float TRANSCRIPT_TURN_MAX_DURATION_SECONDS = 45.0;
     private const int TRANSCRIPT_TURN_MAX_TEXT_CHARS = 700;
+    private const float TRANSCRIPT_SILENCE_MIN_SECONDS = 10.0;
+    private const float TRANSCRIPT_OVERLAP_MIN_SECONDS = 1.0;
 
     public function __construct(private mixed $translation)
     {
@@ -65,9 +67,27 @@ class TranscriptConversationService
         );
 
         $timeline = $this->coalescedConversationTurns($utterances);
-        foreach ($timeline as &$turn) {
+        $durationSeconds = 0.0;
+        foreach ($timeline as $turn) {
+            $durationSeconds = max($durationSeconds, (float)$turn['end']);
+        }
+
+        $coveredUntil = 0.0;
+        foreach ($timeline as $index => &$turn) {
+            $start = (float)$turn['start'];
+            $end = (float)$turn['end'];
+            $gap = max(0.0, $start - $coveredUntil);
             $turn['endLabel'] = $this->timeLabel((float)$turn['orderTime']);
-            $turn['rangeLabel'] = $this->rangeLabel((float)$turn['start'], (float)$turn['end']);
+            $turn['startLabel'] = $this->timeLabel($start);
+            $turn['rangeLabel'] = $this->rangeLabel($start, $end);
+            $turn['durationLabel'] = $this->timeLabel(max(0.0, $end - $start));
+            $turn['gapBeforeLabel'] = $gap > self::TRANSCRIPT_SILENCE_MIN_SECONDS
+                ? $this->timeLabel($gap)
+                : '';
+            $turn['overlap'] = $this->turnOverlaps($turn, $timeline, $index);
+            $turn['startPercent'] = $this->timelinePercent($start, $durationSeconds);
+            $turn['widthPercent'] = $this->timelinePercent(max(0.0, $end - $start), $durationSeconds);
+            $coveredUntil = max($coveredUntil, $end);
             $speakers[$turn['speakerKey']]['segments'][] = $turn;
         }
         unset($turn);
@@ -91,6 +111,9 @@ class TranscriptConversationService
             'speakers' => array_values($speakers),
             'timeline' => $timeline,
             'hasSegments' => count($timeline) > 0,
+            'turnCount' => count($timeline),
+            'durationSeconds' => $durationSeconds,
+            'durationLabel' => $this->timeLabel($durationSeconds),
         ];
     }
 
@@ -193,7 +216,40 @@ class TranscriptConversationService
             ],
             'timeline' => [],
             'hasSegments' => false,
+            'turnCount' => 0,
+            'durationSeconds' => 0.0,
+            'durationLabel' => '0:00',
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $turn
+     * @param array<int, array<string, mixed>> $timeline
+     */
+    private function turnOverlaps(array $turn, array $timeline, int $turnIndex): bool
+    {
+        $start = (float)$turn['start'];
+        $end = (float)$turn['end'];
+        foreach ($timeline as $index => $other) {
+            if ($index === $turnIndex || $other['speakerKey'] === $turn['speakerKey']) {
+                continue;
+            }
+            $overlap = min($end, (float)$other['end']) - max($start, (float)$other['start']);
+            if ($overlap > self::TRANSCRIPT_OVERLAP_MIN_SECONDS) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function timelinePercent(float $seconds, float $durationSeconds): float
+    {
+        if ($durationSeconds <= 0) {
+            return 0.0;
+        }
+
+        return round(max(0.0, min(100.0, ($seconds / $durationSeconds) * 100)), 4);
     }
 
     /**

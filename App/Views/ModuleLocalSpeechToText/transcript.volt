@@ -50,58 +50,72 @@
     </div>
 
     {% if conversation['hasSegments'] %}
-        <div class="stt-dialogue-board">
-            <div class="stt-dialogue-headers">
-                {% for speaker in conversation['speakers'] %}
-                    <div class="stt-dialogue-header stt-speaker-{{ speaker['key']|e }}">
-                        <span class="stt-speaker-dot"></span>
-                        {{ speaker['label']|e }}
+        <div class="stt-transcript-view">
+            <div class="stt-transcript-overview">
+                <div class="stt-transcript-overview-header">
+                    <span class="stt-transcript-duration">{{ conversation['durationLabel']|e }}</span>
+                    <div class="stt-transcript-legend">
+                        {% for speaker in conversation['speakers'] %}
+                            <span class="stt-transcript-legend-item stt-speaker-{{ speaker['key']|e }}">
+                                <span class="stt-speaker-dot"></span>
+                                {{ speaker['label']|e }}
+                            </span>
+                        {% endfor %}
                     </div>
-                {% endfor %}
+                </div>
+
+                <div class="stt-transcript-lanes">
+                    {% for speaker in conversation['speakers'] %}
+                        <div class="stt-transcript-lane stt-speaker-{{ speaker['key']|e }}">
+                            {% for turn in speaker['segments'] %}
+                                <span class="stt-transcript-lane-segment" style="left: {{ turn['startPercent']|e }}%; width: {{ turn['widthPercent']|e }}%"></span>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="stt-transcript-scale">
+                    <span>0:00</span>
+                    <span>{{ conversation['durationLabel']|e }}</span>
+                </div>
             </div>
 
-            <div class="stt-dialogue-timeline">
+            <div class="stt-transcript-toolbar">
+                <label class="stt-transcript-search">
+                    <i class="search icon"></i>
+                    <input type="search" placeholder="{{ t._('module_local_speech_to_text_LogsSearch')|e }}" aria-label="{{ t._('module_local_speech_to_text_LogsSearch')|e }}">
+                </label>
+                <div class="stt-transcript-filters" role="group">
+                    <button type="button" class="stt-transcript-filter active" data-speaker="all" aria-pressed="true">{{ t._('module_local_speech_to_text_CdrHistoryAll') }}</button>
+                    {% for speaker in conversation['speakers'] %}
+                        <button type="button" class="stt-transcript-filter" data-speaker="{{ speaker['key']|e }}" aria-pressed="false">{{ speaker['label']|e }}</button>
+                    {% endfor %}
+                </div>
+                <span class="stt-transcript-count" aria-live="polite">{{ conversation['turnCount']|e }}</span>
+            </div>
+
+            <div class="stt-transcript-list">
                 {% for turn in conversation['timeline'] %}
-                    <div class="stt-dialogue-row {% if turn['speakerKey'] === 'right' %}stt-dialogue-row-right{% else %}stt-dialogue-row-left{% endif %}">
-                        <div class="stt-dialogue-cell stt-dialogue-cell-left">
-                            {% if turn['speakerKey'] === 'right' %}
-                            {% else %}
-                                <div class="stt-dialogue-turn stt-turn-left{% if recording['hasPlayback'] %} stt-playable-turn{% endif %}" data-start="{{ turn['start']|e }}" data-end="{{ turn['end']|e }}"{% if recording['hasPlayback'] %} tabindex="0"{% endif %}>
-                                    <div class="stt-turn-rail">
-                                        <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['endLabel']|e }}</span>
-                                    </div>
-                                    <div class="stt-turn-card">
-                                        <div class="stt-turn-meta">
-                                            <span>{{ turn['rangeLabel']|e }}</span>
-                                            <span>{{ turn['speakerLabel']|e }}</span>
-                                        </div>
-                                        <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
-                                    </div>
-                                </div>
-                            {% endif %}
+                    {% if turn['gapBeforeLabel'] !== '' %}
+                        <div class="stt-transcript-gap"><span>··· {{ turn['gapBeforeLabel']|e }}</span></div>
+                    {% endif %}
+                    <article class="stt-transcript-turn stt-turn-{{ turn['speakerKey']|e }}{% if recording['hasPlayback'] %} stt-playable-turn{% endif %}"
+                             data-speaker="{{ turn['speakerKey']|e }}"
+                             data-start="{{ turn['start']|e }}"
+                             data-end="{{ turn['end']|e }}"{% if recording['hasPlayback'] %} tabindex="0"{% endif %}>
+                        <time class="stt-turn-time">{{ turn['startLabel']|e }}</time>
+                        <div class="stt-turn-content">
+                            <div class="stt-turn-meta">
+                                <span class="stt-speaker-dot"></span>
+                                <strong class="stt-turn-speaker">{{ turn['speakerLabel']|e }}</strong>
+                                <span class="stt-turn-duration">{{ turn['durationLabel']|e }}</span>
+                                {% if turn['overlap'] %}<span class="stt-turn-overlap" aria-hidden="true">∥</span>{% endif %}
+                            </div>
+                            <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
                         </div>
-
-                        <div class="stt-dialogue-cell stt-dialogue-cell-right">
-                            {% if turn['speakerKey'] === 'right' %}
-                                <div class="stt-dialogue-turn stt-turn-right{% if recording['hasPlayback'] %} stt-playable-turn{% endif %}" data-start="{{ turn['start']|e }}" data-end="{{ turn['end']|e }}"{% if recording['hasPlayback'] %} tabindex="0"{% endif %}>
-                                    <div class="stt-turn-rail">
-                                        <span class="stt-turn-line"></span>
-                                        <span class="stt-turn-time">{{ turn['endLabel']|e }}</span>
-                                    </div>
-                                    <div class="stt-turn-card">
-                                        <div class="stt-turn-meta">
-                                            <span>{{ turn['rangeLabel']|e }}</span>
-                                            <span>{{ turn['speakerLabel']|e }}</span>
-                                        </div>
-                                        <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                    </article>
                 {% endfor %}
             </div>
+            <div class="stt-transcript-empty ui message" hidden>{{ t._('module_local_speech_to_text_NoConversationSegments') }}</div>
         </div>
     {% else %}
         <div class="ui message">{{ t._('module_local_speech_to_text_NoConversationSegments') }}</div>
