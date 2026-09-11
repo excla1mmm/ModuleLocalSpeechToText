@@ -63,6 +63,8 @@ try {
     $source->exec('PRAGMA wal_autocheckpoint=0');
     $source->exec('CREATE TABLE sample(id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
     $source->exec("INSERT INTO sample(value) VALUES ('first'), ('second')");
+    $source->exec('CREATE TABLE m_STTSetting(id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT)');
+    $source->exec("INSERT INTO m_STTSetting(key,value) VALUES ('source_instance_id','0123456789abcdef0123456789abcdef')");
     file_put_contents($sourceDirectory . '/state.json', '{"preserved":true}');
     file_put_contents($sourceDirectory . '/module.db-journal', '');
     file_put_contents($sourceDirectory . '/.module-lifecycle-state-v2.json', '{"state":"disabled"}');
@@ -98,6 +100,10 @@ try {
         'Snapshot lost committed WAL rows'
     );
     expectModuleDatabaseBackup(
+        (string)$snapshot->querySingle("SELECT value FROM m_STTSetting WHERE key='source_instance_id'") === '0123456789abcdef0123456789abcdef',
+        'Snapshot changed the STT source instance identity'
+    );
+    expectModuleDatabaseBackup(
         strtolower((string)$snapshot->querySingle('PRAGMA journal_mode')) === 'delete',
         'Snapshot must be normalized to DELETE journal mode'
     );
@@ -108,6 +114,10 @@ try {
     expectModuleDatabaseBackup(
         (int)$restored->querySingle('SELECT COUNT(*) FROM sample') === 2,
         'Restore lost committed rows'
+    );
+    expectModuleDatabaseBackup(
+        (string)$restored->querySingle("SELECT value FROM m_STTSetting WHERE key='source_instance_id'") === '0123456789abcdef0123456789abcdef',
+        'Restore changed the STT source instance identity'
     );
     $restored->close();
 

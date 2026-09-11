@@ -40,7 +40,8 @@ $installBody = substr($setup, $installStart);
 expectModuleSetupRollback(
     str_contains($installBody, 'createSetupDatabaseSnapshot')
         && str_contains($installBody, 'restoreSetupDatabaseSnapshot')
-        && str_contains($installBody, 'recoverSetupDatabaseConnection'),
+        && str_contains($installBody, 'recoverSetupDatabaseConnection')
+        && str_contains($installBody, 'SttSourceInstance())->ensure'),
     'installDB must snapshot before migration and recover/restore on failure'
 );
 expectModuleSetupRollback(

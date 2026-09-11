@@ -28,6 +28,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigrator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
+use Modules\ModuleLocalSpeechToText\Lib\Services\SttSourceInstance;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiV2Migration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingIntegrityMigration;
@@ -122,6 +123,11 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 static function (): never {
                     throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
                 }
+            );
+            (new ModuleTransaction())->run(
+                $connection,
+                static fn (mixed $database): string => (new SttSourceInstance())->ensure($database),
+                0
             );
             if (!method_exists($connection, 'close') || $connection->close() === false) {
                 throw new \RuntimeException('Unable to close STT database after migrations');
@@ -379,7 +385,20 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyJobSubmissionReceiptMigration($connection),
                 'stt-schema-014-job-submission-receipts'
             ),
+            new ModuleSchemaMigration(
+                15,
+                'persistent STT source instance identity',
+                fn (mixed $connection): null => $this->applySourceInstanceIdentityMigration($connection),
+                'stt-schema-015-source-instance-identity'
+            ),
         ];
+    }
+
+    private function applySourceInstanceIdentityMigration(mixed $connection): null
+    {
+        (new SttSourceInstance())->ensure($connection);
+
+        return null;
     }
 
     private function isFreshModuleDatabase(mixed $connection): bool
