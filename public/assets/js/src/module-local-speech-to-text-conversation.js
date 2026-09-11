@@ -77,7 +77,11 @@
             var segments = Array.isArray(speaker.segments) ? speaker.segments : [];
 
             segments.forEach(function (turn) {
-                $lane.append($('<span>', { class: 'stt-transcript-lane-segment' }).css({
+                $lane.append($('<span>', {
+                    class: 'stt-transcript-lane-segment',
+                    'data-start': safeNumber(turn.start),
+                    'data-end': safeNumber(turn.end)
+                }).css({
                     left: safeNumber(turn.startPercent) + '%',
                     width: safeNumber(turn.widthPercent) + '%'
                 }));
@@ -224,9 +228,12 @@
         var $range = $seek.find('.stt-transcript-range');
         var $playhead = $seek.find('.stt-transcript-playhead');
         var $tooltip = $seek.find('.stt-transcript-seek-tooltip');
+        var $scaleEnd = $root.find('.stt-transcript-scale span').last();
+        var $segments = $seek.find('.stt-transcript-lane-segment');
         var $turns = $root.find('.stt-playable-turn');
         var pendingRangeValue = null;
         var waitingForMetadata = false;
+        var synchronizedDuration = 0;
 
         if (!audio || $range.length === 0 || $root.data('stt-player-initialized')) {
             return;
@@ -269,9 +276,27 @@
             });
         }
 
+        function synchronizeTimeline(duration) {
+            if (duration <= 0 || Math.abs(duration - synchronizedDuration) < 0.01) {
+                return;
+            }
+            synchronizedDuration = duration;
+            $scaleEnd.text(formatTime(duration));
+            $segments.each(function () {
+                var $segment = $(this);
+                var start = Math.min(safeNumber($segment.data('start')), duration);
+                var end = Math.min(Math.max(safeNumber($segment.data('end')), start), duration);
+                $segment.css({
+                    left: ((start / duration) * 100) + '%',
+                    width: (((end - start) / duration) * 100) + '%'
+                });
+            });
+        }
+
         function update() {
             var duration = currentDuration();
             var value = duration > 0 ? Math.min(1000, Math.round((audio.currentTime / duration) * 1000)) : 0;
+            synchronizeTimeline(duration);
             $range.val(value).attr('aria-valuetext', formatTime(audio.currentTime));
             $playhead.css('left', (value / 10) + '%');
             $duration.text(formatTime(audio.currentTime) + ' / ' + (duration > 0 ? formatTime(duration) : '--:--'));
@@ -336,6 +361,10 @@
             }
         }
 
+        function synchronize() {
+            update();
+        }
+
         $playButton.on('click.sttTranscript', function () {
             if (audio.paused) {
                 play();
@@ -361,7 +390,7 @@
             }
         });
 
-        audio.addEventListener('loadedmetadata', update);
+        audio.addEventListener('loadedmetadata', synchronize);
         audio.addEventListener('timeupdate', update);
         audio.addEventListener('play', function () {
             setPlayIcon(true);
@@ -374,6 +403,7 @@
             update();
         });
         update();
+        ensureSource();
     }
 
     function initialize(root) {

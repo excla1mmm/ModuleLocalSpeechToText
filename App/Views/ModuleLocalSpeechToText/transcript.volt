@@ -54,7 +54,10 @@
                         {% for speaker in conversation['speakers'] %}
                             <div class="stt-transcript-lane stt-speaker-{{ speaker['key']|e }}">
                                 {% for turn in speaker['segments'] %}
-                                    <span class="stt-transcript-lane-segment" style="left: {{ turn['startPercent']|e }}%; width: {{ turn['widthPercent']|e }}%"></span>
+                                    <span class="stt-transcript-lane-segment"
+                                          data-start="{{ turn['start']|e }}"
+                                          data-end="{{ turn['end']|e }}"
+                                          style="left: {{ turn['startPercent']|e }}%; width: {{ turn['widthPercent']|e }}%"></span>
                                 {% endfor %}
                             </div>
                         {% endfor %}

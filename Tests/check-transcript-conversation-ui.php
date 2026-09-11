@@ -33,8 +33,19 @@ expectTranscriptUi(str_contains($viewJs, 'stt-transcript-search'), 'shared trans
 expectTranscriptUi(!str_contains($viewJs, 'stt-turn-overlap'), 'CDR transcript must not render overlap badges');
 expectTranscriptUi(str_contains($template, 'stt-transcript-range'), 'speech timeline must contain the player range control');
 expectTranscriptUi(str_contains($template, 'stt-transcript-playhead'), 'speech timeline must render the live playhead');
+expectTranscriptUi(
+    str_contains($template, 'data-start="{{ turn[\'start\']|e }}"')
+        && str_contains($template, 'data-end="{{ turn[\'end\']|e }}"'),
+    'server-rendered speech lanes must expose segment timing for duration synchronization'
+);
 expectTranscriptUi(!str_contains($template, 'stt-player-range-wrap'), 'separate recording slider must be removed');
 expectTranscriptUi(str_contains($viewJs, 'function initializePlayer'), 'shared interactive timeline player missing');
+expectTranscriptUi(
+    str_contains($viewJs, 'function synchronizeTimeline(duration)')
+        && str_contains($viewJs, "find('.stt-transcript-scale span').last()")
+        && str_contains($viewJs, "audio.addEventListener('loadedmetadata', synchronize)"),
+    'audio metadata must synchronize the scale label and speech geometry'
+);
 expectTranscriptUi(str_contains($viewJs, "audio.currentTime = (duration * value) / 1000"), 'timeline range must seek the recording');
 expectTranscriptUi(!str_contains($moduleJs, 'function initializeTranscriptPlayer'), 'legacy separate player implementation must be removed');
 expectTranscriptUi(str_contains($cdrJs, 'SttTranscriptView.create'), 'CDR modal must use the shared transcript renderer');
