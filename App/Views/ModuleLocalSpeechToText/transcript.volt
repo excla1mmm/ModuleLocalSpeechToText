@@ -102,7 +102,6 @@
                             <div class="stt-turn-meta">
                                 <span class="stt-speaker-dot"></span>
                                 <strong class="stt-turn-speaker">{{ turn['speakerLabel']|e }}</strong>
-                                <span class="stt-turn-duration">{{ turn['durationLabel']|e }}</span>
                             </div>
                             <div class="stt-turn-text" dir="auto">{{ turn['text']|e }}</div>
                         </div>

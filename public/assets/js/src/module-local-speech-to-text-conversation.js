@@ -158,8 +158,7 @@
         });
         var $meta = $('<div>', { class: 'stt-turn-meta' }).append(
             $('<span>', { class: 'stt-speaker-dot' }),
-            $('<strong>', { class: 'stt-turn-speaker' }).text(String(turn.speakerLabel || '')),
-            $('<span>', { class: 'stt-turn-duration' }).text(String(turn.durationLabel || ''))
+            $('<strong>', { class: 'stt-turn-speaker' }).text(String(turn.speakerLabel || ''))
         );
 
         return $row.append(

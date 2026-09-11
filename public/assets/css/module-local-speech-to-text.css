@@ -962,10 +962,6 @@
     color: #5c6f84;
 }
 
-.module-local-speech-to-text .stt-turn-duration {
-    font-variant-numeric: tabular-nums;
-}
-
 .module-local-speech-to-text .stt-turn-text {
     color: rgba(0, 0, 0, 0.82);
     font-size: 1.02em;
