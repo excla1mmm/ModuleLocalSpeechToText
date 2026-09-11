@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
-use RuntimeException;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CdrTranscriptNotFoundException;
 
 final class CdrTranscriptController extends LocalSpeechToTextBaseController
 {
@@ -37,7 +37,7 @@ final class CdrTranscriptController extends LocalSpeechToTextBaseController
                 (string)$this->request->getQuery('call_id', 'string', ''),
                 $this->usersUICallScope(),
             );
-        } catch (RuntimeException) {
+        } catch (CdrTranscriptNotFoundException) {
             $this->response->setStatusCode(404, 'Not Found');
             $this->view->success = false;
             $this->view->error = 'transcript_not_found';

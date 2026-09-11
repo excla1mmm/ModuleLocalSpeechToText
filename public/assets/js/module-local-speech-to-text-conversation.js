@@ -51,7 +51,9 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
       $player.append($('<a>', {
         "class": 'stt-player-download',
         href: String(labels.downloadUrl),
-        'data-content': labels.download
+        'data-content': labels.download,
+        'aria-label': labels.download,
+        title: labels.download
       }).append($('<i>', {
         "class": 'download icon'
       })));

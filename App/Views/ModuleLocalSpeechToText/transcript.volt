@@ -31,7 +31,11 @@
                             </button>
                             <span class="stt-player-duration">00:00 / {% if recording['durationLabel'] !== '' %}{{ recording['durationLabel']|e }}{% else %}{{ conversation['durationLabel']|e }}{% endif %}</span>
                             {% if recording['downloadUrl'] !== '' %}
-                                <a class="stt-player-download" href="{{ recording['downloadUrl']|e }}" data-content="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}">
+                                <a class="stt-player-download"
+                                   href="{{ recording['downloadUrl']|e }}"
+                                   data-content="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}"
+                                   aria-label="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}"
+                                   title="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}">
                                     <i class="download icon"></i>
                                 </a>
                             {% endif %}

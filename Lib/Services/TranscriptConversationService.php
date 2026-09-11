@@ -18,11 +18,11 @@ class TranscriptConversationService
     {
     }
 
-    public function conversationFromTranscript(string $transcript): array
+    public function conversationFromTranscript(string $transcript, bool $timelineReliable = true): array
     {
         $segments = json_decode($transcript, true);
         if (!is_array($segments)) {
-            return $this->emptyConversation();
+            return $this->emptyConversation($timelineReliable);
         }
 
         $speakers = [
@@ -32,7 +32,7 @@ class TranscriptConversationService
 
         $utterances = [];
 
-        foreach ($segments as $segment) {
+        foreach ($segments as $segmentIndex => $segment) {
             if (!is_array($segment)) {
                 continue;
             }
@@ -56,15 +56,19 @@ class TranscriptConversationService
                 'start' => $start,
                 'end' => $end,
                 'orderTime' => $orderTime,
+                'orderIndex' => $segmentIndex,
+                'sourceKey' => (string)($segment['result_id'] ?? $segment['source_label'] ?? ''),
             ];
             $utterances[] = $utterance;
         }
 
-        usort(
-            $utterances,
-            static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
-                <=> [$right['orderTime'], $right['start'], $right['end']]
-        );
+        if ($timelineReliable) {
+            usort(
+                $utterances,
+                static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
+                    <=> [$right['orderTime'], $right['start'], $right['end']]
+            );
+        }
 
         $timeline = $this->coalescedConversationTurns($utterances);
         $durationSeconds = 0.0;
@@ -88,24 +92,29 @@ class TranscriptConversationService
             $turn['startPercent'] = $this->timelinePercent($start, $durationSeconds);
             $turn['widthPercent'] = $this->timelinePercent(max(0.0, $end - $start), $durationSeconds);
             $coveredUntil = max($coveredUntil, $end);
+            unset($turn['sourceKey'], $turn['orderIndex']);
             $speakers[$turn['speakerKey']]['segments'][] = $turn;
         }
         unset($turn);
 
         foreach ($speakers as &$speaker) {
-            usort(
-                $speaker['segments'],
-                static fn (array $left, array $right): int => [$left['orderTime'], $left['start']]
-                    <=> [$right['orderTime'], $right['start']]
-            );
+            if ($timelineReliable) {
+                usort(
+                    $speaker['segments'],
+                    static fn (array $left, array $right): int => [$left['orderTime'], $left['start']]
+                        <=> [$right['orderTime'], $right['start']]
+                );
+            }
         }
         unset($speaker);
 
-        usort(
-            $timeline,
-            static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
-                <=> [$right['orderTime'], $right['start'], $right['end']]
-        );
+        if ($timelineReliable) {
+            usort(
+                $timeline,
+                static fn (array $left, array $right): int => [$left['orderTime'], $left['start'], $left['end']]
+                    <=> [$right['orderTime'], $right['start'], $right['end']]
+            );
+        }
 
         return [
             'speakers' => array_values($speakers),
@@ -114,6 +123,7 @@ class TranscriptConversationService
             'turnCount' => count($timeline),
             'durationSeconds' => $durationSeconds,
             'durationLabel' => $this->timeLabel($durationSeconds),
+            'timelineReliable' => $timelineReliable,
         ];
     }
 
@@ -152,6 +162,9 @@ class TranscriptConversationService
     private function canAppendConversationTurn(array $turn, array $utterance): bool
     {
         if ((string)($turn['speakerKey'] ?? '') !== (string)($utterance['speakerKey'] ?? '')) {
+            return false;
+        }
+        if ((string)($turn['sourceKey'] ?? '') !== (string)($utterance['sourceKey'] ?? '')) {
             return false;
         }
 
@@ -207,7 +220,7 @@ class TranscriptConversationService
     /**
      * @return array<string, mixed>
      */
-    private function emptyConversation(): array
+    private function emptyConversation(bool $timelineReliable): array
     {
         return [
             'speakers' => [
@@ -219,6 +232,7 @@ class TranscriptConversationService
             'turnCount' => 0,
             'durationSeconds' => 0.0,
             'durationLabel' => '0:00',
+            'timelineReliable' => $timelineReliable,
         ];
     }
 

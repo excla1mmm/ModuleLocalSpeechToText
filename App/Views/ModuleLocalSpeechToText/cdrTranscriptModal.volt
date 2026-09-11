@@ -14,7 +14,10 @@
             <div class="ui active centered inline loader stt-cdr-transcript-loader"></div>
             <div>{{ t._('module_local_speech_to_text_CdrTranscriptLoading') }}</div>
         </div>
-        <div class="ui message stt-cdr-transcript-error" hidden></div>
+        <div class="ui message stt-cdr-transcript-error"
+             role="alert"
+             aria-live="assertive"
+             hidden></div>
         <div class="stt-cdr-transcript-call-meta" hidden>
             <span data-field="date"></span>
             <span data-field="source"></span>

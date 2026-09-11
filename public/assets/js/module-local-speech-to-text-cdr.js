@@ -67,6 +67,8 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
         "class": 'content'
       }).append($loading, $('<div>', {
         "class": 'ui message stt-cdr-transcript-error',
+        role: 'alert',
+        'aria-live': 'assertive',
         hidden: true
       }), $callMeta, $('<div>', {
         "class": 'stt-cdr-transcript-conversation',
@@ -113,7 +115,7 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
       document.querySelectorAll('#cdr-table tbody tr[id]').forEach(function (node) {
         var callId = String(node.id || '').trim();
 
-        if (callId.length > 255 || !/^mikopbx-[A-Za-z0-9._-]+$/.test(callId)) {
+        if (callId === '' || callId.length > 255) {
           return;
         }
 
@@ -193,10 +195,10 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
       }).done(function (response) {
         var transcriptMap = response && response.transcriptMap && _typeof(response.transcriptMap) === 'object' ? response.transcriptMap : {};
         batch.forEach(function (callId) {
-          availability[callId] = 0;
-
           if (Object.prototype.hasOwnProperty.call(transcriptMap, callId) && Number(transcriptMap[callId]) > 0) {
             availability[callId] = Number(transcriptMap[callId]);
+          } else {
+            delete availability[callId];
           }
         });
       }).fail(function (xhr) {
@@ -234,10 +236,28 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
       }
     }
 
+    function stopModalPlayback() {
+      var audio = $modal.find('.stt-transcript-audio').get(0);
+
+      if (!audio) {
+        return;
+      }
+
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute('src');
+      audio.load();
+    }
+
+    function clearConversation() {
+      stopModalPlayback();
+      $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
+    }
+
     function resetModal(rowData) {
+      clearConversation();
       $modal.find('.stt-cdr-transcript-loading').removeAttr('hidden');
       $modal.find('.stt-cdr-transcript-error').attr('hidden', true).removeClass('error').text('');
-      $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
       var $meta = $modal.find('.stt-cdr-transcript-call-meta').removeAttr('hidden');
       $meta.find('[data-field="date"]').text(String(rowData[0] || ''));
       $meta.find('[data-field="source"]').text(String(rowData[1] || ''));
@@ -247,15 +267,26 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
 
     function showError(message) {
       $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
-      $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
+      clearConversation();
       $modal.find('.stt-cdr-transcript-error').removeAttr('hidden').addClass('error').text(message);
     }
 
-    function renderConversation(conversation, rowData) {
+    function renderConversation(transcript, rowData) {
+      var conversation = transcript && _typeof(transcript.conversation) === 'object' ? transcript.conversation : null;
       var timeline = conversation && Array.isArray(conversation.timeline) ? conversation.timeline : [];
       var recordings = rowData && Array.isArray(rowData[4]) ? rowData[4] : [];
-      var recording = recordings.length > 0 && recordings[0] ? recordings[0] : {};
-      var $target = $modal.find('.stt-cdr-transcript-conversation').empty().removeAttr('hidden');
+      var playbackCdrId = transcript && transcript.playbackCdrId !== null && typeof transcript.playbackCdrId !== 'undefined' ? String(transcript.playbackCdrId) : '';
+      var recording = {};
+      recordings.some(function (item) {
+        if (playbackCdrId !== '' && item && String(item.id) === playbackCdrId) {
+          recording = item;
+          return true;
+        }
+
+        return false;
+      });
+      clearConversation();
+      var $target = $modal.find('.stt-cdr-transcript-conversation').removeAttr('hidden');
       $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
       $modal.find('.stt-cdr-transcript-error').attr('hidden', true).text('');
 
@@ -306,14 +337,14 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
         },
         beforeSend: addAuthorizationHeader
       }).done(function (response) {
-        renderConversation(response && response.transcript ? response.transcript.conversation : null, rowData);
+        renderConversation(response && response.transcript ? response.transcript : null, rowData);
       }).fail(function (xhr, status) {
         if (status === 'abort') {
           return;
         }
 
         if (xhr.status === 404) {
-          availability[callId] = 0;
+          delete availability[callId];
           $button.remove();
           showError(labels.notFound);
           return;
@@ -343,6 +374,8 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
             detailRequest.abort();
             detailRequest = null;
           }
+
+          clearConversation();
         }
       });
       $table.on('draw.dt.sttCdrTranscript', function () {

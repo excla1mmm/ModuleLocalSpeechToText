@@ -43,6 +43,16 @@ expectTranscriptUi(
 expectTranscriptUi(!str_contains($template, 'stt-player-range-wrap'), 'separate recording slider must be removed');
 expectTranscriptUi(str_contains($viewJs, 'function initializePlayer'), 'shared interactive timeline player missing');
 expectTranscriptUi(
+    str_contains($template, 'aria-label="{{ t._(\'module_local_speech_to_text_DownloadRecording\')|e }}"')
+        && str_contains($template, 'title="{{ t._(\'module_local_speech_to_text_DownloadRecording\')|e }}"'),
+    'server-rendered download action must have an accessible name'
+);
+expectTranscriptUi(
+    str_contains($viewJs, "'aria-label': labels.download")
+        && str_contains($viewJs, 'title: labels.download'),
+    'dynamic download action must have an accessible name'
+);
+expectTranscriptUi(
     str_contains($viewJs, 'function synchronizeTimeline(duration)')
         && str_contains($viewJs, "find('.stt-transcript-scale span').last()")
         && str_contains($viewJs, "audio.addEventListener('loadedmetadata', synchronize)"),

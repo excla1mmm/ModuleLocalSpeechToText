@@ -107,7 +107,7 @@ foreach (['source_instance_id','call_id','aggregate_id','revision','content_hash
     expectCallIntegration(($detail[$field] ?? null) === $expected, "event/detail identity mismatch for {$field}");
 }
 
-$reinstallFixtures = dirname($root) . '/ModuleAISupervisor/Tests/fixtures/stt-reinstall';
+$reinstallFixtures = $root . '/Tests/fixtures/stt-reinstall';
 $fixtureDatabases = [];
 foreach (['source-a.sql' => 100, 'source-b.sql' => 75] as $fixture => $expectedCalls) {
     $fixturePath = $reinstallFixtures . '/' . $fixture;

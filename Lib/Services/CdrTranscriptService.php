@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use JsonException;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CdrTranscriptNotFoundException;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscript;
+use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision;
 use Phalcon\Db\Enum;
 use RuntimeException;
 
@@ -16,7 +19,6 @@ final class CdrTranscriptService
     public function __construct(
         private readonly mixed $translation,
         private readonly UsersUITranscriptAccessService $access,
-        private readonly CallTranscriptIntegrationService $integration,
     ) {
     }
 
@@ -62,8 +64,11 @@ final class CdrTranscriptService
      *     callId: string,
      *     revision: int,
      *     completenessStatus: string,
+     *     playbackCdrId: ?int,
      *     conversation: array<string, mixed>
      * }
+     * @throws CdrTranscriptNotFoundException
+     * @throws JsonException
      */
     public function detail(string $callId, UsersUICallScope $scope): array
     {
@@ -73,26 +78,98 @@ final class CdrTranscriptService
             'bind' => ['call_id' => $callId],
         ]);
         if (!$call instanceof STTCallTranscript || !$this->access->allowsCallId($callId, $scope)) {
-            throw new RuntimeException('Transcript not found');
+            throw new CdrTranscriptNotFoundException('Transcript not found');
         }
 
-        $aggregate = $this->integration->callTranscriptDetail((int)$call->id);
-        $segments = is_array($aggregate['transcript']['segments'] ?? null)
-            ? $aggregate['transcript']['segments']
+        $revision = STTCallTranscriptRevision::findFirst([
+            'conditions' => 'call_transcript_id = :aggregate_id: AND revision = :revision:',
+            'bind' => [
+                'aggregate_id' => (int)$call->id,
+                'revision' => (int)$call->current_revision,
+            ],
+        ]);
+        if (!$revision instanceof STTCallTranscriptRevision) {
+            throw new RuntimeException('Published transcript revision is missing');
+        }
+
+        $payload = json_decode((string)$revision->payload, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($payload)) {
+            throw new RuntimeException('Published transcript revision payload is invalid');
+        }
+
+        $manifest = is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : [];
+        $segments = is_array($payload['transcript']['segments'] ?? null)
+            ? array_values(array_filter($payload['transcript']['segments'], 'is_array'))
             : [];
+        [$segments, $timelineReliable] = $this->callRelativeSegments($segments, $manifest);
         $segmentsJson = json_encode(
             $segments,
-            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-        ) ?: '[]';
+            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
+        );
+
+        $cdrIds = [];
+        foreach ($manifest as $part) {
+            if (!is_array($part) || !is_numeric($part['cdr_id'] ?? null)) {
+                continue;
+            }
+            $cdrId = (int)$part['cdr_id'];
+            if ($cdrId > 0) {
+                $cdrIds[$cdrId] = $cdrId;
+            }
+        }
+        $playbackCdrId = $timelineReliable && count($cdrIds) === 1
+            ? array_values($cdrIds)[0]
+            : null;
+
+        $conversation = (new TranscriptConversationService($this->translation))
+            ->conversationFromTranscript($segmentsJson, $timelineReliable);
 
         return [
-            'aggregateId' => (int)$aggregate['aggregate_id'],
-            'callId' => (string)$aggregate['call_id'],
-            'revision' => (int)$aggregate['revision'],
-            'completenessStatus' => (string)$aggregate['completeness_status'],
-            'conversation' => (new TranscriptConversationService($this->translation))
-                ->conversationFromTranscript($segmentsJson),
+            'aggregateId' => (int)$call->id,
+            'callId' => (string)$call->call_id,
+            'revision' => (int)$revision->revision,
+            'completenessStatus' => (string)$revision->completeness_status,
+            'playbackCdrId' => $playbackCdrId,
+            'conversation' => $conversation,
         ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $segments
+     * @param array<int, mixed> $manifest
+     * @return array{0: array<int, array<string, mixed>>, 1: bool}
+     */
+    private function callRelativeSegments(array $segments, array $manifest): array
+    {
+        $callStartMs = null;
+        foreach ($manifest as $part) {
+            $value = is_array($part) ? ($part['cdr_start_ms'] ?? null) : null;
+            if (!is_numeric($value) || (int)$value <= 0) {
+                continue;
+            }
+            $callStartMs = $callStartMs === null ? (int)$value : min($callStartMs, (int)$value);
+        }
+
+        $timelineReliable = $callStartMs !== null;
+        foreach ($segments as $index => $segment) {
+            $absoluteStart = $segment['absolute_start_ms'] ?? null;
+            $absoluteEnd = $segment['absolute_end_ms'] ?? null;
+            if (
+                $callStartMs === null
+                || !is_numeric($absoluteStart)
+                || !is_numeric($absoluteEnd)
+            ) {
+                $timelineReliable = false;
+                continue;
+            }
+
+            $startMs = max(0, (int)$absoluteStart - $callStartMs);
+            $endMs = max($startMs, (int)$absoluteEnd - $callStartMs);
+            $segments[$index]['start_ms'] = $startMs;
+            $segments[$index]['end_ms'] = $endMs;
+        }
+
+        return [$segments, $timelineReliable];
     }
 
     /** @param array<int, mixed> $callIds @return array<int, string> */

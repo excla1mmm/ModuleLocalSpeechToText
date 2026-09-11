@@ -58,7 +58,12 @@
                 $header,
                 $('<div>', { class: 'content' }).append(
                     $loading,
-                    $('<div>', { class: 'ui message stt-cdr-transcript-error', hidden: true }),
+                    $('<div>', {
+                        class: 'ui message stt-cdr-transcript-error',
+                        role: 'alert',
+                        'aria-live': 'assertive',
+                        hidden: true,
+                    }),
                     $callMeta,
                     $('<div>', { class: 'stt-cdr-transcript-conversation', hidden: true })
                 )
@@ -100,10 +105,7 @@
             const rows = [];
             document.querySelectorAll('#cdr-table tbody tr[id]').forEach(function (node) {
                 const callId = String(node.id || '').trim();
-                if (
-                    callId.length > 255
-                    || !/^mikopbx-[A-Za-z0-9._-]+$/.test(callId)
-                ) {
+                if (callId === '' || callId.length > 255) {
                     return;
                 }
                 const cells = node.querySelectorAll(':scope > td');
@@ -177,12 +179,13 @@
                     ? response.transcriptMap
                     : {};
                 batch.forEach(function (callId) {
-                    availability[callId] = 0;
                     if (
                         Object.prototype.hasOwnProperty.call(transcriptMap, callId)
                         && Number(transcriptMap[callId]) > 0
                     ) {
                         availability[callId] = Number(transcriptMap[callId]);
+                    } else {
+                        delete availability[callId];
                     }
                 });
             }).fail(function (xhr) {
@@ -221,10 +224,26 @@
             }
         }
 
+        function stopModalPlayback() {
+            const audio = $modal.find('.stt-transcript-audio').get(0);
+            if (!audio) {
+                return;
+            }
+            audio.pause();
+            audio.currentTime = 0;
+            audio.removeAttribute('src');
+            audio.load();
+        }
+
+        function clearConversation() {
+            stopModalPlayback();
+            $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
+        }
+
         function resetModal(rowData) {
+            clearConversation();
             $modal.find('.stt-cdr-transcript-loading').removeAttr('hidden');
             $modal.find('.stt-cdr-transcript-error').attr('hidden', true).removeClass('error').text('');
-            $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
             const $meta = $modal.find('.stt-cdr-transcript-call-meta').removeAttr('hidden');
             $meta.find('[data-field="date"]').text(String(rowData[0] || ''));
             $meta.find('[data-field="source"]').text(String(rowData[1] || ''));
@@ -234,15 +253,30 @@
 
         function showError(message) {
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
-            $modal.find('.stt-cdr-transcript-conversation').attr('hidden', true).empty();
+            clearConversation();
             $modal.find('.stt-cdr-transcript-error').removeAttr('hidden').addClass('error').text(message);
         }
 
-        function renderConversation(conversation, rowData) {
+        function renderConversation(transcript, rowData) {
+            const conversation = transcript && typeof transcript.conversation === 'object'
+                ? transcript.conversation
+                : null;
             const timeline = conversation && Array.isArray(conversation.timeline) ? conversation.timeline : [];
             const recordings = rowData && Array.isArray(rowData[4]) ? rowData[4] : [];
-            const recording = recordings.length > 0 && recordings[0] ? recordings[0] : {};
-            const $target = $modal.find('.stt-cdr-transcript-conversation').empty().removeAttr('hidden');
+            const playbackCdrId = transcript && transcript.playbackCdrId !== null
+                && typeof transcript.playbackCdrId !== 'undefined'
+                ? String(transcript.playbackCdrId)
+                : '';
+            let recording = {};
+            recordings.some(function (item) {
+                if (playbackCdrId !== '' && item && String(item.id) === playbackCdrId) {
+                    recording = item;
+                    return true;
+                }
+                return false;
+            });
+            clearConversation();
+            const $target = $modal.find('.stt-cdr-transcript-conversation').removeAttr('hidden');
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
             $modal.find('.stt-cdr-transcript-error').attr('hidden', true).text('');
             if (timeline.length === 0) {
@@ -284,13 +318,13 @@
                 data: { call_id: callId },
                 beforeSend: addAuthorizationHeader,
             }).done(function (response) {
-                renderConversation(response && response.transcript ? response.transcript.conversation : null, rowData);
+                renderConversation(response && response.transcript ? response.transcript : null, rowData);
             }).fail(function (xhr, status) {
                 if (status === 'abort') {
                     return;
                 }
                 if (xhr.status === 404) {
-                    availability[callId] = 0;
+                    delete availability[callId];
                     $button.remove();
                     showError(labels.notFound);
                     return;
@@ -317,6 +351,7 @@
                         detailRequest.abort();
                         detailRequest = null;
                     }
+                    clearConversation();
                 },
             });
             $table.on('draw.dt.sttCdrTranscript', function () {

@@ -80,27 +80,25 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 
     final class STTCallTranscriptRevision
     {
-        public int $revision = 3;
-        public string $content_hash = 'content-hash';
-        public string $parts_hash = 'parts-hash';
-        public string $completeness_status = 'complete';
-        public int $created_at = 1_788_800_000;
+        /** @var array<string, array<string, mixed>> */
+        public static array $rows = [];
+
+        public int $revision;
+        public string $content_hash;
+        public string $parts_hash;
+        public string $completeness_status;
+        public int $created_at;
         public string $payload;
 
-        public function __construct()
+        /** @param array<string, mixed> $row */
+        public function __construct(array $row)
         {
-            $this->payload = json_encode([
-                'transcript' => [
-                    'segments' => [[
-                        'segment_id' => 'segment-1',
-                        'index' => 0,
-                        'start_ms' => 0,
-                        'end_ms' => 1_000,
-                        'text' => 'Здравствуйте',
-                        'channel' => 'left',
-                    ]],
-                ],
-            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $this->revision = (int)($row['revision'] ?? 0);
+            $this->content_hash = (string)($row['content_hash'] ?? 'content-hash');
+            $this->parts_hash = (string)($row['parts_hash'] ?? 'parts-hash');
+            $this->completeness_status = (string)($row['completeness_status'] ?? 'complete');
+            $this->created_at = (int)($row['created_at'] ?? 1_788_800_000);
+            $this->payload = (string)($row['payload'] ?? '');
         }
 
         /** @param array<string, mixed> $query */
@@ -109,7 +107,9 @@ namespace Modules\ModuleLocalSpeechToText\Models {
             $aggregateId = (int)($query['bind']['aggregate_id'] ?? 0);
             $revision = (int)($query['bind']['revision'] ?? 0);
 
-            return $aggregateId === 11 && $revision === 3 ? new self() : null;
+            $row = self::$rows["{$aggregateId}:{$revision}"] ?? null;
+
+            return is_array($row) ? new self($row) : null;
         }
     }
 }
@@ -119,14 +119,15 @@ namespace {
     require_once __DIR__ . '/../Lib/Services/UsersUICallScope.php';
     require_once __DIR__ . '/../Lib/Services/UsersUITranscriptAccessService.php';
     require_once __DIR__ . '/../Lib/Services/TranscriptConversationService.php';
-    require_once __DIR__ . '/../Lib/Services/CallTranscriptIntegrationService.php';
+    require_once __DIR__ . '/../Lib/Exceptions/CdrTranscriptNotFoundException.php';
     require_once __DIR__ . '/../Lib/Services/CdrTranscriptService.php';
 
-    use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptIntegrationService;
+    use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CdrTranscriptNotFoundException;
     use Modules\ModuleLocalSpeechToText\Lib\Services\CdrTranscriptService;
     use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUICallScope;
     use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUITranscriptAccessService;
     use Modules\ModuleLocalSpeechToText\Models\FakeCdrTranscriptDb;
+    use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision;
 
     function expectCdrTranscript(bool $condition, string $message): void
     {
@@ -140,6 +141,62 @@ namespace {
         'call-1' => ['id' => 11, 'current_revision' => 3],
         'call-2' => ['id' => 12, 'current_revision' => 1],
         'call-pending' => ['id' => 13, 'current_revision' => 0],
+        'call-multi' => ['id' => 14, 'current_revision' => 2],
+        'call-legacy' => ['id' => 15, 'current_revision' => 1],
+        'call-corrupt' => ['id' => 16, 'current_revision' => 1],
+    ];
+    $payload = static fn (array $manifest, array $segments): string => json_encode([
+        'part_manifest' => $manifest,
+        'transcript' => ['segments' => $segments],
+    ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    STTCallTranscriptRevision::$rows = [
+        '11:3' => [
+            'revision' => 3,
+            'payload' => $payload(
+                [['result_id' => 101, 'cdr_id' => 501, 'cdr_start_ms' => 100_000]],
+                [[
+                    'segment_id' => 'segment-1', 'result_id' => 101, 'index' => 0,
+                    'start_ms' => 5_000, 'end_ms' => 6_000,
+                    'absolute_start_ms' => 105_000, 'absolute_end_ms' => 106_000,
+                    'text' => 'Здравствуйте', 'channel' => 'left',
+                ]]
+            ),
+        ],
+        '14:2' => [
+            'revision' => 2,
+            'payload' => $payload(
+                [
+                    ['result_id' => 101, 'cdr_id' => 501, 'cdr_start_ms' => 100_000],
+                    ['result_id' => 102, 'cdr_id' => 502, 'cdr_start_ms' => 130_000],
+                ],
+                [
+                    [
+                        'segment_id' => 'segment-a', 'result_id' => 101, 'index' => 0,
+                        'start_ms' => 5_000, 'end_ms' => 6_000,
+                        'absolute_start_ms' => 105_000, 'absolute_end_ms' => 106_000,
+                        'text' => 'A', 'channel' => 'left',
+                    ],
+                    [
+                        'segment_id' => 'segment-b', 'result_id' => 102, 'index' => 1,
+                        'start_ms' => 1_000, 'end_ms' => 2_000,
+                        'absolute_start_ms' => 131_000, 'absolute_end_ms' => 132_000,
+                        'text' => 'B', 'channel' => 'right',
+                    ],
+                ]
+            ),
+        ],
+        '15:1' => [
+            'revision' => 1,
+            'completeness_status' => 'legacy_unresolved',
+            'payload' => $payload(
+                [['result_id' => 201, 'cdr_id' => 601, 'cdr_start_ms' => null]],
+                [
+                    ['result_id' => 201, 'start_ms' => 5_000, 'end_ms' => 6_000, 'text' => 'A', 'channel' => 'left'],
+                    ['result_id' => 202, 'start_ms' => 1_000, 'end_ms' => 2_000, 'text' => 'B', 'channel' => 'right'],
+                ]
+            ),
+        ],
+        '16:1' => ['revision' => 1, 'payload' => '{broken-json'],
     ];
 
     $translation = new class {
@@ -159,7 +216,7 @@ namespace {
             default => [],
         }
     );
-    $service = new CdrTranscriptService($translation, $access, new CallTranscriptIntegrationService());
+    $service = new CdrTranscriptService($translation, $access);
     $admin = UsersUICallScope::all();
     $restricted = UsersUICallScope::selected(['201']);
 
@@ -181,22 +238,50 @@ namespace {
     expectCdrTranscript($detail['aggregateId'] === 11, 'aggregate id mismatch');
     expectCdrTranscript($detail['callId'] === 'call-1', 'call id mismatch');
     expectCdrTranscript($detail['revision'] === 3, 'revision mismatch');
+    expectCdrTranscript($detail['playbackCdrId'] === 501, 'single-leg playback CDR mismatch');
+    expectCdrTranscript($detail['conversation']['timelineReliable'] === true, 'single-leg timeline must be reliable');
     expectCdrTranscript($detail['conversation']['hasSegments'] === true, 'conversation projection missing');
     expectCdrTranscript(
         $detail['conversation']['timeline'][0]['text'] === 'Здравствуйте',
         'turn text mismatch'
     );
 
+    $multi = $service->detail('call-multi', $admin);
+    expectCdrTranscript(
+        array_column($multi['conversation']['timeline'], 'text') === ['A', 'B'],
+        'multi-leg timeline must preserve absolute call order'
+    );
+    expectCdrTranscript(
+        array_column($multi['conversation']['timeline'], 'start') === [5.0, 31.0],
+        'multi-leg timeline must use call-relative absolute timestamps'
+    );
+    expectCdrTranscript($multi['playbackCdrId'] === null, 'multi-leg transcript must not select a single recording');
+
+    $legacy = $service->detail('call-legacy', $admin);
+    expectCdrTranscript(
+        array_column($legacy['conversation']['timeline'], 'text') === ['A', 'B'],
+        'unresolved transcript must preserve assembler order'
+    );
+    expectCdrTranscript($legacy['conversation']['timelineReliable'] === false, 'unresolved timeline must be marked unreliable');
+    expectCdrTranscript($legacy['playbackCdrId'] === null, 'unresolved transcript must disable shared playback');
+
     foreach (['call-2', 'call-missing', 'call-pending'] as $callId) {
         try {
             $service->detail($callId, $restricted);
             expectCdrTranscript(false, "{$callId} must be hidden as not found");
-        } catch (\RuntimeException $exception) {
+        } catch (CdrTranscriptNotFoundException $exception) {
             expectCdrTranscript(
                 $exception->getMessage() === 'Transcript not found',
                 'public failure must be generic'
             );
         }
+    }
+
+    try {
+        $service->detail('call-corrupt', $admin);
+        expectCdrTranscript(false, 'corrupt revision must fail as an internal error');
+    } catch (\JsonException) {
+        // Expected: this must not be converted into a public 404.
     }
 
     echo "CDR transcript service contract OK\n";

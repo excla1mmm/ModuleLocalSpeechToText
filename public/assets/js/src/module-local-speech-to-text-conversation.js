@@ -50,7 +50,9 @@
                 $('<a>', {
                     class: 'stt-player-download',
                     href: String(labels.downloadUrl),
-                    'data-content': labels.download
+                    'data-content': labels.download,
+                    'aria-label': labels.download,
+                    title: labels.download
                 }).append($('<i>', { class: 'download icon' }))
             );
         }

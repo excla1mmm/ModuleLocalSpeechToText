@@ -42,6 +42,7 @@ foreach (glob(__DIR__ . '/../Messages/*.php') ?: [] as $messageFile) {
 $sourcePath = __DIR__ . '/../public/assets/js/src/module-local-speech-to-text-cdr.js';
 $compiledPath = __DIR__ . '/../public/assets/js/module-local-speech-to-text-cdr.js';
 $sourceJs = is_file($sourcePath) ? (file_get_contents($sourcePath) ?: '') : '';
+$compiledJs = is_file($compiledPath) ? (file_get_contents($compiledPath) ?: '') : '';
 expectCdrUi(
     str_contains($sourceJs, 'function ensureModal()')
     && str_contains($sourceJs, "\$('body').append(\$modal)"),
@@ -69,5 +70,19 @@ expectCdrUi(
     'transcript text must not enter html()'
 );
 expectCdrUi(is_file($compiledPath) && filesize($compiledPath) > 0, 'compiled CDR JavaScript missing');
+expectCdrUi(!str_contains($sourceJs, '/^mikopbx-'), 'legacy call IDs must not be rejected by a prefix-only regex');
+expectCdrUi(str_contains($sourceJs, "callId === '' || callId.length > 255"), 'call ID validation must match the backend contract');
+expectCdrUi(str_contains($sourceJs, 'delete availability[callId]'), 'negative lookup results must not be cached');
+expectCdrUi(str_contains($sourceJs, 'function stopModalPlayback()'), 'modal playback cleanup is missing');
+expectCdrUi(str_contains($sourceJs, 'playbackCdrId'), 'CDR recording selection must use the server presentation model');
+expectCdrUi(!str_contains($sourceJs, 'recordings[0]'), 'aggregate transcript must not be bound to the first recording');
+expectCdrUi(!str_contains($compiledJs, '/^mikopbx-'), 'compiled JavaScript must accept legacy call IDs');
+expectCdrUi(str_contains($compiledJs, 'playbackCdrId'), 'compiled JavaScript must select the server-authorized recording');
+expectCdrUi(str_contains($compiledJs, 'function stopModalPlayback()'), 'compiled JavaScript must stop modal playback');
+expectCdrUi(!str_contains($compiledJs, 'require('), 'compiled CDR JavaScript must run standalone');
+expectCdrUi(
+    str_contains($modal, 'role="alert"') && str_contains($modal, 'aria-live="assertive"'),
+    'modal errors must be announced to assistive technology'
+);
 
 echo "CDR transcript UI contract OK\n";
