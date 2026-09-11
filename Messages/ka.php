@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'სიჩუმე %seconds% წმ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'ტრანსკრიპტის ჩვენება',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ზარის ტრანსკრიპტი',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'ტრანსკრიპტი იტვირთება…',

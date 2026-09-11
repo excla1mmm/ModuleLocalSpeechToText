@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'hiljaisuus %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Näytä litterointi',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Puhelun litterointi',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Ladataan litterointia…',

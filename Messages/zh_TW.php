@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => '靜音 %seconds% 秒',
     'module_local_speech_to_text_CdrTranscriptButton' => '查看轉寫',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '通話轉寫',
     'module_local_speech_to_text_CdrTranscriptLoading' => '正在載入轉寫…',

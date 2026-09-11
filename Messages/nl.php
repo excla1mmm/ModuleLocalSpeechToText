@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'stilte %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Transcript tonen',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Gesprekstranscript',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Transcript laden…',

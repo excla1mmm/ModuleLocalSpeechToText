@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'sessizlik %seconds% sn',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Dökümü göster',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Arama dökümü',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Döküm yükleniyor…',

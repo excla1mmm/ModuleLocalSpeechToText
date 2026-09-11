@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'tišina %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Prikaži transkript',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transkript poziva',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Učitavanje transkripta…',

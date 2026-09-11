@@ -82,7 +82,7 @@ class TranscriptConversationService
             $turn['rangeLabel'] = $this->rangeLabel($start, $end);
             $turn['durationLabel'] = $this->timeLabel(max(0.0, $end - $start));
             $turn['gapBeforeLabel'] = $gap > self::TRANSCRIPT_SILENCE_MIN_SECONDS
-                ? $this->timeLabel($gap)
+                ? $this->silenceLabel($gap)
                 : '';
             $turn['overlap'] = $this->turnOverlaps($turn, $timeline, $index);
             $turn['startPercent'] = $this->timelinePercent($start, $durationSeconds);
@@ -316,6 +316,15 @@ class TranscriptConversationService
         $rest = $totalSeconds % 60;
 
         return sprintf('%d:%02d', $minutes, $rest);
+    }
+
+    private function silenceLabel(float $seconds): string
+    {
+        return str_replace(
+            '%seconds%',
+            (string)(int)floor(max(0.0, $seconds)),
+            (string)$this->translation->_('module_local_speech_to_text_SilenceDuration')
+        );
     }
 
     private function rangeLabel(float $start, float $end): string

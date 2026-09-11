@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'тишина %seconds% с',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Показать расшифровку',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Расшифровка звонка',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Загрузка расшифровки…',

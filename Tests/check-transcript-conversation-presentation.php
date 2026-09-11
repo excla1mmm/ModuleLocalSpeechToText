@@ -21,6 +21,7 @@ $translation = new class {
         return match ($key) {
             'module_local_speech_to_text_Speaker1' => 'Speaker 1',
             'module_local_speech_to_text_Speaker2' => 'Speaker 2',
+            'module_local_speech_to_text_SilenceDuration' => 'silence %seconds% s',
             default => $key,
         };
     }
@@ -46,7 +47,10 @@ foreach ($conversation['timeline'] as $turn) {
 expectTranscriptPresentation($turnsByText['First']['startLabel'] === '0:00', 'turn start label mismatch');
 expectTranscriptPresentation($turnsByText['First']['durationLabel'] === '0:30', 'turn duration label mismatch');
 expectTranscriptPresentation($turnsByText['First']['overlap'] === true, 'simultaneous speech must be marked');
-expectTranscriptPresentation($turnsByText['After silence']['gapBeforeLabel'] === '0:30', 'long silence must be exposed');
+expectTranscriptPresentation(
+    $turnsByText['After silence']['gapBeforeLabel'] === 'silence 30 s',
+    'long silence must use the localized compact duration label'
+);
 expectTranscriptPresentation($turnsByText['After silence']['startPercent'] === 80.0, 'timeline start percentage mismatch');
 expectTranscriptPresentation(
     $conversation['speakers'][0]['segments'][1]['text'] === 'After silence',

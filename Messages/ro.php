@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'liniște %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Afișează transcrierea',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcrierea apelului',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Se încarcă transcrierea…',

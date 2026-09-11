@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'stilhed %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Vis transskription',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Opkaldstransskription',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Indlæser transskription…',

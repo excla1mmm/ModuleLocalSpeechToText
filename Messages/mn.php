@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'чимээгүй %seconds% сек',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Транскрипцийг харуулах',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Дуудлагын транскрипц',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Транскрипцийг ачаалж байна…',

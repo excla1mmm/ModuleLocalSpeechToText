@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'csend %seconds% mp',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Átirat megjelenítése',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Hívásátirat',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Átirat betöltése…',

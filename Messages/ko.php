@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => '무음 %seconds%초',
     'module_local_speech_to_text_CdrTranscriptButton' => '통화 기록 보기',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '통화 기록',
     'module_local_speech_to_text_CdrTranscriptLoading' => '통화 기록을 불러오는 중…',

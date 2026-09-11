@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'เงียบ %seconds% วิ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'แสดงข้อความถอดเสียง',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ข้อความถอดเสียงการโทร',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'กำลังโหลดข้อความถอดเสียง…',

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => '無音 %seconds%秒',
     'module_local_speech_to_text_CdrTranscriptButton' => '文字起こしを表示',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '通話の文字起こし',
     'module_local_speech_to_text_CdrTranscriptLoading' => '文字起こしを読み込み中…',

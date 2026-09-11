@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'silêncio %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Mostrar transcrição',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcrição da chamada',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'A carregar transcrição…',

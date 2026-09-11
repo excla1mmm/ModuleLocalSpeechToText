@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'tystnad %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Visa transkribering',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Samtalstranskribering',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Läser in transkribering…',

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'σιωπή %seconds% δ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Προβολή απομαγνητοφώνησης',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Απομαγνητοφώνηση κλήσης',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Φόρτωση απομαγνητοφώνησης…',

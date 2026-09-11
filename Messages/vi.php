@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'im lặng %seconds% giây',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Hiển thị bản ghi',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Bản ghi cuộc gọi',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Đang tải bản ghi…',

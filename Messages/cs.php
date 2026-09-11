@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'module_local_speech_to_text_SilenceDuration' => 'ticho %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Zobrazit přepis',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Přepis hovoru',
     'module_local_speech_to_text_CdrTranscriptLoading' => 'Načítání přepisu…',
