@@ -76,14 +76,10 @@ namespace {
 
     ModulesModelsBase::$values = [];
 
-    expectSameSettingsNormalization(50, STTSetting::cdrScanLimit(), 'Fresh installations must scan 50 CDR records per pass');
-    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '75'];
-    expectSameSettingsNormalization(75, STTSetting::cdrScanLimit(), 'Saved CDR scan limits must remain unchanged');
-    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '0'];
-    expectSameSettingsNormalization(1, STTSetting::cdrScanLimit(), 'CDR scan limit must be at least one');
-    ModulesModelsBase::$values = [STTSetting::CDR_SCAN_LIMIT => '2000'];
-    expectSameSettingsNormalization(1000, STTSetting::cdrScanLimit(), 'CDR scan limit must remain capped at 1000');
-    ModulesModelsBase::$values = [];
+    expectTrueSettingsNormalization(
+        !method_exists(STTSetting::class, 'cdrScanLimit'),
+        'CDR scan limit must no longer be a user-configurable setting'
+    );
 
     $defaults = WorkerProcessingSettingsService::defaults();
     expectSameSettingsNormalization(0.0, $defaults['temperature'], 'Temperature default must be 0.0');
@@ -191,14 +187,21 @@ namespace {
         method_exists(STTSetting::class, 'maxRecordingDurationMinutes'),
         'Recording duration setting helpers must exist'
     );
-    expectSameSettingsNormalization(60, STTSetting::maxRecordingDurationMinutes(), 'Recording duration must default to 60 minutes');
-    expectSameSettingsNormalization(1, STTSetting::normalizeRecordingDurationMinutes(0), 'Recording duration must be at least one minute');
-    expectSameSettingsNormalization(1440, STTSetting::normalizeRecordingDurationMinutes(2000), 'Recording duration must be capped at 1440 minutes');
+    expectTrueSettingsNormalization(
+        !method_exists(STTSetting::class, 'normalizeRecordingDurationMinutes'),
+        'Recording duration must no longer accept a user-supplied minutes value'
+    );
+    expectSameSettingsNormalization(180, STTSetting::maxRecordingDurationMinutes(), 'Recording duration hard limit must be fixed at 180 minutes');
 
-    ModulesModelsBase::$values = [STTSetting::MAX_RECORDING_DURATION_MIN => '60'];
-    expectSameSettingsNormalization(3600, STTSetting::maxRecordingDurationSeconds(), 'Duration minutes must convert to seconds');
-    expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(3600), 'Boundary duration must be allowed');
-    expectTrueSettingsNormalization(!STTSetting::recordingDurationAllowed(3601), 'Duration above the boundary must be rejected');
+    // The hard limit is an internal policy: it must not read from settings storage,
+    // even if a legacy row with the old key is still sitting inert in the table.
+    ModulesModelsBase::$values = ['max_recording_duration_min' => '5'];
+    expectSameSettingsNormalization(180, STTSetting::maxRecordingDurationMinutes(), 'Recording duration limit must ignore any stored setting value');
+
+    ModulesModelsBase::$values = [];
+    expectSameSettingsNormalization(10800, STTSetting::maxRecordingDurationSeconds(), 'Duration hard limit must be 10800 seconds (180 minutes)');
+    expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(10800), 'Boundary duration of exactly 180 minutes must be allowed');
+    expectTrueSettingsNormalization(!STTSetting::recordingDurationAllowed(10801), 'Duration one second above the boundary must be rejected');
     expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(0), 'Unknown zero duration must be allowed');
     expectTrueSettingsNormalization(STTSetting::recordingDurationAllowed(null), 'Missing duration must be allowed');
 

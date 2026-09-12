@@ -106,16 +106,6 @@ namespace MikoPBX\Modules\Models {
 }
 
 namespace Modules\ModuleLocalSpeechToText\Models {
-    final class STTSetting
-    {
-        public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
-
-        public static function getValue(string $key, string $default = ''): string
-        {
-            return $key === self::PROCESSING_TIMEOUT_SEC ? '60' : $default;
-        }
-    }
-
     final class STTWorker
     {
         public int $id;
@@ -181,10 +171,43 @@ namespace {
         'cdr_endtime' => $now,
     ]);
 
+    expectLeaseBehavior(STTJob::PROCESSING_LEASE_TTL_SECONDS === 600, 'Processing lease TTL must be a fixed 600 seconds');
+
     $workerOne = new STTWorker();
     $workerOne->id = 1;
+    $claimStartedAt = time();
     $firstClaim = STTJob::claimNextForWorker($workerOne);
     expectLeaseBehavior($firstClaim instanceof STTJob, 'Worker one must claim the pending job');
+    expectLeaseBehavior(
+        (int)$firstClaim->lease_expires_at >= $claimStartedAt + 600
+            && (int)$firstClaim->lease_expires_at <= time() + 600,
+        'Claim must set lease_expires_at to now + 600 seconds'
+    );
+
+    $heartbeatAt = time();
+    expectLeaseBehavior(
+        $firstClaim->refreshProcessingLeaseForWorker(1, (string)$firstClaim->lease_token),
+        'Heartbeat must succeed on a freshly claimed lease'
+    );
+    expectLeaseBehavior(
+        (int)$firstClaim->lease_expires_at >= $heartbeatAt + 600
+            && (int)$firstClaim->lease_expires_at <= time() + 600,
+        'Heartbeat must extend lease_expires_at to (heartbeat time) + 600 seconds'
+    );
+    $secondHeartbeatAt = time();
+    expectLeaseBehavior(
+        $firstClaim->refreshProcessingLeaseForWorker(1, (string)$firstClaim->lease_token),
+        'A second heartbeat must also succeed, allowing the job to run past the original 600 second window'
+    );
+    expectLeaseBehavior(
+        (int)$firstClaim->lease_expires_at >= $secondHeartbeatAt + 600,
+        'Repeated heartbeats must keep pushing the expiration forward with no cap on renewal count'
+    );
+    expectLeaseBehavior(
+        STTJob::requeueStaleProcessing() === 0,
+        'A job kept alive by heartbeats must not be requeued before its lease expires'
+    );
+
     $firstLeaseToken = (string)$firstClaim->lease_token;
     $pdo->exec('UPDATE m_STTJob SET lease_expires_at = ' . (time() - 1) . ' WHERE id = 1');
 

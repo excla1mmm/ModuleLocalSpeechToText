@@ -20,7 +20,11 @@ class STTJob extends ModulesModelsBase
     public const string STATUS_PROCESSING = 'processing';
     public const string STATUS_DONE = 'done';
     public const string STATUS_ERROR = 'error';
-    private const int DEFAULT_PROCESSING_TIMEOUT_SECONDS = 1800;
+
+    // Internal policy, not a user setting: a claim (or heartbeat) grants this many
+    // seconds of lease before the job is eligible for stale-lease recovery. Renewing
+    // the heartbeat has no cap, so recognition itself can take arbitrarily long.
+    public const int PROCESSING_LEASE_TTL_SECONDS = 600;
     private const int MAX_ATTEMPTS = 3;
 
     public static function maxAttempts(): int
@@ -401,12 +405,7 @@ class STTJob extends ModulesModelsBase
 
     private static function processingTimeoutSeconds(): int
     {
-        $timeout = (int)STTSetting::getValue(
-            STTSetting::PROCESSING_TIMEOUT_SEC,
-            (string)self::DEFAULT_PROCESSING_TIMEOUT_SECONDS
-        );
-
-        return max(60, min(86400, $timeout));
+        return self::PROCESSING_LEASE_TTL_SECONDS;
     }
 
     private static function newLeaseToken(): string

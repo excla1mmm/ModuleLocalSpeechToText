@@ -418,11 +418,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     {
         foreach ([
             STTSetting::DEFAULT_LANGUAGE => STTSetting::AUTO_LANGUAGE,
-            STTSetting::POLL_INTERVAL_SEC => '30',
-            STTSetting::MAX_RECORDING_DURATION_MIN => '60',
-            STTSetting::CDR_SCAN_LIMIT => (string)STTSetting::DEFAULT_CDR_SCAN_LIMIT,
             STTSetting::CDR_HISTORY_DAYS => '30',
-            STTSetting::PROCESSING_TIMEOUT_SEC => '1800',
             STTSetting::CALL_TRANSCRIPT_STABILITY_SEC => '30',
             STTSetting::SELECTED_MODEL => STTSetting::DEFAULT_MODEL,
             STTSetting::DELAYED_RECORDINGS => '[]',
@@ -830,9 +826,14 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     AND started_at <> \'\'
                     AND lease_expires_at IS NULL',
                 [
+                    // Legacy compatibility only: 'processing_timeout_sec' is no longer a
+                    // setting the module reads or writes going forward. This one-time
+                    // schema migration backfills lease_expires_at for jobs that were
+                    // already mid-flight under a pre-lease-column install, using
+                    // whatever inert legacy value (if any) happens to still be stored.
                     'timeout' => (int)$this->settingValue(
                         $connection,
-                        STTSetting::PROCESSING_TIMEOUT_SEC,
+                        'processing_timeout_sec',
                         '1800'
                     ),
                     'processing' => STTJob::STATUS_PROCESSING,

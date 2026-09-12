@@ -16,13 +16,9 @@ class STTSetting extends ModulesModelsBase
 {
     public const string SOURCE_INSTANCE_ID = 'source_instance_id';
     public const string DEFAULT_LANGUAGE = 'default_language';
-    public const string POLL_INTERVAL_SEC = 'poll_interval_sec';
-    public const string MAX_RECORDING_DURATION_MIN = 'max_recording_duration_min';
-    public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
     public const string CDR_HISTORY_DAYS = 'cdr_history_days';
     public const string TRANSCRIPT_RETENTION_DAYS = 'transcript_retention_days';
     public const string TRANSCRIPT_RETENTION_LAST_CLEANUP_AT = 'transcript_retention_last_cleanup_at';
-    public const string PROCESSING_TIMEOUT_SEC = 'processing_timeout_sec';
     public const string CALL_TRANSCRIPT_STABILITY_SEC = 'call_transcript_stability_sec';
     public const string SELECTED_MODEL = 'selected_model';
     public const string CUSTOM_VOCABULARY_TERMS = 'custom_vocabulary_terms';
@@ -53,11 +49,13 @@ class STTSetting extends ModulesModelsBase
 
     public const string DEFAULT_MODEL = 'parakeet-tdt-0.6b-v3';
     public const string AUTO_LANGUAGE = 'auto';
-    public const int DEFAULT_CDR_SCAN_LIMIT = 50;
-    private const int DEFAULT_MAX_RECORDING_DURATION_MIN = 60;
-    private const int MIN_CDR_SCAN_LIMIT = 1;
-    private const int MAX_CDR_SCAN_LIMIT = 1000;
-    private const int MAX_RECORDING_DURATION_MINUTES = 1440;
+
+    // Recording duration hard limit: an internal safety policy, not a user setting.
+    // It bounds worker memory usage and prevents a single long recording from
+    // monopolizing a worker; see readme.ru.md / README.md for the operator-facing note.
+    private const int RECORDING_DURATION_HARD_LIMIT_MINUTES = 180;
+    private const int RECORDING_DURATION_HARD_LIMIT_SECONDS = 10800;
+
     private const int FIXED_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
     private const int DEFAULT_CDR_HISTORY_DAYS = 30;
     private const int MAX_CDR_HISTORY_DAYS = 365;
@@ -403,24 +401,14 @@ class STTSetting extends ModulesModelsBase
         return $terms;
     }
 
-    public static function normalizeRecordingDurationMinutes(string|int $value): int
-    {
-        return max(1, min(self::MAX_RECORDING_DURATION_MINUTES, (int)$value));
-    }
-
     public static function maxRecordingDurationMinutes(): int
     {
-        return self::normalizeRecordingDurationMinutes(
-            self::getValue(
-                self::MAX_RECORDING_DURATION_MIN,
-                (string)self::DEFAULT_MAX_RECORDING_DURATION_MIN
-            )
-        );
+        return self::RECORDING_DURATION_HARD_LIMIT_MINUTES;
     }
 
     public static function maxRecordingDurationSeconds(): int
     {
-        return self::maxRecordingDurationMinutes() * 60;
+        return self::RECORDING_DURATION_HARD_LIMIT_SECONDS;
     }
 
     public static function normalizeRecordingDurationSeconds(mixed $value): ?int
@@ -442,13 +430,6 @@ class STTSetting extends ModulesModelsBase
     public static function maxFileSizeBytes(): int
     {
         return self::FIXED_MAX_FILE_SIZE_BYTES;
-    }
-
-    public static function cdrScanLimit(): int
-    {
-        $limit = (int)self::getValue(self::CDR_SCAN_LIMIT, (string)self::DEFAULT_CDR_SCAN_LIMIT);
-
-        return max(self::MIN_CDR_SCAN_LIMIT, min(self::MAX_CDR_SCAN_LIMIT, $limit));
     }
 
     public static function cdrHistoryDays(): int

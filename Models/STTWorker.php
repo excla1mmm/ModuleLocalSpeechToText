@@ -276,8 +276,8 @@ class STTWorker extends ModulesModelsBase
 
     private static function offlineTimeoutSeconds(): int
     {
-        $pollInterval = (int)STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
-
-        return max(self::MIN_OFFLINE_TIMEOUT_SECONDS, min(7200, $pollInterval * 3));
+        // Internal fixed policy: worker online/offline detection no longer scales
+        // with the (removed) poll_interval_sec setting.
+        return self::MIN_OFFLINE_TIMEOUT_SECONDS;
     }
 }
