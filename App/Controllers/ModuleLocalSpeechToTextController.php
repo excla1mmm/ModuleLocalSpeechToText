@@ -306,12 +306,14 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
         $transcripts = $this->transcriptListService();
         $transcriptFilter = $transcripts->transcriptDateFilterFromRequest();
+        $transcriptSearch = $transcripts->transcriptSearchFromRequest();
 
         $this->addModuleAssets();
         $this->view->dashboardPath = MenuProvider::DASHBOARD_PATH;
         $this->view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-        $this->view->transcriptRows = $transcripts->transcriptRows(100, $transcriptFilter);
+        $this->view->transcriptRows = $transcripts->transcriptRows(100, $transcriptFilter, $transcriptSearch['query']);
         $this->view->transcriptFilter = $transcripts->transcriptFilterView($transcriptFilter);
+        $this->view->transcriptSearch = $transcriptSearch;
         $this->view->transcriptFilterAction = MenuProvider::TRANSCRIPTS_PATH;
         $this->view->transcriptFilterKeepTab = false;
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcripts');

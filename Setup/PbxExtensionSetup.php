@@ -29,6 +29,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
 use Modules\ModuleLocalSpeechToText\Lib\Services\SttSourceInstance;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptSearchIndexService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiV2Migration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerBindingIntegrityMigration;
@@ -124,6 +125,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
                 }
             );
+            $this->prepareTranscriptSearchIndex($connection);
             (new ModuleTransaction())->run(
                 $connection,
                 static fn (mixed $database): string => (new SttSourceInstance())->ensure($database),
@@ -391,7 +393,36 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applySourceInstanceIdentityMigration($connection),
                 'stt-schema-015-source-instance-identity'
             ),
+            new ModuleSchemaMigration(
+                16,
+                'transcript full-text search',
+                fn (mixed $connection): null => $this->applyTranscriptSearchMigration($connection),
+                'stt-schema-016-transcript-full-text-search'
+            ),
         ];
+    }
+
+    private function applyTranscriptSearchMigration(mixed $connection): null
+    {
+        (new TranscriptSearchIndexService())->ensureSchema($connection);
+
+        return null;
+    }
+
+    private function prepareTranscriptSearchIndex(mixed $connection): void
+    {
+        $search = new TranscriptSearchIndexService();
+        if (!$search->prepare($connection)) {
+            return;
+        }
+
+        try {
+            (new ModuleBatchMigrationRunner())->run(
+                static fn (): int => $search->backfillBatch($connection, 250)
+            );
+        } catch (Throwable) {
+            $search->disable($connection);
+        }
     }
 
     private function applySourceInstanceIdentityMigration(mixed $connection): null

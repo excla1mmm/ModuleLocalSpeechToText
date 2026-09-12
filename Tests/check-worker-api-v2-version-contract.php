@@ -477,7 +477,7 @@ namespace {
     $resultModel = (string)file_get_contents($root . '/Models/STTResult.php');
     preg_match_all('/public \?[^\s]+ \$(?<field>[a-z_]+)\s*=/', $resultModel, $resultFields);
     expectWorkerApiV2Version(
-        ($resultFields['field'] ?? []) === ['job_id', 'transcript', 'language', 'duration', 'model_used', 'technical_info', 'created_at'],
+        ($resultFields['field'] ?? []) === ['job_id', 'transcript', 'search_text', 'language', 'duration', 'model_used', 'technical_info', 'created_at'],
         'STTResult storage fields changed'
     );
     $timeNormalizer = (string)file_get_contents($root . '/Lib/TranscriptTimeNormalizer.php');
@@ -490,8 +490,8 @@ namespace {
     $setup = (string)file_get_contents($root . '/Setup/PbxExtensionSetup.php');
     preg_match_all('/new ModuleSchemaMigration\(\s*(?<version>\d+),.*?[\'\"](?<key>stt-schema-[^\'\"]+)[\'\"]/s', $setup, $migrations);
     expectWorkerApiV2Version(
-        array_map('intval', $migrations['version'] ?? []) === range(1, 15)
-            && ($migrations['key'][14] ?? null) === 'stt-schema-015-source-instance-identity',
+        array_map('intval', $migrations['version'] ?? []) === range(1, 16)
+            && ($migrations['key'][15] ?? null) === 'stt-schema-016-transcript-full-text-search',
         'Database schema migration registry changed'
     );
 

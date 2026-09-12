@@ -57,9 +57,11 @@ final class IndexViewService
                 new UsersUITranscriptAccessService(),
             );
             $filter = $transcripts->transcriptDateFilterFromRequest();
+            $search = $transcripts->transcriptSearchFromRequest();
             $view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-            $view->transcriptRows = $transcripts->transcriptRows(100, $filter);
+            $view->transcriptRows = $transcripts->transcriptRows(100, $filter, $search['query']);
             $view->transcriptFilter = $transcripts->transcriptFilterView($filter);
+            $view->transcriptSearch = $search;
             $view->transcriptFilterAction = MenuProvider::DASHBOARD_PATH;
             $view->transcriptFilterKeepTab = true;
         }

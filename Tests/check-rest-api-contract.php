@@ -91,6 +91,9 @@ namespace {
     );
 
     $transcriptDetail = TranscriptsDataStructure::getDetailSchema();
+    $transcriptParameters = TranscriptsDataStructure::getParameterDefinitions()['request'] ?? [];
+    expectSameRestApiContract('string', $transcriptParameters['search']['type'] ?? null, 'Transcript list must expose full-text search');
+    expectSameRestApiContract(256, $transcriptParameters['search']['maxLength'] ?? null, 'Transcript search must be bounded');
     $technicalInfo = $transcriptDetail['properties']['technical_info'] ?? [];
     expectSameRestApiContract('object', $technicalInfo['type'] ?? null, 'Transcript detail must expose decoded technical_info');
     expectTrueRestApiContract(

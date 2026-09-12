@@ -47,6 +47,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'example' => '2026-07-19T23:59:59+03:00',
                     'required' => false,
                 ],
+                'search' => [
+                    'type' => 'string',
+                    'description' => 'module_local_speech_to_text_ApiParamTranscriptSearch',
+                    'example' => 'статус заказа',
+                    'required' => false,
+                    'maxLength' => 256,
+                ],
             ],
             'response' => [
                 'items' => [

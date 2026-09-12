@@ -36,6 +36,13 @@ foreach (['transcripts.volt', 'index.volt'] as $templateName) {
     expectTranscriptListUi(!str_contains($template, 'result.model_used'), "{$templateName} must not display the technical model");
     expectTranscriptListUi(!str_contains($template, "row['recordingName']"), "{$templateName} must not display the recording filename");
     expectTranscriptListUi(
+        str_contains($template, 'name="search"')
+            && str_contains($template, "transcriptSearch['query']")
+            && str_contains($template, 'stt-transcripts-search-field')
+            && str_contains($template, 'stt-transcripts-date-field'),
+        "{$templateName} must place transcript search on the left and call dates on the right"
+    );
+    expectTranscriptListUi(
         preg_match(
             '/\{% for row in transcriptRows %\}.*?\{% set result = row\[\'result\'\] %\}.*?<tr class="stt-transcript-row" data-transcript-url=/s',
             $template
@@ -46,6 +53,11 @@ foreach (['transcripts.volt', 'index.volt'] as $templateName) {
 expectTranscriptListUi(str_contains($css, '.stt-direction-link'), 'direction link styling missing');
 expectTranscriptListUi(str_contains($css, '.stt-transcript-primary'), 'primary row text styling missing');
 expectTranscriptListUi(
+    str_contains($css, '.stt-transcripts-filter-fields')
+        && str_contains($css, '.stt-transcripts-date-field'),
+    'responsive transcript search/date filter layout is missing'
+);
+expectTranscriptListUi(
     preg_match('/\.stt-direction-cell\s*\{[^}]*overflow:\s*visible\s*!important;[^}]*text-align:\s*center;/s', $css) === 1,
     'direction cell must not clip and must center its link'
 );
@@ -53,7 +65,8 @@ foreach ($javascriptFiles as $kind => $javascriptFile) {
     $js = file_get_contents($javascriptFile) ?: '';
     expectTranscriptListUi(
         str_contains($js, 'initializeTranscriptRows();')
-            && str_contains($js, "$('.module-local-speech-to-text .stt-transcript-row').on('click'"),
+            && str_contains($js, "$('.module-local-speech-to-text .stt-transcript-row').on('click'")
+            && str_contains($js, '$form.find(\'input[name="search"]\')'),
         "transcript rows must initialize click navigation in {$kind} JavaScript"
     );
 }

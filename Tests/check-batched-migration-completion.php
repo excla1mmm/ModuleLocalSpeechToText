@@ -43,6 +43,7 @@ $setup = (string)file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
 $callMigration = (string)file_get_contents(__DIR__ . '/../Lib/Services/CallTranscriptMigration.php');
 $revisionService = (string)file_get_contents(__DIR__ . '/../Lib/Services/CallTranscriptRevisionService.php');
 $eventModel = (string)file_get_contents(__DIR__ . '/../Models/STTTranscriptEvent.php');
+$searchIndex = (string)file_get_contents(__DIR__ . '/../Lib/Services/TranscriptSearchIndexService.php');
 expectBatchedMigration(
     str_contains($setup, "new ModuleSchemaMigration(\n                8,")
         && str_contains($setup, "new ModuleSchemaMigration(\n                9,")
@@ -71,6 +72,19 @@ expectBatchedMigration(
         && str_contains($revisionService, 'MAX(CAST(created_at AS INTEGER))')
         && str_contains($revisionService, '$event->created_at = (string)$publishedAt'),
     'call transcript migration must exhaust eligible publications with a cursor-safe timestamp'
+);
+expectBatchedMigration(
+    str_contains($setup, "new ModuleSchemaMigration(\n                16,")
+        && str_contains($setup, 'applyTranscriptSearchMigration')
+        && str_contains($setup, 'prepareTranscriptSearchIndex')
+        && str_contains($setup, 'backfillBatch($connection'),
+    'transcript search schema must use a new migration and resumable bounded backfill'
+);
+expectBatchedMigration(
+    str_contains($searchIndex, 'm_STTTranscriptSearchState')
+        && str_contains($searchIndex, 'last_result_id')
+        && str_contains($searchIndex, 'completed_at'),
+    'transcript search backfill must persist resumable progress and readiness'
 );
 
 echo "Batched migration completion behavior OK\n";

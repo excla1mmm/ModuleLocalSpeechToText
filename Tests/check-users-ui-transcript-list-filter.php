@@ -29,10 +29,40 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public string $language = 'ru';
         public string $model_used = 'test';
         public ?STTJob $STTJob = null;
+        public static mixed $connection = null;
+        public static int $findCalls = 0;
+        public static int $findFirstCalls = 0;
 
         public static function find(array $params): array
         {
-            return isset($params['limit']) ? array_slice(self::$rows, 0, (int)$params['limit']) : self::$rows;
+            self::$findCalls++;
+            $rows = self::$rows;
+            if (isset($params['bind']['ids']) && is_array($params['bind']['ids'])) {
+                $ids = array_map('intval', $params['bind']['ids']);
+                $rows = array_values(array_filter(
+                    $rows,
+                    static fn (self $row): bool => in_array($row->id, $ids, true)
+                ));
+            }
+
+            return isset($params['limit']) ? array_slice($rows, 0, (int)$params['limit']) : $rows;
+        }
+
+        public static function findFirstById(int $id): ?self
+        {
+            self::$findFirstCalls++;
+            foreach (self::$rows as $row) {
+                if ($row->id === $id) {
+                    return $row;
+                }
+            }
+
+            return null;
+        }
+
+        public function getReadConnection(): mixed
+        {
+            return self::$connection;
         }
     }
 }
@@ -63,6 +93,13 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 }
 
 namespace {
+    if (!class_exists('Phalcon\\Db\\Enum')) {
+        eval('namespace Phalcon\\Db; class Enum { public const int FETCH_ASSOC = 2; }');
+    }
+    require_once dirname(__DIR__) . '/Lib/Services/TransactionRecoveryException.php';
+    require_once dirname(__DIR__) . '/Lib/Services/ModuleTransaction.php';
+    require_once dirname(__DIR__) . '/Lib/Services/TranscriptSearchText.php';
+    require_once dirname(__DIR__) . '/Lib/Services/TranscriptSearchIndexService.php';
     require_once dirname(__DIR__) . '/Lib/Services/UsersUICallScope.php';
     require_once dirname(__DIR__) . '/Lib/Services/UsersUITranscriptAccessService.php';
     require_once dirname(__DIR__) . '/Lib/Services/CallDirectionResolver.php';
@@ -89,6 +126,22 @@ namespace {
     $hidden->job_id = 22;
     $hidden->STTJob = $hiddenJob;
     STTResult::$rows = [$hidden, $allowed];
+    STTResult::$connection = new class {
+        public string $searchSql = '';
+
+        public function fetchAll(string $sql, int $mode, array $bind = []): array
+        {
+            if (str_contains($sql, 'm_STTTranscriptSearchState')) {
+                return [['last_result_id' => 2, 'completed_at' => 100, 'available' => 1, 'error_code' => '']];
+            }
+            if (str_contains($sql, 'm_STTTranscriptSearch MATCH') && ($bind['search'] ?? '') === '"hidden"*') {
+                $this->searchSql = $sql;
+                return [['id' => 2]];
+            }
+
+            return [];
+        }
+    };
 
     $translation = new class {
         public function _(string $key): string { return $key; }
@@ -112,6 +165,20 @@ namespace {
 
     if (count($rows) !== 1 || (int)$rows[0]['result']->id !== 1) {
         fwrite(STDERR, "Transcript list leaked a call outside the ModuleUsersUI CDR scope\n");
+        exit(1);
+    }
+
+    $searchedRows = $service->transcriptRows(100, ['isActive' => false], 'hidden');
+    if ($searchedRows !== []) {
+        fwrite(STDERR, "Transcript full-text search did not preserve the ModuleUsersUI CDR scope\n");
+        exit(1);
+    }
+    if (!str_contains(STTResult::$connection->searchSql, 'LIMIT 100')) {
+        fwrite(STDERR, "Transcript full-text search did not read bounded batches\n");
+        exit(1);
+    }
+    if (STTResult::$findFirstCalls !== 0 || STTResult::$findCalls !== 2) {
+        fwrite(STDERR, "Transcript full-text search used per-result ORM queries\n");
         exit(1);
     }
 

@@ -7,9 +7,12 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 use MikoPBX\Common\Models\CallDetailRecords;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
+use Throwable;
 
 class TranscriptListService
 {
+    private const int SEARCH_BATCH_SIZE = 100;
+
     private readonly UsersUICallScope $callScope;
     private readonly UsersUITranscriptAccessService $transcriptAccess;
     private readonly CallDirectionResolver $directionResolver;
@@ -29,7 +32,7 @@ class TranscriptListService
         );
     }
 
-    public function transcriptRows(int $limit = 100, ?array $dateFilter = null): array
+    public function transcriptRows(int $limit = 100, ?array $dateFilter = null, string $search = ''): array
     {
         $rows = [];
         $findParams = [
@@ -40,7 +43,8 @@ class TranscriptListService
             $findParams['limit'] = $limit;
         }
 
-        $results = STTResult::find($findParams);
+        $searchActive = trim($search) !== '';
+        $results = $searchActive ? $this->searchResults($search) : STTResult::find($findParams);
 
         foreach ($results as $result) {
             if (!$result instanceof STTResult) {
@@ -91,6 +95,9 @@ class TranscriptListService
                 'createdDateLabel' => $createdAt > 0 ? date('d.m.Y', $createdAt) : '',
                 'createdTimeLabel' => $createdAt > 0 ? date('H:i', $createdAt) : '',
             ], $callPresentation);
+            if ($searchActive && count($rows) >= $limit) {
+                break;
+            }
         }
 
         usort(
@@ -109,6 +116,72 @@ class TranscriptListService
         }
 
         return $rows;
+    }
+
+    /** @return array{query: string, available: bool} */
+    public function transcriptSearchFromRequest(): array
+    {
+        $query = trim((string)$this->request->getQuery('search', 'string', ''));
+        $query = function_exists('mb_substr') ? mb_substr($query, 0, 256) : substr($query, 0, 256);
+
+        return ['query' => $query, 'available' => $this->searchAvailable()];
+    }
+
+    /** @return iterable<STTResult> */
+    private function searchResults(string $search): iterable
+    {
+        $connection = (new STTResult())->getReadConnection();
+        try {
+            if (!(new TranscriptSearchIndexService())->isReady($connection)) {
+                return;
+            }
+            $query = TranscriptSearchText::query($search);
+            if ($query === '') {
+                return;
+            }
+
+            $offset = 0;
+            do {
+                $rows = $connection->fetchAll(
+                    'SELECT r.id
+                       FROM m_STTTranscriptSearch
+                       JOIN m_STTResult r ON r.id = m_STTTranscriptSearch.rowid
+                      WHERE m_STTTranscriptSearch MATCH :search
+                   ORDER BY CAST(r.created_at AS INTEGER) DESC, r.id DESC
+                      LIMIT ' . self::SEARCH_BATCH_SIZE . ' OFFSET ' . $offset,
+                    \Phalcon\Db\Enum::FETCH_ASSOC,
+                    ['search' => $query]
+                );
+                $ids = array_values(array_filter(array_map(
+                    static fn (array $row): int => (int)($row['id'] ?? 0),
+                    $rows
+                )));
+                if ($ids === []) {
+                    return;
+                }
+                foreach (STTResult::find([
+                    'conditions' => 'id IN ({ids:array})',
+                    'bind' => ['ids' => $ids],
+                    'order' => 'created_at DESC, id DESC',
+                ]) as $result) {
+                    if ($result instanceof STTResult) {
+                        yield $result;
+                    }
+                }
+                $offset += count($rows);
+            } while (count($rows) === self::SEARCH_BATCH_SIZE);
+        } catch (Throwable) {
+            return;
+        }
+    }
+
+    private function searchAvailable(): bool
+    {
+        try {
+            return (new TranscriptSearchIndexService())->isReady((new STTResult())->getReadConnection());
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

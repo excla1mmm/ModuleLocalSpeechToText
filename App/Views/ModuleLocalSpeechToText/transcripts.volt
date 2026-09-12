@@ -9,8 +9,15 @@
         {% endif %}
         <input type="hidden" name="date_from" value="{{ transcriptFilter['dateFrom']|e }}">
         <input type="hidden" name="date_to" value="{{ transcriptFilter['dateTo']|e }}">
-        <div class="ui stackable grid">
-            <div class="five wide column">
+        <div class="stt-transcripts-filter-fields">
+            <div class="field stt-transcripts-search-field">
+                <label for="stt-transcripts-search">{{ t._('module_local_speech_to_text_LogsSearch') }}</label>
+                <div class="ui fluid input left icon">
+                    <i class="search icon"></i>
+                    <input type="search" id="stt-transcripts-search" name="search" value="{{ transcriptSearch['query']|e }}" maxlength="256" autocomplete="off"{% if not transcriptSearch['available'] %} disabled{% endif %}>
+                </div>
+            </div>
+            <div class="field stt-transcripts-date-field">
                 <label>{{ t._('module_local_speech_to_text_TranscriptDateRange') }}</label>
                 <div class="ui fluid input left icon">
                     <i class="calendar alternate outline icon"></i>

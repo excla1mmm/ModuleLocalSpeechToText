@@ -222,6 +222,7 @@ return [
     'module_local_speech_to_text_LogsComponentFilter' => 'Component',
     'module_local_speech_to_text_LogsComponentAll' => 'All components',
     'module_local_speech_to_text_LogsSearch' => 'Search',
+    'module_local_speech_to_text_ApiParamTranscriptSearch' => 'Ερώτημα αναζήτησης στο κείμενο της απομαγνητοφώνησης.',
     'module_local_speech_to_text_LogsSearchPlaceholder' => 'Message, event, or code',
     'module_local_speech_to_text_LogsFilteredEmpty' => 'No events match the selected filters.',
     'module_local_speech_to_text_LogsMissing' => 'The module journal has not been created yet.',

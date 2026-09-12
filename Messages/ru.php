@@ -222,6 +222,7 @@ return [
     'module_local_speech_to_text_LogsComponentFilter' => 'Компонент',
     'module_local_speech_to_text_LogsComponentAll' => 'Все компоненты',
     'module_local_speech_to_text_LogsSearch' => 'Поиск',
+    'module_local_speech_to_text_ApiParamTranscriptSearch' => 'Поисковый запрос по тексту расшифровки.',
     'module_local_speech_to_text_LogsSearchPlaceholder' => 'Сообщение, событие или код',
     'module_local_speech_to_text_LogsFilteredEmpty' => 'По заданным фильтрам событий нет.',
     'module_local_speech_to_text_LogsMissing' => 'Журнал ещё не создан.',

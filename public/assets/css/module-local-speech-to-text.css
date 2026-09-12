@@ -343,6 +343,23 @@
     font-weight: 700;
 }
 
+.module-local-speech-to-text .stt-transcripts-filter-fields {
+    align-items: flex-end;
+    display: flex;
+    gap: 1em;
+    justify-content: space-between;
+}
+
+.module-local-speech-to-text .stt-transcripts-search-field {
+    flex: 1 1 28em;
+    max-width: 42em;
+}
+
+.module-local-speech-to-text .stt-transcripts-date-field {
+    flex: 0 1 30em;
+    margin-left: auto;
+}
+
 .module-local-speech-to-text #system-logs-segment {
     margin: 0;
     padding: 0;
@@ -1012,6 +1029,18 @@
 }
 
 @media only screen and (max-width: 767px) {
+    .module-local-speech-to-text .stt-transcripts-filter-fields {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .module-local-speech-to-text .stt-transcripts-search-field,
+    .module-local-speech-to-text .stt-transcripts-date-field {
+        flex: 1 1 auto;
+        margin-left: 0;
+        max-width: none;
+    }
+
     .module-local-speech-to-text .stt-worker-download-meta {
         margin-left: 0;
     }

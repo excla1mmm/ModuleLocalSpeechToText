@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="310" viewBox="0 0 300 310" role="img" aria-labelledby="title desc">
+  <title id="title">Local Speech to Text for MikoPBX</title>
+  <desc id="desc">A MikoPBX monitor showing local call transcription, with a microphone badge.</desc>
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity=".22"/>
+    </filter>
+    <clipPath id="screenClip">
+      <rect x="23" y="72" width="215" height="160" rx="8"/>
+    </clipPath>
+  </defs>
+
+  <!-- Monitor -->
+  <path d="M27 38h201c15 0 27 12 27 27v160c0 16-13 29-29 29H29C13 254 0 241 0 225V65c0-15 12-27 27-27Z" fill="#a8d5e3"/>
+  <rect x="10" y="47" width="235" height="196" rx="20" fill="#f8fafc"/>
+  <rect x="23" y="72" width="215" height="160" rx="8" fill="#fff" stroke="#cbd5e1"/>
+  <g clip-path="url(#screenClip)">
+    <!-- Browser chrome -->
+    <rect x="23" y="72" width="215" height="19" fill="#f8fafc"/>
+    <circle cx="33" cy="81" r="4" fill="#fb7185"/>
+    <circle cx="46" cy="81" r="4" fill="#facc15"/>
+    <circle cx="59" cy="81" r="4" fill="#86cf73"/>
+    <rect x="85" y="75" width="87" height="13" rx="7" fill="#606060"/>
+    <text x="128.5" y="84.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#fff">mikopbx</text>
+    <circle cx="214" cy="81" r="3.5" fill="none" stroke="#94a3b8" stroke-width="1"/>
+    <path d="M214 79v4m-2-2h4" stroke="#94a3b8" stroke-width=".8"/>
+
+    <!-- Sidebar -->
+    <rect x="23" y="91" width="64" height="141" fill="#475569"/>
+    <rect x="23" y="91" width="64" height="20" fill="#334155"/>
+    <image x="27" y="96" width="56" height="9.6" preserveAspectRatio="xMidYMid meet"
+      href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DQo8IS0tIENyZWF0b3I6IENvcmVsRFJBVyBYNyAtLT4NCjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWw6c3BhY2U9InByZXNlcnZlIiB3aWR0aD0iMjM3LjYwNG1tIiBoZWlnaHQ9IjQwLjU0bW0iIHZlcnNpb249IjEuMSIgc3R5bGU9InNoYXBlLXJlbmRlcmluZzpnZW9tZXRyaWNQcmVjaXNpb247IHRleHQtcmVuZGVyaW5nOmdlb21ldHJpY1ByZWNpc2lvbjsgaW1hZ2UtcmVuZGVyaW5nOm9wdGltaXplUXVhbGl0eTsgZmlsbC1ydWxlOmV2ZW5vZGQ7IGNsaXAtcnVsZTpldmVub2RkIg0Kdmlld0JveD0iMCAwIDIzNzYwIDQwNTQiDQogeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPg0KIDxkZWZzPg0KICA8c3R5bGUgdHlwZT0idGV4dC9jc3MiPg0KICAgPCFbQ0RBVEFbDQogICAgLmZpbDIge2ZpbGw6I0ZFRkVGRX0NCiAgICAuZmlsNSB7ZmlsbDojNUE2NkM0fQ0KICAgIC5maWwzIHtmaWxsOiNGRUZFRkU7ZmlsbC1ydWxlOm5vbnplcm99DQogICAgLmZpbDQge2ZpbGw6IzVBNjZDNDtmaWxsLXJ1bGU6bm9uemVyb30NCiAgICAuZmlsMSB7ZmlsbDp1cmwoI2lkMCl9DQogICAgLmZpbDAge2ZpbGw6dXJsKCNpZDEpO2ZpbGwtcnVsZTpub256ZXJvfQ0KICAgXV0+DQogIDwvc3R5bGU+DQogIDxsaW5lYXJHcmFkaWVudCBpZD0iaWQwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjM0OTIuNTIiIHkxPSIwLjQxIiB4Mj0iMzQ5Mi41MiIgeTI9IjQwNTQuMzgiPg0KICAgPHN0b3Agb2Zmc2V0PSIwIiBzdHlsZT0ic3RvcC1vcGFjaXR5OjE7IHN0b3AtY29sb3I6IzJCNDM4QSIvPg0KICAgPHN0b3Agb2Zmc2V0PSIwLjQ5MDE5NiIgc3R5bGU9InN0b3Atb3BhY2l0eToxOyBzdG9wLWNvbG9yOiM1RjZFQkIiLz4NCiAgIDxzdG9wIG9mZnNldD0iMSIgc3R5bGU9InN0b3Atb3BhY2l0eToxOyBzdG9wLWNvbG9yOiM5MzlBRUQiLz4NCiAgPC9saW5lYXJHcmFkaWVudD4NCiAgPGxpbmVhckdyYWRpZW50IGlkPSJpZDEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4MT0iMTQ1MTcuNCIgeTE9IjI0NC40NiIgeDI9IjE0NTE3LjQiIHkyPSIzODEyLjAxIj4NCiAgIDxzdG9wIG9mZnNldD0iMCIgc3R5bGU9InN0b3Atb3BhY2l0eToxOyBzdG9wLWNvbG9yOiNFRjgxMUEiLz4NCiAgIDxzdG9wIG9mZnNldD0iMC42MTE3NjUiIHN0eWxlPSJzdG9wLW9wYWNpdHk6MTsgc3RvcC1jb2xvcjojRjI5ODE1Ii8+DQogICA8c3RvcCBvZmZzZXQ9IjEiIHN0eWxlPSJzdG9wLW9wYWNpdHk6MTsgc3RvcC1jb2xvcjojRjZBRjBGIi8+DQogIDwvbGluZWFyR3JhZGllbnQ+DQogPC9kZWZzPg0KIDxnIGlkPSLQodC70L7QuV94MDAyMF8xIj4NCiAgPG1ldGFkYXRhIGlkPSJDb3JlbENvcnBJRF8wQ29yZWwtTGF5ZXIiLz4NCiAgPHBhdGggY2xhc3M9ImZpbDAiIGQ9Ik0yMDc4MiA0MDU1YzY2OSwwIDEwMDAsLTU0IDEyNDAsLTIzOSAzNzEsLTI4OCA1MjEsLTcyMSA2NjcsLTExNjdsNjU1IC0yNDQ2IDAgMCAwIDBjMywtMTMgNSwtMjYgNSwtMzkgMCwtOTAgLTczLC0xNjMgLTE2MywtMTYzIC0zMTMyLDAgLTExODAxLDAgLTE0OTMzLDAgLTY3MCwwIC0xMDAwLDU0IC0xMjQwLDI0MCAtMzcxLDI4NyAtNTIxLDcyMSAtNjY3LDExNjZsLTY1NiAyNDQ3IDAgMGMtMywxMiAtNCwtMTMgLTQsMzkgMCw1MSA3MywxNjIgMTYyLDE2MiAzMTMzLDAgMTE4MDIsMCAxNDkzNCwweiIvPg0KICA8cGF0aCBjbGFzcz0iZmlsMSIgZD0iTTM3MDYgNDA1NGM2NzAsMCAxMDAxLC01MyAxMjQwLC0yMzkgMzcxLC0yODggNTIyLC03MjEgNjY3LC0xMTY3bDY1NiAtMjQ0NiAwIDAgMCAwYzMsLTEzIDQsLTI2IDQsLTM5IDAsLTkwIC03MiwtMTYzIC0xNjIsLTE2MyAtMzEzMiwwIDMwMCwwIC0yODMyLDAgLTY3MCwwIC0xMDAwLDU0IC0xMjQwLDI0MCAtMzcxLDI4OCAtNTIxLDcyMSAtNjY3LDExNjZsLTY1NiAyNDQ3YzAsMCAtNCw5IC00LDM5IDAsNTEgNzIsMTYyIDE2MiwxNjIgMzEzMiwwIC0zMDAsMCAyODMyLDB6Ii8+DQogIDxwYXRoIGNsYXNzPSJmaWwyIiBkPSJNMzM4NSAyMzMzYy0yOTYsLTI0NCAtMzk2LC01OTggLTI1OCwtODYxIDQ5LC05MyA3NSwtMTI0IDM5LC0yMTggLTI5LC03NCAtMzM4LC0zNzUgLTQxMiwtNDQxIC0yMTcsLTE5MiAtNDI2LDIxNyAtNDc1LDQxNSAtMzUsMTQ1IC0zOSwyNzkgMTIsNDMwIDk1LDI3NiAzODQsNjMxIDYxNSw4NTkgMjk0LDI5MSA1MTUsNTI0IDg2NSw3MTUgMTcxLDkzIDI4NywxMDkgNDM4LDEwMiAxODMsLTggNTU5LC0xNDcgNjAwLC0zNTcgMTcsLTg4IC01MywtMTQwIC0xMzAsLTIxOSAtMTE2LC0xMTcgLTI5MSwtMzQ1IC00MzEsLTM1MSAtNjgsLTMgLTE0MSw2MyAtMjE4LDg4IC04MywyNiAtMTQwLDI1IC0yMTIsMjQgLTEyNywtMiAtMjk5LC03NiAtNDMzLC0xODZ6Ii8+DQogIDxwYXRoIGNsYXNzPSJmaWwzIiBkPSJNMTEwODQgMjAzOGwwIC0xMDM5YzAsLTM3IDQsLTY2IDE2LC04OSAxMSwtMjIgMjcsLTM1IDQ4LC00MCA0MCwtOSA3MiwxNyA5OCw0M2wyNjUgMjY0YzU1LDU2IDEwMywxMDIgMTI4LDE2NyAxNCwzNyAyMSw3NCAyMywxMTBsMCA1NiAwIDAgMCA0MDMgNjIgLTcyIDI4NiAtMzMxIDU2IC02NSAzODEgLTQ0M2MxMDksLTEyNiAxMTQsLTEzNSAyNjcsLTEzNWwyOTUgMGMzMSwwIDU2LDQgNzYsMTUgMTgsMTIgMzAsMjggMzQsNDggOCw0MCAtMTQsNzMgLTM3LDk5bC0yMjcgMjY1Yy0xMywxNCAtMjUsMjggLTM2LDQxbC0xNDkgMTcyIC0zNDggNDA0Yy04OCw5MCAtMTQ0LDEyNyAtMjUyLDEyNyAxMDgsMCAxNjQsMzggMjUyLDEyN2wzNDggNDA0IDE0OSAxNzNjMTEsMTMgMjMsMjYgMzYsNDBsMjI3IDI2NWMyMywyNyA0NSw1OSAzNyw5OSAtNCwyMSAtMTYsMzcgLTM0LDQ4IC0yMCwxMiAtNDUsMTYgLTc2LDE2bC0yOTUgMGMtMTUzLDAgLTE1OCwtMTAgLTI2NywtMTM2bC0zODEgLTQ0MiAtNTYgLTY1IC0yODYgLTMzMSAtNjIgLTczIDAgNDU5Yy0yLDM3IC05LDc0IC0yMywxMTEgLTI1LDY0IC03MywxMTEgLTEyOCwxNjZsLTI2NCAyNjRjLTI3LDI3IC01OSw1MiAtOTksNDMgLTIxLC00IC0zNywtMTggLTQ4LC00MCAtMTIsLTIyIC0xNiwtNTIgLTE2LC04OGwwIC01NzMgMCAwIDAgLTQ2N3oiLz4NCiAgPHBhdGggY2xhc3M9ImZpbDMiIGQ9Ik04NzUwIDE3OTVsNDA0IC00MDQgMTcyIC0xNzJjMTMsLTE0IDI3LC0yOCA0MSwtNDJsMjY1IC0yNjRjMjcsLTI2IDU5LC01MiA5OSwtNDMgMjEsNSAzNywxOCA0OCw0MCAxMSwyMyAxNiw1MiAxNiw4OWwwIDEwMzkgMCAxMDQwYzAsMzYgLTUsNjYgLTE2LDg4IC0xMSwyMiAtMjcsMzYgLTQ4LDQwIC00MCw5IC03MiwtMTYgLTk5LC00M2wtMjY1IC0yNjRjLTU0LC01NSAtMTAyLC0xMDIgLTEyNywtMTY2IC0xNCwtMzcgLTIxLC03NCAtMjMsLTExMWwwIC00NzYgMCAtOTIgLTY1IDY1IC0zMzIgMzMxIC0xOTcgMTk4IC0xOTcgLTE5OCAtMzMxIC0zMzEgLTY2IC02NSAwIDkyIDAgNDc2Yy0yLDM3IC05LDc0IC0yMywxMTEgLTI0LDY0IC03MiwxMTEgLTEyNywxNjZsLTI2NSAyNjRjLTI2LDI3IC01OSw1MiAtOTksNDMgLTIwLC00IC0zNywtMTggLTQ4LC00MCAtMTEsLTIyIC0xNSwtNTIgLTE1LC04OGwwIC0xMDQwIDAgLTEwMzljMCwtMzcgNCwtNjYgMTUsLTg5IDExLC0yMiAyOCwtMzUgNDgsLTQwIDQwLC05IDczLDE3IDk5LDQzbDI2NSAyNjRjMTQsMTQgMjgsMjggNDEsNDJsMTcyIDE3MiA0MDQgNDA0Yzg5LDEwMiAxMjcsMTY3IDEyNywyOTMgMCwtMTI2IDM4LC0xOTEgMTI3LC0yOTN6Ii8+DQogIDxwYXRoIGNsYXNzPSJmaWwyIiBkPSJNMTQxMDkgMTM3MWMtMzc3LDAgLTY4MiwzMDUgLTY4Miw2ODIgMCwzNzcgMzA1LDY4MyA2ODIsNjgzIDM3OCwwIDY4MywtMzA2IDY4MywtNjgzIDAsLTM3NyAtMzA1LC02ODIgLTY4MywtNjgyem0wIC01MjRsMCAwYzY2NiwwIDEyMDYsNTQwIDEyMDYsMTIwNiAwLDY2NiAtNTQwLDEyMDYgLTEyMDYsMTIwNiAtNjY1LDAgLTEyMDYsLTU0MCAtMTIwNiwtMTIwNiAwLC02NjYgNTQxLC0xMjA2IDEyMDYsLTEyMDZ6Ii8+DQogIDxwYXRoIGNsYXNzPSJmaWw0IiBkPSJNMTYxNzIgMTM4MmwwIDUwMyAwIDAgMCAyIDAgMCAwIDVjMSwzNCAyNyw2MiA1OSw2Nmw0NSAwYzE0NiwwIDI1NiwtMjcgMzMzLC04NCA3NywtNTYgMTE1LC0xMzYgMTE1LC0yNDIgMCwtMTEwIC0zOCwtMTkwIC0xMTMsLTI0MSAtNzYsLTUxIC0xOTYsLTc2IC0zNjAsLTc2bDAgMGMtMywwIC02LDAgLTEwLDAgLTM3LDAgLTY4LDMwIC02OSw2N3ptLTU4MCA2NTZsMCAtMTAzOWMwLC0zNyA0LC02NiAxNSwtODkgMTIsLTIyIDI3LC0zNCA0NywtMzggMTEsLTMgMjMsLTIgMzMsLTIgMywwIDcsMCAxMSwwbDQ3MyAwIDAgMiA0NiAwYzE5MSwwIDM0MiwxMyA0NTQsNDEgMTEyLDI4IDIxMSw3NCAyOTgsMTQwIDkwLDY1IDE2MCwxNDcgMjA5LDI0NSA0OSw5OCA3NCwyMDIgNzQsMzEyIDAsMjQ0IC04Nyw0MzcgLTI2MSw1ODAgLTE5OSwxNjQgLTUxMywyMTAgLTgyMSwyMjBsMCAyMTJjLTIsMzcgLTksNzQgLTIzLDExMSAtMjUsNjQgLTczLDExMSAtMTI4LDE2NmwtMjY1IDI2NGMtMjYsMjcgLTU4LDUyIC05OSw0MyAtMjAsLTQgLTM2LC0xOCAtNDgsLTQwIC0xMSwtMjIgLTE1LC01MiAtMTUsLTg4bDAgLTU3MyAwIDAgMCAtNDY3eiIvPg0KICA8cGF0aCBjbGFzcz0iZmlsNSIgZD0iTTE4MTM1IDI3OTdsMTE3IDBjMTEyLDAgMjAwLC0yOCAyNjQsLTgyIDY0LC01NiA5NiwtMTMxIDk2LC0yMjcgMCwtOTQgLTMxLC0xNjYgLTk0LC0yMTcgLTYyLC01MiAtMTUxLC03NyAtMjY2LC03N2wtMTc3IDBjLTMxLDYgLTU1LDMzIC01Niw2NSAwLDEwIDAsMTkgMCwyOWwwIDQ0MWMyLDM4IDMyLDY3IDcwLDY3IDE1LDAgMzEsMCA0NiwwbDAgMXptLTU5IC0xNTI0Yy0zMiw1IC01NiwzMiAtNTcsNjUgMCwxMCAwLDE5IDAsMjlsMCAzNjljMiwzNyAzMiw2NiA3MCw2NiA0MCwwIDc2LDEgMTE2LDEgMTEwLDAgMTk2LC0yNSAyNTgsLTczIDYyLC00OCA5MywtMTE2IDkzLC0yMDMgMCwtODggLTI5LC0xNTIgLTg4LC0xOTMgLTU5LC00MSAtMTUxLC02MSAtMjc2LC02MWwtMTE2IDB6bS01NjcgMTg1MWwwIC0yMTUzYzIsLTIyIDYsLTQwIDE0LC01NSAxMSwtMjIgMjYsLTM0IDQ3LC0zOSAxMSwtMiAyMiwtMiAzMiwtMiA0LDAgOCwwIDExLDBsMTEyIDAgMCAwIDUwOSAwYzI3MywwIDQ3OSw1MCA2MTksMTUwIDE0MCwxMDAgMjEwLDI0OCAyMTAsNDQ0IDAsMTIwIC0zMiwyMjIgLTk2LDMwNSAtNjQsODQgLTE2MCwxNDkgLTI4OSwxOTUgMTQ0LDMzIDI1NSw5OSAzMzYsMjAwIDgxLDEwMSAxMjIsMjI0IDEyMiwzNjkgMCwyMjYgLTg0LDM5NiAtMjUwLDUxMSAtMTY3LDExNSAtNDE0LDE3MiAtNzQxLDE3MmwtNDIwIDAgMCAwIC0xMTIgMGMtMywwIC03LDAgLTExLDAgLTEwLDAgLTIxLDAgLTMyLC0yIC0yMSwtNSAtMzYsLTE3IC00NywtMzkgLTgsLTE1IC0xMiwtMzQgLTE0LC01NnoiLz4NCiAgPHBhdGggY2xhc3M9ImZpbDQiIGQ9Ik0yMDI2NSAxNjU4bDExNyAtMTQ4IDUyIC02NSAzNTEgLTQ0M2MxMDAsLTEyNiAxMDUsLTEzNSAyNDYsLTEzNWwyNzEgMGMyOSwwIDUzLDQgNzEsMTUgMTcsMTIgMjgsMjggMzEsNDggNyw0MCAtMTMsNzMgLTM0LDk5bC0yMDkgMjY1Yy0xMiwxNCAtMjMsMjggLTMzLDQxbC0xMzcgMTcyIC0zMjEgNDA0Yy04MSw5MCAtMTMyLDEyNyAtMjMyLDEyNyAxMDAsMCAxNTEsMzggMjMyLDEyN2wzMjEgNDA0IDEzNyAxNzNjMTAsMTMgMjEsMjYgMzMsNDBsMjA5IDI2NWMyMSwyNyA0MSw1OSAzNCw5OSAtMywyMSAtMTQsMzcgLTMxLDQ4IC0xOCwxMiAtNDIsMTYgLTcxLDE2bC0yNzEgMGMtMTQxLDAgLTE0NiwtMTAgLTI0NiwtMTM2bC0zNTEgLTQ0MiAtNTIgLTY1IC0xMTcgLTE0OCAtMTE4IDE0OCAtNTEgNjUgLTM1MSA0NDJjLTEwMSwxMjYgLTEwNSwxMzYgLTI0NywxMzZsLTI3MSAwYy0yOSwwIC01MiwtNCAtNzAsLTE2IC0xNywtMTEgLTI4LC0yNyAtMzIsLTQ4IC03LC00MCAxMywtNzIgMzQsLTk5bDIxMCAtMjY1YzExLC0xNCAyMiwtMjcgMzMsLTQwbDEzNyAtMTczIDMyMSAtNDA0Yzc2LC04NSAxMjcsLTEyMyAyMTcsLTEyN2wwIDBjLTkwLC00IC0xNDEsLTQyIC0yMTcsLTEyN2wtMzIxIC00MDQgLTEzNyAtMTcyYy0xMSwtMTMgLTIyLC0yNyAtMzMsLTQxbC0yMTAgLTI2NWMtMjEsLTI2IC00MSwtNTkgLTM0LC05OSA0LC0yMCAxNSwtMzYgMzIsLTQ4IDE4LC0xMSA0MSwtMTUgNzAsLTE1bDI3MSAwYzE0MiwwIDE0Niw5IDI0NywxMzVsMzUxIDQ0MyA1MSA2NSAxMTggMTQ4eiIvPg0KICA8cGF0aCBjbGFzcz0iZmlsMyIgZD0iTTEwNzE4IDIwMTlsMCAtMTA3MGMwLC0zNiAtNSwtNjYgLTE2LC04OCAtMTEsLTIyIC0yNywtMzUgLTQ4LC00MCAtNDAsLTkgLTczLDE2IC05OSw0M2wtMjY1IDI2NGMtNTQsNTUgLTEwMywxMDIgLTEyNywxNjYgLTE0LDM3IC0yMSw3NCAtMjMsMTExbDAgNTA2IDAgOTIgMCAxMjQgMCA0MGMwLC04IC0xLC0xNSAtMSwtMjNsMCA0MDUgMCAwIDAgNTQwYzAsMzYgNSw2NSAxNiw4OCAxMSwyMiAyNywzNSA0OCw0MCA0MCw5IDcyLC0xNyA5OSwtNDNsMjY1IC0yNjRjNTQsLTU2IDEwMiwtMTAyIDEyNywtMTY3IDE0LC0zNiAyMSwtNzQgMjMsLTExMGwwIC04NCAxIDAgMCAtNTMweiIvPg0KIDwvZz4NCjwvc3ZnPg0K"/>
+    <g font-family="Arial, sans-serif" font-size="5.15" fill="#e2e8f0">
+      <text x="28" y="122">Телефония</text>
+      <text x="28" y="132">Сотрудники</text>
+      <text x="28" y="142">Очереди вызовов</text>
+      <text x="28" y="152">IVR меню</text>
+      <text x="28" y="162">Конференции</text>
+      <text x="28" y="172">Звуковые файлы</text>
+      <text x="28" y="182">История вызовов</text>
+      <text x="28" y="192" font-weight="700" fill="#fff">Модули</text>
+      <text x="28" y="205">Интеграция с 1С</text>
+      <text x="28" y="216">Интеграция с Bitrix24</text>
+      <text x="28" y="227">•••</text>
+    </g>
+
+    <!-- Module header -->
+    <rect x="87" y="91" width="151" height="31" fill="#fff"/>
+    <g transform="translate(96 96)">
+      <rect width="18" height="18" rx="4" fill="#1f2937"/>
+      <path d="M9 3.2a3 3 0 0 0-3 3v3.3a3 3 0 0 0 6 0V6.2a3 3 0 0 0-3-3Z" fill="#e5e7eb"/>
+      <path d="M4 9a5 5 0 0 0 10 0M9 14v2.2M6.8 16.2h4.4" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <text x="119" y="104" font-family="Arial, sans-serif" font-weight="700" font-size="7.6" fill="#475569">Локальное</text>
+    <text x="119" y="114" font-family="Arial, sans-serif" font-size="7.6" fill="#475569">распознавание</text>
+
+    <!-- Tabs -->
+    <rect x="87" y="122" width="151" height="22" fill="#f8fafc" stroke="#e2e8f0"/>
+    <g font-family="Arial, sans-serif" font-size="5.8" fill="#64748b">
+      <text x="94" y="136">Настройки</text>
+      <text x="130" y="136">Очередь</text>
+      <text x="158" y="136">Воркеры</text>
+      <text x="191" y="136" font-weight="700" fill="#0284c7">Транскрипты</text>
+    </g>
+    <rect x="187" y="141" width="46" height="2" rx="1" fill="#38bdf8"/>
+
+    <!-- Transcript rows -->
+    <rect x="87" y="144" width="151" height="18" fill="#e0f2fe"/>
+    <text x="94" y="156" font-family="Arial, sans-serif" font-size="6.2" fill="#334155">Последние расшифровки</text>
+    <text x="229" y="156" text-anchor="end" font-family="Arial, sans-serif" font-size="5.5" fill="#64748b">Сегодня</text>
+
+    <g font-family="Arial, sans-serif">
+      <rect x="87" y="162" width="151" height="23" fill="#fff"/>
+      <circle cx="98" cy="173.5" r="5" fill="#dcfce7"/>
+      <path d="M96 174l1.5 1.5 3-3.5" fill="none" stroke="#22c55e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="107" y="171" font-size="6.2" fill="#334155">201 → 205</text>
+      <text x="107" y="179" font-size="5.3" fill="#64748b">Обсуждение заказа…</text>
+      <text x="230" y="175" text-anchor="end" font-size="5.6" fill="#64748b">10:42</text>
+
+      <rect x="87" y="185" width="151" height="23" fill="#f8fafc"/>
+      <circle cx="98" cy="196.5" r="5" fill="#dcfce7"/>
+      <path d="M96 197l1.5 1.5 3-3.5" fill="none" stroke="#22c55e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="107" y="194" font-size="6.2" fill="#334155">301 → 203</text>
+      <text x="107" y="202" font-size="5.3" fill="#64748b">Запись распознана</text>
+      <text x="230" y="198" text-anchor="end" font-size="5.6" fill="#64748b">09:18</text>
+
+      <rect x="87" y="208" width="151" height="24" fill="#fff"/>
+      <circle cx="98" cy="219.5" r="5" fill="#fef3c7"/>
+      <path d="M98 216.5v3.5m0 2v.2" stroke="#f59e0b" stroke-width="1.4" stroke-linecap="round"/>
+      <text x="107" y="217" font-size="6.2" fill="#334155">Внешний звонок</text>
+      <text x="107" y="225" font-size="5.3" fill="#64748b">Обработка аудио…</text>
+      <text x="230" y="221" text-anchor="end" font-size="5.6" fill="#64748b">08:51</text>
+    </g>
+    <path d="M87 162h151M87 185h151M87 208h151" stroke="#cbd5e1" stroke-width=".7"/>
+  </g>
+
+  <!-- Monitor stand -->
+  <rect x="110" y="239" width="74" height="23" rx="12" fill="#a8d5e3"/>
+  <rect x="115" y="242" width="64" height="16" rx="8" fill="#f8fafc"/>
+
+  <!-- Keyboard -->
+  <g filter="url(#shadow)">
+    <path d="M38 278h180l5 28H34Z" fill="#b6dce8"/>
+    <path d="M41 279h174l3 20H38Z" fill="#fff" stroke="#94a3b8" stroke-width=".8"/>
+    <g fill="#f8fafc" stroke="#94a3b8" stroke-width=".45">
+      <rect x="43" y="280" width="11" height="7" rx="1"/><rect x="56" y="280" width="11" height="7" rx="1"/><rect x="69" y="280" width="11" height="7" rx="1"/><rect x="82" y="280" width="11" height="7" rx="1"/><rect x="95" y="280" width="11" height="7" rx="1"/><rect x="108" y="280" width="11" height="7" rx="1"/><rect x="121" y="280" width="11" height="7" rx="1"/><rect x="134" y="280" width="11" height="7" rx="1"/><rect x="147" y="280" width="11" height="7" rx="1"/><rect x="160" y="280" width="11" height="7" rx="1"/><rect x="173" y="280" width="11" height="7" rx="1"/><rect x="186" y="280" width="11" height="7" rx="1"/><rect x="199" y="280" width="13" height="7" rx="1"/>
+      <rect x="45" y="289" width="13" height="7" rx="1"/><rect x="60" y="289" width="13" height="7" rx="1"/><rect x="75" y="289" width="13" height="7" rx="1"/><rect x="90" y="289" width="13" height="7" rx="1"/><rect x="105" y="289" width="13" height="7" rx="1"/><rect x="120" y="289" width="13" height="7" rx="1"/><rect x="135" y="289" width="13" height="7" rx="1"/><rect x="150" y="289" width="13" height="7" rx="1"/><rect x="165" y="289" width="13" height="7" rx="1"/><rect x="180" y="289" width="13" height="7" rx="1"/><rect x="195" y="289" width="17" height="7" rx="1"/>
+      <rect x="48" y="298" width="19" height="6" rx="1"/><rect x="69" y="298" width="18" height="6" rx="1"/><rect x="89" y="298" width="66" height="6" rx="1"/><rect x="157" y="298" width="18" height="6" rx="1"/><rect x="177" y="298" width="18" height="6" rx="1"/><rect x="197" y="298" width="18" height="6" rx="1"/>
+    </g>
+  </g>
+
+  <!-- Corner badge -->
+  <g filter="url(#shadow)">
+    <path d="M249 1 299 52l-9 31-31 9c-27 0-49-21-49-47 0-24 17-43 39-44Z" fill="#fff"/>
+    <path d="M250 6 294 51l-8 27-27 8c-24 0-43-18-43-41 0-21 15-38 34-39Z" fill="url(#badge)"/>
+    <path d="M250 6v42h44" fill="#e0f2fe" opacity=".95"/>
+    <path d="m250 6 44 45-32-4c-7-1-12-6-12-13Z" fill="#fff"/>
+  </g>
+  <g transform="translate(231 29)">
+    <rect x="10" y="0" width="16" height="29" rx="8" fill="#1f2937"/>
+    <rect x="13" y="3" width="10" height="22" rx="5" fill="url(#accent)"/>
+    <path d="M5 17c0 9 5.8 15 13 15s13-6 13-15M18 32v7M11 39h14" fill="none" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/>
+    <path d="M38 6v21M44 11v11M50 3v27" stroke="#f97316" stroke-width="3.2" stroke-linecap="round"/>
+  </g>
+</svg>

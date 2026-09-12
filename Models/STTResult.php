@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptSearchText;
 use Phalcon\Mvc\Model\Relation;
 use RuntimeException;
 
@@ -31,6 +32,11 @@ class STTResult extends ModulesModelsBase
      * @Column(type="string", nullable=false)
      */
     public ?string $transcript = '';
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
+    public ?string $search_text = '';
 
     /**
      * @Column(type="string", nullable=true)
@@ -96,6 +102,7 @@ class STTResult extends ModulesModelsBase
         }
 
         $result->transcript = $transcript;
+        $result->search_text = TranscriptSearchText::fromTranscript($transcript);
         $result->language = $language;
         $result->duration = $duration === null ? null : (string)$duration;
         $result->model_used = $modelUsed;

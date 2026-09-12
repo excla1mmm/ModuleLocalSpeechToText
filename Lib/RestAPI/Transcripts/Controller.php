@@ -48,6 +48,7 @@ class Controller extends BaseRestController
     #[ApiParameterRef('offset')]
     #[ApiParameterRef('date_from')]
     #[ApiParameterRef('date_to')]
+    #[ApiParameterRef('search')]
     #[ApiResponse(200, 'rest_response_200_list')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]

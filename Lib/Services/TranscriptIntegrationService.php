@@ -34,6 +34,20 @@ class TranscriptIntegrationService
 
         $where = [];
         $bind = [];
+        $searchJoin = '';
+        $search = trim((string)($filters['search'] ?? ''));
+        $search = function_exists('mb_substr') ? mb_substr($search, 0, 256) : substr($search, 0, 256);
+        if ($search !== '') {
+            $query = TranscriptSearchText::query($search);
+            $connection = (new STTResult())->getReadConnection();
+            if ($query === '' || !(new TranscriptSearchIndexService())->isReady($connection)) {
+                $where[] = '0 = 1';
+            } else {
+                $searchJoin = ' JOIN m_STTTranscriptSearch ON m_STTTranscriptSearch.rowid = r.id';
+                $where[] = 'm_STTTranscriptSearch MATCH :search';
+                $bind['search'] = $query;
+            }
+        }
         if ($dateFrom !== null) {
             $where[] = "{$callTimestampSql} >= {$dateFrom}";
         }
@@ -42,10 +56,10 @@ class TranscriptIntegrationService
         }
 
         $whereSql = $where === [] ? '1 = 1' : implode(' AND ', $where);
-        $connection = (new STTResult())->getReadConnection();
+        $connection ??= (new STTResult())->getReadConnection();
         $countRows = $connection->fetchAll(
             "SELECT COUNT(r.id) AS total
-               FROM m_STTResult r
+               FROM m_STTResult r{$searchJoin}
           LEFT JOIN m_STTJob j ON j.id = r.job_id
               WHERE {$whereSql}",
             \Phalcon\Db\Enum::FETCH_ASSOC,
@@ -55,7 +69,7 @@ class TranscriptIntegrationService
 
         $rows = $connection->fetchAll(
             "SELECT r.id AS result_id
-                  FROM m_STTResult r
+                  FROM m_STTResult r{$searchJoin}
              LEFT JOIN m_STTJob j ON j.id = r.job_id
                  WHERE {$whereSql}
               ORDER BY {$callTimestampSql} DESC, r.id DESC

@@ -281,7 +281,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 'legacy database did not apply migrations 1-15');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], 'legacy database did not apply migrations 1-16');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -364,8 +364,25 @@ foreach ($before['rows']['jobs'] as $jobBefore) {
     expectSttUpgrade($jobAfter === $expectedJob, "legacy processing job {$jobId} changed outside requeue fields");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     'migration ledger is incomplete'
+);
+expectSttUpgrade(
+    sqliteColumnExists(new SQLite3($resolvedDatabase, SQLITE3_OPEN_READONLY), 'm_STTResult', 'search_text'),
+    'transcript search text column is missing after upgrade'
+);
+expectSttUpgrade(
+    sqliteRows(
+        new SQLite3($resolvedDatabase, SQLITE3_OPEN_READONLY),
+        'SELECT id, last_result_id, completed_at, available, error_code FROM m_STTTranscriptSearchState'
+    ) === [[
+        'available' => 0,
+        'completed_at' => 0,
+        'error_code' => '',
+        'id' => 1,
+        'last_result_id' => 0,
+    ]],
+    'transcript search migration must install resumable state without changing legacy rows'
 );
 expectSttUpgrade(
     preg_match('/\A[a-f0-9]{32}\z/', (string)sqliteRows(
