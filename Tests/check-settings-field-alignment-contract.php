@@ -14,14 +14,40 @@ $css = file_get_contents(__DIR__ . '/../public/assets/css/module-local-speech-to
 
 expectFieldAlignment($view !== false, 'Cannot read settings view');
 expectFieldAlignment($css !== false, 'Cannot read module stylesheet');
+
+$formStart = strpos($view, '<form class="ui form large" id="module-local-speech-to-text-form"');
+$advancedStart = strpos($view, 'stt-advanced-settings-dropdown');
 expectFieldAlignment(
-    substr_count($view, 'stt-settings-fields') === 2,
-    'Primary settings rows must opt in to field-based alignment'
+    $formStart !== false && $advancedStart !== false && $formStart < $advancedStart,
+    'Cannot locate the primary settings section of the settings form'
+);
+$primarySection = substr($view, $formStart, $advancedStart - $formStart);
+
+$primaryFields = [
+    'default_language',
+    'poll_interval_sec',
+    'max_recording_duration_min',
+    'cdr_scan_limit',
+    'processing_timeout_sec',
+];
+foreach ($primaryFields as $field) {
+    expectFieldAlignment(
+        str_contains($primarySection, "{{ form.render('" . $field . "') }}"),
+        sprintf('Primary settings field %s must be rendered in the primary section', $field)
+    );
+}
+
+expectFieldAlignment(
+    preg_match('/class="[^"]*\bfields\b[^"]*"/', $primarySection) !== 1,
+    'Primary settings fields must be stacked one per row without multi-column field groups'
 );
 expectFieldAlignment(
-    str_contains($css, '.stt-settings-fields > .field')
-        && str_contains($css, 'grid-template-rows: minmax(0, 1fr) auto'),
-    'Primary settings fields must pin controls below their labels'
+    !str_contains($view, 'stt-settings-fields'),
+    'Primary settings rows must not use the retired stt-settings-fields opt-in'
+);
+expectFieldAlignment(
+    !str_contains($css, 'stt-settings-fields'),
+    'Retired stt-settings-fields grid alignment must stay out of the module stylesheet'
 );
 
 echo "Settings field alignment contract OK\n";
