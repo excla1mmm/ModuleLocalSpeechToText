@@ -111,6 +111,7 @@ namespace {
     $root = dirname(__DIR__);
     $workingDirectory = getcwd();
     chdir($temporaryRoot);
+    require_once $root . '/Lib/Services/CdrDiscoveryBackoffPolicy.php';
     require_once $root . '/bin/WorkerLocalSpeechToTextJobs.php';
     chdir($workingDirectory === false ? $root : $workingDirectory);
 

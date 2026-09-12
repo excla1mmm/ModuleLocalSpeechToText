@@ -575,6 +575,7 @@ namespace {
     require_once $root . '/Lib/Services/ScannerProcessGuard.php';
     require_once $root . '/Lib/Services/ModuleLifecycleGate.php';
     require_once $root . '/Lib/Services/LocalSpeechToTextLogSanitizer.php';
+    require_once $root . '/Lib/Services/CdrDiscoveryBackoffPolicy.php';
     new ModuleLifecycleGate(null, true);
 
     $workingDirectory = getcwd();

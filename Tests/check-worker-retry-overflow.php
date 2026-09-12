@@ -270,6 +270,7 @@ namespace {
     }
 
     require_once __DIR__ . '/../Lib/Services/RetryStateStore.php';
+    require_once __DIR__ . '/../Lib/Services/CdrDiscoveryBackoffPolicy.php';
 
     $testRoot = sys_get_temp_dir() . '/module-local-stt-retry-worker-' . getmypid() . '-' . bin2hex(random_bytes(4));
     $monitorDirectory = $testRoot . '/monitor';
@@ -338,7 +339,19 @@ namespace {
         file_put_contents($monitorDirectory . "/recording-{$id}.wav", 'audio');
     }
 
-    for ($cycle = 0; $cycle < 20 && $store->count() > 0; $cycle++) {
+    $storeCountBeforeSingleTick = $store->count();
+    $jobsBeforeSingleTick = count(STTJob::$jobs);
+    $retryDelayed->invoke($worker);
+    expectWorkerRetry(
+        $storeCountBeforeSingleTick - $store->count() === 10 && count(STTJob::$jobs) - $jobsBeforeSingleTick === 10,
+        'A single delayed-retry tick must process at most the small internal retry batch limit (10)'
+    );
+
+    // Retry batches are capped at a small internal limit (10 per type per tick,
+    // decoupled from the 30-row CDR discovery batch) so ffprobe/filesystem retries
+    // cannot spike load. With 501 delayed + 101 skipped records, draining needs at
+    // least ceil(501/10) = 51 cycles; give it ample headroom.
+    for ($cycle = 0; $cycle < 60 && $store->count() > 0; $cycle++) {
         $retryDelayed->invoke($worker);
         $retrySkipped->invoke($worker);
     }

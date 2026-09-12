@@ -13,6 +13,7 @@ use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CdrDiscoveryBackoffPolicy;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
@@ -32,6 +33,13 @@ use Throwable;
 class WorkerLocalSpeechToTextJobs extends WorkerBase
 {
     private const int SCAN_INTERVAL_SECONDS = 15;
+    // Internal CDR discovery batch size: not a user setting. One discovery pass reads
+    // at most one page of this many core CDR rows (realtime, or backfill when realtime
+    // is empty) to bound load on the CDR table and the job-creation path.
+    private const int CDR_DISCOVERY_BATCH_SIZE = 30;
+    // Durable delayed/skipped retry state lives in the module DB, not the core CDR
+    // table; it gets its own small cap so ffprobe/filesystem retries can't spike load.
+    private const int RETRY_DUE_BATCH_LIMIT = 10;
     private const int LONG_CALL_SECONDS = 1800;
     private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
     private const int MAX_DELAYED_RECORDINGS = 500;
@@ -43,6 +51,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private ?RetryStateStore $retryStateStore = null;
     private ?RecordingDurationProbe $recordingDurationProbe = null;
     private bool $runtimePragmasConfigured = false;
+    private int $discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::BASE_DELAY_SECONDS;
+    private int $nextDiscoveryAt = 0;
 
     public static function getCheckInterval(): int
     {
@@ -190,7 +200,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                         $scanPhase = 'skipped_recordings';
                         $this->retrySkippedRecordings();
                         $scanPhase = 'cdr_scan';
-                        $this->createJobsFromCompletedCdr();
+                        $this->runCdrDiscoveryIfDue();
                         $scanPhase = 'call_transcript_publish';
                         $publication = (new CallTranscriptRevisionService())->publishReady();
                         if ($publication['published'] > 0) {
@@ -408,26 +418,64 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
     }
 
-    private function createJobsFromCompletedCdr(): void
+    private function runCdrDiscoveryIfDue(): void
+    {
+        if (time() < $this->nextDiscoveryAt) {
+            return;
+        }
+
+        $outcome = $this->createJobsFromCompletedCdr();
+        if ($outcome['active']) {
+            $this->discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::delayAfterActivity();
+        } elseif ($outcome['idle']) {
+            $this->discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::delayAfterIdle($this->discoveryDelaySeconds);
+        }
+        // Neither flag set means the pass was interrupted by a restart signal;
+        // leave the schedule untouched so discovery is reconsidered on the very
+        // next tick instead of being pushed further into the future.
+
+        $this->nextDiscoveryAt = time() + $this->discoveryDelaySeconds;
+    }
+
+    /**
+     * @return array{active: bool, idle: bool}
+     */
+    private function createJobsFromCompletedCdr(): array
     {
         $delayedRecordings = $this->delayedRecordings();
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
         $this->initializeRealtimeScanCursor();
-        $this->createRealtimeJobsFromCompletedCdr($delayedRecordings, $historyStart);
+        $realtimeRowCount = $this->createRealtimeJobsFromCompletedCdr($delayedRecordings, $historyStart);
         if ($this->needRestart) {
             $this->saveDelayedRecordings($delayedRecordings);
-            return;
+            return ['active' => false, 'idle' => false];
         }
 
-        $this->createBackfillJobsFromCompletedCdr($delayedRecordings, $historyStart);
+        if ($realtimeRowCount > 0) {
+            $this->saveDelayedRecordings($delayedRecordings);
+            return ['active' => true, 'idle' => false];
+        }
+
+        // Realtime found nothing new: only now spend a page on backfill so a single
+        // discovery pass never reads more than CDR_DISCOVERY_BATCH_SIZE core CDR rows.
+        $backfill = $this->createBackfillJobsFromCompletedCdr($delayedRecordings, $historyStart);
         $this->saveDelayedRecordings($delayedRecordings);
+
+        if ($backfill['interrupted']) {
+            return ['active' => false, 'idle' => false];
+        }
+
+        return $backfill['row_count'] > 0
+            ? ['active' => true, 'idle' => false]
+            : ['active' => false, 'idle' => true];
     }
 
     /**
      * @param array<int, array<string, mixed>> $delayedRecordings
+     * @return int Number of CDR rows the realtime query returned.
      */
-    private function createRealtimeJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): void
+    private function createRealtimeJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): int
     {
         [$cursorEndtime, $cursorId] = $this->scanCursor();
         $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
@@ -450,13 +498,16 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'limit' => $this->scanLimit(),
         ]);
 
+        $rows = $records->toArray();
+        $rowCount = count($rows);
+
         $lastEndtime = $cursorEndtime;
         $lastId = $cursorId;
 
-        foreach ($records->toArray() as $record) {
+        foreach ($rows as $record) {
             if ($this->needRestart) {
                 $this->saveScanCursor($lastEndtime, $lastId);
-                return;
+                return $rowCount;
             }
 
             $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
@@ -473,18 +524,21 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         }
 
         $this->saveScanCursor($lastEndtime, $lastId);
+
+        return $rowCount;
     }
 
     /**
      * @param array<int, array<string, mixed>> $delayedRecordings
+     * @return array{row_count: int, interrupted: bool}
      */
-    private function createBackfillJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): void
+    private function createBackfillJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): array
     {
         // Backfill is a one-shot scan inside the current retention window.
         // Once the tail is drained, we keep the flag set and stop hammering the CDR
-        // table every SCAN_INTERVAL_SECONDS until the retention window is widened.
+        // table every discovery pass until the retention window is widened.
         if ($this->backfillCompletedFor($historyStart)) {
-            return;
+            return ['row_count' => 0, 'interrupted' => false];
         }
 
         [$cursorEndtime, $cursorId] = $this->backfillCursor();
@@ -497,7 +551,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         // slid past it, every subsequent scan is guaranteed to be empty. Mark done.
         if ($historyStart !== '' && $cursorEndtime < $historyStart) {
             $this->markBackfillCompleted($historyStart);
-            return;
+            return ['row_count' => 0, 'interrupted' => false];
         }
 
         $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
@@ -532,7 +586,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 if ($lastEndtime !== '') {
                     $this->saveBackfillCursor($lastEndtime, $lastId);
                 }
-                return;
+                return ['row_count' => 0, 'interrupted' => true];
             }
 
             $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
@@ -549,6 +603,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         if ($rowCount < $scanLimit) {
             $this->markBackfillCompleted($historyStart);
         }
+
+        return ['row_count' => $rowCount, 'interrupted' => false];
     }
 
     private function backfillCompletedFor(string $historyStart): bool
@@ -634,7 +690,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     {
         $retryRecords = $this->retryStateStore()->due(
             RetryStateStore::TYPE_DELAYED,
-            $this->scanLimit()
+            self::RETRY_DUE_BATCH_LIMIT
         );
         if ($retryRecords === []) {
             return;
@@ -731,7 +787,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     {
         $retryRecords = $this->retryStateStore()->due(
             RetryStateStore::TYPE_SKIPPED,
-            $this->scanLimit()
+            self::RETRY_DUE_BATCH_LIMIT
         );
         if ($retryRecords === []) {
             return;
@@ -1213,7 +1269,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function scanLimit(): int
     {
-        return STTSetting::cdrScanLimit();
+        return self::CDR_DISCOVERY_BATCH_SIZE;
     }
 
     /**
