@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'Arbetar-UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Instruktioner för uppdatering av arbetare',
     'module_local_speech_to_text_ApiVersion' => 'API-version',
     'module_local_speech_to_text_AppVersion' => 'Appversion',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

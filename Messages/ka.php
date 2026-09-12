@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'ვორკერის UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'ვორკერის განახლების ინსტრუქცია',
     'module_local_speech_to_text_ApiVersion' => 'API ვერსია',
     'module_local_speech_to_text_AppVersion' => 'აპლიკაციის ვერსია',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

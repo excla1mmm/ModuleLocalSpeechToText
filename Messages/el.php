@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID εργαζομένου',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Οδηγίες ενημέρωσης εργαζομένου',
     'module_local_speech_to_text_ApiVersion' => 'Έκδοση API',
     'module_local_speech_to_text_AppVersion' => 'Έκδοση εφαρμογής',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID воркера',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Інструкція з оновлення воркера',
     'module_local_speech_to_text_ApiVersion' => 'Версія API',
     'module_local_speech_to_text_AppVersion' => 'Версія застосунку',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

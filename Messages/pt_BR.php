@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID do worker',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Instruções de atualização do worker',
     'module_local_speech_to_text_ApiVersion' => 'Versão da API',
     'module_local_speech_to_text_AppVersion' => 'Versão do aplicativo',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

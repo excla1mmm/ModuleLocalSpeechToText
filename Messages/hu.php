@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'Munkavégző UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Útmutató a munkavégző frissítéséhez',
     'module_local_speech_to_text_ApiVersion' => 'API-verzió',
     'module_local_speech_to_text_AppVersion' => 'Alkalmazásverzió',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

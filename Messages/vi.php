@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID worker',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Hướng dẫn cập nhật worker',
     'module_local_speech_to_text_ApiVersion' => 'Phiên bản API',
     'module_local_speech_to_text_AppVersion' => 'Phiên bản ứng dụng',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

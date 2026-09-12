@@ -417,9 +417,6 @@
             {% endfor %}
             </tbody>
         </table>
-        <div class="stt-table-muted stt-worker-api-update-help">
-            <a href="https://docs.mikopbx.com/extensions/ModuleLocalSpeechToText/worker-update" target="_blank" rel="noopener noreferrer">{{ t._('module_local_speech_to_text_WorkerUpdateHelp') }}</a>
-        </div>
     </div>
     {% endif %}
 

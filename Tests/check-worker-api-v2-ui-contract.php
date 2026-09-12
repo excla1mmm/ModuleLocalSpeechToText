@@ -29,7 +29,6 @@ expectWorkerApiV2Ui(
 foreach ([
     'module_local_speech_to_text_WorkerUid',
     'module_local_speech_to_text_AppVersion',
-    'module_local_speech_to_text_WorkerUpdateHelp',
 ] as $key) {
     expectWorkerApiV2Ui(str_contains($view, "t._('{$key}')"), "Workers view is missing {$key}");
 }
@@ -65,12 +64,8 @@ expectWorkerApiV2Ui(
 );
 expectWorkerApiV2Ui(str_contains($view, 'worker.last_seen'), 'Workers view must display last seen');
 expectWorkerApiV2Ui(
-    preg_match('/href="https:\/\/docs\.mikopbx\.com\/extensions\/ModuleLocalSpeechToText\/worker-update"/', $view) === 1,
-    'Workers view must expose the fixed safe worker-update help URL'
-);
-expectWorkerApiV2Ui(
-    preg_match('/https:\/\/docs\.mikopbx\.com\/extensions\/ModuleLocalSpeechToText\/worker-update[^"<]*/', $view) === 1,
-    'Worker-update help URL must not contain a query or fragment'
+    !str_contains($view, 'docs.mikopbx.com/extensions/ModuleLocalSpeechToText/worker-update'),
+    'Workers view must not render the removed worker-update help link'
 );
 expectWorkerApiV2Ui(
     preg_match('/(?:href|src|action)="[^"]*[?&](?:api[_-]?key|bearer|worker_uid|lease[_-]?token)=/i', $view) !== 1,

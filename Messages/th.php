@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID ของเวิร์กเกอร์',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'คำแนะนำในการอัปเดตเวิร์กเกอร์',
     'module_local_speech_to_text_ApiVersion' => 'เวอร์ชัน API',
     'module_local_speech_to_text_AppVersion' => 'เวอร์ชันแอป',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

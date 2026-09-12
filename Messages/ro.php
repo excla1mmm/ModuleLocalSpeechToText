@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID lucrător',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Instrucțiuni de actualizare a lucrătorului',
     'module_local_speech_to_text_ApiVersion' => 'Versiunea API',
     'module_local_speech_to_text_AppVersion' => 'Versiunea aplicației',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

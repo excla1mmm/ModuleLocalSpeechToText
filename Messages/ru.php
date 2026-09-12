@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Онлайн',
     'module_local_speech_to_text_Offline' => 'Офлайн',
     'module_local_speech_to_text_WorkerUid' => 'UID воркера',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Инструкция по обновлению воркера',
     'module_local_speech_to_text_ApiVersion' => 'Версия API',
     'module_local_speech_to_text_AppVersion' => 'Версия приложения',
     'module_local_speech_to_text_NoWorkers' => 'Локальные обработчики ещё не зарегистрированы',

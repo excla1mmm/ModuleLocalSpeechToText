@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'Ажилтны UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Ажилтны шинэчлэх заавар',
     'module_local_speech_to_text_ApiVersion' => 'API хувилбар',
     'module_local_speech_to_text_AppVersion' => 'Аппын хувилбар',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'İşçi UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'İşçi yeniləmə təlimatları',
     'module_local_speech_to_text_ApiVersion' => 'API versiyası',
     'module_local_speech_to_text_AppVersion' => 'Tətbiq versiyası',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

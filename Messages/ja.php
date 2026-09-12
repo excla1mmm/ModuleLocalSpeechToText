@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'ワーカー UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'ワーカー更新手順',
     'module_local_speech_to_text_ApiVersion' => 'API バージョン',
     'module_local_speech_to_text_AppVersion' => 'アプリのバージョン',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

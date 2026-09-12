@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => 'UID radnika',
-    'module_local_speech_to_text_WorkerUpdateHelp' => 'Upute za ažuriranje radnika',
     'module_local_speech_to_text_ApiVersion' => 'Verzija API-ja',
     'module_local_speech_to_text_AppVersion' => 'Verzija aplikacije',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',

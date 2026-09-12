@@ -85,7 +85,6 @@ return [
     'module_local_speech_to_text_Online' => 'Online',
     'module_local_speech_to_text_Offline' => 'Offline',
     'module_local_speech_to_text_WorkerUid' => '워커 UID',
-    'module_local_speech_to_text_WorkerUpdateHelp' => '워커 업데이트 안내',
     'module_local_speech_to_text_ApiVersion' => 'API 버전',
     'module_local_speech_to_text_AppVersion' => '앱 버전',
     'module_local_speech_to_text_NoWorkers' => 'No workers registered',
