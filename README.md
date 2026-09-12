@@ -49,7 +49,9 @@ The PBX module does not run Whisper itself. It stores jobs in SQLite and streams
 
 It periodically scans completed CDR rows with recordings and creates one `m_STTJob` per recording path. Duplicate jobs are prevented by the unique `file_path` index. If a completed CDR row appears before its recording file is readable, the row is kept in a delayed-recording buffer and retried. Oversized or permanently missing recordings are tracked as skipped records so administrators can see why no job was created.
 
-Processing jobs are leased to a worker. If the worker stops refreshing the lease, stale jobs are returned to the pending queue after the configured processing timeout.
+CDR discovery uses an adaptive backoff: it checks for new recordings every 15 seconds while there is activity, then backs off to 30, 60, 120, and finally 180 seconds once nothing new is found, resetting to 15 seconds the instant new recordings or backlog appear. Stale-worker recovery, stale-lease recovery, delayed/skipped retries, transcript publishing, and retention cleanup keep running every 15 seconds regardless of this backoff. Each discovery pass reads at most 30 CDR rows. These are fixed internal policies, not user settings.
+
+Processing jobs are leased to a worker for 600 seconds. A heartbeat from the worker renews the lease for another 600 seconds, with no limit on how many times it can be renewed, so recognition itself can take as long as it needs. If the worker stops sending heartbeats, the job becomes eligible for stale-lease recovery once the lease expires, which the scanner notices within about 15 seconds.
 
 ## Transcript Quality Filter
 
@@ -67,7 +69,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 
 The main module page has six tabs:
 
-- `Settings`: language hint, polling interval, maximum recognizable recording duration, CDR scan limit, processing timeout, custom vocabulary terms, and TXT term import.
+- `Settings`: language hint, custom vocabulary terms, and TXT term import. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
 - `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
@@ -90,7 +92,7 @@ The transcript list, transcript detail, and recording stream all follow the acce
 
 When `ModuleUsersUI` is absent or disabled, the previous administrator-only behavior remains unchanged and no additional access section is required.
 
-The maximum recognizable recording duration defaults to 60 minutes and accepts values from 1–1440 minutes. A recording exactly at the limit is allowed. A missing, invalid, or zero CDR duration is treated as unknown and does not block processing. To avoid probing every backfill file, the scanner invokes `ffprobe` only when the CDR duration exceeds the configured limit. The measured duration then decides whether the recording enters the queue or remains skipped. A failed probe is retained in retry state instead of losing the recording. The accepted duration is persisted with the job and exposed to the worker as `duration_hint` in seconds.
+The maximum recognizable recording duration is fixed at 180 minutes (10800 seconds) — an internal safety limit that bounds worker memory usage and keeps one very long recording from monopolizing a worker; it is not user-configurable. A recording exactly at the limit is allowed. A missing, invalid, or zero CDR duration is treated as unknown and does not block processing. To avoid probing every backfill file, the scanner invokes `ffprobe` only when the CDR duration exceeds the internal limit. The measured duration then decides whether the recording enters the queue or remains skipped. A failed probe is retained in retry state instead of losing the recording. The accepted duration is persisted with the job and exposed to the worker as `duration_hint` in seconds.
 
 ## Worker Setup Flow
 
