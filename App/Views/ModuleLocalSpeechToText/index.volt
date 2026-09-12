@@ -23,21 +23,21 @@
                 <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_DefaultLanguageHint') }}" data-variation="wide"></i></label>
                 {{ form.render('default_language') }}
             </div>
-            <div class="field">
-                <label>{{ t._('module_local_speech_to_text_PollInterval') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_PollIntervalHint') }}" data-variation="wide"></i></label>
+            <div class="inline field">
                 {{ form.render('poll_interval_sec') }}
+                <label>{{ t._('module_local_speech_to_text_PollInterval') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_PollIntervalHint') }}" data-variation="wide"></i></label>
             </div>
-            <div class="field">
-                <label>{{ t._('module_local_speech_to_text_MaxRecordingDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxRecordingDurationHint') }}" data-variation="wide"></i></label>
+            <div class="inline field">
                 {{ form.render('max_recording_duration_min') }}
+                <label>{{ t._('module_local_speech_to_text_MaxRecordingDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxRecordingDurationHint') }}" data-variation="wide"></i></label>
             </div>
-            <div class="field">
-                <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
+            <div class="inline field">
                 {{ form.render('cdr_scan_limit') }}
+                <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
             </div>
-            <div class="field">
-                <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_ProcessingTimeoutHint') }}" data-variation="wide"></i></label>
+            <div class="inline field">
                 {{ form.render('processing_timeout_sec') }}
+                <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_ProcessingTimeoutHint') }}" data-variation="wide"></i></label>
             </div>
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_CdrHistoryDays') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}" data-variation="wide"></i></label>

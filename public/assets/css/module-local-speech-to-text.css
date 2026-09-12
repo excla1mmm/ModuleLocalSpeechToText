@@ -71,6 +71,13 @@
     padding: 1.4em 1.2em 2.1em;
 }
 
+.module-local-speech-to-text .stt-cdr-history-slider .ui.slider,
+.module-local-speech-to-text .stt-transcript-retention-slider .ui.slider {
+    width: calc(100% - 3em);
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .module-local-speech-to-text .stt-retention-conflict-message {
     margin-top: 0.75em;
 }
