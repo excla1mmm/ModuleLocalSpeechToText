@@ -850,18 +850,6 @@
                     identifier: 'default_language',
                     rules: [{ type: 'empty' }]
                 },
-                poll_interval_sec: {
-                    identifier: 'poll_interval_sec',
-                    rules: [{ type: 'integer[30..3600]' }]
-                },
-                max_recording_duration_min: {
-                    identifier: 'max_recording_duration_min',
-                    rules: [{ type: 'integer[1..1440]' }]
-                },
-                cdr_scan_limit: {
-                    identifier: 'cdr_scan_limit',
-                    rules: [{ type: 'integer[1..1000]' }]
-                },
                 cdr_history_days: {
                     identifier: 'cdr_history_days',
                     rules: [{ type: 'integer[0..365]' }]
@@ -878,10 +866,6 @@
                             )
                         }
                     ]
-                },
-                processing_timeout_sec: {
-                    identifier: 'processing_timeout_sec',
-                    rules: [{ type: 'integer[60..86400]' }]
                 }
             }, processingValidationFields);
             Form.cbBeforeSendForm = function (settings) {
@@ -897,9 +881,6 @@
             $settingsForm.form({
                 fields: Object.assign({
                     default_language: ['empty'],
-                    poll_interval_sec: ['integer[30..3600]'],
-                    max_recording_duration_min: ['integer[1..1440]'],
-                    cdr_scan_limit: ['integer[1..1000]'],
                     cdr_history_days: ['integer[0..365]'],
                     transcript_retention_days: [
                         'integer[0..365]',
@@ -910,8 +891,7 @@
                                 'The recording processing window cannot exceed transcript retention. Increase retention or reduce the processing window.'
                             )
                         }
-                    ],
-                    processing_timeout_sec: ['integer[60..86400]']
+                    ]
                 }, processingValidationFields)
             });
         }

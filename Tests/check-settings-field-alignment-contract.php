@@ -25,10 +25,6 @@ $primarySection = substr($view, $formStart, $advancedStart - $formStart);
 
 $primaryFields = [
     'default_language',
-    'poll_interval_sec',
-    'max_recording_duration_min',
-    'cdr_scan_limit',
-    'processing_timeout_sec',
 ];
 foreach ($primaryFields as $field) {
     expectFieldAlignment(
@@ -49,5 +45,18 @@ expectFieldAlignment(
     !str_contains($css, 'stt-settings-fields'),
     'Retired stt-settings-fields grid alignment must stay out of the module stylesheet'
 );
+
+$removedFields = [
+    'poll_interval_sec',
+    'max_recording_duration_min',
+    'cdr_scan_limit',
+    'processing_timeout_sec',
+];
+foreach ($removedFields as $field) {
+    expectFieldAlignment(
+        !str_contains($view, "'" . $field . "'"),
+        sprintf('Removed internal-policy field %s must no longer appear in the settings view', $field)
+    );
+}
 
 echo "Settings field alignment contract OK\n";

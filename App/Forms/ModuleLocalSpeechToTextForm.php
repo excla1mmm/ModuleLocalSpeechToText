@@ -33,31 +33,11 @@ class ModuleLocalSpeechToTextForm extends BaseForm
         );
         $languageSelect->setDefault($entity->default_language ?? STTSetting::AUTO_LANGUAGE);
         $this->add($languageSelect);
-        $this->add(new Numeric('poll_interval_sec', [
-            'value' => $entity->poll_interval_sec ?? '30',
-            'min' => 30,
-            'max' => 3600,
-        ]));
-        $this->add(new Numeric('max_recording_duration_min', [
-            'value' => $entity->max_recording_duration_min ?? '60',
-            'min' => 1,
-            'max' => 1440,
-        ]));
-        $this->add(new Numeric('cdr_scan_limit', [
-            'value' => $entity->cdr_scan_limit ?? (string)STTSetting::DEFAULT_CDR_SCAN_LIMIT,
-            'min' => 1,
-            'max' => 1000,
-        ]));
         $this->add(new Hidden('cdr_history_days', [
             'value' => $entity->cdr_history_days ?? '30',
         ]));
         $this->add(new Hidden('transcript_retention_days', [
             'value' => $entity->transcript_retention_days ?? '365',
-        ]));
-        $this->add(new Numeric('processing_timeout_sec', [
-            'value' => $entity->processing_timeout_sec ?? '1800',
-            'min' => 60,
-            'max' => 86400,
         ]));
         $this->add(new TextArea('custom_vocabulary_terms', [
             'value' => $entity->custom_vocabulary_terms ?? '',

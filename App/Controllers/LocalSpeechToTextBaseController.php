@@ -112,29 +112,8 @@ class LocalSpeechToTextBaseController extends BaseController
 
         $nextValues = [
             STTSetting::DEFAULT_LANGUAGE => $nextLanguage,
-            STTSetting::POLL_INTERVAL_SEC => (string)$this->postInt(
-                STTSetting::POLL_INTERVAL_SEC,
-                30,
-                30,
-                3600
-            ),
-            STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::normalizeRecordingDurationMinutes(
-                $this->postInt(STTSetting::MAX_RECORDING_DURATION_MIN, 60, 1, 1440)
-            ),
-            STTSetting::CDR_SCAN_LIMIT => (string)$this->postInt(
-                STTSetting::CDR_SCAN_LIMIT,
-                STTSetting::DEFAULT_CDR_SCAN_LIMIT,
-                1,
-                1000
-            ),
             STTSetting::CDR_HISTORY_DAYS => (string)$nextHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$nextRetentionDays,
-            STTSetting::PROCESSING_TIMEOUT_SEC => (string)$this->postInt(
-                STTSetting::PROCESSING_TIMEOUT_SEC,
-                1800,
-                60,
-                86400
-            ),
             STTSetting::SELECTED_MODEL => $nextModel,
             STTSetting::CUSTOM_VOCABULARY_TERMS => function_exists('mb_substr')
                 ? mb_substr($customTerms, 0, 8000)
@@ -142,12 +121,8 @@ class LocalSpeechToTextBaseController extends BaseController
         ];
         $previousValues = [
             STTSetting::DEFAULT_LANGUAGE => STTSetting::selectedLanguageId(),
-            STTSetting::POLL_INTERVAL_SEC => STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30'),
-            STTSetting::MAX_RECORDING_DURATION_MIN => (string)STTSetting::maxRecordingDurationMinutes(),
-            STTSetting::CDR_SCAN_LIMIT => (string)STTSetting::cdrScanLimit(),
             STTSetting::CDR_HISTORY_DAYS => (string)$previousHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$previousRetentionDays,
-            STTSetting::PROCESSING_TIMEOUT_SEC => STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800'),
             STTSetting::SELECTED_MODEL => STTSetting::selectedModelId(),
             STTSetting::CUSTOM_VOCABULARY_TERMS => STTSetting::customVocabularyTermsText(),
         ];
@@ -359,12 +334,8 @@ class LocalSpeechToTextBaseController extends BaseController
     {
         $settings = new stdClass();
         $settings->default_language = STTSetting::selectedLanguageId();
-        $settings->poll_interval_sec = STTSetting::getValue(STTSetting::POLL_INTERVAL_SEC, '30');
-        $settings->max_recording_duration_min = (string)STTSetting::maxRecordingDurationMinutes();
-        $settings->cdr_scan_limit = (string)STTSetting::cdrScanLimit();
         $settings->cdr_history_days = (string)STTSetting::cdrHistoryDays();
         $settings->transcript_retention_days = (string)STTSetting::transcriptRetentionDays();
-        $settings->processing_timeout_sec = STTSetting::getValue(STTSetting::PROCESSING_TIMEOUT_SEC, '1800');
         $settings->selected_model = STTSetting::selectedModelId();
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();
         $processing = WorkerProcessingSettingsService::current();
@@ -450,12 +421,5 @@ class LocalSpeechToTextBaseController extends BaseController
         }
 
         return substr($value, 0, $maxLength);
-    }
-
-    private function postInt(string $name, int $default, int $min, int $max): int
-    {
-        $value = (int)$this->request->getPost($name, 'int', $default);
-
-        return max($min, min($max, $value));
     }
 }
