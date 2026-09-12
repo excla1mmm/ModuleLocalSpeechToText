@@ -341,6 +341,18 @@ namespace {
 
     $storeCountBeforeSingleTick = $store->count();
     $jobsBeforeSingleTick = count(STTJob::$jobs);
+    expectWorkerRetry(
+        property_exists($worker, 'iterationDeadlineAt'),
+        'Scanner must expose an iteration deadline to bound discretionary retry work'
+    );
+    $iterationDeadline = new ReflectionProperty($worker, 'iterationDeadlineAt');
+    $iterationDeadline->setValue($worker, microtime(true) - 1.0);
+    $retryDelayed->invoke($worker);
+    expectWorkerRetry(
+        $storeCountBeforeSingleTick === $store->count() && $jobsBeforeSingleTick === count(STTJob::$jobs),
+        'Expired iteration budget must defer retry work without losing durable state'
+    );
+    $iterationDeadline->setValue($worker, 0.0);
     $retryDelayed->invoke($worker);
     expectWorkerRetry(
         $storeCountBeforeSingleTick - $store->count() === 10 && count(STTJob::$jobs) - $jobsBeforeSingleTick === 10,
@@ -374,6 +386,10 @@ namespace {
         'status' => RecordingDurationProbe::STATUS_OK,
         'duration_sec' => 3601,
     ];
+    RecordingDurationProbe::$results[(realpath($monitorDirectory) ?: $monitorDirectory) . '/duration-unknown.wav'] = [
+        'status' => RecordingDurationProbe::STATUS_OK,
+        'duration_sec' => 3600,
+    ];
     foreach ($durationCases as $id => $case) {
         file_put_contents($monitorDirectory . '/' . $case['file'], 'audio');
         $record = [
@@ -406,8 +422,8 @@ namespace {
     );
     expectWorkerRetry(
         isset(STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav'])
-            && STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav']['recording_duration_sec'] === null,
-        'Unknown zero duration must remain eligible and persist as null'
+            && STTJob::$jobs[$resolvedMonitorDirectory . '/duration-unknown.wav']['recording_duration_sec'] === 3600,
+        'Unknown zero duration must be probed before the recording becomes eligible'
     );
 
     $mismatchedPath = $monitorDirectory . '/duration-cdr-mismatch.webm';
@@ -436,9 +452,10 @@ namespace {
     expectWorkerRetry(
         RecordingDurationProbe::$calls === [
             $resolvedMonitorDirectory . '/duration-too-long.wav',
+            $resolvedMonitorDirectory . '/duration-unknown.wav',
             $resolvedMismatchedPath,
         ],
-        'All and only over-limit CDR recordings must be probed'
+        'Over-limit and unknown CDR durations must be probed'
     );
 
     $missingMismatchRecord = [
@@ -451,7 +468,7 @@ namespace {
     $arguments = [&$durationDelayedCache, $missingMismatchRecord, ''];
     $processCompleted->invokeArgs($worker, $arguments);
     expectWorkerRetry(
-        isset($durationDelayedCache[8005]) && count(RecordingDurationProbe::$calls) === 2,
+        isset($durationDelayedCache[8005]) && count(RecordingDurationProbe::$calls) === 3,
         'A missing over-limit CDR recording must remain delayed without invoking the media probe'
     );
     $store->remove(8005);
@@ -463,7 +480,7 @@ namespace {
         'Increasing the duration limit must allow skipped recordings to recover'
     );
     expectWorkerRetry(
-        count(RecordingDurationProbe::$calls) === 2,
+        count(RecordingDurationProbe::$calls) === 3,
         'A verified media duration must be reused during retries without another probe'
     );
     STTSetting::$maxRecordingDurationMinutes = 60;
@@ -476,7 +493,7 @@ namespace {
         'recordingfile' => 'duration-probe-retry.webm',
         'UNIQUEID' => 'duration-call-8006',
         'endtime' => '2026-07-17 12:00:00',
-        'duration' => 515119,
+        'duration' => 0,
     ];
     $arguments = [&$durationDelayedCache, $probeRetryRecord, ''];
     $processCompleted->invokeArgs($worker, $arguments);

@@ -255,6 +255,14 @@ namespace {
         $reflectionClass->getConstant('RETRY_DUE_BATCH_LIMIT'),
         'Internal retry due-batch limit must be small and decoupled from the CDR batch size'
     );
+    expectDiscoveryBatch(
+        true,
+        $reflectionClass->hasMethod('remainingScanIntervalSeconds'),
+        'Scanner loop must subtract work time from its 15 second cadence'
+    );
+    $remainingInterval = new ReflectionMethod(WorkerLocalSpeechToTextJobs::class, 'remainingScanIntervalSeconds');
+    expectDiscoveryBatch(10, $remainingInterval->invoke(null, 100.0, 105.0), 'Five seconds of work must leave ten seconds before the next housekeeping tick');
+    expectDiscoveryBatch(0, $remainingInterval->invoke(null, 100.0, 116.0), 'Long work must not add another fixed 15 second sleep');
 
     $makeRow = static function (int $id): array {
         return [
@@ -266,16 +274,16 @@ namespace {
         ];
     };
 
-    // Scenario 1: realtime returns rows -> backfill must not run in the same pass.
+    // Scenario 1: pending backfill receives the unused part of the fixed 30-row budget.
     STTSetting::reset();
-    CallDetailRecords::$pages = [array_map($makeRow, range(1, 5))];
+    CallDetailRecords::$pages = [array_map($makeRow, range(1, 5)), array_map($makeRow, range(6, 30))];
     CallDetailRecords::$capturedLimits = [];
     CallDetailRecords::$findCalls = 0;
     $worker = new WorkerLocalSpeechToTextJobs();
     $createJobs = new ReflectionMethod($worker, 'createJobsFromCompletedCdr');
     $outcome = $createJobs->invoke($worker);
-    expectDiscoveryBatch(1, CallDetailRecords::$findCalls, 'Non-empty realtime page must skip backfill in the same discovery pass');
-    expectDiscoveryBatch([30], CallDetailRecords::$capturedLimits, 'Realtime query must request the fixed batch size of 30');
+    expectDiscoveryBatch(2, CallDetailRecords::$findCalls, 'Pending backfill must progress even when realtime has rows');
+    expectDiscoveryBatch([25, 25], CallDetailRecords::$capturedLimits, 'Realtime and backfill must share the fixed 30-row processing budget');
     expectDiscoveryBatch(['active' => true, 'idle' => false], $outcome, 'Non-empty realtime page must be classified as active');
 
     // Scenario 2: realtime empty, backfill returns a full page (30 rows) -> backlog still active, not marked done.
@@ -286,7 +294,7 @@ namespace {
     $worker = new WorkerLocalSpeechToTextJobs();
     $outcome = (new ReflectionMethod($worker, 'createJobsFromCompletedCdr'))->invoke($worker);
     expectDiscoveryBatch(2, CallDetailRecords::$findCalls, 'Empty realtime page must trigger exactly one backfill query');
-    expectDiscoveryBatch([30, 30], CallDetailRecords::$capturedLimits, 'Backfill query must also request the fixed batch size of 30');
+    expectDiscoveryBatch([25, 30], CallDetailRecords::$capturedLimits, 'An empty realtime page must leave the full 30-row budget for backfill');
     expectDiscoveryBatch(['active' => true, 'idle' => false], $outcome, 'A full backfill page must be classified as active (more backlog likely)');
     expectDiscoveryBatch('0', STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE), 'A full backfill page must leave backfill unfinished');
 
@@ -348,7 +356,13 @@ namespace {
 
     $runIfDue->invoke($worker);
     expectDiscoveryBatch(2, CallDetailRecords::$findCalls, 'Discovery must run on the first, immediately-due tick (realtime + backfill since realtime was empty)');
-    expectDiscoveryBatch(30, $delayProperty->getValue($worker), 'Idle discovery must grow the delay from 15 to 30');
+    $firstIdleNextAt = $nextAtProperty->getValue($worker);
+    expectDiscoveryBatch(30, $delayProperty->getValue($worker), 'Idle discovery must prepare the following 30 second delay');
+    expectDiscoveryBatch(
+        true,
+        $firstIdleNextAt >= time() + 14 && $firstIdleNextAt <= time() + 15,
+        'The first idle pause must use the current 15 second base delay before backoff grows'
+    );
 
     // Not yet due: pretend we're still inside the 30 second window.
     $nextAtProperty->setValue($worker, time() + 30);

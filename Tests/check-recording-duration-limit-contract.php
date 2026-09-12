@@ -149,7 +149,7 @@ namespace {
         'Download must expose stable duration error'
     );
     expectDurationContract(
-        str_contains($main, 'Recording duration exceeds configured maximum'),
+        str_contains($main, 'Recording duration exceeds fixed maximum'),
         'Download must terminally record the duration failure'
     );
     preg_match(

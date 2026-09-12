@@ -69,7 +69,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 
 The main module page has six tabs:
 
-- `Settings`: language hint, custom vocabulary terms, and TXT term import. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
+- `Settings`: language hint, custom vocabulary terms and TXT import, CDR processing period, and transcript retention. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
 - `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
@@ -92,7 +92,7 @@ The transcript list, transcript detail, and recording stream all follow the acce
 
 When `ModuleUsersUI` is absent or disabled, the previous administrator-only behavior remains unchanged and no additional access section is required.
 
-The maximum recognizable recording duration is fixed at 180 minutes (10800 seconds) — an internal safety limit that bounds worker memory usage and keeps one very long recording from monopolizing a worker; it is not user-configurable. A recording exactly at the limit is allowed. A missing, invalid, or zero CDR duration is treated as unknown and does not block processing. To avoid probing every backfill file, the scanner invokes `ffprobe` only when the CDR duration exceeds the internal limit. The measured duration then decides whether the recording enters the queue or remains skipped. A failed probe is retained in retry state instead of losing the recording. The accepted duration is persisted with the job and exposed to the worker as `duration_hint` in seconds.
+The maximum recognizable recording duration is fixed at 180 minutes (10800 seconds) — an internal safety limit that bounds worker memory usage and keeps one very long recording from monopolizing a worker; it is not user-configurable. A recording exactly at the limit is allowed. A missing, invalid, zero, or over-limit CDR duration is verified with `ffprobe` before queuing. The measured duration decides whether the recording enters the queue or remains skipped; a failed probe is retained in retry state instead of losing the recording. The accepted duration is persisted with the job and rechecked before the recording is downloaded.
 
 ## Worker Setup Flow
 

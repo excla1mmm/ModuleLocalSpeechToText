@@ -14,6 +14,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
@@ -238,16 +239,6 @@ class LocalSpeechToTextMain
             // Ownership must be established before this best-effort liveness mutation.
             self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
-            if (!STTSetting::recordingDurationAllowed(self::jobDurationSeconds($job))) {
-                $message = 'Recording duration exceeds configured maximum';
-                if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $message)) {
-                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
-                }
-                self::logRecordingAccessFailure($jobId, $workerUid, 'duration_too_long');
-
-                return self::error('duration_too_long', $message, 413);
-            }
-
             $filePath = self::safeRecordingPath((string)$job->file_path);
             if ($filePath === null || !is_readable($filePath)) {
                 if (!$job->markTerminalErrorForWorker(
@@ -260,6 +251,26 @@ class LocalSpeechToTextMain
                 self::logRecordingAccessFailure($jobId, $workerUid, 'recording_unavailable');
 
                 return self::error('file_not_found', 'Recording file is not available', 404);
+            }
+
+            $durationSeconds = self::jobDurationSeconds($job);
+            if ($durationSeconds === null) {
+                $probe = (new RecordingDurationProbe())->probe($filePath);
+                if ($probe['status'] !== RecordingDurationProbe::STATUS_OK || $probe['duration_sec'] === null) {
+                    self::logRecordingAccessFailure($jobId, $workerUid, 'duration_probe_failed');
+
+                    return self::error('duration_probe_failed', 'Recording duration could not be determined', 503);
+                }
+                $durationSeconds = $probe['duration_sec'];
+            }
+            if (!STTSetting::recordingDurationAllowed($durationSeconds)) {
+                $message = 'Recording duration exceeds fixed maximum';
+                if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $message)) {
+                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                }
+                self::logRecordingAccessFailure($jobId, $workerUid, 'duration_too_long');
+
+                return self::error('duration_too_long', $message, 413);
             }
             if (!self::fileWithinSizeLimit($filePath)) {
                 if (!$job->markTerminalErrorForWorker(

@@ -33,13 +33,14 @@ use Throwable;
 class WorkerLocalSpeechToTextJobs extends WorkerBase
 {
     private const int SCAN_INTERVAL_SECONDS = 15;
-    // Internal CDR discovery batch size: not a user setting. One discovery pass reads
-    // at most one page of this many core CDR rows (realtime, or backfill when realtime
-    // is empty) to bound load on the CDR table and the job-creation path.
+    // Internal CDR discovery budget: not a user setting. Realtime and backfill share
+    // at most this many core CDR rows per pass; pending backfill always gets a slice.
     private const int CDR_DISCOVERY_BATCH_SIZE = 30;
+    private const int BACKFILL_RESERVED_BATCH_SIZE = 5;
     // Durable delayed/skipped retry state lives in the module DB, not the core CDR
     // table; it gets its own small cap so ffprobe/filesystem retries can't spike load.
     private const int RETRY_DUE_BATCH_LIMIT = 10;
+    private const int DISCRETIONARY_WORK_BUDGET_SECONDS = 10;
     private const int LONG_CALL_SECONDS = 1800;
     private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
     private const int MAX_DELAYED_RECORDINGS = 500;
@@ -53,10 +54,21 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     private bool $runtimePragmasConfigured = false;
     private int $discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::BASE_DELAY_SECONDS;
     private int $nextDiscoveryAt = 0;
+    private float $iterationDeadlineAt = 0.0;
 
     public static function getCheckInterval(): int
     {
         return self::SCAN_INTERVAL_SECONDS;
+    }
+
+    private static function remainingScanIntervalSeconds(float $startedAt, float $finishedAt): int
+    {
+        return max(0, (int)ceil(self::SCAN_INTERVAL_SECONDS - ($finishedAt - $startedAt)));
+    }
+
+    private function iterationBudgetExhausted(): bool
+    {
+        return $this->iterationDeadlineAt > 0.0 && microtime(true) >= $this->iterationDeadlineAt;
     }
 
     public function start(array $argv): void
@@ -137,6 +149,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $lifecycleGate = new ModuleLifecycleGate();
             $cdrTablesInitialized = false;
             while ($this->needRestart === false) {
+                $iterationStartedAt = microtime(true);
                 pcntl_signal_dispatch();
 
                 try {
@@ -155,7 +168,8 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
                 $iterationSucceeded = false;
                 try {
-                    (new ModuleDatabaseWriterMutex())->synchronized(function () use (&$cdrTablesInitialized, &$scanPhase, $lifecycleGate): void {
+                    (new ModuleDatabaseWriterMutex())->synchronized(function () use (&$cdrTablesInitialized, &$scanPhase, $lifecycleGate, $iterationStartedAt): void {
+                        $this->iterationDeadlineAt = $iterationStartedAt + self::DISCRETIONARY_WORK_BUDGET_SECONDS;
                         if (!$this->runtimePragmasConfigured) {
                             $scanPhase = 'runtime_pragmas';
                             (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
@@ -197,10 +211,19 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
                         $scanPhase = 'delayed_recordings';
                         $this->retryDelayedRecordings();
+                        if ($this->iterationBudgetExhausted()) {
+                            return;
+                        }
                         $scanPhase = 'skipped_recordings';
                         $this->retrySkippedRecordings();
+                        if ($this->iterationBudgetExhausted()) {
+                            return;
+                        }
                         $scanPhase = 'cdr_scan';
                         $this->runCdrDiscoveryIfDue();
+                        if ($this->iterationBudgetExhausted()) {
+                            return;
+                        }
                         $scanPhase = 'call_transcript_publish';
                         $publication = (new CallTranscriptRevisionService())->publishReady();
                         if ($publication['published'] > 0) {
@@ -293,6 +316,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                         );
                     }
                 } finally {
+                    $this->iterationDeadlineAt = 0.0;
                     $lifecycleGate->releaseWriteLease($writeLease);
                 }
 
@@ -324,7 +348,10 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                     break;
                 }
 
-                sleep(self::SCAN_INTERVAL_SECONDS);
+                $sleepSeconds = self::remainingScanIntervalSeconds($iterationStartedAt, microtime(true));
+                if ($sleepSeconds > 0) {
+                    sleep($sleepSeconds);
+                }
             }
 
             $this->logScannerStopped($stopReason);
@@ -420,21 +447,22 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function runCdrDiscoveryIfDue(): void
     {
-        if (time() < $this->nextDiscoveryAt) {
+        if ($this->iterationBudgetExhausted() || time() < $this->nextDiscoveryAt) {
             return;
         }
 
         $outcome = $this->createJobsFromCompletedCdr();
         if ($outcome['active']) {
             $this->discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::delayAfterActivity();
+            $this->nextDiscoveryAt = time() + $this->discoveryDelaySeconds;
         } elseif ($outcome['idle']) {
+            $this->nextDiscoveryAt = time() + $this->discoveryDelaySeconds;
             $this->discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::delayAfterIdle($this->discoveryDelaySeconds);
         }
         // Neither flag set means the pass was interrupted by a restart signal;
         // leave the schedule untouched so discovery is reconsidered on the very
         // next tick instead of being pushed further into the future.
 
-        $this->nextDiscoveryAt = time() + $this->discoveryDelaySeconds;
     }
 
     /**
@@ -446,27 +474,40 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
         $this->initializeRealtimeScanCursor();
-        $realtimeRowCount = $this->createRealtimeJobsFromCompletedCdr($delayedRecordings, $historyStart);
-        if ($this->needRestart) {
+        $backfillPending = !$this->backfillCompletedFor($historyStart);
+        $realtimeLimit = $backfillPending
+            ? self::CDR_DISCOVERY_BATCH_SIZE - self::BACKFILL_RESERVED_BATCH_SIZE
+            : self::CDR_DISCOVERY_BATCH_SIZE;
+        $realtimeRowCount = $this->createRealtimeJobsFromCompletedCdr(
+            $delayedRecordings,
+            $historyStart,
+            $realtimeLimit
+        );
+        if ($this->needRestart || $this->iterationBudgetExhausted()) {
             $this->saveDelayedRecordings($delayedRecordings);
             return ['active' => false, 'idle' => false];
         }
 
-        if ($realtimeRowCount > 0) {
+        $remainingBudget = self::CDR_DISCOVERY_BATCH_SIZE - $realtimeRowCount;
+        if (!$backfillPending || $remainingBudget <= 0) {
             $this->saveDelayedRecordings($delayedRecordings);
-            return ['active' => true, 'idle' => false];
+            return $realtimeRowCount > 0
+                ? ['active' => true, 'idle' => false]
+                : ['active' => false, 'idle' => true];
         }
 
-        // Realtime found nothing new: only now spend a page on backfill so a single
-        // discovery pass never reads more than CDR_DISCOVERY_BATCH_SIZE core CDR rows.
-        $backfill = $this->createBackfillJobsFromCompletedCdr($delayedRecordings, $historyStart);
+        $backfill = $this->createBackfillJobsFromCompletedCdr(
+            $delayedRecordings,
+            $historyStart,
+            $remainingBudget
+        );
         $this->saveDelayedRecordings($delayedRecordings);
 
         if ($backfill['interrupted']) {
             return ['active' => false, 'idle' => false];
         }
 
-        return $backfill['row_count'] > 0
+        return $realtimeRowCount > 0 || $backfill['row_count'] > 0
             ? ['active' => true, 'idle' => false]
             : ['active' => false, 'idle' => true];
     }
@@ -475,7 +516,11 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      * @param array<int, array<string, mixed>> $delayedRecordings
      * @return int Number of CDR rows the realtime query returned.
      */
-    private function createRealtimeJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): int
+    private function createRealtimeJobsFromCompletedCdr(
+        array &$delayedRecordings,
+        string $historyStart,
+        int $scanLimit = self::CDR_DISCOVERY_BATCH_SIZE
+    ): int
     {
         [$cursorEndtime, $cursorId] = $this->scanCursor();
         $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
@@ -495,22 +540,23 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             'conditions' => $conditions,
             'bind' => $bind,
             'order' => 'endtime ASC, id ASC',
-            'limit' => $this->scanLimit(),
+            'limit' => $scanLimit,
         ]);
 
         $rows = $records->toArray();
-        $rowCount = count($rows);
+        $processedRowCount = 0;
 
         $lastEndtime = $cursorEndtime;
         $lastId = $cursorId;
 
         foreach ($rows as $record) {
-            if ($this->needRestart) {
+            if ($this->needRestart || $this->iterationBudgetExhausted()) {
                 $this->saveScanCursor($lastEndtime, $lastId);
-                return $rowCount;
+                return $processedRowCount;
             }
 
             $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
+            $processedRowCount++;
 
             $recordEndtime = $this->endtime($record);
             $recordId = $this->recordId($record);
@@ -525,14 +571,18 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
         $this->saveScanCursor($lastEndtime, $lastId);
 
-        return $rowCount;
+        return $processedRowCount;
     }
 
     /**
      * @param array<int, array<string, mixed>> $delayedRecordings
      * @return array{row_count: int, interrupted: bool}
      */
-    private function createBackfillJobsFromCompletedCdr(array &$delayedRecordings, string $historyStart): array
+    private function createBackfillJobsFromCompletedCdr(
+        array &$delayedRecordings,
+        string $historyStart,
+        int $scanLimit = self::CDR_DISCOVERY_BATCH_SIZE
+    ): array
     {
         // Backfill is a one-shot scan inside the current retention window.
         // Once the tail is drained, we keep the flag set and stop hammering the CDR
@@ -567,7 +617,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             $bind['history_start'] = $historyStart;
         }
 
-        $scanLimit = $this->scanLimit();
         $records = CallDetailRecords::find([
             'conditions' => $conditions,
             'bind' => $bind,
@@ -582,7 +631,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $lastId = 0;
 
         foreach ($rows as $record) {
-            if ($this->needRestart) {
+            if ($this->needRestart || $this->iterationBudgetExhausted()) {
                 if ($lastEndtime !== '') {
                     $this->saveBackfillCursor($lastEndtime, $lastId);
                 }
@@ -702,6 +751,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
         foreach ($retryRecords as $retryRecord) {
+            if ($this->iterationBudgetExhausted()) {
+                if ($changed) {
+                    $this->saveDelayedRecordings($delayedRecordings);
+                }
+                return;
+            }
             $recordId = (int)$retryRecord['cdr_id'];
             $record = $retryRecord['payload'];
             $record['first_seen'] = (int)$retryRecord['first_seen'];
@@ -798,6 +853,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $historyStart = STTSetting::cdrHistoryStartDateTime();
 
         foreach ($retryRecords as $retryRecord) {
+            if ($this->iterationBudgetExhausted()) {
+                if ($changed) {
+                    $this->saveSkippedRecordings($skippedRecordings);
+                }
+                return;
+            }
             $recordId = (int)$retryRecord['cdr_id'];
             $record = $retryRecord['payload'];
             if ($this->needRestart) {
@@ -1267,11 +1328,6 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         return $endtime >= $historyStart;
     }
 
-    private function scanLimit(): int
-    {
-        return self::CDR_DISCOVERY_BATCH_SIZE;
-    }
-
     /**
      * @param array<string, mixed> $record
      */
@@ -1416,7 +1472,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                 'source' => $source,
             ];
         }
-        if (STTSetting::recordingDurationAllowed($durationSeconds)) {
+        if ($durationSeconds !== null && STTSetting::recordingDurationAllowed($durationSeconds)) {
             return [
                 'state' => 'allowed',
                 'duration_sec' => $durationSeconds,
