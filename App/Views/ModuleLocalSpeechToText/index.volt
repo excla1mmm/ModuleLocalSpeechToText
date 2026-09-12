@@ -19,29 +19,25 @@
     {% if canManageSettings %}
     <div class="ui bottom attached tab segment{% if activeTab === 'settings' %} active{% endif %}" data-tab="settings">
         <form class="ui form large" id="module-local-speech-to-text-form" method="post" enctype="multipart/form-data" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/save') }}">
-            <div class="three fields stt-settings-fields">
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_DefaultLanguageHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('default_language') }}
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_PollInterval') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_PollIntervalHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('poll_interval_sec') }}
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_MaxRecordingDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxRecordingDurationHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('max_recording_duration_min') }}
-                </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_DefaultLanguage') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_DefaultLanguageHint') }}" data-variation="wide"></i></label>
+                {{ form.render('default_language') }}
             </div>
-            <div class="two fields stt-settings-fields">
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('cdr_scan_limit') }}
-                </div>
-                <div class="field">
-                    <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_ProcessingTimeoutHint') }}" data-variation="wide"></i></label>
-                    {{ form.render('processing_timeout_sec') }}
-                </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_PollInterval') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_PollIntervalHint') }}" data-variation="wide"></i></label>
+                {{ form.render('poll_interval_sec') }}
+            </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_MaxRecordingDuration') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_MaxRecordingDurationHint') }}" data-variation="wide"></i></label>
+                {{ form.render('max_recording_duration_min') }}
+            </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_CdrScanLimit') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrScanLimitHint') }}" data-variation="wide"></i></label>
+                {{ form.render('cdr_scan_limit') }}
+            </div>
+            <div class="field">
+                <label>{{ t._('module_local_speech_to_text_ProcessingTimeout') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_ProcessingTimeoutHint') }}" data-variation="wide"></i></label>
+                {{ form.render('processing_timeout_sec') }}
             </div>
             <div class="field">
                 <label>{{ t._('module_local_speech_to_text_CdrHistoryDays') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_CdrHistoryDaysHint') }}" data-variation="wide"></i></label>

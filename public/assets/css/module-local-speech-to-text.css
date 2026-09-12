@@ -83,11 +83,6 @@
     padding: 0.75em 1em 1em !important;
 }
 
-.module-local-speech-to-text .stt-settings-fields > .field {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-}
-
 .module-local-speech-to-text .stt-processing-settings-hint {
     align-items: flex-start;
     display: flex;
