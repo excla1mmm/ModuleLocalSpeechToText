@@ -75,4 +75,73 @@ expectTranscriptPublicProjection(
     'public transcript text must use physical channels instead of worker speaker aliases'
 );
 
+$legProjected = (new \Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptPublicProjection())->project([
+    'segments' => [
+        [
+            'segment_id' => 'call:abc:r10:s0',
+            'index' => 0,
+            'result_id' => 10,
+            'start_ms' => 30_000,
+            'end_ms' => 32_000,
+            'recording_start_ms' => 0,
+            'recording_end_ms' => 2_000,
+            'absolute_start_ms' => 1_030_000,
+            'absolute_end_ms' => 1_032_000,
+            'text' => 'Реплика второй части.',
+            'channel' => 'right',
+        ],
+    ],
+    'turns' => [
+        [
+            'turn_id' => 'call:abc:r10:turn:0',
+            'index' => 0,
+            'source_result_ids' => [10],
+            'start_ms' => 30_000,
+            'end_ms' => 32_000,
+            'recording_start_ms' => 0,
+            'recording_end_ms' => 2_000,
+            'absolute_start_ms' => 1_030_000,
+            'absolute_end_ms' => 1_032_000,
+            'text' => 'Реплика второй части.',
+            'channel' => 'right',
+        ],
+    ],
+    'timeline_reliable' => true,
+]);
+
+$legSegment = $legProjected['segments'][0] ?? [];
+expectTranscriptPublicProjection(
+    $legSegment === [
+        'segment_id' => 'call:abc:r10:s0',
+        'index' => 0,
+        'result_id' => 10,
+        'start_ms' => 30_000,
+        'end_ms' => 32_000,
+        'recording_start_ms' => 0,
+        'recording_end_ms' => 2_000,
+        'text' => 'Реплика второй части.',
+        'channel' => 'right',
+    ],
+    'public segments must keep part binding and both time scales without absolute codes'
+);
+$legTurn = $legProjected['turns'][0] ?? [];
+expectTranscriptPublicProjection(
+    $legTurn === [
+        'turn_id' => 'call:abc:r10:turn:0',
+        'index' => 0,
+        'source_result_ids' => [10],
+        'start_ms' => 30_000,
+        'end_ms' => 32_000,
+        'recording_start_ms' => 0,
+        'recording_end_ms' => 2_000,
+        'text' => 'Реплика второй части.',
+        'channel' => 'right',
+    ],
+    'public turns must keep source result ids and both time scales without absolute codes'
+);
+expectTranscriptPublicProjection(
+    ($legProjected['timeline_reliable'] ?? null) === true,
+    'public projection must keep the timeline reliability flag'
+);
+
 echo "Transcript public projection OK\n";

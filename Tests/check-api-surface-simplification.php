@@ -58,7 +58,7 @@ foreach (["'created_at' =>", "'limit' =>"] as $redundantEventSchemaField) {
 $callTranscriptSchema = $read('Lib/RestAPI/CallTranscripts/DataStructure.php');
 $callTranscriptSchema = strstr($callTranscriptSchema, 'private static function transcriptSchema') ?: $callTranscriptSchema;
 $callTranscriptSchema = strstr($callTranscriptSchema, 'private static function detailExample', true) ?: $callTranscriptSchema;
-foreach (["'result_id' =>", "'source_index' =>", "'absolute_start_ms' =>", "'normalized_text' =>", "'speaker' =>", "'speaker_key' =>", "'source_segment_ids' =>", "'segment_count' =>", "'turn_count' =>"] as $internalTranscriptField) {
+foreach (["'source_index' =>", "'absolute_start_ms' =>", "'absolute_end_ms' =>", "'normalized_text' =>", "'speaker' =>", "'speaker_key' =>", "'source_segment_ids' =>", "'segment_count' =>", "'turn_count' =>"] as $internalTranscriptField) {
     expectSimplifiedSTTSurface(!str_contains($callTranscriptSchema, $internalTranscriptField), "public transcript schema still exposes internal field: {$internalTranscriptField}");
 }
 
@@ -81,11 +81,13 @@ $projection = (new \Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptPubli
     'segment_count' => 1, 'turn_count' => 1, 'text' => '[operator] Это Людмила.',
 ]);
 expectSimplifiedSTTSurface(($projection['segments'][0] ?? null) === [
-    'segment_id' => 'stt:3048:2', 'index' => 2, 'start_ms' => 5440, 'end_ms' => 10080,
+    'segment_id' => 'stt:3048:2', 'index' => 2, 'result_id' => 3048,
+    'start_ms' => 5440, 'end_ms' => 10080,
     'text' => 'Это Людмила.', 'channel' => 'left',
 ], 'public segment is not minimal');
 expectSimplifiedSTTSurface(($projection['turns'][0] ?? null) === [
-    'turn_id' => 'turn:2', 'index' => 0, 'start_ms' => 5440, 'end_ms' => 10080,
+    'turn_id' => 'turn:2', 'index' => 0, 'source_result_ids' => [3048],
+    'start_ms' => 5440, 'end_ms' => 10080,
     'text' => 'Это Людмила.', 'channel' => 'left',
 ], 'public turn is not minimal');
 expectSimplifiedSTTSurface(!isset($projection['segment_count'], $projection['turn_count']), 'derived transcript counts remain public');

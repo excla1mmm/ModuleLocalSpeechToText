@@ -103,7 +103,9 @@ final class CdrTranscriptService
         $segments = is_array($payload['transcript']['segments'] ?? null)
             ? array_values(array_filter($payload['transcript']['segments'], 'is_array'))
             : [];
-        [$segments, $timelineReliable] = $this->callRelativeSegments($segments, $manifest);
+        $projected = (new CallTranscriptTimelineProjector())->project(['segments' => $segments], $manifest);
+        $segments = $projected['segments'];
+        $timelineReliable = (bool)($projected['timeline_reliable'] ?? false);
         $segmentsJson = json_encode(
             $segments,
             JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
@@ -139,44 +141,6 @@ final class CdrTranscriptService
             'playbackCdrId' => $playbackCdrId,
             'conversation' => $conversation,
         ];
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $segments
-     * @param array<int, mixed> $manifest
-     * @return array{0: array<int, array<string, mixed>>, 1: bool}
-     */
-    private function callRelativeSegments(array $segments, array $manifest): array
-    {
-        $callStartMs = null;
-        foreach ($manifest as $part) {
-            $value = is_array($part) ? ($part['cdr_start_ms'] ?? null) : null;
-            if (!is_numeric($value) || (int)$value <= 0) {
-                continue;
-            }
-            $callStartMs = $callStartMs === null ? (int)$value : min($callStartMs, (int)$value);
-        }
-
-        $timelineReliable = $callStartMs !== null;
-        foreach ($segments as $index => $segment) {
-            $absoluteStart = $segment['absolute_start_ms'] ?? null;
-            $absoluteEnd = $segment['absolute_end_ms'] ?? null;
-            if (
-                $callStartMs === null
-                || !is_numeric($absoluteStart)
-                || !is_numeric($absoluteEnd)
-            ) {
-                $timelineReliable = false;
-                continue;
-            }
-
-            $startMs = max(0, (int)$absoluteStart - $callStartMs);
-            $endMs = max($startMs, (int)$absoluteEnd - $callStartMs);
-            $segments[$index]['start_ms'] = $startMs;
-            $segments[$index]['end_ms'] = $endMs;
-        }
-
-        return [$segments, $timelineReliable];
     }
 
     /** @param array<int, mixed> $callIds @return array<int, string> */

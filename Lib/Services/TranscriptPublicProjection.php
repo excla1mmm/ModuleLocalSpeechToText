@@ -14,11 +14,11 @@ final class TranscriptPublicProjection
     {
         $transcript['segments'] = $this->items(
             $transcript['segments'] ?? [],
-            ['segment_id', 'index', 'start_ms', 'end_ms', 'text']
+            ['segment_id', 'index', 'result_id', 'start_ms', 'end_ms', 'recording_start_ms', 'recording_end_ms', 'text']
         );
         $transcript['turns'] = $this->items(
             $transcript['turns'] ?? [],
-            ['turn_id', 'index', 'start_ms', 'end_ms', 'text']
+            ['turn_id', 'index', 'source_result_ids', 'start_ms', 'end_ms', 'recording_start_ms', 'recording_end_ms', 'text']
         );
         $channelText = $this->channelText($transcript['turns']);
         if ($channelText !== null) {

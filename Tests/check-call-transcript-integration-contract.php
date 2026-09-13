@@ -99,13 +99,61 @@ $call->id = 7; $call->call_id = $validEvent['call_id']; $call->current_revision 
 \Modules\ModuleLocalSpeechToText\Models\STTCallTranscript::$row = $call;
 $revision = new \Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision();
 $revision->revision = '2'; $revision->content_hash = $validEvent['content_hash']; $revision->parts_hash = $validEvent['parts_hash'];
-$revision->completeness_status = 'complete'; $revision->created_at = '1700000100'; $revision->payload = '{"part_manifest":[],"transcript":{"segments":[]}}';
+$revision->completeness_status = 'complete'; $revision->created_at = '1700000100';
+$revision->payload = json_encode([
+    'part_manifest' => [
+        ['result_id' => 10, 'job_id' => 16, 'cdr_id' => 501, 'cdr_start_ms' => 1_000_000, 'cdr_end_ms' => 1_040_000, 'source_label' => 'part:10'],
+        ['result_id' => 11, 'job_id' => 15, 'cdr_id' => 502, 'cdr_start_ms' => 1_030_000, 'cdr_end_ms' => 1_070_000, 'source_label' => 'part:11'],
+    ],
+    'transcript' => [
+        'segments' => [
+            [
+                'segment_id' => 'call:fixed:r10:s0', 'result_id' => 10, 'source_index' => 0, 'part_order' => 0,
+                'start_ms' => 1_000, 'end_ms' => 5_000, 'text' => 'Клиентская реплика',
+                'channel' => 'left', 'speaker' => '', 'source_label' => 'part:10',
+            ],
+            [
+                'segment_id' => 'call:fixed:r11:s0', 'result_id' => 11, 'source_index' => 0, 'part_order' => 1,
+                'start_ms' => 1_000, 'end_ms' => 5_000, 'text' => 'Реплика второй части',
+                'channel' => 'left', 'speaker' => '', 'source_label' => 'part:11',
+            ],
+        ],
+    ],
+], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 \Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision::$row = $revision;
 $detail = $service->callTranscriptDetail(7, 2);
 foreach (['source_instance_id','call_id','aggregate_id','revision','content_hash','parts_hash','completeness_status'] as $field) {
     $expected = $field === 'source_instance_id' ? $sourceId : ($field === 'aggregate_id' ? 7 : $validEvent[$field]);
     expectCallIntegration(($detail[$field] ?? null) === $expected, "event/detail identity mismatch for {$field}");
 }
+
+$detailSegments = $detail['transcript']['segments'] ?? [];
+expectCallIntegration(count($detailSegments) === 2, 'published detail must keep both call parts');
+expectCallIntegration(
+    ($detailSegments[0]['start_ms'] ?? null) === 1_000 && ($detailSegments[1]['start_ms'] ?? null) === 31_000,
+    'published detail segments must use the call-relative timeline'
+);
+expectCallIntegration(
+    ($detailSegments[0]['recording_start_ms'] ?? null) === 1_000 && ($detailSegments[1]['recording_start_ms'] ?? null) === 1_000,
+    'published detail segments must expose recording-local codes'
+);
+expectCallIntegration(
+    ($detailSegments[1]['result_id'] ?? null) === 11,
+    'published detail segments must keep their part result id'
+);
+expectCallIntegration(
+    !array_key_exists('absolute_start_ms', $detailSegments[0]),
+    'published detail segments must not expose absolute codes'
+);
+$detailTurns = $detail['transcript']['turns'] ?? [];
+expectCallIntegration(
+    ($detailTurns[1]['source_result_ids'] ?? null) === [11] && ($detailTurns[1]['start_ms'] ?? null) === 31_000,
+    'published detail turns must keep source result ids on the call timeline'
+);
+expectCallIntegration(
+    ($detail['transcript']['timeline_reliable'] ?? null) === true,
+    'published detail must expose timeline reliability'
+);
 
 $reinstallFixtures = $root . '/Tests/fixtures/stt-reinstall';
 $fixtureDatabases = [];

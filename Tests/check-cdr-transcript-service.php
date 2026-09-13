@@ -119,6 +119,7 @@ namespace {
     require_once __DIR__ . '/../Lib/Services/UsersUICallScope.php';
     require_once __DIR__ . '/../Lib/Services/UsersUITranscriptAccessService.php';
     require_once __DIR__ . '/../Lib/Services/TranscriptConversationService.php';
+    require_once __DIR__ . '/../Lib/Services/CallTranscriptTimelineProjector.php';
     require_once __DIR__ . '/../Lib/Exceptions/CdrTranscriptNotFoundException.php';
     require_once __DIR__ . '/../Lib/Services/CdrTranscriptService.php';
 
