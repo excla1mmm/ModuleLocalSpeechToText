@@ -25,7 +25,7 @@ $service = new UsersUIAccessService(
         ? ['204', '+7 (812) 555-01-02']
         : [],
     groupActions: static fn(string $groupId): array|string|null => $groupId === '7'
-        ? ['transcripts', 'system']
+        ? ['transcripts', 'deleteTranscripts', 'system']
         : null,
 );
 
@@ -33,6 +33,7 @@ $request = ['_role' => 'UsersUIRoleID7'];
 expectUsersUiAccess($service->canViewTranscripts($request), 'transcripts must grant transcript access');
 expectUsersUiAccess(!$service->canManageSettings($request), 'missing settings action must deny settings');
 expectUsersUiAccess($service->canManageSystem($request), 'system action must grant operational access');
+expectUsersUiAccess($service->canDeleteTranscripts($request), 'deleteTranscripts action must grant transcript deletion');
 
 $scope = $service->callScopeFor($request);
 expectUsersUiAccess($scope->allowsCall('204', '78125550000'), 'selected extension must be visible');
@@ -49,6 +50,7 @@ $fullAccess = new UsersUIAccessService(
 );
 expectUsersUiAccess($fullAccess->canManageSettings([]), 'full access group must receive settings');
 expectUsersUiAccess($fullAccess->canManageSystem([]), 'full access group must receive operations');
+expectUsersUiAccess($fullAccess->canDeleteTranscripts([]), 'full access group must receive transcript deletion');
 expectUsersUiAccess($fullAccess->callScopeFor([])->allowsCall('100', '200'), 'full access group must see every call');
 
 $missingModule = new UsersUIAccessService(moduleAvailable: static fn(): bool => false);
@@ -56,6 +58,7 @@ expectUsersUiAccess($missingModule->callScopeFor([])->preservesLegacyAuthorizati
 expectUsersUiAccess(!$missingModule->canViewTranscripts([]), 'missing ModuleUsersUI must not grant delegated transcript access');
 expectUsersUiAccess(!$missingModule->canManageSettings([]), 'missing ModuleUsersUI must not grant delegated settings access');
 expectUsersUiAccess(!$missingModule->canManageSystem([]), 'missing ModuleUsersUI must not grant delegated system access');
+expectUsersUiAccess(!$missingModule->canDeleteTranscripts([]), 'missing ModuleUsersUI must not grant transcript deletion');
 
 $brokenGroup = new UsersUIAccessService(
     moduleAvailable: static fn(): bool => true,

@@ -100,6 +100,12 @@ final class UsersUIAccessService
     }
 
     /** @param array<string, mixed> $requestData */
+    public function canDeleteTranscripts(array $requestData): bool
+    {
+        return $this->hasAction($requestData, 'deleteTranscripts');
+    }
+
+    /** @param array<string, mixed> $requestData */
     public function canManageSettings(array $requestData): bool
     {
         return $this->hasAction($requestData, 'settings');

@@ -25,14 +25,23 @@ namespace {
 
     $controller = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
     $cdrController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
+    $transcriptActionsController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\TranscriptActionsController';
     $rules = ModuleLocalSpeechToTextACL::getLinkedControllerActions();
     $actions = $rules[$controller] ?? [];
 
-    expectUsersUiAcl(array_keys($actions) === ['transcripts', 'settings', 'system'], 'STT must expose three cohesive UI permissions');
+    expectUsersUiAcl(array_keys($actions) === ['transcripts', 'deleteTranscripts', 'settings', 'system'], 'STT must expose a dedicated transcript deletion permission');
     expectUsersUiAcl(
         ($actions['transcripts'][$controller] ?? []) === ['index', 'transcript', 'recording']
             && ($actions['transcripts'][$cdrController] ?? []) === ['lookup', 'detail'],
         'Transcript access must own page, recording, and isolated CDR transcript actions'
+    );
+    expectUsersUiAcl(
+        ($actions['transcripts'][$transcriptActionsController] ?? []) === ['export'],
+        'Transcript access must allow export without granting deletion'
+    );
+    expectUsersUiAcl(
+        ($actions['deleteTranscripts'][$transcriptActionsController] ?? []) === ['delete'],
+        'Transcript deletion must be owned by its dedicated permission'
     );
     expectUsersUiAcl(
         ($actions['settings'][$controller] ?? []) === ['index', 'save', 'saveModel'],
@@ -49,6 +58,11 @@ namespace {
             isset($messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts'])
                 && trim((string)$messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_transcripts']) !== '',
             basename($messageFile) . ' must label the visible transcripts permission'
+        );
+        expectUsersUiAcl(
+            isset($messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_deleteTranscripts'])
+                && trim((string)$messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_deleteTranscripts']) !== '',
+            basename($messageFile) . ' must label the transcript deletion permission'
         );
         expectUsersUiAcl(
             !isset($messages['module_usersui_CheckBox_LocalSpeechToText_ModuleLocalSpeechToText_index']),

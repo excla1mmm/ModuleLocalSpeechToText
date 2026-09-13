@@ -89,7 +89,29 @@
                         <button type="button" class="stt-transcript-filter" data-speaker="{{ speaker['key']|e }}" aria-pressed="false">{{ speaker['label']|e }}</button>
                     {% endfor %}
                 </div>
-                <span class="stt-transcript-count" aria-live="polite">{{ conversation['turnCount']|e }}</span>
+                <details class="stt-transcript-actions">
+                    <summary aria-label="{{ t._('module_local_speech_to_text_TranscriptActions')|e }}"
+                             title="{{ t._('module_local_speech_to_text_TranscriptActions')|e }}">
+                        <i class="ellipsis horizontal icon"></i>
+                    </summary>
+                    <div class="ui vertical menu">
+                        <a class="item" href="{{ url(transcriptExportPath~'?id='~result.id~'&format=txt')|e }}">
+                            {{ t._('module_local_speech_to_text_DownloadTranscriptTxt') }}
+                        </a>
+                        <a class="item" href="{{ url(transcriptExportPath~'?id='~result.id~'&format=json')|e }}">
+                            {{ t._('module_local_speech_to_text_DownloadTranscriptJson') }}
+                        </a>
+                        {% if canDeleteTranscript %}
+                            <div class="divider"></div>
+                            <form method="post"
+                                  action="{{ url(transcriptDeletePath)|e }}"
+                                  class="item stt-delete-transcript-form">
+                                <input type="hidden" name="result_id" value="{{ result.id|e }}">
+                                <button type="submit">{{ t._('module_local_speech_to_text_DeleteTranscript') }}</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </details>
             </div>
 
             <div class="stt-transcript-list">
@@ -118,10 +140,4 @@
         <div class="ui message">{{ t._('module_local_speech_to_text_NoConversationSegments') }}</div>
     {% endif %}
 
-    {% if transcriptJson !== '' %}
-        <details class="stt-transcript-json">
-            <summary>{{ t._('module_local_speech_to_text_TranscriptJson') }}</summary>
-            <pre>{{ transcriptJson|e }}</pre>
-        </details>
-    {% endif %}
 </div>

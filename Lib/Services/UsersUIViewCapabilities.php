@@ -13,12 +13,23 @@ final class UsersUIViewCapabilities
         private readonly bool $transcripts,
         private readonly bool $settings,
         private readonly bool $system,
+        private readonly bool $deleteTranscripts,
     ) {
     }
 
     public function canViewTranscripts(): bool
     {
         return $this->administrator || $this->transcripts;
+    }
+
+    public function isAdministrator(): bool
+    {
+        return $this->administrator;
+    }
+
+    public function canDeleteTranscripts(): bool
+    {
+        return $this->administrator || $this->deleteTranscripts;
     }
 
     public function canManageSettings(): bool

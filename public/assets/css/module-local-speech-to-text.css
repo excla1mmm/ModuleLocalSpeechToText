@@ -892,18 +892,69 @@
     font-weight: 700;
 }
 
-.module-local-speech-to-text .stt-transcript-count {
+.module-local-speech-to-text .stt-transcript-actions {
+    position: relative;
+}
+
+.module-local-speech-to-text .stt-transcript-actions > summary {
     align-items: center;
     background: #e6eeee;
+    border: 1px solid transparent;
     border-radius: 999px;
     color: #526d69;
     display: inline-flex;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
     justify-content: center;
-    min-height: 2.15em;
-    min-width: 2.15em;
-    padding: 0 0.65em;
+    height: 2.7em;
+    margin: 0;
+    padding: 0;
+    width: 2.7em;
+}
+
+.module-local-speech-to-text .stt-transcript-actions > summary::-webkit-details-marker {
+    display: none;
+}
+
+.module-local-speech-to-text .stt-transcript-actions > summary:hover,
+.module-local-speech-to-text .stt-transcript-actions > summary:focus {
+    background: #dce8e6;
+    border-color: rgba(79, 128, 120, 0.3);
+    outline: none;
+}
+
+.module-local-speech-to-text .stt-transcript-actions > summary > .icon {
+    margin: 0 !important;
+}
+
+.module-local-speech-to-text .stt-transcript-actions .menu {
+    display: none;
+    border-radius: 0.75rem !important;
+    min-width: 14rem;
+    overflow: hidden;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.45rem);
+    z-index: 20;
+}
+
+.module-local-speech-to-text .stt-transcript-actions[open] .menu {
+    display: block;
+}
+
+.module-local-speech-to-text .stt-transcript-actions .item {
+    color: rgba(0, 0, 0, 0.78) !important;
+    font-size: 1rem;
+    padding: 0.9rem 1.1rem !important;
+}
+
+.module-local-speech-to-text .stt-delete-transcript-form button {
+    background: transparent;
+    border: 0;
+    color: #c43d36;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-align: left;
+    width: 100%;
 }
 
 .module-local-speech-to-text .stt-transcript-list {
@@ -1007,28 +1058,6 @@
     text-align: center;
 }
 
-.module-local-speech-to-text .stt-transcript-json {
-    margin-top: 2em;
-}
-
-.module-local-speech-to-text .stt-transcript-json summary {
-    cursor: pointer;
-    color: rgba(0, 0, 0, 0.62);
-    font-weight: 700;
-}
-
-.module-local-speech-to-text .stt-transcript-json pre {
-    max-height: 24em;
-    margin-top: 0.75em;
-    padding: 1em;
-    overflow: auto;
-    border: 1px solid rgba(34, 36, 38, 0.12);
-    border-radius: 0.28571429rem;
-    background: #f7f7f8;
-    color: rgba(0, 0, 0, 0.76);
-    font-size: 0.9em;
-}
-
 @media only screen and (max-width: 767px) {
     .module-local-speech-to-text .stt-transcripts-filter-fields {
         align-items: stretch;
@@ -1087,7 +1116,7 @@
         overflow-x: auto;
     }
 
-    .module-local-speech-to-text .stt-transcript-count {
+    .module-local-speech-to-text .stt-transcript-actions {
         align-self: flex-start;
     }
 

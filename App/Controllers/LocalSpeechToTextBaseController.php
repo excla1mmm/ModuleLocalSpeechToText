@@ -45,7 +45,6 @@ class LocalSpeechToTextBaseController extends BaseController
     {
         $this->moduleDir = PbxExtensionUtils::getModuleDir(self::MODULE_UNIQUE_ID);
         (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
-        $this->view->logoImagePath = $this->url->get() . 'assets/img/cache/' . self::MODULE_UNIQUE_ID . '/logo.svg';
         $this->view->submitMode = null;
         parent::initialize();
     }
@@ -243,6 +242,7 @@ class LocalSpeechToTextBaseController extends BaseController
             $access->canViewTranscripts($identity),
             $access->canManageSettings($identity),
             $access->canManageSystem($identity),
+            $access->canDeleteTranscripts($identity),
         );
     }
 

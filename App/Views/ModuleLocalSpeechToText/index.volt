@@ -339,7 +339,7 @@
                         <td>{{ row['lastUsedAtLabel']|e }}</td>
                         <td class="center aligned">{{ row['boundWorkers']|e }}</td>
                         <td class="right aligned collapsing stt-api-key-actions">
-                            <form class="stt-delete-api-key-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/deleteWorkerApiKey') }}" data-confirm="{{ t._('module_local_speech_to_text_DeleteWorkerApiKeyConfirm') }}">
+                            <form class="stt-delete-api-key-form stt-confirmable-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/deleteWorkerApiKey') }}" data-confirm="{{ t._('module_local_speech_to_text_DeleteWorkerApiKeyConfirm') }}">
                                 <input type="hidden" name="api_key_id" value="{{ row['id']|e }}">
                                 <button class="ui compact icon button" type="submit" data-content="{{ t._('module_local_speech_to_text_DeleteWorkerApiKey') }}">
                                     <i class="trash alternate outline icon"></i>
@@ -539,13 +539,13 @@
     {% endif %}
 </div>
 
-<div class="ui tiny modal" id="stt-confirm-modal" style="display:none">
-    <div class="header">{{ t._('module_local_speech_to_text_ConfirmTitle') }}</div>
+<div class="ui tiny modal" id="stt-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="stt-confirm-title" style="display:none">
+    <div class="header" id="stt-confirm-title">{{ t._('module_local_speech_to_text_ConfirmTitle') }}</div>
     <div class="content">
         <p class="stt-confirm-message"></p>
     </div>
     <div class="actions">
-        <div class="ui cancel basic button">{{ t._('module_local_speech_to_text_ConfirmCancel') }}</div>
-        <div class="ui red approve button">{{ t._('module_local_speech_to_text_ConfirmDelete') }}</div>
+        <button type="button" class="ui cancel basic button">{{ t._('module_local_speech_to_text_ConfirmCancel') }}</button>
+        <button type="button" class="ui red approve button">{{ t._('module_local_speech_to_text_ConfirmDelete') }}</button>
     </div>
 </div>

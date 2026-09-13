@@ -15,6 +15,8 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
     private const string CDR_CONTROLLER =
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
+    private const string TRANSCRIPT_ACTIONS_CONTROLLER =
+        'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\TranscriptActionsController';
 
     public static function getLinkedControllerActions(): array
     {
@@ -23,6 +25,10 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
                 'transcripts' => [
                     self::CONTROLLER => ['index', 'transcript', 'recording'],
                     self::CDR_CONTROLLER => ['lookup', 'detail'],
+                    self::TRANSCRIPT_ACTIONS_CONTROLLER => ['export'],
+                ],
+                'deleteTranscripts' => [
+                    self::TRANSCRIPT_ACTIONS_CONTROLLER => ['delete'],
                 ],
                 'settings' => [
                     self::CONTROLLER => ['index', 'save', 'saveModel'],

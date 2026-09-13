@@ -14,6 +14,7 @@ $controllerPath = $root . '/App/Controllers/ModuleLocalSpeechToTextController.ph
 $workerPath = $root . '/bin/WorkerLocalSpeechToTextJobs.php';
 $legacyWorkerPath = $root . '/Lib/WorkerCreateTranscriptionJobs.php';
 $conf = file_get_contents($root . '/Lib/LocalSpeechToTextConf.php');
+$baseController = file_get_contents($root . '/App/Controllers/LocalSpeechToTextBaseController.php');
 $manifest = json_decode((string)file_get_contents($root . '/module.json'), true);
 
 expectTrueModuleStructure(is_file($controllerPath), 'Cannot read ModuleLocalSpeechToTextController.php');
@@ -23,6 +24,10 @@ expectTrueModuleStructure(is_array($manifest), 'module.json must be valid JSON')
 expectTrueModuleStructure(($manifest['version'] ?? null) === '1.46', 'module.json version must be exactly 1.46');
 expectTrueModuleStructure(($manifest['min_pbx_version'] ?? null) === '2025.1.1', 'module.json min_pbx_version must be exactly 2025.1.1');
 expectTrueModuleStructure($conf !== false, 'Cannot read LocalSpeechToTextConf.php');
+expectTrueModuleStructure(
+    !str_contains((string)$baseController, 'logoImagePath') && !file_exists($root . '/public/assets/img/logo.svg'),
+    'Module pages must not publish the microphone logo'
+);
 
 $controllerLineCount = count(file($controllerPath) ?: []);
 expectTrueModuleStructure($controllerLineCount <= 500, 'Controller must stay under 500 lines');

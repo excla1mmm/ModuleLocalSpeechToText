@@ -10,7 +10,7 @@ function expectTrueTranscriptUserJsonDisplay(bool $condition, string $message): 
 }
 
 $root = dirname(__DIR__);
-$controller = file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
+$controller = file_get_contents($root . '/App/Controllers/TranscriptActionsController.php');
 $baseController = file_get_contents($root . '/App/Controllers/LocalSpeechToTextBaseController.php');
 $template = file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/transcript.volt');
 $css = file_get_contents($root . '/public/assets/css/module-local-speech-to-text.css');
@@ -24,43 +24,22 @@ expectTrueTranscriptUserJsonDisplay(
     'Transcript controller must use the presentation-only JSON formatter'
 );
 expectTrueTranscriptUserJsonDisplay(
-    str_contains($controller, '$this->view->transcriptJson'),
-    'Transcript controller must expose presentation JSON to the view'
+    str_contains($controller, '->transcriptJson($this->callMetadata($result)'),
+    'Transcript export must use the presentation-only JSON formatter'
 );
 expectTrueTranscriptUserJsonDisplay(
     !str_contains($controller, '$this->view->technicalInfo'),
     'Transcript controller must not expose technical diagnostics to the card'
 );
 expectTrueTranscriptUserJsonDisplay(
-    str_contains($template, "transcriptJson !== ''"),
-    'Transcript template must guard the user JSON block'
-);
-expectTrueTranscriptUserJsonDisplay(
-    str_contains($template, 'module_local_speech_to_text_TranscriptJson'),
-    'Transcript template must use the user-facing Show JSON translation'
-);
-expectTrueTranscriptUserJsonDisplay(
-    str_contains($template, 'stt-transcript-json'),
-    'Transcript template must render the dedicated user JSON block'
+    !str_contains($template, 'stt-transcript-json'),
+    'Transcript page must download JSON from the action menu instead of rendering a technical block'
 );
 expectTrueTranscriptUserJsonDisplay(
     !str_contains($template, "technicalInfo['groups']")
         && !str_contains($template, 'module_local_speech_to_text_TechnicalInformation'),
     'Transcript template must not render the technical diagnostics grid'
 );
-expectTrueTranscriptUserJsonDisplay(
-    str_contains($css, '.stt-transcript-json'),
-    'Transcript stylesheet must style the user JSON block'
-);
-
-$messageFiles = glob($root . '/Messages/*.php') ?: [];
-expectTrueTranscriptUserJsonDisplay($messageFiles !== [], 'No module translation files found');
-foreach ($messageFiles as $messageFile) {
-    $messages = require $messageFile;
-    expectTrueTranscriptUserJsonDisplay(
-        is_array($messages) && trim((string)($messages['module_local_speech_to_text_TranscriptJson'] ?? '')) !== '',
-        basename($messageFile) . ' must translate module_local_speech_to_text_TranscriptJson'
-    );
-}
+expectTrueTranscriptUserJsonDisplay(!str_contains($css, '.stt-transcript-json'), 'Obsolete JSON block styles must be removed');
 
 echo "Transcript user JSON display contract OK\n";

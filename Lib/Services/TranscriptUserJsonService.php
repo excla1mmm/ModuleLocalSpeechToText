@@ -29,6 +29,16 @@ class TranscriptUserJsonService
         ) ?: '';
     }
 
+    public function transcriptText(string $transcript): string
+    {
+        $lines = array_map(
+            static fn (array $phrase): string => $phrase['speaker'] . ': ' . $phrase['text'],
+            $this->phrases($transcript)
+        );
+
+        return $lines === [] ? '' : implode("\n", $lines) . "\n";
+    }
+
     /**
      * @param array<string, mixed> $call
      * @return array<string, string|float|null>

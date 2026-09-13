@@ -351,6 +351,9 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $speakerLabels = $this->conversationSpeakerLabelResolver()->resolve($cdr);
 
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
+        $this->view->transcriptExportPath = MenuProvider::TRANSCRIPT_EXPORT_PATH;
+        $this->view->transcriptDeletePath = MenuProvider::TRANSCRIPT_DELETE_PATH;
+        $this->view->canDeleteTranscript = $this->usersUIViewCapabilities()->canDeleteTranscripts();
         $this->view->result = $result;
         $this->view->conversation = $this->conversationService()->conversationFromTranscript(
             (string)$result->transcript,
@@ -358,16 +361,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $speakerLabels
         );
         $this->view->recording = $recordings->recordingCard($result, $job, $cdr);
-        $this->view->transcriptJson = $this->transcriptUserJsonService()->transcriptJson([
-            'id' => $job instanceof STTJob ? (string)$job->call_id : null,
-            'started_at' => $cdr?->start,
-            'ended_at' => $cdr?->endtime,
-            'duration_seconds' => $result->duration === null ? null : (float)$result->duration,
-            'source_number' => $cdr?->src_num,
-            'destination_number' => $cdr?->dst_num,
-            'language' => $result->language,
-            'model' => $result->model_used,
-        ], (string)$result->transcript);
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcript');
     }
 

@@ -743,7 +743,7 @@
             });
         }
 
-        $('.module-local-speech-to-text .stt-delete-api-key-form').each(function () {
+        $('.module-local-speech-to-text .stt-confirmable-form').each(function () {
             bindConfirmableForm($(this));
         });
     }
@@ -758,6 +758,21 @@
             if (destination) {
                 window.location.href = destination;
             }
+        });
+    }
+
+    function initializeTranscriptActionMenu() {
+        var $menus = $('.module-local-speech-to-text .stt-transcript-actions');
+
+        $menus.find('.menu a, .menu button').on('click.stt-transcript-actions', function () {
+            $(this).closest('details').removeAttr('open');
+        });
+        $(document).on('click.stt-transcript-actions', function (event) {
+            $menus.each(function () {
+                if (this !== event.target && !this.contains(event.target)) {
+                    $(this).removeAttr('open');
+                }
+            });
         });
     }
 
@@ -781,6 +796,7 @@
         updateRetentionConflict($settingsForm);
         initializeConfirmModal();
         initializeTranscriptRows();
+        initializeTranscriptActionMenu();
 
         if ($.fn.form && $.fn.form.settings && $.fn.form.settings.rules) {
             $.fn.form.settings.rules.sttProcessingRange = function (value, range) {
