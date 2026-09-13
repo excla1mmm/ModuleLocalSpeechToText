@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
+use MikoPBX\Common\Models\CallDetailRecords;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\TranscriptDeletionBlockedException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
@@ -35,14 +36,21 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
             return;
         }
 
+        $job = $result->STTJob;
+        $job = $job instanceof STTJob ? $job : null;
+        $recordings = $this->callRecordingService();
+        $cdr = $job instanceof STTJob
+            ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
+            : $recordings->cdrRecordForResult($result);
+
         $service = $this->transcriptUserJsonService();
         $content = $format === 'json'
-            ? $service->transcriptJson($this->callMetadata($result), (string)$result->transcript)
+            ? $service->transcriptJson($this->callMetadata($result, $job, $cdr), (string)$result->transcript)
             : $service->transcriptText((string)$result->transcript);
         $this->response->setContentType($format === 'json' ? 'application/json' : 'text/plain', 'UTF-8');
         $this->response->setHeader(
             'Content-Disposition',
-            sprintf('attachment; filename="local-stt-transcript-%d.%s"', (int)$result->id, $format)
+            sprintf('attachment; filename="%s"', $this->exportFilename($result, $job, $cdr, $format))
         );
         $this->response->setContent($content);
     }
@@ -105,16 +113,33 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
         return $this->canAccessTranscript($job instanceof STTJob ? $job : null) ? $result : null;
     }
 
-    /** @return array<string, mixed> */
-    private function callMetadata(STTResult $result): array
+    /**
+     * LSTT_<call date>_<HH-MM>_<source>-<destination>.<format>,
+     * e.g. LSTT_2026-08-13_12-32_201-89774276045.txt. Falls back to the
+     * legacy id-based name when call details are no longer available.
+     */
+    private function exportFilename(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr, string $format): string
     {
-        $job = $result->STTJob;
-        $job = $job instanceof STTJob ? $job : null;
-        $recordings = $this->callRecordingService();
-        $cdr = $job instanceof STTJob
-            ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
-            : $recordings->cdrRecordForResult($result);
+        $timestamp = $this->callRecordingService()->callTimestamp($result, $job, $cdr);
+        $source = $cdr instanceof CallDetailRecords ? (string)preg_replace('/\D+/', '', (string)$cdr->src_num) : '';
+        $destination = $cdr instanceof CallDetailRecords ? (string)preg_replace('/\D+/', '', (string)$cdr->dst_num) : '';
+        if ($timestamp <= 0 || $source === '' || $destination === '') {
+            return sprintf('local-stt-transcript-%d.%s', (int)$result->id, $format);
+        }
 
+        return sprintf(
+            'LSTT_%s_%s_%s-%s.%s',
+            date('Y-m-d', $timestamp),
+            date('H-i', $timestamp),
+            $source,
+            $destination,
+            $format
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function callMetadata(STTResult $result, ?STTJob $job, ?CallDetailRecords $cdr): array
+    {
         return [
             'id' => $job instanceof STTJob ? (string)$job->call_id : null,
             'started_at' => $cdr?->start,

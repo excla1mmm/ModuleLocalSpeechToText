@@ -56,6 +56,23 @@ expectTranscriptAction(str_contains($javascript, "$(document).on('click.stt-tran
 expectTranscriptAction(str_contains($javascript, ".removeAttr('open')"), 'Selecting a transcript action must close its menu');
 expectTranscriptAction(!str_contains($template, 'stt-transcript-count'), 'Reply counter must be replaced by the action menu');
 expectTranscriptAction(str_contains($controller, 'exportAction'), 'Transcript export action is missing');
+expectTranscriptAction(str_contains($controller, 'exportFilename('), 'Transcript export must build the download filename from call details');
+expectTranscriptAction(
+    str_contains($controller, "'LSTT_%s_%s_%s-%s.%s'"),
+    'Export filename must follow the LSTT_<date>_<time>_<source>-<destination> scheme'
+);
+expectTranscriptAction(
+    str_contains($controller, "date('Y-m-d'") && str_contains($controller, "date('H-i'"),
+    'Export filename date and time must come from the resolved call timestamp'
+);
+expectTranscriptAction(
+    !str_contains($controller, "date('H:i'"),
+    'Export filename time must use the dash separator to stay Windows-safe'
+);
+expectTranscriptAction(
+    str_contains($controller, 'local-stt-transcript-%d.%s'),
+    'Export must keep the id-based fallback filename for transcripts without call details'
+);
 expectTranscriptAction(str_contains($controller, 'deleteAction'), 'Transcript deletion action is missing');
 expectTranscriptAction(str_contains($controller, 'canDeleteTranscripts()'), 'Transcript deletion must enforce its dedicated permission');
 expectTranscriptAction(!str_contains($controller, 'isAdministrator()'), 'Transcript deletion must not remain administrator-only');

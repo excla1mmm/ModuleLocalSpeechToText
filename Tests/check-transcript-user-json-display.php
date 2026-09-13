@@ -24,7 +24,7 @@ expectTrueTranscriptUserJsonDisplay(
     'Transcript controller must use the presentation-only JSON formatter'
 );
 expectTrueTranscriptUserJsonDisplay(
-    str_contains($controller, '->transcriptJson($this->callMetadata($result)'),
+    str_contains($controller, '->transcriptJson($this->callMetadata('),
     'Transcript export must use the presentation-only JSON formatter'
 );
 expectTrueTranscriptUserJsonDisplay(
