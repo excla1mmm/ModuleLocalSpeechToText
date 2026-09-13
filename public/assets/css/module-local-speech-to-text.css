@@ -344,20 +344,21 @@
 }
 
 .module-local-speech-to-text .stt-transcripts-filter-fields {
-    align-items: flex-end;
+    align-items: flex-start;
     display: flex;
     gap: 1em;
-    justify-content: space-between;
+    justify-content: flex-start;
 }
 
 .module-local-speech-to-text .stt-transcripts-search-field {
-    flex: 1 1 28em;
-    max-width: 42em;
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 0;
 }
 
 .module-local-speech-to-text .stt-transcripts-date-field {
-    flex: 0 1 30em;
-    margin-left: auto;
+    flex: 0 0 22em;
+    margin-left: 0;
 }
 
 .module-local-speech-to-text #system-logs-segment {

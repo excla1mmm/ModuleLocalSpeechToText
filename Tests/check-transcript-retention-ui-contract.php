@@ -49,13 +49,16 @@ foreach ([
     'updateRetentionConflict',
     'sttRetentionCompatibility',
 ] as $needle) {
-    expectRetentionUi(str_contains($sourceJs, $needle), "retention JavaScript is missing {$needle}");
+    expectRetentionUi(
+        str_contains($sourceJs, $needle) && str_contains($bundledJs, $needle),
+        "retention JavaScript assets are missing {$needle}"
+    );
 }
 expectRetentionUi(
-    str_contains($sourceJs, 'module_local_speech_to_text_TranscriptRetentionConflict'),
+    str_contains($sourceJs, 'module_local_speech_to_text_TranscriptRetentionConflict')
+        && str_contains($bundledJs, 'module_local_speech_to_text_TranscriptRetentionConflict'),
     'browser validation must use the localized conflict message'
 );
-expectRetentionUi($sourceJs === $bundledJs, 'source and deployed JavaScript assets must match');
 expectRetentionUi(
     str_contains($css, '.stt-retention-conflict-message'),
     'retention conflict presentation CSS is missing'

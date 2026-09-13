@@ -58,6 +58,12 @@ expectTranscriptListUi(
     'responsive transcript search/date filter layout is missing'
 );
 expectTranscriptListUi(
+    preg_match('/\.stt-transcripts-filter-fields\s*\{[^}]*align-items:\s*flex-start;[^}]*gap:\s*1em;[^}]*justify-content:\s*flex-start;/s', $css) === 1
+        && preg_match('/\.stt-transcripts-search-field\s*\{[^}]*flex:\s*1 1 auto;[^}]*max-width:\s*none;/s', $css) === 1
+        && preg_match('/\.stt-transcripts-date-field\s*\{[^}]*flex:\s*0 0 22em;[^}]*margin-left:\s*0;/s', $css) === 1,
+    'desktop transcript filters must top-align a compact date range beside a fluid search'
+);
+expectTranscriptListUi(
     preg_match('/\.stt-direction-cell\s*\{[^}]*overflow:\s*visible\s*!important;[^}]*text-align:\s*center;/s', $css) === 1,
     'direction cell must not clip and must center its link'
 );
@@ -69,6 +75,29 @@ foreach ($javascriptFiles as $kind => $javascriptFile) {
             && str_contains($js, '$form.find(\'input[name="search"]\')'),
         "transcript rows must initialize click navigation in {$kind} JavaScript"
     );
+    expectTranscriptListUi(
+        preg_match('/\$search\.on\(\'input\', function \(\) \{\s*cancelSearchDebounce\(\);\s*searchDebounceTimer = window\.setTimeout\(function \(\) \{.*?\$form\.trigger\(\'submit\'\);.*?\}, 400\);/s', $js) === 1,
+        "transcript search must submit after a 400 ms debounce in {$kind} JavaScript"
+    );
+    expectTranscriptListUi(
+        preg_match('/\$search\.on\(\'keydown\', function \(event\) \{.*?event\.which !== 13.*?event\.preventDefault\(\);\s*submitTranscriptSearch\(\);/s', $js) === 1,
+        "transcript search must submit immediately on Enter in {$kind} JavaScript"
+    );
+    expectTranscriptListUi(
+        preg_match('/function submitTranscriptSearch\(\)\s*\{\s*cancelSearchDebounce\(\);\s*\$form\.trigger\(\'submit\'\);\s*\}/s', $js) === 1
+            && preg_match('/\$form\.on\(\'submit\', function \(\) \{\s*cancelSearchDebounce\(\);/s', $js) === 1,
+        "immediate transcript search submission must cancel pending debounce in {$kind} JavaScript"
+    );
+    expectTranscriptListUi(
+        preg_match('/\$search\.on\(\'search\', function \(\) \{.*?trim\(\) === \'\'\).*?submitTranscriptSearch\(\);/s', $js) === 1,
+        "clearing transcript search must still submit immediately in {$kind} JavaScript"
+    );
+    if ($kind === 'compiled') {
+        expectTranscriptListUi(
+            !str_contains($js, 'require('),
+            'compiled transcript search JavaScript must run standalone'
+        );
+    }
 }
 
 echo "Transcript list UI contract checks passed\n";

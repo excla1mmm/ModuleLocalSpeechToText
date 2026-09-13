@@ -149,17 +149,17 @@ function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "functi
 
       var $button = $('<button>', {
         type: 'button',
-        "class": 'ui compact basic icon button stt-cdr-transcript-button',
+        "class": 'stt-cdr-transcript-button',
         'aria-label': labels.button,
         title: labels.button,
         'data-content': labels.button
-      }).attr('data-call-id', row.callId).append($('<i>', {
-        "class": 'comment alternate outline icon'
-      }));
+      }).attr('data-call-id', row.callId);
+      $button[0].innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' + '<path d="M4 13v-2M8 16V8M12 18V6M16 16V8M20 13v-2" /></svg>';
 
       if (row.hasActionColumn) {
         $target.prepend($button);
       } else {
+        $target.addClass('stt-cdr-duration-cell');
         $button.addClass('stt-cdr-transcript-duration-button');
         $target.append($button);
       }

@@ -41,8 +41,10 @@ foreach (glob(__DIR__ . '/../Messages/*.php') ?: [] as $messageFile) {
 
 $sourcePath = __DIR__ . '/../public/assets/js/src/module-local-speech-to-text-cdr.js';
 $compiledPath = __DIR__ . '/../public/assets/js/module-local-speech-to-text-cdr.js';
+$cssPath = __DIR__ . '/../public/assets/css/module-local-speech-to-text-cdr.css';
 $sourceJs = is_file($sourcePath) ? (file_get_contents($sourcePath) ?: '') : '';
 $compiledJs = is_file($compiledPath) ? (file_get_contents($compiledPath) ?: '') : '';
+$cdrCss = is_file($cssPath) ? (file_get_contents($cssPath) ?: '') : '';
 expectCdrUi(
     str_contains($sourceJs, 'function ensureModal()')
     && str_contains($sourceJs, "\$('body').append(\$modal)"),
@@ -76,6 +78,19 @@ expectCdrUi(str_contains($sourceJs, 'delete availability[callId]'), 'negative lo
 expectCdrUi(str_contains($sourceJs, 'function stopModalPlayback()'), 'modal playback cleanup is missing');
 expectCdrUi(str_contains($sourceJs, 'playbackCdrId'), 'CDR recording selection must use the server presentation model');
 expectCdrUi(!str_contains($sourceJs, 'recordings[0]'), 'aggregate transcript must not be bound to the first recording');
+expectCdrUi(
+    str_contains($sourceJs, "class: 'stt-cdr-transcript-button'")
+    && str_contains($sourceJs, '<svg viewBox="0 0 24 24"')
+    && str_contains($sourceJs, 'M4 13v-2M8 16V8M12 18V6M16 16V8M20 13v-2'),
+    'Local STT CDR button must reuse the Cloud STT waveform icon'
+);
+foreach (['width: 22px', 'height: 22px', 'border-radius: 6px', 'width: 13px', 'height: 13px', '#2f8a6d'] as $needle) {
+    expectCdrUi(str_contains($cdrCss, $needle), "Local STT CDR button style missing {$needle}");
+}
+expectCdrUi(
+    str_contains($cdrCss, 'margin: 0 8px 0 0;'),
+    'Local STT CDR button spacing must match the Core action icon interval'
+);
 expectCdrUi(!str_contains($compiledJs, '/^mikopbx-'), 'compiled JavaScript must accept legacy call IDs');
 expectCdrUi(str_contains($compiledJs, 'playbackCdrId'), 'compiled JavaScript must select the server-authorized recording');
 expectCdrUi(str_contains($compiledJs, 'function stopModalPlayback()'), 'compiled JavaScript must stop modal playback');

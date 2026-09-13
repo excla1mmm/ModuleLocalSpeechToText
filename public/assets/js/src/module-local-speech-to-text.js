@@ -72,6 +72,7 @@
         var $dateFrom = $form.find('input[name="date_from"]');
         var $dateTo = $form.find('input[name="date_to"]');
         var $search = $form.find('input[name="search"]');
+        var searchDebounceTimer = null;
         var today = moment();
         var startDate = momentDate($dateFrom.val(), today);
         var endDate = momentDate($dateTo.val(), startDate);
@@ -85,6 +86,18 @@
         function updateHiddenInputs(start, end) {
             $dateFrom.val(start.format('YYYY-MM-DD'));
             $dateTo.val(end.format('YYYY-MM-DD'));
+        }
+
+        function cancelSearchDebounce() {
+            if (searchDebounceTimer !== null) {
+                window.clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = null;
+            }
+        }
+
+        function submitTranscriptSearch() {
+            cancelSearchDebounce();
+            $form.trigger('submit');
         }
 
         updateHiddenInputs(startDate, endDate);
@@ -110,14 +123,30 @@
         });
 
         $form.on('submit', function () {
+            cancelSearchDebounce();
             var picker = $selector.data('daterangepicker');
             if (picker && picker.startDate && picker.endDate) {
                 updateHiddenInputs(picker.startDate, picker.endDate);
             }
         });
+        $search.on('input', function () {
+            cancelSearchDebounce();
+            searchDebounceTimer = window.setTimeout(function () {
+                searchDebounceTimer = null;
+                $form.trigger('submit');
+            }, 400);
+        });
+        $search.on('keydown', function (event) {
+            if (event.which !== 13) {
+                return;
+            }
+
+            event.preventDefault();
+            submitTranscriptSearch();
+        });
         $search.on('search', function () {
             if (String($search.val() || '').trim() === '') {
-                $form.trigger('submit');
+                submitTranscriptSearch();
             }
         });
     }

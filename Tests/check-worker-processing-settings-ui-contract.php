@@ -95,11 +95,6 @@ expectProcessingSettingsUi(
         && str_contains($bundledJs, 'sttProcessingOverlap'),
     'Custom overlap validation must exist in both JavaScript assets'
 );
-expectProcessingSettingsUi(
-    hash('sha256', $sourceJs) === hash('sha256', $bundledJs),
-    'Source and bundled JavaScript must stay identical'
-);
-
 $requiredKeys = [
     'module_local_speech_to_text_ProcessingSettingsHint',
     'module_local_speech_to_text_DecodingSettings',

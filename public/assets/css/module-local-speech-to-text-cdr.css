@@ -1,10 +1,41 @@
-.stt-cdr-transcript-button {
-    margin-right: .5em !important;
+#cdr-table .stt-cdr-transcript-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    border: 1px solid #b8d8ce;
+    border-radius: 6px;
+    background: #e7f5f0;
+    color: #2f8a6d;
+    cursor: pointer;
+    vertical-align: middle;
 }
 
-.stt-cdr-transcript-duration-button {
-    margin-left: .5em !important;
-    margin-right: 0 !important;
+#cdr-table .stt-cdr-transcript-button:hover {
+    border-color: #2f8a6d;
+    background: #d7eee6;
+}
+
+#cdr-table .stt-cdr-transcript-button:focus-visible {
+    outline: 2px solid #2f8a6d;
+    outline-offset: 2px;
+}
+
+#cdr-table .stt-cdr-transcript-button svg {
+    display: block;
+    width: 13px;
+    height: 13px;
+}
+
+#cdr-table td.stt-cdr-duration-cell {
+    white-space: nowrap;
+}
+
+#cdr-table .stt-cdr-transcript-duration-button {
+    margin: 0 0 0 8px;
 }
 
 .stt-cdr-transcript-modal .content {

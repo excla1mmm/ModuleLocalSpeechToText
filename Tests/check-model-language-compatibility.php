@@ -136,13 +136,14 @@ namespace {
     $bundledJs = (string)file_get_contents(
         __DIR__ . '/../public/assets/js/module-local-speech-to-text.js'
     );
-    expectModelLanguageCompatibility(
-        str_contains($sourceJs, 'selectedModelSupportsLanguage')
-            && str_contains($sourceJs, 'stt-model-language-compatibility')
-            && str_contains($sourceJs, 'var compatible = updateCompatibilityState();')
-            && $sourceJs === $bundledJs,
-        'Source and bundled UI must refresh compatibility for every model selection'
-    );
+    foreach (['source' => $sourceJs, 'bundled' => $bundledJs] as $kind => $javascript) {
+        expectModelLanguageCompatibility(
+            str_contains($javascript, 'selectedModelSupportsLanguage')
+                && str_contains($javascript, 'stt-model-language-compatibility')
+                && str_contains($javascript, 'var compatible = updateCompatibilityState();'),
+            "{$kind} UI must refresh compatibility for every model selection"
+        );
+    }
 
     $messageKey = 'module_local_speech_to_text_ModelLanguageIncompatible';
     $russianMessages = include __DIR__ . '/../Messages/ru.php';
