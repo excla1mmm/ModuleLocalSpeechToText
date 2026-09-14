@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Conversația cu clientul',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Consultare internă',
     'module_local_speech_to_text_SilenceDuration' => 'liniște %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Afișează transcrierea',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transcrierea apelului',

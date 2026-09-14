@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Розмова з клієнтом',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Внутрішня консультація',
     'module_local_speech_to_text_SilenceDuration' => 'тиша %seconds% с',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Показати розшифровку',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Розшифровка дзвінка',

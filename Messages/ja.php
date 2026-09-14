@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => '顧客との会話',
+    'module_local_speech_to_text_InternalConsultationTab' => '内部相談',
     'module_local_speech_to_text_SilenceDuration' => '無音 %seconds%秒',
     'module_local_speech_to_text_CdrTranscriptButton' => '文字起こしを表示',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '通話の文字起こし',

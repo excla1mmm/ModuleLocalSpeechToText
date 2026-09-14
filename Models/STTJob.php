@@ -11,7 +11,9 @@ use RuntimeException;
 /**
  * @Indexes(
  *     [name='queue', columns=['status', 'priority', 'cdr_endtime', 'created_at'], type=''],
- *     [name='file_path', columns=['file_path'], type='UNIQUE']
+ *     [name='file_path', columns=['file_path'], type='UNIQUE'],
+ *     [name='call_status', columns=['call_id', 'status'], type=''],
+ *     [name='cdr_id', columns=['cdr_id'], type='']
  * )
  */
 class STTJob extends ModulesModelsBase

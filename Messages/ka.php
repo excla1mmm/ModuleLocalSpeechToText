@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'კლიენტთან საუბარი',
+    'module_local_speech_to_text_InternalConsultationTab' => 'შიდა კონსულტაცია',
     'module_local_speech_to_text_SilenceDuration' => 'სიჩუმე %seconds% წმ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'ტრანსკრიპტის ჩვენება',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ზარის ტრანსკრიპტი',

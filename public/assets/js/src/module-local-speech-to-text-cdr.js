@@ -90,6 +90,7 @@
         const rootUrl = typeof globalRootUrl === 'string' ? globalRootUrl : '/admin-cabinet/';
         const lookupUrl = `${rootUrl}module-local-speech-to-text/cdr-transcript/lookup`;
         const detailUrl = `${rootUrl}module-local-speech-to-text/cdr-transcript/detail`;
+        const transcriptUrl = `${rootUrl}module-local-speech-to-text/module-local-speech-to-text/transcript`;
         const availability = Object.create(null);
         const pending = Object.create(null);
         let accessDenied = false;
@@ -133,9 +134,11 @@
                 return;
             }
 
-            const $button = $('<button>', {
-                type: 'button',
+            const $button = $('<a>', {
                 class: 'stt-cdr-transcript-button',
+                href: `${transcriptUrl}?id=${encodeURIComponent(String(availability[row.callId]))}`,
+                target: '_blank',
+                rel: 'noopener',
                 'aria-label': labels.button,
                 title: labels.button,
                 'data-content': labels.button,
@@ -359,9 +362,19 @@
                 refreshButtons(dataTable);
             });
             $table.on('click.sttCdrTranscript', '.stt-cdr-transcript-button', function (event) {
-                event.preventDefault();
                 event.stopPropagation();
-                openTranscript(dataTable, $(this));
+                const $button = $(this);
+                if (event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
+                    const openedTab = window.open($button.attr('href'), '_blank');
+                    if (openedTab !== null) {
+                        openedTab.opener = null;
+                        openedTab.focus();
+                    }
+                    return;
+                }
+                event.preventDefault();
+                openTranscript(dataTable, $button);
             });
             setTimeout(function () {
                 refreshButtons(dataTable);

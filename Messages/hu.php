@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Beszélgetés az ügyféllel',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Belső konzultáció',
     'module_local_speech_to_text_SilenceDuration' => 'csend %seconds% mp',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Átirat megjelenítése',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Hívásátirat',

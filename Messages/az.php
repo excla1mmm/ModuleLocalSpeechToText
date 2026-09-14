@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Müştəri ilə söhbət',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Daxili məsləhətləşmə',
     'module_local_speech_to_text_SilenceDuration' => 'sükut %seconds% san.',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Transkripsiyanı göstər',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Zəng transkripsiyası',

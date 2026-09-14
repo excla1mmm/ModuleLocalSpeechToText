@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => '与客户的对话',
+    'module_local_speech_to_text_InternalConsultationTab' => '内部咨询',
     'module_local_speech_to_text_SilenceDuration' => '静音 %seconds% 秒',
     'module_local_speech_to_text_CdrTranscriptButton' => '查看转写',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '通话转写',

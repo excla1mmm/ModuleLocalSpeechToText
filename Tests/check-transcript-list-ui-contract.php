@@ -49,6 +49,11 @@ foreach (['transcripts.volt', 'index.volt'] as $templateName) {
         ) === 1,
         "{$templateName} rows must expose their transcript destination"
     );
+    expectTranscriptListUi(
+        !str_contains($template, 'module_local_speech_to_text_Transfer')
+            && str_contains($template, '<div class="stt-employee-transfer-marker"><span aria-hidden="true">↓</span></div>'),
+        "{$templateName} transfer route must display only the down arrow"
+    );
 }
 expectTranscriptListUi(str_contains($css, '.stt-direction-link'), 'direction link styling missing');
 expectTranscriptListUi(str_contains($css, '.stt-transcript-primary'), 'primary row text styling missing');

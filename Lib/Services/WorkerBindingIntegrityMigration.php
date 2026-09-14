@@ -20,7 +20,9 @@ final class WorkerBindingIntegrityMigration
             throw new RuntimeException('Unable to remove obsolete worker API-key binding index');
         }
         if ($connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTWorker_api_key_id_v2_unique
+            // Model annotations cannot express the predicate. Core preserves
+            // SQLite-owned index names while still managing ordinary indexes.
+            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTWorker_sqlite_autoindex_api_key_id_v2_unique
                  ON m_STTWorker(api_key_id)
               WHERE api_key_id IS NOT NULL AND api_version = 2'
         ) !== true) {

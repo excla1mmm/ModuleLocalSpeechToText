@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Συνομιλία με τον πελάτη',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Εσωτερική συμβουλή',
     'module_local_speech_to_text_SilenceDuration' => 'σιωπή %seconds% δ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Προβολή απομαγνητοφώνησης',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Απομαγνητοφώνηση κλήσης',

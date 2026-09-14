@@ -6,6 +6,11 @@ namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
 
+/**
+ * @Indexes(
+ *     [name='version', columns=['call_transcript_id', 'result_id', 'content_hash', 'recording_fingerprint'], type='UNIQUE']
+ * )
+ */
 class STTCallTranscriptPart extends ModulesModelsBase
 {
     /**
@@ -27,7 +32,7 @@ class STTCallTranscriptPart extends ModulesModelsBase
     /** @Column(type="integer", nullable=true) */
     public ?int $cdr_id = null;
 
-    /** @Column(type="text", nullable=true) */
+    /** @Column(type="string", nullable=true) */
     public ?string $cdr_uniqueid = '';
 
     /** @Column(type="integer", nullable=true) */
@@ -36,19 +41,19 @@ class STTCallTranscriptPart extends ModulesModelsBase
     /** @Column(type="integer", nullable=true) */
     public ?string $cdr_end_ms = null;
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $recording_fingerprint = '';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $content_hash = '';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $source_label = '';
 
-    /** @Column(type="text", nullable=false, default="complete") */
+    /** @Column(type="string", nullable=false, default="complete") */
     public ?string $resolution_status = 'complete';
 
-    /** @Column(type="text", nullable=false, default="[]") */
+    /** @Column(type="string", nullable=false, default="[]") */
     public ?string $segments_json = '[]';
 
     /** @Column(type="integer", nullable=false, default=1) */

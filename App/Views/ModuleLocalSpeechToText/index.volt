@@ -445,7 +445,7 @@
                 <tbody>
                 {% for row in transcriptRows %}
                     {% set result = row['result'] %}
-                    <tr class="stt-transcript-row" data-transcript-url="{{ url(transcriptPath~'?id='~result.id) }}">
+                    <tr class="stt-transcript-row" data-transcript-url="{{ url(transcriptPath~'?id='~result.id) }}"{% if row['hasTransfer'] %} data-has-transfer="true"{% endif %}>
                         <td class="stt-direction-cell">
                             <a href="{{ url(transcriptPath~'?id='~result.id) }}" class="stt-direction-link" title="{{ row['directionLabel']|e }}" aria-label="{{ t._('module_local_speech_to_text_OpenConversation') }}: {{ row['directionLabel']|e }}">
                                 {{ row['directionIcon']|e }}
@@ -460,7 +460,20 @@
                         <td>
                             <div class="stt-transcript-primary">{{ row['clientLabel']|e }}</div>
                         </td>
-                        <td><div class="stt-transcript-primary">{{ row['employeesLabel']|e }}</div></td>
+                        <td>
+                            {% if row['hasTransfer'] %}
+                                <div class="stt-employee-transfer-route">
+                                    {% for employee in row['transferEmployeeLabels'] %}
+                                        {% if not loop.first %}
+                                            <div class="stt-employee-transfer-marker"><span aria-hidden="true">↓</span></div>
+                                        {% endif %}
+                                        <div class="stt-transcript-primary">{{ employee|e }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="stt-transcript-primary">{{ row['employeesLabel']|e }}</div>
+                            {% endif %}
+                        </td>
                         <td><div class="stt-duration-value">{{ row['callDurationLabel']|e }}</div></td>
                         <td>
                             <div class="stt-updated-value">{{ row['createdDateLabel']|e }}</div>

@@ -94,11 +94,12 @@ class TranscriptListService
                 'callTimeLabel' => $hasCallTimestamp ? date('H:i', $callTimestamp) : '',
                 'createdDateLabel' => $createdAt > 0 ? date('d.m.Y', $createdAt) : '',
                 'createdTimeLabel' => $createdAt > 0 ? date('H:i', $createdAt) : '',
+                'partStartMs' => $job instanceof STTJob ? (int)($job->cdr_start_ms ?? 0) : 0,
+                'partEndMs' => $job instanceof STTJob ? (int)($job->cdr_end_ms ?? 0) : 0,
             ], $callPresentation);
-            if ($searchActive && count($rows) >= $limit) {
-                break;
-            }
         }
+
+        $rows = $this->groupLogicalCalls($rows);
 
         usort(
             $rows,
@@ -294,7 +295,7 @@ class TranscriptListService
         ];
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, mixed> */
     private function callPresentation(?CallDetailRecords $cdr): array
     {
         if (!$cdr instanceof CallDetailRecords) {
@@ -311,26 +312,35 @@ class TranscriptListService
                 'internal',
                 '—',
                 $this->routeLabel($this->employeeLabel($source), $this->employeeLabel($destination)),
-                $duration
+                $duration,
+                [$this->employeeLabel($source), $this->employeeLabel($destination)]
             ),
             CallDirectionResolver::DIRECTION_OUTGOING => $this->presentCall(
                 'outgoing',
                 $destination,
                 $this->employeeLabel($source),
-                $duration
+                $duration,
+                [$this->employeeLabel($source)]
             ),
             CallDirectionResolver::DIRECTION_INCOMING => $this->presentCall(
                 'incoming',
                 $source,
                 $this->employeeLabel($destination),
-                $duration
+                $duration,
+                [$this->employeeLabel($destination)]
             ),
             default => $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration),
         };
     }
 
-    /** @return array<string, string> */
-    private function presentCall(string $direction, string $client, string $employees, float $duration): array
+    /** @param array<int, string> $employeeLabels @return array<string, mixed> */
+    private function presentCall(
+        string $direction,
+        string $client,
+        string $employees,
+        float $duration,
+        array $employeeLabels = []
+    ): array
     {
         $directionKeys = [
             'incoming' => 'module_local_speech_to_text_IncomingCall',
@@ -351,8 +361,85 @@ class TranscriptListService
             'directionLabel' => $this->translation->_($directionKeys[$direction]),
             'clientLabel' => $client !== '' ? $client : '—',
             'employeesLabel' => $employees !== '' ? $employees : '—',
+            'employeeLabels' => array_values(array_filter(array_unique($employeeLabels))),
+            'hasTransfer' => false,
+            'transferEmployeeLabels' => [],
             'callDurationLabel' => $duration > 0 ? $this->durationLabel($duration) : '—',
         ];
+    }
+
+    /** @param array<int, array<string, mixed>> $rows @return array<int, array<string, mixed>> */
+    private function groupLogicalCalls(array $rows): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $callId = trim((string)($row['callId'] ?? ''));
+            $resultId = (int)($row['result']->id ?? 0);
+            $key = $callId !== '' ? 'call:' . $callId : 'result:' . $resultId;
+            $groups[$key][] = $row;
+        }
+
+        $grouped = [];
+        foreach ($groups as $parts) {
+            usort($parts, static fn (array $left, array $right): int => [
+                (int)($left['partStartMs'] ?? 0),
+                (int)($left['result']->id ?? 0),
+            ] <=> [
+                (int)($right['partStartMs'] ?? 0),
+                (int)($right['result']->id ?? 0),
+            ]);
+
+            $primary = $parts[0];
+            foreach ($parts as $part) {
+                if (in_array($part['direction'] ?? '', ['incoming', 'outgoing'], true)) {
+                    $primary = $part;
+                    break;
+                }
+            }
+
+            $employees = [];
+            $customerFacingEmployees = [];
+            $hasInternalConsultation = false;
+            $startMs = 0;
+            $endMs = 0;
+            foreach ($parts as $part) {
+                foreach (($part['employeeLabels'] ?? []) as $employee) {
+                    if ($employee !== '' && !in_array($employee, $employees, true)) {
+                        $employees[] = $employee;
+                    }
+                }
+                if (($part['direction'] ?? '') !== 'internal') {
+                    foreach (($part['employeeLabels'] ?? []) as $employee) {
+                        if ($employee !== '' && end($customerFacingEmployees) !== $employee) {
+                            $customerFacingEmployees[] = $employee;
+                        }
+                    }
+                }
+                $hasInternalConsultation = $hasInternalConsultation || ($part['direction'] ?? '') === 'internal';
+                $partStartMs = (int)($part['partStartMs'] ?? 0);
+                $partEndMs = (int)($part['partEndMs'] ?? 0);
+                if ($partStartMs > 0 && ($startMs === 0 || $partStartMs < $startMs)) {
+                    $startMs = $partStartMs;
+                }
+                if ($partEndMs > $endMs) {
+                    $endMs = $partEndMs;
+                }
+            }
+
+            $primary['partCount'] = count($parts);
+            $primary['hasInternalConsultation'] = $hasInternalConsultation;
+            $primary['hasTransfer'] = count($customerFacingEmployees) > 1;
+            $primary['transferEmployeeLabels'] = $primary['hasTransfer'] ? $customerFacingEmployees : [];
+            if (count($parts) > 1 && $employees !== []) {
+                $primary['employeesLabel'] = implode(' · ', $employees);
+            }
+            if (count($parts) > 1 && $startMs > 0 && $endMs > $startMs) {
+                $primary['callDurationLabel'] = $this->durationLabel(($endMs - $startMs) / 1000);
+            }
+            $grouped[] = $primary;
+        }
+
+        return $grouped;
     }
 
     private function employeeLabel(string $number): string

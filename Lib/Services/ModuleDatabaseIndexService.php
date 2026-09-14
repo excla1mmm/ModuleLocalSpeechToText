@@ -9,32 +9,6 @@ use RuntimeException;
 
 final class ModuleDatabaseIndexService
 {
-    /**
-     * @var array<int, array{table: string, index: string, columns: array<int, string>}>
-     */
-    private const array REDUNDANT_UNIQUE_INDEXES = [
-        [
-            'table' => 'm_STTJob',
-            'index' => 'i_m_STTJob_file_path',
-            'columns' => ['file_path'],
-        ],
-        [
-            'table' => 'm_STTResult',
-            'index' => 'i_m_STTResult_job_id',
-            'columns' => ['job_id'],
-        ],
-        [
-            'table' => 'm_STTSetting',
-            'index' => 'i_m_STTSetting_key',
-            'columns' => ['key'],
-        ],
-        [
-            'table' => 'm_STTWorker',
-            'index' => 'i_m_STTWorker_worker_uid',
-            'columns' => ['worker_uid'],
-        ],
-    ];
-
     public function ensure(mixed $connection): void
     {
         if (!method_exists($connection, 'isUnderTransaction')) {
@@ -54,68 +28,16 @@ final class ModuleDatabaseIndexService
 
     private function apply(mixed $connection): null
     {
-        $drops = [];
-        foreach (self::REDUNDANT_UNIQUE_INDEXES as $definition) {
-            $indexes = $this->indexes($connection, $definition['table']);
-            $explicit = $indexes[$definition['index']] ?? null;
-            if ($explicit === null) {
-                continue;
-            }
-            if (!$this->matches($explicit, $definition['columns'], true)) {
-                throw new RuntimeException(
-                    'Known module index has an unexpected definition: ' . $definition['index']
-                );
-            }
-
-            $hasConstraintCoverage = false;
-            foreach ($indexes as $candidate) {
-                if ($candidate['origin'] !== 'c'
-                    && $this->matches($candidate, $definition['columns'], true)) {
-                    $hasConstraintCoverage = true;
-                    break;
-                }
-            }
-            if ($hasConstraintCoverage) {
-                $drops[] = $definition;
-            }
-        }
-
-        // Transcript service performs its own full preflight. It sees the
-        // surrounding transaction and therefore cannot partially publish.
         (new TranscriptEventIndexService())->ensure($connection);
         if ($connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTResult_created_at ON m_STTResult (created_at)'
+            'CREATE INDEX IF NOT EXISTS i_m_STTResult_created_at ON m_STTResult (created_at)'
         ) !== true) {
             throw new RuntimeException('Unable to create result processing timestamp index');
         }
         $resultIndexes = $this->indexes($connection, 'm_STTResult');
-        if (!isset($resultIndexes['m_STTResult_created_at'])
-            || !$this->matches($resultIndexes['m_STTResult_created_at'], ['created_at'], false)) {
+        if (!isset($resultIndexes['i_m_STTResult_created_at'])
+            || !$this->matches($resultIndexes['i_m_STTResult_created_at'], ['created_at'], false)) {
             throw new RuntimeException('Result processing timestamp index has an unexpected definition');
-        }
-
-        foreach ($drops as $definition) {
-            if ($connection->execute('DROP INDEX ' . $this->quoteIdentifier($definition['index'])) !== true) {
-                throw new RuntimeException('Unable to remove redundant module index: ' . $definition['index']);
-            }
-        }
-
-        foreach ($drops as $definition) {
-            $indexes = $this->indexes($connection, $definition['table']);
-            if (isset($indexes[$definition['index']])) {
-                throw new RuntimeException('Redundant module index remains: ' . $definition['index']);
-            }
-            $covered = false;
-            foreach ($indexes as $candidate) {
-                if ($candidate['origin'] !== 'c'
-                    && $this->matches($candidate, $definition['columns'], true)) {
-                    $covered = true;
-                    break;
-                }
-            }
-            if (!$covered) {
-                throw new RuntimeException('Unique module constraint coverage was lost');
-            }
         }
 
         return null;
@@ -164,10 +86,5 @@ final class ModuleDatabaseIndexService
         return $index['unique'] === $unique
             && $index['partial'] === false
             && $index['columns'] === $columns;
-    }
-
-    private function quoteIdentifier(string $identifier): string
-    {
-        return '"' . str_replace('"', '""', $identifier) . '"';
     }
 }

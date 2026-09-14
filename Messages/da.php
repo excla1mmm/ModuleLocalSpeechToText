@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Samtale med kunden',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Intern konsultation',
     'module_local_speech_to_text_SilenceDuration' => 'stilhed %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Vis transskription',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Opkaldstransskription',

@@ -26,11 +26,11 @@ final class CallTranscriptSchemaService
             )'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscript_call_id
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTCallTranscript_call_id
                 ON m_STTCallTranscript (call_id)'
         );
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTCallTranscript_publish
+            'CREATE INDEX IF NOT EXISTS i_m_STTCallTranscript_publish
                 ON m_STTCallTranscript (stable_after, pending_content_hash)'
         );
 
@@ -55,11 +55,13 @@ final class CallTranscriptSchemaService
             )'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptPart_version
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTCallTranscriptPart_version
                 ON m_STTCallTranscriptPart (call_transcript_id, result_id, content_hash, recording_fingerprint)'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptPart_current_result
+            // Core skips SQLite-owned index names. The marker preserves this
+            // partial index, which model annotations cannot represent.
+            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptPart_sqlite_autoindex_current_result
                 ON m_STTCallTranscriptPart (call_transcript_id, result_id)
                 WHERE is_current = 1'
         );
@@ -77,11 +79,11 @@ final class CallTranscriptSchemaService
             )'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptRevision_number
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTCallTranscriptRevision_number
                 ON m_STTCallTranscriptRevision (call_transcript_id, revision)'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptRevision_hash
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTCallTranscriptRevision_hash
                 ON m_STTCallTranscriptRevision (call_transcript_id, content_hash)'
         );
 
@@ -100,11 +102,11 @@ final class CallTranscriptSchemaService
             )'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTCallTranscriptEvent_key
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTCallTranscriptEvent_key
                 ON m_STTCallTranscriptEvent (event_key)'
         );
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTCallTranscriptEvent_cursor
+            'CREATE INDEX IF NOT EXISTS i_m_STTCallTranscriptEvent_cursor
                 ON m_STTCallTranscriptEvent (created_at, id)'
         );
     }

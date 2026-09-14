@@ -6,6 +6,12 @@ namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
 
+/**
+ * @Indexes(
+ *     [name='call_id', columns=['call_id'], type='UNIQUE'],
+ *     [name='publish', columns=['stable_after', 'pending_content_hash'], type='']
+ * )
+ */
 class STTCallTranscript extends ModulesModelsBase
 {
     /**
@@ -15,28 +21,28 @@ class STTCallTranscript extends ModulesModelsBase
      */
     public $id;
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $call_id = '';
 
     /** @Column(type="integer", nullable=false, default=0) */
     public ?string $current_revision = '0';
 
-    /** @Column(type="text", nullable=false, allow_empty_string=true, default="") */
+    /** @Column(type="string", nullable=false, allow_empty_string=true, default="") */
     public ?string $current_content_hash = '';
 
-    /** @Column(type="text", nullable=false, allow_empty_string=true, default="") */
+    /** @Column(type="string", nullable=false, allow_empty_string=true, default="") */
     public ?string $current_parts_hash = '';
 
-    /** @Column(type="text", nullable=false, allow_empty_string=true, default="") */
+    /** @Column(type="string", nullable=false, allow_empty_string=true, default="") */
     public ?string $pending_content_hash = '';
 
-    /** @Column(type="text", nullable=false, allow_empty_string=true, default="") */
+    /** @Column(type="string", nullable=false, allow_empty_string=true, default="") */
     public ?string $pending_parts_hash = '';
 
-    /** @Column(type="text", nullable=false, allow_empty_string=true, default="") */
+    /** @Column(type="string", nullable=false, allow_empty_string=true, default="") */
     public ?string $pending_payload = '';
 
-    /** @Column(type="text", nullable=false, default="pending") */
+    /** @Column(type="string", nullable=false, default="pending") */
     public ?string $completeness_status = 'pending';
 
     /** @Column(type="integer", nullable=false, default=0) */

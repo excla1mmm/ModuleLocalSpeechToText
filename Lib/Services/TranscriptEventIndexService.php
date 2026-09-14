@@ -10,9 +10,9 @@ use RuntimeException;
 final class TranscriptEventIndexService
 {
     private const string TABLE = 'm_STTTranscriptEvent';
-    private const string EVENT_KEY_INDEX = 'm_STTTranscriptEvent_event_key';
-    private const string CURSOR_INDEX = 'm_STTTranscriptEvent_event_cursor';
-    private const string RESULT_INDEX = 'm_STTTranscriptEvent_result_id';
+    private const string EVENT_KEY_INDEX = 'i_m_STTTranscriptEvent_event_key';
+    private const string CURSOR_INDEX = 'i_m_STTTranscriptEvent_event_cursor';
+    private const string RESULT_INDEX = 'i_m_STTTranscriptEvent_result_id';
 
     public function ensure(mixed $connection): void
     {
@@ -39,13 +39,7 @@ final class TranscriptEventIndexService
         $this->assertCanonicalName($indexes, self::CURSOR_INDEX, ['created_at', 'id'], false);
         $this->assertCanonicalName($indexes, self::RESULT_INDEX, ['result_id'], false);
 
-        if ($this->matching($indexes, ['event_key'], true) === []) {
-            $this->execute(
-                $connection,
-                'CREATE UNIQUE INDEX ' . self::EVENT_KEY_INDEX . ' ON ' . self::TABLE . ' (event_key)'
-            );
-        } elseif (!isset($indexes[self::EVENT_KEY_INDEX])
-            && $this->autoIndexes($this->matching($indexes, ['event_key'], true)) === []) {
+        if (!isset($indexes[self::EVENT_KEY_INDEX])) {
             $this->execute(
                 $connection,
                 'CREATE UNIQUE INDEX ' . self::EVENT_KEY_INDEX . ' ON ' . self::TABLE . ' (event_key)'
@@ -66,13 +60,8 @@ final class TranscriptEventIndexService
 
         $indexes = $this->indexes($connection);
         $eventKeyMatches = $this->matching($indexes, ['event_key'], true);
-        $autoEventKeys = $this->autoIndexes($eventKeyMatches);
-        $eventKeyOwner = $autoEventKeys !== []
-            ? array_key_first($autoEventKeys)
-            : self::EVENT_KEY_INDEX;
-
         foreach ($eventKeyMatches as $name => $index) {
-            if ($name !== $eventKeyOwner && $index['origin'] === 'c') {
+            if ($name !== self::EVENT_KEY_INDEX && $index['origin'] === 'c') {
                 $this->drop($connection, $name);
             }
         }
@@ -88,9 +77,10 @@ final class TranscriptEventIndexService
         }
 
         $finalIndexes = $this->indexes($connection);
-        if (count($this->matching($finalIndexes, ['event_key'], true)) !== 1
-            || count($this->matching($finalIndexes, ['created_at', 'id'], false)) !== 1
-            || count($this->matching($finalIndexes, ['result_id'], false)) !== 1) {
+        if (!isset($finalIndexes[self::EVENT_KEY_INDEX], $finalIndexes[self::CURSOR_INDEX], $finalIndexes[self::RESULT_INDEX])
+            || !$this->matches($finalIndexes[self::EVENT_KEY_INDEX], ['event_key'], true)
+            || !$this->matches($finalIndexes[self::CURSOR_INDEX], ['created_at', 'id'], false)
+            || !$this->matches($finalIndexes[self::RESULT_INDEX], ['result_id'], false)) {
             throw new RuntimeException('Transcript event index normalization did not converge');
         }
 
@@ -170,18 +160,6 @@ final class TranscriptEventIndexService
         return $index['unique'] === $unique
             && $index['partial'] === false
             && $index['columns'] === $columns;
-    }
-
-    /**
-     * @param array<string, array{unique: bool, origin: string, partial: bool, columns: array<int, string>}> $indexes
-     * @return array<string, array{unique: bool, origin: string, partial: bool, columns: array<int, string>}>
-     */
-    private function autoIndexes(array $indexes): array
-    {
-        return array_filter(
-            $indexes,
-            static fn (array $index): bool => $index['origin'] !== 'c'
-        );
     }
 
     private function drop(mixed $connection, string $name): void

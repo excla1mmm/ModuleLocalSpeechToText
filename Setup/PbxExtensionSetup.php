@@ -894,10 +894,10 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             }
         }
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTJob_call_status ON m_STTJob (call_id, status)'
+            'CREATE INDEX IF NOT EXISTS i_m_STTJob_call_status ON m_STTJob (call_id, status)'
         );
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTJob_cdr_id ON m_STTJob (cdr_id)'
+            'CREATE INDEX IF NOT EXISTS i_m_STTJob_cdr_id ON m_STTJob (cdr_id)'
         );
     }
 
@@ -929,15 +929,15 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             )'
         );
         $connection->execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS m_STTTranscriptEvent_event_key
+            'CREATE UNIQUE INDEX IF NOT EXISTS i_m_STTTranscriptEvent_event_key
                 ON m_STTTranscriptEvent (event_key)'
         );
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTTranscriptEvent_event_cursor
+            'CREATE INDEX IF NOT EXISTS i_m_STTTranscriptEvent_event_cursor
                 ON m_STTTranscriptEvent (created_at, id)'
         );
         $connection->execute(
-            'CREATE INDEX IF NOT EXISTS m_STTTranscriptEvent_result_id
+            'CREATE INDEX IF NOT EXISTS i_m_STTTranscriptEvent_result_id
                 ON m_STTTranscriptEvent (result_id)'
         );
     }

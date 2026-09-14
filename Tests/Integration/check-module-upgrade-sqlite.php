@@ -412,11 +412,11 @@ expectSttUpgrade(
     'transcript retention settings were not installed and normalized'
 );
 expectSttUpgrade(
-    in_array('m_STTResult_created_at', $after['indexes'], true),
+    in_array('i_m_STTResult_created_at', $after['indexes'], true),
     'result processing timestamp index is missing after upgrade'
 );
 expectSttUpgrade(
-    in_array('i_m_STTWorker_api_key_id_v2_unique', $after['indexes'], true),
+    in_array('m_STTWorker_sqlite_autoindex_api_key_id_v2_unique', $after['indexes'], true),
     'exclusive worker API-key index is missing after upgrade'
 );
 expectSttUpgrade(
@@ -431,8 +431,8 @@ foreach ([
     'i_m_STTTranscriptEvent_event_key',
     'i_m_STTTranscriptEvent_event_cursor',
     'i_m_STTTranscriptEvent_result_id',
-] as $redundantIndex) {
-    expectSttUpgrade(!in_array($redundantIndex, $after['indexes'], true), "redundant index remains: {$redundantIndex}");
+] as $canonicalIndex) {
+    expectSttUpgrade(in_array($canonicalIndex, $after['indexes'], true), "canonical index is missing: {$canonicalIndex}");
 }
 
 $publicationCandidates = $moduleDatabase->fetchAll(

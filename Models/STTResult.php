@@ -11,7 +11,8 @@ use RuntimeException;
 
 /**
  * @Indexes(
- *     [name='job_id', columns=['job_id'], type='UNIQUE']
+ *     [name='job_id', columns=['job_id'], type='UNIQUE'],
+ *     [name='created_at', columns=['created_at'], type='']
  * )
  */
 class STTResult extends ModulesModelsBase

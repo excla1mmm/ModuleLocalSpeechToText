@@ -73,7 +73,7 @@ foreach (array_keys($textFields) as $model) {
 
     foreach ($textFields[$model] as $field) {
         $annotation = columnAnnotation($source, $model, $field);
-        expectAnnotationArgument($annotation, $model, $field, 'type="text"');
+        expectAnnotationArgument($annotation, $model, $field, 'type="string"');
     }
 }
 
@@ -139,18 +139,31 @@ if (str_contains($setup, 'parent::installDB()')) {
 }
 
 foreach ([
-    'm_STTCallTranscript_call_id',
-    'm_STTCallTranscript_publish',
-    'm_STTCallTranscriptPart_version',
-    'm_STTCallTranscriptPart_current_result',
+    'i_m_STTCallTranscript_call_id',
+    'i_m_STTCallTranscript_publish',
+    'i_m_STTCallTranscriptPart_version',
+    'm_STTCallTranscriptPart_sqlite_autoindex_current_result',
     'WHERE is_current = 1',
-    'm_STTCallTranscriptRevision_number',
-    'm_STTCallTranscriptRevision_hash',
-    'm_STTCallTranscriptEvent_key',
-    'm_STTCallTranscriptEvent_cursor',
+    'i_m_STTCallTranscriptRevision_number',
+    'i_m_STTCallTranscriptRevision_hash',
+    'i_m_STTCallTranscriptEvent_key',
+    'i_m_STTCallTranscriptEvent_cursor',
 ] as $indexSql) {
     if (!str_contains($schemaService, $indexSql)) {
         failModelAnnotations("schema service must restore {$indexSql}");
+    }
+}
+
+foreach ([
+    'STTCallTranscript.php' => ["name='call_id'", "name='publish'"],
+    'STTCallTranscriptPart.php' => ["name='version'"],
+    'STTCallTranscriptRevision.php' => ["name='number'", "name='hash'"],
+    'STTCallTranscriptEvent.php' => ["name='key'", "name='cursor'"],
+] as $model => $indexes) {
+    foreach ($indexes as $index) {
+        if (!str_contains($sources[$model], $index)) {
+            failModelAnnotations("{$model} must declare Core-managed index {$index}");
+        }
     }
 }
 

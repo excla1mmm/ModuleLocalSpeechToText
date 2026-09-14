@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Keskustelu asiakkaan kanssa',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Sisäinen neuvottelu',
     'module_local_speech_to_text_SilenceDuration' => 'hiljaisuus %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Näytä litterointi',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Puhelun litterointi',

@@ -10,6 +10,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\AdministrativeSettingsWriter;
 use Modules\ModuleLocalSpeechToText\Lib\Services\IndexViewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LogicalCallReviewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
@@ -344,23 +345,21 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             return;
         }
         $recordings = $this->callRecordingService();
-        $cdr = $job instanceof STTJob
-            ? ($recordings->cdrRecordForJob($job) ?? $recordings->cdrRecordForResult($result))
-            : $recordings->cdrRecordForResult($result);
-
-        $speakerLabels = $this->conversationSpeakerLabelResolver()->resolve($cdr);
+        $review = (new LogicalCallReviewService(
+            $this->translation,
+            $recordings,
+            $this->conversationSpeakerLabelResolver(),
+        ))->review($job instanceof STTJob ? (string)$job->call_id : '', $result);
 
         $this->view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         $this->view->transcriptExportPath = MenuProvider::TRANSCRIPT_EXPORT_PATH;
         $this->view->transcriptDeletePath = MenuProvider::TRANSCRIPT_DELETE_PATH;
         $this->view->canDeleteTranscript = $this->usersUIViewCapabilities()->canDeleteTranscripts();
         $this->view->result = $result;
-        $this->view->conversation = $this->conversationService()->conversationFromTranscript(
-            (string)$result->transcript,
-            true,
-            $speakerLabels
-        );
-        $this->view->recording = $recordings->recordingCard($result, $job, $cdr);
+        $this->view->transcriptStages = $review['stages'];
+        $this->view->transcriptGroups = $review['groups'];
+        $this->view->showCallLegTabs = $review['showTabs'];
+        $this->view->showTranscriptStageTitles = count($review['stages']) > 1;
         $this->view->pick('Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/transcript');
     }
 

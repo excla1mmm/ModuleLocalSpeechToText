@@ -6,6 +6,12 @@ namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
 
+/**
+ * @Indexes(
+ *     [name='number', columns=['call_transcript_id', 'revision'], type='UNIQUE'],
+ *     [name='hash', columns=['call_transcript_id', 'content_hash'], type='UNIQUE']
+ * )
+ */
 class STTCallTranscriptRevision extends ModulesModelsBase
 {
     /**
@@ -21,16 +27,16 @@ class STTCallTranscriptRevision extends ModulesModelsBase
     /** @Column(type="integer", nullable=false) */
     public ?string $revision = '0';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $content_hash = '';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $parts_hash = '';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $completeness_status = 'complete';
 
-    /** @Column(type="text", nullable=false) */
+    /** @Column(type="string", nullable=false) */
     public ?string $payload = '';
 
     /** @Column(type="integer", nullable=false) */

@@ -243,6 +243,10 @@
     background: #fafcfc !important;
 }
 
+.module-local-speech-to-text .stt-transcripts-table tbody .stt-transcript-row[data-has-transfer="true"] td {
+    vertical-align: top;
+}
+
 .module-local-speech-to-text .stt-transcripts-table th:nth-child(1),
 .module-local-speech-to-text .stt-transcripts-table td:nth-child(1) {
     padding-left: 1em;
@@ -317,6 +321,21 @@
     color: rgba(31, 39, 43, 0.9);
     font-weight: 700;
     line-height: 1.25;
+}
+
+.module-local-speech-to-text .stt-employee-transfer-route {
+    display: flex;
+    flex-direction: column;
+}
+
+.module-local-speech-to-text .stt-employee-transfer-marker {
+    align-self: center;
+    color: rgba(45, 58, 63, 0.48);
+    font-size: 0.86em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0.35em 0 0.3em;
+    white-space: nowrap;
 }
 
 .module-local-speech-to-text .stt-table-muted {
@@ -557,6 +576,45 @@
     border: 1px solid rgba(34, 36, 38, 0.12);
     border-radius: 0.28571429rem;
     background: #fff;
+}
+
+.module-local-speech-to-text .stt-call-leg-tabs {
+    margin: 1.25em 0 1.4em;
+}
+
+.module-local-speech-to-text .stt-call-leg-tabs.ui.menu .item {
+    background: transparent;
+    border: 0;
+    color: rgba(0, 0, 0, 0.58);
+    cursor: pointer;
+    font: inherit;
+}
+
+.module-local-speech-to-text .stt-call-leg-tabs.ui.pointing.menu .active.item {
+    border-color: #2f8a6d;
+    color: #2f8a6d;
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-call-stage + .stt-call-stage {
+    border-top: 1px solid rgba(34, 36, 38, 0.1);
+    margin-top: 2em;
+    padding-top: 1.5em;
+}
+
+.module-local-speech-to-text .stt-call-stage-title {
+    align-items: center;
+    color: rgba(0, 0, 0, 0.68);
+    display: flex;
+    font-size: 0.95em;
+    font-weight: 700;
+    gap: 0.45em;
+    margin: 0 0 0.6em;
+}
+
+.module-local-speech-to-text .stt-call-stage-title .icon {
+    color: #2f8a6d;
+    margin: 0;
 }
 
 .module-local-speech-to-text .stt-recording-details {

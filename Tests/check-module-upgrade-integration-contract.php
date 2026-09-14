@@ -31,7 +31,7 @@ foreach ([
     'obsolete all-version worker API-key index remains after upgrade',
     'transcript retention settings were not installed and normalized',
     'existing {$name} data changed',
-    'redundant index remains',
+    'canonical index is missing',
     'verified snapshot restore did not reproduce upgraded state',
 ] as $contract) {
     expectModuleUpgradeIntegration(

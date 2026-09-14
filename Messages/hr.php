@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Razgovor s klijentom',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Interna konsultacija',
     'module_local_speech_to_text_SilenceDuration' => 'tišina %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Prikaži transkript',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Transkript poziva',

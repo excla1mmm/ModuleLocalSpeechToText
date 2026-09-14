@@ -127,7 +127,7 @@ expectWorkerBindingIntegrity(
     'Production binding migrations 12-13 did not apply'
 );
 $index = $connection->pdo->query(
-    "SELECT sql FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
+    "SELECT sql FROM sqlite_master WHERE type='index' AND name='m_STTWorker_sqlite_autoindex_api_key_id_v2_unique'"
 )->fetchColumn();
 expectWorkerBindingIntegrity(
     is_string($index)
@@ -245,7 +245,7 @@ try {
 expectWorkerBindingIntegrity($rollbackObserved, 'Injected migration ledger failure was not observed');
 expectWorkerBindingIntegrity(
     (int)$rollbackConnection->pdo->query(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='m_STTWorker_sqlite_autoindex_api_key_id_v2_unique'"
     )->fetchColumn() === 0
         && (int)$rollbackConnection->pdo->query(
             "SELECT COUNT(*) FROM m_STTSetting WHERE key='worker_api_key_history_ids'"
@@ -283,7 +283,7 @@ expectWorkerBindingIntegrity(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_unique'"
     )->fetchColumn() === 0
         && (int)$staleConnection->pdo->query(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='i_m_STTWorker_api_key_id_v2_unique'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='m_STTWorker_sqlite_autoindex_api_key_id_v2_unique'"
         )->fetchColumn() === 1,
     'Stale non-null unique index was not replaced by the v2-only index'
 );

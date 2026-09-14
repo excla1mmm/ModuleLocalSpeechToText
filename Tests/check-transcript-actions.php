@@ -38,7 +38,8 @@ expectTranscriptAction(
 );
 
 $root = dirname(__DIR__);
-$template = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/transcript.volt');
+$template = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/transcript.volt')
+    . (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/_transcript_stage.volt');
 $controller = (string)file_get_contents($root . '/App/Controllers/TranscriptActionsController.php');
 $moduleController = (string)file_get_contents($root . '/App/Controllers/ModuleLocalSpeechToTextController.php');
 $acl = (string)file_get_contents($root . '/Lib/ModuleLocalSpeechToTextACL.php');

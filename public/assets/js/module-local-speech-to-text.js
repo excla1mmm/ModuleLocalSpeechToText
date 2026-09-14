@@ -710,6 +710,30 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     });
   }
 
+  function initializeTranscriptLegTabs() {
+    $('.module-local-speech-to-text .stt-call-leg-review').each(function () {
+      var $review = $(this);
+      var $tabs = $review.find('[data-stt-call-leg]');
+      var $panels = $review.find('[data-stt-call-leg-panel]');
+      $tabs.on('click', function () {
+        var callLeg = String($(this).data('stt-call-leg') || '');
+        $tabs.removeClass('active').attr('aria-selected', 'false');
+        $(this).addClass('active').attr('aria-selected', 'true');
+        $panels.each(function () {
+          var hidden = String($(this).data('stt-call-leg-panel') || '') !== callLeg;
+          $(this).prop('hidden', hidden);
+
+          if (hidden) {
+            $(this).find('audio').each(function () {
+              var audio = this;
+              audio.pause();
+            });
+          }
+        });
+      });
+    });
+  }
+
   $(function () {
     var $tabItems = $('#module-local-speech-to-text-menu .item');
     var $settingsForm = $('#module-local-speech-to-text-form');
@@ -732,6 +756,7 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     initializeConfirmModal();
     initializeTranscriptRows();
     initializeTranscriptActionMenu();
+    initializeTranscriptLegTabs();
 
     if ($.fn.form && $.fn.form.settings && $.fn.form.settings.rules) {
       $.fn.form.settings.rules.sttProcessingRange = function (value, range) {

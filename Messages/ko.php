@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => '고객과의 대화',
+    'module_local_speech_to_text_InternalConsultationTab' => '내부 협의',
     'module_local_speech_to_text_SilenceDuration' => '무음 %seconds%초',
     'module_local_speech_to_text_CdrTranscriptButton' => '통화 기록 보기',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => '통화 기록',

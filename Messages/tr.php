@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Müşteriyle görüşme',
+    'module_local_speech_to_text_InternalConsultationTab' => 'İç danışma',
     'module_local_speech_to_text_SilenceDuration' => 'sessizlik %seconds% sn',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Dökümü göster',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Arama dökümü',

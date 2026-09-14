@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Rozhovor se zákazníkem',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Interní konzultace',
     'module_local_speech_to_text_SilenceDuration' => 'ticho %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Zobrazit přepis',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Přepis hovoru',

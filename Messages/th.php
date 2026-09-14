@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'บทสนทนากับลูกค้า',
+    'module_local_speech_to_text_InternalConsultationTab' => 'การปรึกษาภายใน',
     'module_local_speech_to_text_SilenceDuration' => 'เงียบ %seconds% วิ',
     'module_local_speech_to_text_CdrTranscriptButton' => 'แสดงข้อความถอดเสียง',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'ข้อความถอดเสียงการโทร',

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Trò chuyện với khách hàng',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Tham vấn nội bộ',
     'module_local_speech_to_text_SilenceDuration' => 'im lặng %seconds% giây',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Hiển thị bản ghi',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Bản ghi cuộc gọi',

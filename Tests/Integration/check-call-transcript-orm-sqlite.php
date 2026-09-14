@@ -285,7 +285,7 @@ migrateCallTranscriptSchema($db, $metadata, $modelClasses);
 
 $aggregateColumns = tableInfo($db, 'm_STTCallTranscript');
 foreach (['call_id', 'current_content_hash', 'current_parts_hash', 'pending_content_hash', 'pending_parts_hash', 'pending_payload', 'completeness_status'] as $field) {
-    expectOrmIntegration(($aggregateColumns[$field]['type'] ?? null) === 'TEXT', "aggregate.{$field} must migrate to TEXT");
+    expectOrmIntegration(($aggregateColumns[$field]['type'] ?? null) === 'VARCHAR(0)', "aggregate.{$field} must remain Core-compatible VARCHAR");
 }
 foreach (['current_content_hash', 'current_parts_hash', 'pending_content_hash', 'pending_parts_hash', 'pending_payload'] as $field) {
     expectOrmIntegration(($aggregateColumns[$field]['notnull'] ?? null) === 1, "aggregate.{$field} must remain NOT NULL");
@@ -302,7 +302,7 @@ expectOrmIntegration(
 
 $partColumns = tableInfo($db, 'm_STTCallTranscriptPart');
 foreach (['cdr_uniqueid', 'recording_fingerprint', 'content_hash', 'source_label', 'resolution_status', 'segments_json'] as $field) {
-    expectOrmIntegration(($partColumns[$field]['type'] ?? null) === 'TEXT', "part.{$field} must migrate to TEXT");
+    expectOrmIntegration(($partColumns[$field]['type'] ?? null) === 'VARCHAR(0)', "part.{$field} must remain Core-compatible VARCHAR");
 }
 expectOrmIntegration(normalizedSqliteDefault($partColumns['resolution_status']['dflt_value'] ?? null) === 'complete', 'part.resolution_status default mismatch');
 expectOrmIntegration(normalizedSqliteDefault($partColumns['segments_json']['dflt_value'] ?? null) === '[]', 'part.segments_json default mismatch');
@@ -310,11 +310,11 @@ expectOrmIntegration(normalizedSqliteDefault($partColumns['is_current']['dflt_va
 
 $revisionColumns = tableInfo($db, 'm_STTCallTranscriptRevision');
 foreach (['content_hash', 'parts_hash', 'completeness_status', 'payload'] as $field) {
-    expectOrmIntegration(($revisionColumns[$field]['type'] ?? null) === 'TEXT', "revision.{$field} must migrate to TEXT");
+    expectOrmIntegration(($revisionColumns[$field]['type'] ?? null) === 'VARCHAR(0)', "revision.{$field} must remain Core-compatible VARCHAR");
 }
 $eventColumns = tableInfo($db, 'm_STTCallTranscriptEvent');
 foreach (['event_type', 'event_key', 'call_id', 'content_hash', 'parts_hash', 'completeness_status'] as $field) {
-    expectOrmIntegration(($eventColumns[$field]['type'] ?? null) === 'TEXT', "event.{$field} must migrate to TEXT");
+    expectOrmIntegration(($eventColumns[$field]['type'] ?? null) === 'VARCHAR(0)', "event.{$field} must remain Core-compatible VARCHAR");
 }
 
 $aggregate = $db->fetchOne('SELECT * FROM m_STTCallTranscript WHERE id = 7', Enum::FETCH_ASSOC);
@@ -343,25 +343,25 @@ foreach ($indexes as $index) {
     $indexSql[(string)$index['name']] = (string)$index['sql'];
 }
 $expectedIndexes = [
-    'm_STTCallTranscriptEvent_cursor',
-    'm_STTCallTranscriptEvent_key',
-    'm_STTCallTranscriptPart_current_result',
-    'm_STTCallTranscriptPart_version',
-    'm_STTCallTranscriptRevision_hash',
-    'm_STTCallTranscriptRevision_number',
-    'm_STTCallTranscript_call_id',
-    'm_STTCallTranscript_publish',
+    'i_m_STTCallTranscriptEvent_cursor',
+    'i_m_STTCallTranscriptEvent_key',
+    'i_m_STTCallTranscriptPart_version',
+    'i_m_STTCallTranscriptRevision_hash',
+    'i_m_STTCallTranscriptRevision_number',
+    'i_m_STTCallTranscript_call_id',
+    'i_m_STTCallTranscript_publish',
+    'm_STTCallTranscriptPart_sqlite_autoindex_current_result',
 ];
 expectOrmIntegration(array_keys($indexSql) === $expectedIndexes, 'canonical call-transcript indexes were not restored exactly');
 $expectedIndexDefinitions = [
-    'm_STTCallTranscriptEvent_cursor' => ['unique' => false, 'columns' => '(created_at, id)', 'where' => null],
-    'm_STTCallTranscriptEvent_key' => ['unique' => true, 'columns' => '(event_key)', 'where' => null],
-    'm_STTCallTranscriptPart_current_result' => ['unique' => true, 'columns' => '(call_transcript_id, result_id)', 'where' => 'WHERE is_current = 1'],
-    'm_STTCallTranscriptPart_version' => ['unique' => true, 'columns' => '(call_transcript_id, result_id, content_hash, recording_fingerprint)', 'where' => null],
-    'm_STTCallTranscriptRevision_hash' => ['unique' => true, 'columns' => '(call_transcript_id, content_hash)', 'where' => null],
-    'm_STTCallTranscriptRevision_number' => ['unique' => true, 'columns' => '(call_transcript_id, revision)', 'where' => null],
-    'm_STTCallTranscript_call_id' => ['unique' => true, 'columns' => '(call_id)', 'where' => null],
-    'm_STTCallTranscript_publish' => ['unique' => false, 'columns' => '(stable_after, pending_content_hash)', 'where' => null],
+    'i_m_STTCallTranscriptEvent_cursor' => ['unique' => false, 'columns' => '(created_at, id)', 'where' => null],
+    'i_m_STTCallTranscriptEvent_key' => ['unique' => true, 'columns' => '(event_key)', 'where' => null],
+    'i_m_STTCallTranscriptPart_version' => ['unique' => true, 'columns' => '(call_transcript_id, result_id, content_hash, recording_fingerprint)', 'where' => null],
+    'i_m_STTCallTranscriptRevision_hash' => ['unique' => true, 'columns' => '(call_transcript_id, content_hash)', 'where' => null],
+    'i_m_STTCallTranscriptRevision_number' => ['unique' => true, 'columns' => '(call_transcript_id, revision)', 'where' => null],
+    'i_m_STTCallTranscript_call_id' => ['unique' => true, 'columns' => '(call_id)', 'where' => null],
+    'i_m_STTCallTranscript_publish' => ['unique' => false, 'columns' => '(stable_after, pending_content_hash)', 'where' => null],
+    'm_STTCallTranscriptPart_sqlite_autoindex_current_result' => ['unique' => true, 'columns' => '(call_transcript_id, result_id)', 'where' => 'WHERE is_current = 1'],
 ];
 foreach ($expectedIndexDefinitions as $name => $expected) {
     $sql = preg_replace('/\s+/', ' ', $indexSql[$name] ?? '') ?? '';

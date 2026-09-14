@@ -79,7 +79,7 @@ namespace {
         'schema migration 10 must install transcript retention policy'
     );
     expectRetentionSettings(
-        str_contains($indexes, 'm_STTResult_created_at'),
+        str_contains($indexes, 'i_m_STTResult_created_at'),
         'result processing timestamp index is missing'
     );
 

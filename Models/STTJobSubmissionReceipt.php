@@ -2,7 +2,12 @@
 declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Models;
 use MikoPBX\Modules\Models\ModulesModelsBase;
-/** @Indexes([name='job_lease', columns=['job_id','lease_token_hash'], type='UNIQUE']) */
+/**
+ * @Indexes(
+ *     [name='job_lease', columns=['job_id', 'lease_token_hash'], type='UNIQUE'],
+ *     [name='worker', columns=['worker_id', 'created_at'], type='']
+ * )
+ */
 class STTJobSubmissionReceipt extends ModulesModelsBase
 {
     /** @Primary @Identity @Column(type="integer", nullable=false) */ public $id;

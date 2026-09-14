@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'module_local_speech_to_text_CustomerConversationTab' => 'Samtal med kunden',
+    'module_local_speech_to_text_InternalConsultationTab' => 'Internt samråd',
     'module_local_speech_to_text_SilenceDuration' => 'tystnad %seconds% s',
     'module_local_speech_to_text_CdrTranscriptButton' => 'Visa transkribering',
     'module_local_speech_to_text_CdrTranscriptModalTitle' => 'Samtalstranskribering',

@@ -79,7 +79,12 @@ expectCdrUi(str_contains($sourceJs, 'function stopModalPlayback()'), 'modal play
 expectCdrUi(str_contains($sourceJs, 'playbackCdrId'), 'CDR recording selection must use the server presentation model');
 expectCdrUi(!str_contains($sourceJs, 'recordings[0]'), 'aggregate transcript must not be bound to the first recording');
 expectCdrUi(
-    str_contains($sourceJs, "class: 'stt-cdr-transcript-button'")
+    str_contains($sourceJs, "\$('<a>', {")
+    && str_contains($sourceJs, "class: 'stt-cdr-transcript-button'")
+    && str_contains($sourceJs, "target: '_blank'")
+    && str_contains($sourceJs, "rel: 'noopener'")
+    && str_contains($sourceJs, 'module-local-speech-to-text/transcript')
+    && str_contains($sourceJs, '?id=${encodeURIComponent')
     && str_contains($sourceJs, '<svg viewBox="0 0 24 24"')
     && str_contains($sourceJs, 'M4 13v-2M8 16V8M12 18V6M16 16V8M20 13v-2'),
     'Local STT CDR button must reuse the Cloud STT waveform icon'

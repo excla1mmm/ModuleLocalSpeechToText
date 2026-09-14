@@ -82,7 +82,7 @@ foreach ([
     'm_STTWorker' => 'i_m_STTWorker_worker_uid',
 ] as $table => $redundantIndex) {
     $names = moduleIndexNames($connection, $table);
-    expectModuleIndexes(!in_array($redundantIndex, $names, true), "{$redundantIndex} must be removed");
+    expectModuleIndexes(in_array($redundantIndex, $names, true), "{$redundantIndex} must remain for Core schema stability");
     expectModuleIndexes(
         count(array_filter($names, static fn (string $name): bool => str_starts_with($name, 'sqlite_autoindex_'))) >= 1,
         "{$table} unique constraint autoindex must remain"
@@ -93,7 +93,7 @@ expectModuleIndexes(
     'Index normalization must preserve module rows'
 );
 expectModuleIndexes(
-    in_array('m_STTResult_created_at', moduleIndexNames($connection, 'm_STTResult'), true),
+    in_array('i_m_STTResult_created_at', moduleIndexNames($connection, 'm_STTResult'), true),
     'Result processing timestamp index must be created'
 );
 $schemaAfterFirstRun = (string)$pdo->query(

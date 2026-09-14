@@ -139,24 +139,21 @@ $duplicated = newTranscriptEventIndexConnection(
 );
 $service->ensure($duplicated);
 $duplicateCoverage = transcriptEventIndexCoverage($duplicated);
-expectTranscriptEventIndexes($duplicateCoverage['event_key_unique'] === 1, 'Duplicate unique event_key coverage must be removed');
+expectTranscriptEventIndexes($duplicateCoverage['event_key_unique'] === 2, 'Core index and table constraint must remain stable');
 expectTranscriptEventIndexes($duplicateCoverage['event_cursor'] === 1, 'Duplicate cursor coverage must be removed');
 expectTranscriptEventIndexes($duplicateCoverage['result_id'] === 1, 'Duplicate result coverage must be removed');
 expectTranscriptEventIndexes(
-    in_array('m_STTTranscriptEvent_event_cursor', $duplicateCoverage['names'], true)
-        && in_array('m_STTTranscriptEvent_result_id', $duplicateCoverage['names'], true)
-        && count(array_filter(
-            $duplicateCoverage['names'],
-            static fn (string $name): bool => str_contains($name, 'event_key')
-        )) === 0,
-    'Canonical explicit indexes must remain while the table autoindex owns event_key uniqueness'
+    in_array('i_m_STTTranscriptEvent_event_key', $duplicateCoverage['names'], true)
+        && in_array('i_m_STTTranscriptEvent_event_cursor', $duplicateCoverage['names'], true)
+        && in_array('i_m_STTTranscriptEvent_result_id', $duplicateCoverage['names'], true),
+    'Core-managed transcript indexes must remain canonical'
 );
 
 $malformed = newTranscriptEventIndexConnection(
     str_replace('event_key TEXT NOT NULL', 'event_key TEXT NOT NULL UNIQUE', $baseTable) . '
-    CREATE INDEX m_STTTranscriptEvent_event_cursor ON m_STTTranscriptEvent(result_id);
-    CREATE INDEX i_m_STTTranscriptEvent_event_cursor ON m_STTTranscriptEvent(created_at, id);
-    CREATE INDEX m_STTTranscriptEvent_result_id ON m_STTTranscriptEvent(result_id);'
+    CREATE INDEX i_m_STTTranscriptEvent_event_cursor ON m_STTTranscriptEvent(result_id);
+    CREATE INDEX m_STTTranscriptEvent_event_cursor ON m_STTTranscriptEvent(created_at, id);
+    CREATE INDEX i_m_STTTranscriptEvent_result_id ON m_STTTranscriptEvent(result_id);'
 );
 $beforeMalformed = transcriptEventIndexCoverage($malformed);
 $malformedRejected = false;
@@ -175,8 +172,11 @@ $eventModel = file_get_contents(__DIR__ . '/../Models/STTTranscriptEvent.php');
 $setupSource = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
 expectTranscriptEventIndexes($eventModel !== false && $setupSource !== false, 'Cannot inspect index integration');
 expectTranscriptEventIndexes(
-    !str_contains($eventModel, '@Indexes('),
-    'Fresh schema annotations must not recreate duplicate transcript event indexes'
+    str_contains($eventModel, '@Indexes(')
+        && str_contains($eventModel, "name='event_key'")
+        && str_contains($eventModel, "name='event_cursor'")
+        && str_contains($eventModel, "name='result_id'"),
+    'Fresh schema annotations must own transcript event indexes'
 );
 expectTranscriptEventIndexes(
     str_contains($setupSource, "'stt-schema-007-module-indexes'")
