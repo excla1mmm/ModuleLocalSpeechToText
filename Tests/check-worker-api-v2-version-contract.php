@@ -490,8 +490,9 @@ namespace {
     $setup = (string)file_get_contents($root . '/Setup/PbxExtensionSetup.php');
     preg_match_all('/new ModuleSchemaMigration\(\s*(?<version>\d+),.*?[\'\"](?<key>stt-schema-[^\'\"]+)[\'\"]/s', $setup, $migrations);
     expectWorkerApiV2Version(
-        array_map('intval', $migrations['version'] ?? []) === range(1, 16)
-            && ($migrations['key'][15] ?? null) === 'stt-schema-016-transcript-full-text-search',
+        array_map('intval', $migrations['version'] ?? []) === range(1, 17)
+            && ($migrations['key'][15] ?? null) === 'stt-schema-016-transcript-full-text-search'
+            && ($migrations['key'][16] ?? null) === 'stt-schema-017-module-owned-partial-indexes',
         'Database schema migration registry changed'
     );
 

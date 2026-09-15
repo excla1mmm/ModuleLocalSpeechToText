@@ -8,6 +8,7 @@ use MikoPBX\Common\Models\ApiKeys;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Providers\ModulesDBConnectionsProvider;
 use MikoPBX\Core\System\Directories;
+use MikoPBX\Core\System\Upgrade\UpdateDatabase;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
@@ -24,6 +25,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\QuietOperation;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleMetadataCache;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleOwnedIndexService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleSchemaMigrator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
@@ -126,6 +128,13 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                     throw new \RuntimeException('Fresh STT schema was not bootstrapped before migrations');
                 }
             );
+            if ($this->alignSchemaWithCoreAnnotations()) {
+                (new ModuleTransaction())->run(
+                    $connection,
+                    fn (mixed $database): null => $this->ensureModuleOwnedIndexes($database),
+                    0
+                );
+            }
             $this->prepareTranscriptSearchIndex($connection);
             (new ModuleTransaction())->run(
                 $connection,
@@ -400,6 +409,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyTranscriptSearchMigration($connection),
                 'stt-schema-016-transcript-full-text-search'
             ),
+            new ModuleSchemaMigration(
+                17,
+                'module-owned partial unique indexes',
+                fn (mixed $connection): null => $this->applyModuleOwnedIndexMigration($connection),
+                'stt-schema-017-module-owned-partial-indexes'
+            ),
         ];
     }
 
@@ -589,6 +604,57 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     {
         (new JobSubmissionReceiptMigration())->migrate($connection);
         return null;
+    }
+
+    private function applyModuleOwnedIndexMigration(mixed $connection): null
+    {
+        return $this->ensureModuleOwnedIndexes($connection);
+    }
+
+    private function ensureModuleOwnedIndexes(mixed $connection): null
+    {
+        $repaired = (new ModuleOwnedIndexService())->ensure($connection);
+        if ($repaired['demoted_parts'] > 0 || $repaired['unbound_workers'] > 0) {
+            LocalSpeechToTextLogger::event(
+                'setup',
+                'module_indexes_repaired',
+                'Rows violating module-owned unique indexes were repaired',
+                LOG_WARNING,
+                [
+                    'demoted_parts_count' => $repaired['demoted_parts'],
+                    'unbound_workers_count' => $repaired['unbound_workers'],
+                ]
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Core 2026.1+ runs this same annotation pass over module models on every
+     * boot and rebuilds any table whose columns differ from the annotations,
+     * dropping indexes the annotations do not describe. Running it here, under
+     * the setup snapshot, moves that rebuild into install so the module-owned
+     * partial indexes can be restored right after it. Older Core neither
+     * touches module schemas at boot nor preserves module-added columns, so
+     * the pass is skipped there.
+     */
+    private function alignSchemaWithCoreAnnotations(): bool
+    {
+        $updater = new UpdateDatabase();
+        $pass = new \ReflectionMethod($updater, 'createUpdateDbTableByAnnotations');
+        if (!method_exists($updater, 'updateModulesDbStructure') || $pass->getNumberOfParameters() < 2) {
+            return false;
+        }
+
+        foreach (glob($this->moduleDir . '/Models/*.php', GLOB_NOSORT) ?: [] as $file) {
+            $modelClass = 'Modules\\' . $this->moduleUniqueID . '\\Models\\' . pathinfo($file, PATHINFO_FILENAME);
+            if (!$updater->createUpdateDbTableByAnnotations($modelClass, true)) {
+                throw new \RuntimeException('Core schema alignment failed for ' . $modelClass);
+            }
+        }
+
+        return true;
     }
 
     private function cleanupLegacyLifecycleFiles(): void

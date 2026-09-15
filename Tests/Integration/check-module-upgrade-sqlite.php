@@ -281,7 +281,7 @@ expectSttUpgrade($before['integrity'] === 'ok', 'source copy failed integrity ch
 
 [, $moduleDatabase, $metadata] = configureSttUpgradeDi($resolvedDatabase);
 $applied = applyProductionSttMigrations($moduleDatabase);
-expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], 'legacy database did not apply migrations 1-16');
+expectSttUpgrade($applied === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'legacy database did not apply migrations 1-17');
 
 $backup = new ModuleDatabaseBackup();
 $backup->verify($resolvedDatabase);
@@ -364,7 +364,7 @@ foreach ($before['rows']['jobs'] as $jobBefore) {
     expectSttUpgrade($jobAfter === $expectedJob, "legacy processing job {$jobId} changed outside requeue fields");
 }
 expectSttUpgrade(
-    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    array_map(static fn (array $row): int => (int)$row['version'], $after['migrations']) === [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
     'migration ledger is incomplete'
 );
 expectSttUpgrade(
@@ -423,6 +423,16 @@ expectSttUpgrade(
     !in_array('i_m_STTWorker_api_key_id_unique', $after['indexes'], true),
     'obsolete all-version worker API-key index remains after upgrade'
 );
+expectSttUpgrade(
+    in_array('m_STTCallTranscriptPart_sqlite_autoindex_current_result', $after['indexes'], true),
+    'current call transcript part index is missing after upgrade'
+);
+foreach (['m_STTCallTranscriptPart_current_result', 'i_m_STTWorker_api_key_id_v2_unique'] as $legacyPartialIndex) {
+    expectSttUpgrade(
+        !in_array($legacyPartialIndex, $after['indexes'], true),
+        "legacy partial index name Core would drop remains after upgrade: {$legacyPartialIndex}"
+    );
+}
 foreach ([
     'i_m_STTJob_file_path',
     'i_m_STTResult_job_id',
