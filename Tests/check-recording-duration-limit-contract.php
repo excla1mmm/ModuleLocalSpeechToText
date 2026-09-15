@@ -64,6 +64,15 @@ namespace {
     $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
     $job = file_get_contents(__DIR__ . '/../Models/STTJob.php');
     $worker = file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
+    // Duration evaluation and its skip-reason wiring moved out of the worker into
+    // Lib/Services/CdrRecordEvaluator.php, Lib/Services/CdrDiscoveryScanner.php, and
+    // Lib/Services/RecordingRetryProcessor.php (see AGENTS.md monolithic-worker split).
+    $cdrRecordEvaluatorSource = file_get_contents(__DIR__ . '/../Lib/Services/CdrRecordEvaluator.php');
+    $cdrDiscoveryScannerSource = file_get_contents(__DIR__ . '/../Lib/Services/CdrDiscoveryScanner.php');
+    $recordingRetryProcessorSource = file_get_contents(__DIR__ . '/../Lib/Services/RecordingRetryProcessor.php');
+    $durationEvaluator = ($cdrRecordEvaluatorSource !== false ? $cdrRecordEvaluatorSource : '')
+        . ($cdrDiscoveryScannerSource !== false ? $cdrDiscoveryScannerSource : '')
+        . ($recordingRetryProcessorSource !== false ? $recordingRetryProcessorSource : '');
     $main = file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextMain.php');
     $queueView = file_get_contents(__DIR__ . '/../Lib/Services/QueueViewService.php');
 
@@ -76,6 +85,10 @@ namespace {
     expectDurationContract($worker !== false, 'Cannot read queue worker');
     expectDurationContract($main !== false, 'Cannot read worker API main class');
     expectDurationContract($queueView !== false, 'Cannot read queue view service');
+    expectDurationContract(
+        $cdrRecordEvaluatorSource !== false && $cdrDiscoveryScannerSource !== false && $recordingRetryProcessorSource !== false,
+        'Cannot read CDR discovery/retry duration services'
+    );
 
     // The duration limit is now a fixed internal policy: 180 minutes / 10800 seconds,
     // not a user-configurable setting.
@@ -125,19 +138,19 @@ namespace {
         'Job duration column SQL is missing'
     );
     expectDurationContract(
-        str_contains($worker, "'duration_too_long'"),
+        str_contains($durationEvaluator, "'duration_too_long'"),
         'Queue must retain an over-duration skip reason'
     );
     expectDurationContract(
-        str_contains($worker, "'duration_probe_failed'"),
+        str_contains($durationEvaluator, "'duration_probe_failed'"),
         'Queue must retain an indeterminate-duration retry reason'
     );
     expectDurationContract(
-        str_contains($worker, 'STTSetting::recordingDurationAllowed'),
+        str_contains($durationEvaluator, 'STTSetting::recordingDurationAllowed'),
         'Queue must use shared duration validation'
     );
     expectDurationContract(
-        str_contains($worker, "'recording_duration_sec'"),
+        str_contains($durationEvaluator, "'recording_duration_sec'"),
         'Retry payload must retain known duration'
     );
     expectDurationContract(

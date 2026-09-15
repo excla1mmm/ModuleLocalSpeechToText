@@ -163,6 +163,11 @@ namespace {
     $workingDirectory = getcwd();
     chdir($testRoot);
     require_once __DIR__ . '/../Lib/Services/CdrDiscoveryBackoffPolicy.php';
+    require_once __DIR__ . '/../Lib/Services/RetryStateStore.php';
+    require_once __DIR__ . '/../Lib/Services/CdrRecordEvaluator.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryCache.php';
+    require_once __DIR__ . '/../Lib/Services/CdrDiscoveryScanner.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryProcessor.php';
     require_once __DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php';
     chdir($workingDirectory === false ? __DIR__ : $workingDirectory);
 

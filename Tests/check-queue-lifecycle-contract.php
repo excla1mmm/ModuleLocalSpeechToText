@@ -13,6 +13,11 @@ $job = file_get_contents(__DIR__ . '/../Models/STTJob.php');
 $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
 $main = file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextMain.php');
 $worker = file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
+// Skipped-recording retry moved out of the worker into
+// Lib/Services/RecordingRetryProcessor.php and Lib/Services/RecordingRetryCache.php
+// (see AGENTS.md monolithic-worker split).
+$retryProcessor = file_get_contents(__DIR__ . '/../Lib/Services/RecordingRetryProcessor.php');
+$retryCache = file_get_contents(__DIR__ . '/../Lib/Services/RecordingRetryCache.php');
 $controller = file_get_contents(__DIR__ . '/../App/Controllers/ModuleLocalSpeechToTextController.php');
 $queueView = file_get_contents(__DIR__ . '/../Lib/Services/QueueViewService.php');
 $view = file_get_contents(__DIR__ . '/../App/Views/ModuleLocalSpeechToText/index.volt');
@@ -21,6 +26,8 @@ expectTrueQueueLifecycle($job !== false, 'Cannot read STTJob.php');
 expectTrueQueueLifecycle($setup !== false, 'Cannot read PbxExtensionSetup.php');
 expectTrueQueueLifecycle($main !== false, 'Cannot read LocalSpeechToTextMain.php');
 expectTrueQueueLifecycle($worker !== false, 'Cannot read WorkerLocalSpeechToTextJobs.php');
+expectTrueQueueLifecycle($retryProcessor !== false, 'Cannot read RecordingRetryProcessor.php');
+expectTrueQueueLifecycle($retryCache !== false, 'Cannot read RecordingRetryCache.php');
 expectTrueQueueLifecycle($controller !== false, 'Cannot read ModuleLocalSpeechToTextController.php');
 expectTrueQueueLifecycle($queueView !== false, 'Cannot read QueueViewService.php');
 expectTrueQueueLifecycle($view !== false, 'Cannot read index.volt');
@@ -40,8 +47,8 @@ expectTrueQueueLifecycle(
 );
 expectTrueQueueLifecycle(
     str_contains($worker, '$this->retrySkippedRecordings();')
-        && str_contains($worker, "'skipped_recording_recovered'")
-        && str_contains($worker, 'saveSkippedRecordings'),
+        && str_contains($retryProcessor, "'skipped_recording_recovered'")
+        && str_contains($retryCache, 'saveSkippedRecordings'),
     'Skipped recordings must be revisited and removed after recovery'
 );
 expectTrueQueueLifecycle(

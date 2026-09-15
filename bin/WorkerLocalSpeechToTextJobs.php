@@ -8,49 +8,45 @@ require_once 'Globals.php';
 
 use MikoPBX\Common\Models\CallDetailRecords;
 use MikoPBX\Common\Providers\DatabaseProviderBase;
-use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CdrDiscoveryBackoffPolicy;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CdrDiscoveryScanner;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CdrRecordEvaluator;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
-use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
-use Modules\ModuleLocalSpeechToText\Lib\Services\RetryStateStore;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingRetryCache;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingRetryProcessor;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerDatabaseFailurePolicy;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerIterationFailureHandler;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerProcessGuard;
-use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionCoordinator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
-use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
 
 class WorkerLocalSpeechToTextJobs extends WorkerBase
 {
     private const int SCAN_INTERVAL_SECONDS = 15;
-    // Internal CDR discovery budget: not a user setting. Realtime and backfill share
-    // at most this many core CDR rows per pass; pending backfill always gets a slice.
-    private const int CDR_DISCOVERY_BATCH_SIZE = 30;
-    private const int BACKFILL_RESERVED_BATCH_SIZE = 5;
-    // Durable delayed/skipped retry state lives in the module DB, not the core CDR
-    // table; it gets its own small cap so ffprobe/filesystem retries can't spike load.
-    private const int RETRY_DUE_BATCH_LIMIT = 10;
+    // Internal CDR discovery budget: not a user setting. Mirrors
+    // CdrDiscoveryScanner's own constant so it stays reflectable on this
+    // class (see Tests/check-cdr-discovery-batch.php) without duplicating
+    // the source of truth.
+    private const int CDR_DISCOVERY_BATCH_SIZE = CdrDiscoveryScanner::CDR_DISCOVERY_BATCH_SIZE;
+    // Mirrors RecordingRetryProcessor::RETRY_DUE_BATCH_LIMIT for the same reason.
+    private const int RETRY_DUE_BATCH_LIMIT = RecordingRetryProcessor::RETRY_DUE_BATCH_LIMIT;
     private const int DISCRETIONARY_WORK_BUDGET_SECONDS = 10;
-    private const int LONG_CALL_SECONDS = 1800;
-    private const int DELAYED_RECORDING_TTL_SECONDS = 86400;
-    private const int MAX_DELAYED_RECORDINGS = 500;
-    private const int MAX_SKIPPED_RECORDINGS = 100;
-    private const int MAX_SKIPPED_RETRY_SECONDS = 3600;
-    private const int MAX_SKIPPED_RETRY_AGE_SECONDS = 2592000;
-    private const int TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600;
 
-    private ?RetryStateStore $retryStateStore = null;
-    private ?RecordingDurationProbe $recordingDurationProbe = null;
+    private ?CdrRecordEvaluator $cdrRecordEvaluator = null;
+    private ?RecordingRetryCache $recordingRetryCache = null;
+    private ?CdrDiscoveryScanner $cdrDiscoveryScanner = null;
+    private ?RecordingRetryProcessor $recordingRetryProcessor = null;
+    private ?TranscriptRetentionCoordinator $transcriptRetentionCoordinator = null;
     private bool $runtimePragmasConfigured = false;
     private int $discoveryDelaySeconds = CdrDiscoveryBackoffPolicy::BASE_DELAY_SECONDS;
     private int $nextDiscoveryAt = 0;
@@ -392,38 +388,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
 
     private function purgeExpiredTranscripts(): void
     {
-        $retentionDays = STTSetting::transcriptRetentionDays();
-        if ($retentionDays === 0) {
-            return;
-        }
-
-        $now = time();
-        $lastCleanupAt = max(0, (int)STTSetting::getValue(
-            STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT,
-            '0'
-        ));
-        if ($lastCleanupAt > $now - self::TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS) {
-            return;
-        }
-
-        $summary = (new TranscriptRetentionService())->purgeExpired($retentionDays, $now);
-        STTSetting::setValue(
-            STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT,
-            $summary['has_more'] ? '0' : (string)$now
-        );
-        if ($summary['calls'] > 0 || $summary['results'] > 0) {
-            LocalSpeechToTextLogger::event(
-                'transcript',
-                'retention_cleanup_completed',
-                'Expired transcript data removed',
-                LOG_NOTICE,
-                [
-                    'calls_count' => $summary['calls'],
-                    'results_count' => $summary['results'],
-                    'has_more' => $summary['has_more'],
-                ]
-            );
-        }
+        $this->transcriptRetentionCoordinator()->purgeExpiredTranscripts();
     }
 
     /**
@@ -470,61 +435,13 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function createJobsFromCompletedCdr(): array
     {
-        $delayedRecordings = $this->delayedRecordings();
-        $historyStart = STTSetting::cdrHistoryStartDateTime();
-
-        $this->initializeRealtimeScanCursor();
-        $backfillPending = !$this->backfillCompletedFor($historyStart);
-        $realtimeLimit = $backfillPending
-            ? self::CDR_DISCOVERY_BATCH_SIZE - self::BACKFILL_RESERVED_BATCH_SIZE
-            : self::CDR_DISCOVERY_BATCH_SIZE;
-        $realtimeRowCount = $this->createRealtimeJobsFromCompletedCdr(
-            $delayedRecordings,
-            $historyStart,
-            $realtimeLimit
+        return $this->cdrDiscoveryScanner()->createJobsFromCompletedCdr(
+            fn (): bool => $this->needRestart,
+            fn (): bool => $this->iterationBudgetExhausted(),
         );
-        if ($this->needRestart || $this->iterationBudgetExhausted()) {
-            $this->saveDelayedRecordings($delayedRecordings);
-            return ['active' => false, 'idle' => false];
-        }
-
-        $remainingBudget = self::CDR_DISCOVERY_BATCH_SIZE - $realtimeRowCount;
-        if (!$backfillPending || $remainingBudget <= 0) {
-            $this->saveDelayedRecordings($delayedRecordings);
-            return $realtimeRowCount > 0
-                ? ['active' => true, 'idle' => false]
-                : ['active' => false, 'idle' => true];
-        }
-
-        $backfill = $this->createBackfillJobsFromCompletedCdr(
-            $delayedRecordings,
-            $historyStart,
-            $remainingBudget
-        );
-        $this->saveDelayedRecordings($delayedRecordings);
-
-        if ($backfill['interrupted']) {
-            return ['active' => false, 'idle' => false];
-        }
-
-        return $realtimeRowCount > 0 || $backfill['row_count'] > 0
-            ? ['active' => true, 'idle' => false]
-            : ['active' => false, 'idle' => true];
     }
 
     /**
-     * The realtime cursor is a plain `id` watermark, not `endtime`. Core
-     * assigns `cdr_general.id` as a fresh autoincrement when a linkedid's
-     * rows are moved out of the temp table - in completion order, not in
-     * endtime order (see CallDetailRecordsTmp::afterSave() /
-     * WorkerCdr::processCompletedRows() in Core). For a transferred or
-     * multi-leg call, an early leg can be inserted (and get its id) long
-     * after a later, short call that already advanced an endtime-based
-     * cursor past that leg's endtime - permanently skipping it. `id` has no
-     * such ordering inversion: it is assigned once, monotonically, at
-     * insertion time, so `id > cursor` never misses a row and never needs
-     * revisiting one already seen.
-     *
      * @param array<int, array<string, mixed>> $delayedRecordings
      * @return int Number of CDR rows the realtime query returned.
      */
@@ -534,163 +451,23 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         int $scanLimit = self::CDR_DISCOVERY_BATCH_SIZE
     ): int
     {
-        $cursorId = $this->scanCursor();
-        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
-            . ' AND id > :cursor_id:';
-        $bind = [
-            'empty' => '',
-            'completed' => '1',
-            'cursor_id' => $cursorId,
-        ];
-        if ($historyStart !== '') {
-            $conditions .= ' AND endtime >= :history_start:';
-            $bind['history_start'] = $historyStart;
-        }
-
-        $records = CallDetailRecords::find([
-            'conditions' => $conditions,
-            'bind' => $bind,
-            'order' => 'id ASC',
-            'limit' => $scanLimit,
-        ]);
-
-        $rows = $records->toArray();
-        $processedRowCount = 0;
-
-        $lastId = $cursorId;
-
-        foreach ($rows as $record) {
-            if ($this->needRestart || $this->iterationBudgetExhausted()) {
-                $this->saveScanCursor($lastId);
-                return $processedRowCount;
-            }
-
-            $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
-            $processedRowCount++;
-
-            $recordId = $this->recordId($record);
-            if ($recordId > $lastId) {
-                $lastId = $recordId;
-            }
-        }
-
-        $this->saveScanCursor($lastId);
-
-        return $processedRowCount;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $delayedRecordings
-     * @return array{row_count: int, interrupted: bool}
-     */
-    private function createBackfillJobsFromCompletedCdr(
-        array &$delayedRecordings,
-        string $historyStart,
-        int $scanLimit = self::CDR_DISCOVERY_BATCH_SIZE
-    ): array
-    {
-        // Backfill is a one-shot scan inside the current retention window.
-        // Once the tail is drained, we keep the flag set and stop hammering the CDR
-        // table every discovery pass until the retention window is widened.
-        if ($this->backfillCompletedFor($historyStart)) {
-            return ['row_count' => 0, 'interrupted' => false];
-        }
-
-        [$cursorEndtime, $cursorId] = $this->backfillCursor();
-        if ($cursorEndtime === '') {
-            $cursorEndtime = date('Y-m-d H:i:s');
-            $cursorId = PHP_INT_MAX;
-        }
-
-        // The retention window slides forward each day; if the cursor has already
-        // slid past it, every subsequent scan is guaranteed to be empty. Mark done.
-        if ($historyStart !== '' && $cursorEndtime < $historyStart) {
-            $this->markBackfillCompleted($historyStart);
-            return ['row_count' => 0, 'interrupted' => false];
-        }
-
-        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
-            . ' AND (endtime < :cursor_endtime: OR (endtime = :cursor_endtime: AND id < :cursor_id:))';
-        $bind = [
-            'empty' => '',
-            'completed' => '1',
-            'cursor_endtime' => $cursorEndtime,
-            'cursor_id' => $cursorId,
-        ];
-        if ($historyStart !== '') {
-            $conditions .= ' AND endtime >= :history_start:';
-            $bind['history_start'] = $historyStart;
-        }
-
-        $records = CallDetailRecords::find([
-            'conditions' => $conditions,
-            'bind' => $bind,
-            'order' => 'endtime DESC, id DESC',
-            'limit' => $scanLimit,
-        ]);
-
-        $rows = $records->toArray();
-        $rowCount = count($rows);
-
-        $lastEndtime = '';
-        $lastId = 0;
-
-        foreach ($rows as $record) {
-            if ($this->needRestart || $this->iterationBudgetExhausted()) {
-                if ($lastEndtime !== '') {
-                    $this->saveBackfillCursor($lastEndtime, $lastId);
-                }
-                return ['row_count' => 0, 'interrupted' => true];
-            }
-
-            $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
-            $lastEndtime = $this->endtime($record);
-            $lastId = $this->recordId($record);
-        }
-
-        if ($lastEndtime !== '') {
-            $this->saveBackfillCursor($lastEndtime, $lastId);
-        }
-
-        // A short page is the only reliable signal that the tail has been drained:
-        // empty result is the special case where $rowCount === 0 < $scanLimit.
-        if ($rowCount < $scanLimit) {
-            $this->markBackfillCompleted($historyStart);
-        }
-
-        return ['row_count' => $rowCount, 'interrupted' => false];
+        return $this->cdrDiscoveryScanner()->createRealtimeJobsFromCompletedCdr(
+            $delayedRecordings,
+            $historyStart,
+            $scanLimit,
+            fn (): bool => $this->needRestart,
+            fn (): bool => $this->iterationBudgetExhausted(),
+        );
     }
 
     private function backfillCompletedFor(string $historyStart): bool
     {
-        if (STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE, '0') !== '1') {
-            return false;
-        }
-
-        // Auto-reset the flag if the operator widens the retention window:
-        // either history_start moved earlier than the snapshot we stored
-        // when we finished, or the window was widened all the way to
-        // "unlimited" (historyStart === '' while we previously finished
-        // against a bounded window). saveSettingsFromPost() already resets
-        // these settings directly when cdr_history_days changes; this check
-        // is a second line of defense so backfill self-heals even if this
-        // method is reached with stale flags some other way.
-        $doneFor = trim(STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, ''));
-        $historyWindowWidened = $doneFor !== ''
-            && ($historyStart === '' || $historyStart < $doneFor);
-        if ($historyWindowWidened) {
-            STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '0');
-            STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, '');
-            return false;
-        }
-
-        return true;
+        return $this->cdrDiscoveryScanner()->backfillCompletedFor($historyStart);
     }
 
     private function markBackfillCompleted(string $historyStart): void
     {
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, $historyStart);
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '1');
+        $this->cdrDiscoveryScanner()->markBackfillCompleted($historyStart);
     }
 
     /**
@@ -699,284 +476,23 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function processCompletedRecord(array &$delayedRecordings, array $record, string $historyStart): void
     {
-        if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
-            $this->rememberSkippedRecording($record, 'outside_history_window');
-            return;
-        }
-
-        $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
-        if ($recordingPath === null) {
-            $this->rememberDelayedRecording($delayedRecordings, $record);
-            return;
-        }
-
-        $this->forgetDelayedRecording($delayedRecordings, $this->recordId($record));
-        if (!$this->recordingWithinSizeLimit($recordingPath)) {
-            $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath);
-            return;
-        }
-
-        $duration = $this->recordingDurationDecision($record, $recordingPath);
-        if ($duration['state'] !== 'allowed') {
-            $record = $this->recordWithDurationDecision($record, $duration);
-            $this->rememberSkippedRecording(
-                $record,
-                $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed',
-                $recordingPath
-            );
-            return;
-        }
-
-        if (STTJob::existsForFilePath($recordingPath)) {
-            return;
-        }
-
-        $this->createJob($record, $recordingPath, $duration['duration_sec']);
-    }
-
-    private function createJob(array $record, string $recordingPath, ?int $recordingDurationSeconds): void
-    {
-        $job = STTJob::createPending(
-            $this->callId($record),
-            $recordingPath,
-            $this->priorityForDuration($recordingDurationSeconds),
-            $this->recordEndtimeTimestamp($record),
-            $this->recordingIdentity($record, $recordingPath),
-            $recordingDurationSeconds
-        );
-
-        $this->logJobCreated($job, $recordingDurationSeconds);
+        $this->cdrDiscoveryScanner()->processCompletedRecord($delayedRecordings, $record, $historyStart);
     }
 
     private function retryDelayedRecordings(): void
     {
-        $retryRecords = $this->retryStateStore()->due(
-            RetryStateStore::TYPE_DELAYED,
-            self::RETRY_DUE_BATCH_LIMIT
+        $this->recordingRetryProcessor()->retryDelayedRecordings(
+            fn (): bool => $this->needRestart,
+            fn (): bool => $this->iterationBudgetExhausted(),
         );
-        if ($retryRecords === []) {
-            return;
-        }
-
-        $delayedRecordings = $this->delayedRecordings();
-        $changed = false;
-        $now = time();
-        $historyStart = STTSetting::cdrHistoryStartDateTime();
-
-        foreach ($retryRecords as $retryRecord) {
-            if ($this->iterationBudgetExhausted()) {
-                if ($changed) {
-                    $this->saveDelayedRecordings($delayedRecordings);
-                }
-                return;
-            }
-            $recordId = (int)$retryRecord['cdr_id'];
-            $record = $retryRecord['payload'];
-            $record['first_seen'] = (int)$retryRecord['first_seen'];
-            if ($this->needRestart) {
-                if ($changed) {
-                    $this->saveDelayedRecordings($delayedRecordings);
-                }
-                return;
-            }
-
-            if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
-                $this->rememberSkippedRecording($record, 'outside_history_window', '', (int)$recordId);
-                unset($delayedRecordings[$recordId]);
-                $changed = true;
-                continue;
-            }
-
-            if ($now - (int)($record['first_seen'] ?? $now) > self::DELAYED_RECORDING_TTL_SECONDS) {
-                $this->rememberSkippedRecording($record, 'recording_missing_timeout', '', (int)$recordId);
-                unset($delayedRecordings[$recordId]);
-                $changed = true;
-                continue;
-            }
-
-            $recordingPath = $this->recordingPath((string)($record['recordingfile'] ?? ''));
-            if ($recordingPath === null) {
-                $this->retryStateStore()->defer(
-                    $recordId,
-                    RetryStateStore::TYPE_DELAYED,
-                    self::SCAN_INTERVAL_SECONDS
-                );
-                continue;
-            }
-
-            if (!$this->recordingWithinSizeLimit($recordingPath)) {
-                $this->rememberSkippedRecording($record, 'file_too_large', $recordingPath, (int)$recordId);
-                unset($delayedRecordings[$recordId]);
-                $changed = true;
-                continue;
-            }
-
-            $duration = $this->recordingDurationDecision($record, $recordingPath);
-            if ($duration['state'] !== 'allowed') {
-                $record = $this->recordWithDurationDecision($record, $duration);
-                $this->rememberSkippedRecording(
-                    $record,
-                    $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed',
-                    $recordingPath,
-                    (int)$recordId
-                );
-                unset($delayedRecordings[$recordId]);
-                $changed = true;
-                continue;
-            }
-
-            if (!STTJob::existsForFilePath($recordingPath)) {
-                $job = STTJob::createPending(
-                    (string)($record['call_id'] ?? ''),
-                    $recordingPath,
-                    $this->priorityForDuration($duration['duration_sec']),
-                    (int)($record['cdr_endtime'] ?? 0) ?: null,
-                    $this->recordingIdentity($record, $recordingPath),
-                    $duration['duration_sec']
-                );
-                $this->logJobCreated(
-                    $job,
-                    $duration['duration_sec'],
-                    'delayed_recording_recovered'
-                );
-            }
-
-            unset($delayedRecordings[$recordId]);
-            $this->retryStateStore()->remove($recordId);
-            $changed = true;
-        }
-
-        if ($changed) {
-            $this->saveDelayedRecordings($delayedRecordings);
-        }
     }
 
     private function retrySkippedRecordings(): void
     {
-        $retryRecords = $this->retryStateStore()->due(
-            RetryStateStore::TYPE_SKIPPED,
-            self::RETRY_DUE_BATCH_LIMIT
+        $this->recordingRetryProcessor()->retrySkippedRecordings(
+            fn (): bool => $this->needRestart,
+            fn (): bool => $this->iterationBudgetExhausted(),
         );
-        if ($retryRecords === []) {
-            return;
-        }
-
-        $skippedRecordings = $this->skippedRecordings();
-        $changed = false;
-        $historyStart = STTSetting::cdrHistoryStartDateTime();
-
-        foreach ($retryRecords as $retryRecord) {
-            if ($this->iterationBudgetExhausted()) {
-                if ($changed) {
-                    $this->saveSkippedRecordings($skippedRecordings);
-                }
-                return;
-            }
-            $recordId = (int)$retryRecord['cdr_id'];
-            $record = $retryRecord['payload'];
-            if ($this->needRestart) {
-                if ($changed) {
-                    $this->saveSkippedRecordings($skippedRecordings);
-                }
-                return;
-            }
-
-            if (!$this->recordWithinHistoryWindow($record, $historyStart)) {
-                unset($skippedRecordings[$recordId]);
-                $this->retryStateStore()->remove($recordId);
-                $changed = true;
-                LocalSpeechToTextLogger::event(
-                    'scanner',
-                    'recording_retry_dropped',
-                    'Recording retry state removed',
-                    LOG_INFO,
-                    ['skip_reason' => 'outside_history_window']
-                );
-                continue;
-            }
-
-            $recordingFile = trim((string)($record['recordingfile'] ?? ''));
-            if ($recordingFile === '') {
-                $recordingFile = (string)($record['recording_path'] ?? '');
-            }
-            $recordingPath = $this->recordingPath($recordingFile);
-            if ($recordingPath === null) {
-                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
-                    $changed = true;
-                    continue;
-                }
-                $this->retryStateStore()->deferWithBackoff(
-                    $recordId,
-                    RetryStateStore::TYPE_SKIPPED,
-                    self::SCAN_INTERVAL_SECONDS,
-                    self::MAX_SKIPPED_RETRY_SECONDS
-                );
-                continue;
-            }
-
-            if (!$this->recordingWithinSizeLimit($recordingPath)) {
-                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
-                    $changed = true;
-                    continue;
-                }
-                $this->retryStateStore()->deferWithBackoff(
-                    $recordId,
-                    RetryStateStore::TYPE_SKIPPED,
-                    self::SCAN_INTERVAL_SECONDS,
-                    self::MAX_SKIPPED_RETRY_SECONDS
-                );
-                continue;
-            }
-
-            $duration = $this->recordingDurationDecision($record, $recordingPath);
-            if ($duration['state'] !== 'allowed') {
-                $reason = $duration['state'] === 'too_long' ? 'duration_too_long' : 'duration_probe_failed';
-                if (
-                    $reason !== (string)$retryRecord['reason']
-                    || $duration['source'] !== trim((string)($record['recording_duration_source'] ?? ''))
-                    || $duration['duration_sec'] !== $this->recordingDurationSeconds($record)
-                ) {
-                    $record = $this->recordWithDurationDecision($record, $duration);
-                    $this->rememberSkippedRecording($record, $reason, $recordingPath, $recordId);
-                }
-                $retryRecord['reason'] = $reason;
-                if ($this->expireSkippedRetry($skippedRecordings, $retryRecord)) {
-                    $changed = true;
-                    continue;
-                }
-                $this->retryStateStore()->deferWithBackoff(
-                    $recordId,
-                    RetryStateStore::TYPE_SKIPPED,
-                    self::SCAN_INTERVAL_SECONDS,
-                    self::MAX_SKIPPED_RETRY_SECONDS
-                );
-                continue;
-            }
-
-            if (!STTJob::existsForFilePath($recordingPath)) {
-                $job = STTJob::createPending(
-                    (string)($record['call_id'] ?? ''),
-                    $recordingPath,
-                    $this->priorityForDuration($duration['duration_sec']),
-                    (int)($record['cdr_endtime'] ?? 0) ?: null,
-                    $this->recordingIdentity($record, $recordingPath),
-                    $duration['duration_sec']
-                );
-                $this->logJobCreated(
-                    $job,
-                    $duration['duration_sec'],
-                    'skipped_recording_recovered'
-                );
-            }
-
-            unset($skippedRecordings[$recordId]);
-            $this->retryStateStore()->remove($recordId);
-            $changed = true;
-        }
-
-        if ($changed) {
-            $this->saveSkippedRecordings($skippedRecordings);
-        }
     }
 
     /**
@@ -984,27 +500,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function delayedRecordings(): array
     {
-        $json = STTSetting::getValue(STTSetting::DELAYED_RECORDINGS, '[]');
-        $records = json_decode($json, true);
-        if (!is_array($records)) {
-            return [];
-        }
-
-        $delayedRecordings = [];
-        foreach ($records as $recordId => $record) {
-            if (!is_array($record)) {
-                continue;
-            }
-
-            $recordId = (int)$recordId;
-            if ($recordId <= 0 || trim((string)($record['recordingfile'] ?? '')) === '') {
-                continue;
-            }
-
-            $delayedRecordings[$recordId] = $record;
-        }
-
-        return $delayedRecordings;
+        return $this->recordingRetryCache()->delayedRecordings();
     }
 
     /**
@@ -1013,65 +509,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function rememberDelayedRecording(array &$delayedRecordings, array $record): void
     {
-        $recordId = $this->recordId($record);
-        if ($recordId <= 0) {
-            return;
-        }
-
-        $isNew = !isset($delayedRecordings[$recordId]);
-        $now = time();
-        $retryRecord = [
-            'recordingfile' => (string)($record['recordingfile'] ?? ''),
-            'call_id' => $this->callId($record),
-            'priority' => $this->priority($record),
-            'endtime' => $this->endtime($record),
-            'cdr_endtime' => $this->recordEndtimeTimestamp($record),
-            'cdr_id' => $this->recordId($record),
-            'cdr_uniqueid' => trim((string)($record['UNIQUEID'] ?? '')),
-            'cdr_start_ms' => $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
-            'cdr_end_ms' => $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
-            'recording_duration_sec' => $this->recordingDurationSeconds($record),
-            'recording_duration_source' => trim((string)($record['recording_duration_source'] ?? '')),
-            'first_seen' => (int)($delayedRecordings[$recordId]['first_seen'] ?? $now),
-            'last_seen' => $now,
-        ];
-        $delayedRecordings[$recordId] = $retryRecord;
-        $this->retryStateStore()->remember(
-            $recordId,
-            RetryStateStore::TYPE_DELAYED,
-            $retryRecord,
-            'recording_missing',
-            $now
-        );
-        if ($isNew) {
-            LocalSpeechToTextLogger::event(
-                'scanner',
-                'recording_delayed',
-                'Recording is not available yet; retry scheduled',
-                LOG_INFO,
-                [
-                    'skip_reason' => 'recording_missing',
-                    'recording_duration_ms' => $this->recordingDurationSeconds($record) !== null
-                        ? $this->recordingDurationSeconds($record) * 1000
-                        : null,
-                ]
-            );
-        }
-
-        if (count($delayedRecordings) > self::MAX_DELAYED_RECORDINGS) {
-            uasort(
-                $delayedRecordings,
-                static fn (array $left, array $right): int => ((int)($left['first_seen'] ?? 0)) <=> ((int)($right['first_seen'] ?? 0))
-            );
-            $delayedRecordings = array_slice($delayedRecordings, -self::MAX_DELAYED_RECORDINGS, null, true);
-            LocalSpeechToTextLogger::event(
-                'scanner',
-                'retry_cache_overflow',
-                'Recording retry display cache reached its limit',
-                LOG_WARNING,
-                ['cache_type' => 'delayed']
-            );
-        }
+        $this->recordingRetryCache()->rememberDelayedRecording($delayedRecordings, $record);
     }
 
     /**
@@ -1079,163 +517,7 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function rememberSkippedRecording(array $record, string $reason, string $recordingPath = '', int $recordId = 0): void
     {
-        $recordId = $recordId > 0 ? $recordId : $this->recordId($record);
-        if ($recordId <= 0) {
-            return;
-        }
-
-        $recordingFile = trim((string)($record['recordingfile'] ?? ''));
-        if ($recordingFile === '') {
-            $recordingFile = $recordingPath;
-        }
-
-        $cdrEndtime = (int)($record['cdr_endtime'] ?? 0);
-        if ($cdrEndtime <= 0) {
-            $cdrEndtime = (int)($this->recordEndtimeTimestamp($record) ?? 0);
-        }
-
-        $skippedRecordings = $this->skippedRecordings();
-        $isNew = !isset($skippedRecordings[$recordId]);
-        $retryRecord = [
-            'recordingfile' => $recordingFile,
-            'recording_path' => $recordingPath,
-            'call_id' => (string)($record['call_id'] ?? $this->callId($record)),
-            'priority' => (int)($record['priority'] ?? $this->priority($record)),
-            'endtime' => $this->endtime($record),
-            'cdr_endtime' => $cdrEndtime,
-            'cdr_id' => (int)($record['cdr_id'] ?? $record['id'] ?? $recordId),
-            'cdr_uniqueid' => trim((string)($record['cdr_uniqueid'] ?? $record['UNIQUEID'] ?? '')),
-            'cdr_start_ms' => (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? '')),
-            'cdr_end_ms' => (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? '')),
-            'recording_duration_sec' => $this->recordingDurationSeconds($record),
-            'recording_duration_source' => trim((string)($record['recording_duration_source'] ?? '')),
-            'reason' => $reason,
-            'created_at' => time(),
-        ];
-        $skippedRecordings[$recordId] = $retryRecord;
-        $this->retryStateStore()->remember(
-            $recordId,
-            RetryStateStore::TYPE_SKIPPED,
-            $retryRecord,
-            $reason
-        );
-        if ($isNew) {
-            LocalSpeechToTextLogger::event(
-                'scanner',
-                'recording_skipped',
-                'Recording skipped before transcription',
-                LOG_WARNING,
-                [
-                    'skip_reason' => $reason,
-                    'recording_duration_ms' => $this->recordingDurationSeconds($record) !== null
-                        ? $this->recordingDurationSeconds($record) * 1000
-                        : null,
-                ]
-            );
-        }
-
-        if (count($skippedRecordings) > self::MAX_SKIPPED_RECORDINGS) {
-            uasort(
-                $skippedRecordings,
-                static fn (array $left, array $right): int => ((int)($left['created_at'] ?? 0)) <=> ((int)($right['created_at'] ?? 0))
-            );
-            $skippedRecordings = array_slice($skippedRecordings, -self::MAX_SKIPPED_RECORDINGS, null, true);
-            LocalSpeechToTextLogger::event(
-                'scanner',
-                'retry_cache_overflow',
-                'Recording retry display cache reached its limit',
-                LOG_WARNING,
-                ['cache_type' => 'skipped']
-            );
-        }
-
-        $this->saveSkippedRecordings($skippedRecordings);
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function skippedRecordings(): array
-    {
-        $json = STTSetting::getValue(STTSetting::SKIPPED_RECORDINGS, '[]');
-        $records = json_decode($json, true);
-        if (!is_array($records)) {
-            return [];
-        }
-
-        $skippedRecordings = [];
-        foreach ($records as $recordId => $record) {
-            if (!is_array($record)) {
-                continue;
-            }
-
-            $recordId = (int)$recordId;
-            if ($recordId <= 0) {
-                continue;
-            }
-
-            $skippedRecordings[$recordId] = $record;
-        }
-
-        return $skippedRecordings;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $skippedRecordings
-     */
-    private function saveSkippedRecordings(array $skippedRecordings): void
-    {
-        STTSetting::setValue(
-            STTSetting::SKIPPED_RECORDINGS,
-            json_encode($skippedRecordings, JSON_THROW_ON_ERROR)
-        );
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $delayedRecordings
-     */
-    private function forgetDelayedRecording(array &$delayedRecordings, int $recordId): void
-    {
-        unset($delayedRecordings[$recordId]);
-        $this->retryStateStore()->remove($recordId);
-    }
-
-    private function retryStateStore(): RetryStateStore
-    {
-        if (!$this->retryStateStore instanceof RetryStateStore) {
-            $this->retryStateStore = new RetryStateStore((new STTJob())->getWriteConnection());
-        }
-
-        return $this->retryStateStore;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $skippedRecordings
-     * @param array{cdr_id: int, first_seen: int} $retryRecord
-     */
-    private function expireSkippedRetry(array &$skippedRecordings, array $retryRecord): bool
-    {
-        if ((string)($retryRecord['reason'] ?? '') === 'duration_probe_failed') {
-            return false;
-        }
-
-        $firstSeen = (int)$retryRecord['first_seen'];
-        if ($firstSeen <= 0 || time() - $firstSeen < self::MAX_SKIPPED_RETRY_AGE_SECONDS) {
-            return false;
-        }
-
-        $recordId = (int)$retryRecord['cdr_id'];
-        unset($skippedRecordings[$recordId]);
-        $this->retryStateStore()->remove($recordId);
-        LocalSpeechToTextLogger::event(
-            'scanner',
-            'recording_retry_expired',
-            'Recording retry lifetime expired',
-            LOG_WARNING,
-            ['skip_reason' => 'retry_lifetime_exhausted']
-        );
-
-        return true;
+        $this->recordingRetryCache()->rememberSkippedRecording($record, $reason, $recordingPath, $recordId);
     }
 
     /**
@@ -1243,390 +525,74 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
      */
     private function saveDelayedRecordings(array $delayedRecordings): void
     {
-        STTSetting::setValue(
-            STTSetting::DELAYED_RECORDINGS,
-            json_encode($delayedRecordings, JSON_THROW_ON_ERROR)
-        );
-    }
-
-    private function scanCursor(): int
-    {
-        return (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
-    }
-
-    /**
-     * Prepares the id-based realtime cursor before every scan.
-     * CDR_SCAN_CURSOR_ENDTIME is no longer part of the realtime *query* (see
-     * createRealtimeJobsFromCompletedCdr()), but it is still read here, for
-     * two different purposes depending on CDR_SCAN_CURSOR_MODE:
-     *
-     * - Fresh install (marker empty): start the cursor at the current
-     *   MAX(id) so realtime picks up only calls completed from now on;
-     *   existing history is covered by the separate backfill scan. Mode is
-     *   set to 'id' directly - there is no legacy cursor to migrate from.
-     * - Legacy install (marker set, mode not yet 'id'): the marker still
-     *   holds a real (endtime, id) cursor written by a prior run of the old
-     *   endtime-ordered scanner. Reusing CDR_SCAN_CURSOR_ID as-is here would
-     *   be wrong: under (endtime, id) ordering the stored id is the id of
-     *   the row with the greatest *endtime* processed so far, not the
-     *   greatest id, so any still-pending backlog row with a smaller id but
-     *   a larger endtime (batch-limited scanning had not reached it yet)
-     *   would be permanently skipped by a naive `id > old_id` cursor. See
-     *   migrateRealtimeScanCursorToIdMode() for the actual derivation.
-     * - Mode already 'id': nothing to do, cursor is used as-is.
-     */
-    private function initializeRealtimeScanCursor(): void
-    {
-        $endtimeMarker = trim(STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, ''));
-        if ($endtimeMarker === '') {
-            $maxId = (int)(CallDetailRecords::maximum(['column' => 'id']) ?: 0);
-            $this->saveScanCursor($maxId);
-            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
-            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_MODE, STTSetting::CDR_SCAN_CURSOR_MODE_ID);
-            return;
-        }
-
-        if (STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_MODE, '') === STTSetting::CDR_SCAN_CURSOR_MODE_ID) {
-            return;
-        }
-
-        $this->migrateRealtimeScanCursorToIdMode($endtimeMarker);
-    }
-
-    /**
-     * One-time migration from the legacy (endtime, id) realtime cursor to a
-     * plain id watermark. Must find the smallest id among CDR rows the OLD
-     * query would still have returned (same base filters, same
-     * (endtime > :legacy_endtime: OR (endtime = :legacy_endtime: AND
-     * id > :legacy_id:)) backlog condition) and back the new cursor off to
-     * just below it, so nothing already pending under the old ordering gets
-     * skipped by the new `id > cursor` condition. When no such backlog row
-     * exists, the legacy id is already a safe id-cursor value as-is.
-     *
-     * The cursor is persisted before the mode marker: if the process is
-     * interrupted in between, CDR_SCAN_CURSOR_MODE is still not 'id' on the
-     * next run, so this method runs again and recomputes the exact same
-     * result from the still-untouched legacy endtime/id pair - idempotent,
-     * not a partial or duplicated migration.
-     */
-    private function migrateRealtimeScanCursorToIdMode(string $legacyEndtime): void
-    {
-        $legacyId = (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
-        $historyStart = STTSetting::cdrHistoryStartDateTime();
-
-        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
-            . ' AND (endtime > :legacy_endtime: OR (endtime = :legacy_endtime: AND id > :legacy_id:))';
-        $bind = [
-            'empty' => '',
-            'completed' => '1',
-            'legacy_endtime' => $legacyEndtime,
-            'legacy_id' => $legacyId,
-        ];
-        if ($historyStart !== '') {
-            $conditions .= ' AND endtime >= :history_start:';
-            $bind['history_start'] = $historyStart;
-        }
-
-        $pendingMinId = CallDetailRecords::minimum([
-            'column' => 'id',
-            'conditions' => $conditions,
-            'bind' => $bind,
-        ]);
-        $pendingMinId = $pendingMinId === null || $pendingMinId === '' ? null : (int)$pendingMinId;
-
-        $newCursorId = $pendingMinId !== null ? min($legacyId, $pendingMinId - 1) : $legacyId;
-
-        $this->saveScanCursor($newCursorId);
-        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_MODE, STTSetting::CDR_SCAN_CURSOR_MODE_ID);
-
-        LocalSpeechToTextLogger::event(
-            'scanner',
-            'realtime_cursor_migrated',
-            'Realtime CDR scan cursor migrated from endtime ordering to id ordering',
-            LOG_NOTICE,
-            [
-                'legacy_endtime' => $legacyEndtime,
-                'legacy_id' => $legacyId,
-                'new_cursor_id' => $newCursorId,
-            ]
-        );
+        $this->recordingRetryCache()->saveDelayedRecordings($delayedRecordings);
     }
 
     private function saveScanCursor(int $recordId): void
     {
-        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, (string)max(0, $recordId));
-    }
-
-    /**
-     * @return array{0: string, 1: int}
-     */
-    private function backfillCursor(): array
-    {
-        return [
-            trim(STTSetting::getValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, '')),
-            (int)STTSetting::getValue(STTSetting::CDR_BACKFILL_CURSOR_ID, '0'),
-        ];
+        $this->cdrDiscoveryScanner()->saveScanCursor($recordId);
     }
 
     private function saveBackfillCursor(string $endtime, int $recordId): void
     {
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ID, (string)max(0, $recordId));
-        STTSetting::setValue(STTSetting::CDR_BACKFILL_CURSOR_ENDTIME, $endtime);
+        $this->cdrDiscoveryScanner()->saveBackfillCursor($endtime, $recordId);
     }
 
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function recordId(array $record): int
+    private function initializeRealtimeScanCursor(): void
     {
-        return (int)($record['id'] ?? 0);
+        $this->cdrDiscoveryScanner()->initializeRealtimeScanCursor();
     }
 
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function endtime(array $record): string
+    private function cdrRecordEvaluator(): CdrRecordEvaluator
     {
-        return trim((string)($record['endtime'] ?? ''));
-    }
-
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function recordEndtimeTimestamp(array $record): ?int
-    {
-        $endtime = $this->endtime($record);
-        if ($endtime === '') {
-            return null;
+        if (!$this->cdrRecordEvaluator instanceof CdrRecordEvaluator) {
+            $this->cdrRecordEvaluator = new CdrRecordEvaluator();
         }
 
-        $timestamp = strtotime($endtime);
-
-        return $timestamp === false ? null : $timestamp;
+        return $this->cdrRecordEvaluator;
     }
 
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function recordWithinHistoryWindow(array $record, string $historyStart): bool
+    private function recordingRetryCache(): RecordingRetryCache
     {
-        if ($historyStart === '') {
-            return true;
+        if (!$this->recordingRetryCache instanceof RecordingRetryCache) {
+            $this->recordingRetryCache = new RecordingRetryCache($this->cdrRecordEvaluator());
         }
 
-        $endtime = $this->endtime($record);
-        if ($endtime === '') {
-            return true;
-        }
-
-        return $endtime >= $historyStart;
+        return $this->recordingRetryCache;
     }
 
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function callId(array $record): string
+    private function cdrDiscoveryScanner(): CdrDiscoveryScanner
     {
-        $linkedId = trim((string)($record['linkedid'] ?? ''));
-        if ($linkedId !== '') {
-            return $linkedId;
+        if (!$this->cdrDiscoveryScanner instanceof CdrDiscoveryScanner) {
+            $this->cdrDiscoveryScanner = new CdrDiscoveryScanner(
+                $this->cdrRecordEvaluator(),
+                $this->recordingRetryCache()
+            );
         }
 
-        return trim((string)($record['UNIQUEID'] ?? ''));
+        return $this->cdrDiscoveryScanner;
     }
 
-    /**
-     * @param array<string, mixed> $record
-     * @return array{cdr_id: int|null, cdr_uniqueid: string, cdr_start_ms: int|null, cdr_end_ms: int|null, recording_fingerprint: string}
-     */
-    private function recordingIdentity(array $record, string $recordingPath): array
+    private function recordingRetryProcessor(): RecordingRetryProcessor
     {
-        $cdrId = (int)($record['cdr_id'] ?? $record['id'] ?? 0);
-        $uniqueId = trim((string)($record['cdr_uniqueid'] ?? $record['UNIQUEID'] ?? ''));
-        $startMs = (int)($record['cdr_start_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['start'] ?? ''));
-        $endMs = (int)($record['cdr_end_ms'] ?? 0) ?: $this->dateTimeMilliseconds((string)($record['endtime'] ?? ''));
-        $size = is_file($recordingPath) ? (int)filesize($recordingPath) : 0;
-        $modifiedAt = is_file($recordingPath) ? (int)filemtime($recordingPath) : 0;
-        $fingerprintMaterial = implode('|', [
-            (string)$cdrId,
-            $uniqueId,
-            (string)($startMs ?? 0),
-            (string)($endMs ?? 0),
-            (string)$size,
-            (string)$modifiedAt,
-        ]);
-
-        return [
-            'cdr_id' => $cdrId > 0 ? $cdrId : null,
-            'cdr_uniqueid' => $uniqueId,
-            'cdr_start_ms' => $startMs,
-            'cdr_end_ms' => $endMs,
-            'recording_fingerprint' => hash('sha256', $fingerprintMaterial),
-        ];
-    }
-
-    private function dateTimeMilliseconds(string $value): ?int
-    {
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-        $date = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s.u', $value)
-            ?: \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value);
-
-        return $date instanceof \DateTimeImmutable
-            ? ((int)$date->format('U') * 1000) + (int)substr($date->format('u'), 0, 3)
-            : null;
-    }
-
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function priority(array $record): int
-    {
-        return $this->priorityForDuration($this->recordingDurationSeconds($record));
-    }
-
-    private function priorityForDuration(?int $duration): int
-    {
-        if ($duration !== null && $duration >= self::LONG_CALL_SECONDS) {
-            return 8;
+        if (!$this->recordingRetryProcessor instanceof RecordingRetryProcessor) {
+            $this->recordingRetryProcessor = new RecordingRetryProcessor(
+                $this->cdrRecordEvaluator(),
+                $this->recordingRetryCache(),
+                self::SCAN_INTERVAL_SECONDS
+            );
         }
 
-        return 5;
+        return $this->recordingRetryProcessor;
     }
 
-    private function recordingPath(string $recordingFile): ?string
+    private function transcriptRetentionCoordinator(): TranscriptRetentionCoordinator
     {
-        $recordingFile = trim($recordingFile);
-        if ($recordingFile === '' || $recordingFile === '-') {
-            return null;
+        if (!$this->transcriptRetentionCoordinator instanceof TranscriptRetentionCoordinator) {
+            $this->transcriptRetentionCoordinator = new TranscriptRetentionCoordinator();
         }
 
-        $monitorDir = Directories::getDir(Directories::AST_MONITOR_DIR);
-        $candidate = str_starts_with($recordingFile, '/')
-            ? $recordingFile
-            : $monitorDir . '/' . ltrim($recordingFile, '/');
-
-        $allowedBase = realpath($monitorDir);
-        $resolvedPath = realpath($candidate);
-        if ($allowedBase === false || $resolvedPath === false || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
-            return null;
-        }
-
-        $allowedPrefix = rtrim($allowedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        if ($resolvedPath !== $allowedBase && strncmp($resolvedPath, $allowedPrefix, strlen($allowedPrefix)) !== 0) {
-            return null;
-        }
-
-        return $resolvedPath;
-    }
-
-    private function recordingWithinSizeLimit(string $recordingPath): bool
-    {
-        if (!is_file($recordingPath) || !is_readable($recordingPath)) {
-            return false;
-        }
-
-        clearstatcache(true, $recordingPath);
-        $fileSize = filesize($recordingPath);
-
-        return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
-    }
-
-    /**
-     * @param array<string, mixed> $record
-     */
-    private function recordingDurationSeconds(array $record): ?int
-    {
-        return STTSetting::normalizeRecordingDurationSeconds(
-            $record['recording_duration_sec'] ?? $record['duration'] ?? null
-        );
-    }
-
-    /**
-     * @param array<string, mixed> $record
-     * @return array{state: 'allowed'|'too_long'|'probe_failed', duration_sec: int|null, source: string}
-     */
-    private function recordingDurationDecision(array $record, string $recordingPath): array
-    {
-        $durationSeconds = $this->recordingDurationSeconds($record);
-        $source = trim((string)($record['recording_duration_source'] ?? ''));
-        if ($source === 'media_probe') {
-            if ($durationSeconds === null) {
-                return [
-                    'state' => 'probe_failed',
-                    'duration_sec' => null,
-                    'source' => '',
-                ];
-            }
-            return [
-                'state' => STTSetting::recordingDurationAllowed($durationSeconds) ? 'allowed' : 'too_long',
-                'duration_sec' => $durationSeconds,
-                'source' => $source,
-            ];
-        }
-        if ($durationSeconds !== null && STTSetting::recordingDurationAllowed($durationSeconds)) {
-            return [
-                'state' => 'allowed',
-                'duration_sec' => $durationSeconds,
-                'source' => $durationSeconds === null ? '' : 'cdr',
-            ];
-        }
-
-        $probe = $this->recordingDurationProbe()->probe($recordingPath);
-        if ($probe['status'] !== RecordingDurationProbe::STATUS_OK || $probe['duration_sec'] === null) {
-            return [
-                'state' => 'probe_failed',
-                'duration_sec' => $durationSeconds,
-                'source' => '',
-            ];
-        }
-
-        return [
-            'state' => STTSetting::recordingDurationAllowed($probe['duration_sec']) ? 'allowed' : 'too_long',
-            'duration_sec' => $probe['duration_sec'],
-            'source' => 'media_probe',
-        ];
-    }
-
-    /**
-     * @param array<string, mixed> $record
-     * @param array{state: string, duration_sec: int|null, source: string} $duration
-     * @return array<string, mixed>
-     */
-    private function recordWithDurationDecision(array $record, array $duration): array
-    {
-        $record['recording_duration_sec'] = $duration['duration_sec'];
-        $record['recording_duration_source'] = $duration['source'];
-
-        return $record;
-    }
-
-    private function recordingDurationProbe(): RecordingDurationProbe
-    {
-        if (!$this->recordingDurationProbe instanceof RecordingDurationProbe) {
-            $this->recordingDurationProbe = new RecordingDurationProbe();
-        }
-
-        return $this->recordingDurationProbe;
-    }
-
-    private function logJobCreated(STTJob $job, ?int $recordingDurationSeconds, ?string $reason = null): void
-    {
-        LocalSpeechToTextLogger::event(
-            'queue',
-            'job_created',
-            'Transcription job created',
-            LOG_INFO,
-            [
-                'job_id' => (int)$job->id,
-                'recording_duration_ms' => $recordingDurationSeconds !== null
-                    ? $recordingDurationSeconds * 1000
-                    : null,
-                'skip_reason' => $reason,
-            ]
-        );
+        return $this->transcriptRetentionCoordinator;
     }
 }
 

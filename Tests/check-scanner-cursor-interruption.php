@@ -107,6 +107,11 @@ namespace {
     $workingDirectory = getcwd();
     chdir($temporaryRoot);
     require_once $root . '/Lib/Services/CdrDiscoveryBackoffPolicy.php';
+    require_once $root . '/Lib/Services/RetryStateStore.php';
+    require_once $root . '/Lib/Services/CdrRecordEvaluator.php';
+    require_once $root . '/Lib/Services/RecordingRetryCache.php';
+    require_once $root . '/Lib/Services/CdrDiscoveryScanner.php';
+    require_once $root . '/Lib/Services/RecordingRetryProcessor.php';
     require_once $root . '/bin/WorkerLocalSpeechToTextJobs.php';
     chdir($workingDirectory === false ? $root : $workingDirectory);
 

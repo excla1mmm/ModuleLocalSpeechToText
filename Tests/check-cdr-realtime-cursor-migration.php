@@ -312,6 +312,10 @@ namespace {
 
     require_once __DIR__ . '/../Lib/Services/CdrDiscoveryBackoffPolicy.php';
     require_once __DIR__ . '/../Lib/Services/RetryStateStore.php';
+    require_once __DIR__ . '/../Lib/Services/CdrRecordEvaluator.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryCache.php';
+    require_once __DIR__ . '/../Lib/Services/CdrDiscoveryScanner.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryProcessor.php';
 
     if (!extension_loaded('pdo_sqlite')) {
         fwrite(STDERR, "pdo_sqlite is required for the realtime cursor migration test\n");

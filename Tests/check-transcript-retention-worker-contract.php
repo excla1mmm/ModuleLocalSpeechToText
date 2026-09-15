@@ -11,8 +11,8 @@ function expectRetentionWorker(bool $condition, string $message): void
 
 $worker = (string)file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
 expectRetentionWorker(
-    str_contains($worker, 'use Modules\\ModuleLocalSpeechToText\\Lib\\Services\\TranscriptRetentionService;'),
-    'worker must import the retention service'
+    str_contains($worker, 'use Modules\\ModuleLocalSpeechToText\\Lib\\Services\\TranscriptRetentionCoordinator;'),
+    'worker must import the retention coordinator'
 );
 $publishPosition = strpos($worker, '(new CallTranscriptRevisionService())->publishReady();');
 $purgeCallPosition = strpos($worker, '$this->purgeExpiredTranscripts();');
@@ -20,10 +20,22 @@ expectRetentionWorker(
     $publishPosition !== false && $purgeCallPosition !== false && $publishPosition < $purgeCallPosition,
     'retention must run after ready call transcripts are published'
 );
-$methodStart = strpos($worker, 'private function purgeExpiredTranscripts(): void');
-$nextMethod = strpos($worker, "\n    private function ", ($methodStart ?: 0) + 10);
-expectRetentionWorker($methodStart !== false && $nextMethod !== false, 'Cannot isolate worker retention method');
-$method = substr($worker, $methodStart, $nextMethod - $methodStart);
+$forwarderStart = strpos($worker, 'private function purgeExpiredTranscripts(): void');
+$forwarderNextMethod = strpos($worker, "\n    private function ", ($forwarderStart ?: 0) + 10);
+expectRetentionWorker($forwarderStart !== false && $forwarderNextMethod !== false, 'Cannot isolate worker retention forwarder');
+$forwarder = substr($worker, $forwarderStart, $forwarderNextMethod - $forwarderStart);
+expectRetentionWorker(
+    str_contains($forwarder, '$this->transcriptRetentionCoordinator()->purgeExpiredTranscripts();'),
+    'worker retention forwarder must delegate to TranscriptRetentionCoordinator'
+);
+
+// The actual sweep logic now lives in Lib/Services/TranscriptRetentionCoordinator.php,
+// moved verbatim out of the worker (see AGENTS.md monolithic-worker split).
+$coordinator = (string)file_get_contents(__DIR__ . '/../Lib/Services/TranscriptRetentionCoordinator.php');
+$methodStart = strpos($coordinator, 'public function purgeExpiredTranscripts(): void');
+$methodClose = strpos($coordinator, "\n    }\n", ($methodStart ?: 0) + 10);
+expectRetentionWorker($methodStart !== false && $methodClose !== false, 'Cannot isolate retention coordinator method');
+$method = substr($coordinator, $methodStart, $methodClose - $methodStart);
 foreach ([
     'TRANSCRIPT_RETENTION_LAST_CLEANUP_AT',
     'TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS',
@@ -33,10 +45,10 @@ foreach ([
     "['calls']",
     "['results']",
 ] as $needle) {
-    expectRetentionWorker(str_contains($method, $needle), "worker retention method is missing {$needle}");
+    expectRetentionWorker(str_contains($method, $needle), "retention coordinator method is missing {$needle}");
 }
 expectRetentionWorker(
-    str_contains($worker, 'private const int TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600;'),
+    str_contains($coordinator, 'private const int TRANSCRIPT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600;'),
     'completed retention sweeps must be throttled for one hour'
 );
 expectRetentionWorker(

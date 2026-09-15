@@ -273,6 +273,10 @@ namespace {
 
     require_once __DIR__ . '/../Lib/Services/RetryStateStore.php';
     require_once __DIR__ . '/../Lib/Services/CdrDiscoveryBackoffPolicy.php';
+    require_once __DIR__ . '/../Lib/Services/CdrRecordEvaluator.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryCache.php';
+    require_once __DIR__ . '/../Lib/Services/CdrDiscoveryScanner.php';
+    require_once __DIR__ . '/../Lib/Services/RecordingRetryProcessor.php';
 
     $testRoot = sys_get_temp_dir() . '/module-local-stt-retry-worker-' . getmypid() . '-' . bin2hex(random_bytes(4));
     $monitorDirectory = $testRoot . '/monitor';

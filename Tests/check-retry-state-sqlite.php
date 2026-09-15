@@ -127,15 +127,29 @@ expectRetryState(
     'Repeated migration must not overwrite newer durable payload, type, or reason'
 );
 
+// The delayed/skipped retry mechanism was extracted out of the worker into
+// Lib/Services/RecordingRetryCache.php and Lib/Services/RecordingRetryProcessor.php
+// (see AGENTS.md monolithic-worker split); the worker now only forwards to them.
 $worker = file_get_contents(__DIR__ . '/../bin/WorkerLocalSpeechToTextJobs.php');
+$retryCache = file_get_contents(__DIR__ . '/../Lib/Services/RecordingRetryCache.php');
+$retryProcessor = file_get_contents(__DIR__ . '/../Lib/Services/RecordingRetryProcessor.php');
 $setup = file_get_contents(__DIR__ . '/../Setup/PbxExtensionSetup.php');
-expectRetryState($worker !== false && $setup !== false, 'Cannot inspect retry-state integration');
 expectRetryState(
-    str_contains($worker, 'RetryStateStore::TYPE_DELAYED')
-        && str_contains($worker, 'RetryStateStore::TYPE_SKIPPED')
-        && str_contains($worker, '->due(')
-        && str_contains($worker, 'retryStateStore()->remove(')
-        && str_contains($worker, 'deferWithBackoff('),
+    $worker !== false && $retryCache !== false && $retryProcessor !== false && $setup !== false,
+    'Cannot inspect retry-state integration'
+);
+$retryMechanism = $retryCache . $retryProcessor;
+expectRetryState(
+    str_contains($worker, 'RecordingRetryProcessor')
+        && str_contains($worker, 'RecordingRetryCache'),
+    'Worker must delegate delayed/skipped retry work to the retry services'
+);
+expectRetryState(
+    str_contains($retryMechanism, 'RetryStateStore::TYPE_DELAYED')
+        && str_contains($retryMechanism, 'RetryStateStore::TYPE_SKIPPED')
+        && str_contains($retryMechanism, '->due(')
+        && str_contains($retryMechanism, 'retryStateStore()->remove(')
+        && str_contains($retryMechanism, 'deferWithBackoff('),
     'Worker overflow and retry paths must use observable durable state'
 );
 expectRetryState(

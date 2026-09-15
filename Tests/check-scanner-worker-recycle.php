@@ -584,6 +584,11 @@ namespace {
     require_once $root . '/Lib/Services/ModuleLifecycleGate.php';
     require_once $root . '/Lib/Services/LocalSpeechToTextLogSanitizer.php';
     require_once $root . '/Lib/Services/CdrDiscoveryBackoffPolicy.php';
+    require_once $root . '/Lib/Services/CdrRecordEvaluator.php';
+    require_once $root . '/Lib/Services/RecordingRetryCache.php';
+    require_once $root . '/Lib/Services/CdrDiscoveryScanner.php';
+    require_once $root . '/Lib/Services/RecordingRetryProcessor.php';
+    require_once $root . '/Lib/Services/TranscriptRetentionCoordinator.php';
     new ModuleLifecycleGate(null, true);
 
     $workingDirectory = getcwd();
