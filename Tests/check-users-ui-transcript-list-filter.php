@@ -134,12 +134,38 @@ namespace {
             if (str_contains($sql, 'm_STTTranscriptSearchState')) {
                 return [['last_result_id' => 2, 'completed_at' => 100, 'available' => 1, 'error_code' => '']];
             }
-            if (str_contains($sql, 'm_STTTranscriptSearch MATCH') && ($bind['search'] ?? '') === '"hidden"*') {
+            if (str_contains($sql, 'm_STTTranscriptSearch MATCH')) {
+                if (($bind['search'] ?? '') !== '"hidden"*') {
+                    return [];
+                }
                 $this->searchSql = $sql;
-                return [['id' => 2]];
+
+                return [['id' => 2, 'call_id' => 'hidden']];
+            }
+            if (str_contains($sql, 'AS call_id')) {
+                // Bounded candidate-batch query for the plain (non-search) listing.
+                $rows = [];
+                foreach (STTResult::$rows as $result) {
+                    $rows[] = [
+                        'id' => $result->id,
+                        'call_id' => $result->STTJob instanceof STTJob ? $result->STTJob->call_id : '',
+                    ];
+                }
+
+                return $rows;
             }
 
-            return [];
+            // Group-expansion query: `j.call_id IN (:call_id_0, ...)`.
+            $wantedCallIds = array_values($bind);
+            $rows = [];
+            foreach (STTResult::$rows as $result) {
+                $callId = $result->STTJob instanceof STTJob ? $result->STTJob->call_id : '';
+                if (in_array($callId, $wantedCallIds, true)) {
+                    $rows[] = ['id' => $result->id];
+                }
+            }
+
+            return $rows;
         }
     };
 

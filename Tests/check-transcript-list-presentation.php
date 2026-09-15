@@ -27,6 +27,45 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public int $cdr_end_ms = 0;
     }
 
+    /**
+     * A minimal stand-in for the real read connection: enough for
+     * TranscriptListService's bounded candidate-batch and group-expansion
+     * raw queries to return sensible data sourced from STTResult::$rows,
+     * without needing a real (SQLite) database for this presentation-only
+     * test. It ignores LIMIT/OFFSET/ordering since this test's row count
+     * never approaches a batch, and this test never activates full-text
+     * search, so FTS-shaped SQL is never sent here.
+     */
+    class TranscriptListReadConnection
+    {
+        public function fetchAll(string $sql, int $mode, array $bind = []): array
+        {
+            if (str_contains($sql, 'AS call_id')) {
+                $rows = [];
+                foreach (STTResult::$rows as $result) {
+                    $rows[] = [
+                        'id' => $result->id,
+                        'call_id' => $result->STTJob instanceof STTJob ? $result->STTJob->call_id : '',
+                    ];
+                }
+
+                return $rows;
+            }
+
+            // Group-expansion query: `j.call_id IN (:call_id_0, ...)`.
+            $wantedCallIds = array_values($bind);
+            $rows = [];
+            foreach (STTResult::$rows as $result) {
+                $callId = $result->STTJob instanceof STTJob ? $result->STTJob->call_id : '';
+                if (in_array($callId, $wantedCallIds, true)) {
+                    $rows[] = ['id' => $result->id];
+                }
+            }
+
+            return $rows;
+        }
+    }
+
     class STTResult
     {
         /** @var array<int, self> */
@@ -39,6 +78,11 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public static function find(array $params): array
         {
             return self::$rows;
+        }
+
+        public function getReadConnection(): TranscriptListReadConnection
+        {
+            return new TranscriptListReadConnection();
         }
     }
 }
@@ -83,6 +127,9 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 }
 
 namespace {
+    if (!class_exists('Phalcon\\Db\\Enum')) {
+        eval('namespace Phalcon\\Db; class Enum { public const int FETCH_ASSOC = 2; }');
+    }
     require_once dirname(__DIR__) . '/Lib/Services/UsersUICallScope.php';
     require_once dirname(__DIR__) . '/Lib/Services/UsersUITranscriptAccessService.php';
     require_once dirname(__DIR__) . '/Lib/Services/CallDirectionResolver.php';

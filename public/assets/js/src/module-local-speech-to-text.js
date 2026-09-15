@@ -803,11 +803,35 @@
     }
 
     $(function () {
-        var $tabItems = $('#module-local-speech-to-text-menu .item');
+        // Only items with a data-tab target are client-side tabs. The
+        // Transcripts item is a real link (?tab=transcripts, full page
+        // navigation) because its content is only rendered server-side when
+        // that tab is the one being loaded - see index.volt/IndexViewService.
+        var $tabMenu = $('#module-local-speech-to-text-menu');
+        var $tabItems = $tabMenu.find('.item[data-tab]');
         var $settingsForm = $('#module-local-speech-to-text-form');
         var $modelForm = $('#module-local-speech-to-text-model-form');
-        $tabItems.tab();
-        if (requestedTab() !== '') {
+        $tabItems.tab({
+            onVisible: function () {
+                // Semantic UI's tab module (2.4.1, see
+                // public/assets/js/vendor equivalent under Core) only
+                // (de)activates menu items it was initialized on
+                // ($tabItems, i.e. items with a data-tab) - see its
+                // activate.navigation(). The Transcripts item is
+                // deliberately outside that set, so a normal tab switch
+                // never removes its 'active' class: without this, landing
+                // on ?tab=transcripts (which server-renders it active) and
+                // then clicking any other tab would leave Transcripts
+                // highlighted alongside it.
+                $tabMenu.find('.item').not('[data-tab]').removeClass('active');
+            }
+        });
+        if (requestedTab() !== '' && requestedTab() !== 'transcripts') {
+            // 'transcripts' has no managed nav item (no data-tab) any more:
+            // its panel and its menu link are already rendered server-side
+            // as active on ?tab=transcripts (see index.volt), so there is
+            // nothing here for the tab module to switch to - skip the call
+            // instead of relying on it being a harmless no-op.
             $tabItems.tab('change tab', requestedTab());
         }
 

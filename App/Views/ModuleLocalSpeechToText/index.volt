@@ -9,7 +9,11 @@
         <a class="item{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">{{ t._('module_local_speech_to_text_WorkersTab') }}</a>
         {% endif %}
         {% if canViewTranscripts %}
-        <a class="item{% if activeTab === 'transcripts' %} active{% endif %}" data-tab="transcripts">{{ t._('module_local_speech_to_text_Transcripts') }}</a>
+        {# The transcripts tab is a real navigation link (?tab=transcripts), not a
+           client-side data-tab switch: IndexViewService only builds transcriptRows
+           (bounded SQL + CDR/employee lookups) when this tab is the one being
+           rendered, so a JS-only switch would show an empty panel. #}
+        <a class="item{% if activeTab === 'transcripts' %} active{% endif %}" href="{{ url(transcriptsPath) }}">{{ t._('module_local_speech_to_text_Transcripts') }}</a>
         {% endif %}
         {% if canManageSystem %}
         <a class="item{% if activeTab === 'logs' %} active{% endif %}" data-tab="logs">{{ t._('module_local_speech_to_text_LogsTab') }}</a>

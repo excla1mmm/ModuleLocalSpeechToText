@@ -128,10 +128,20 @@ class LocalSpeechToTextBaseController extends BaseController
 
         $settingsToPersist = $nextValues;
         if ($previousHistoryDays !== $nextHistoryDays) {
-            $settingsToPersist[STTSetting::CDR_SCAN_CURSOR_ENDTIME] = date('Y-m-d H:i:s');
-            $settingsToPersist[STTSetting::CDR_SCAN_CURSOR_ID] = '0';
+            // Do NOT touch the realtime cursor (CDR_SCAN_CURSOR_ID): it is a
+            // strictly id-based watermark (see
+            // WorkerLocalSpeechToTextJobs::createRealtimeJobsFromCompletedCdr())
+            // that has nothing to do with the history window, and resetting
+            // it here used to drop the realtime backlog between "last
+            // scanned" and "now" on every settings save.
+            // Reset the backfill cursor AND its completion flag so the new
+            // history window gets rescanned; STTJob::existsForFilePath()/the
+            // UNIQUE file_path constraint make that rescan a dedup no-op for
+            // recordings that already have a job.
             $settingsToPersist[STTSetting::CDR_BACKFILL_CURSOR_ENDTIME] = '';
             $settingsToPersist[STTSetting::CDR_BACKFILL_CURSOR_ID] = '0';
+            $settingsToPersist[STTSetting::CDR_BACKFILL_DONE] = '0';
+            $settingsToPersist[STTSetting::CDR_BACKFILL_DONE_HISTORY_AT] = '';
         }
         if ($previousRetentionDays !== $nextRetentionDays) {
             $settingsToPersist[STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT] = '0';

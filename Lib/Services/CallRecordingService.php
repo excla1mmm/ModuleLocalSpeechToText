@@ -245,6 +245,14 @@ class CallRecordingService
 
     public function cdrRecordForJob(STTJob $job): ?CallDetailRecords
     {
+        $cdrId = (int)($job->cdr_id ?? 0);
+        if ($cdrId > 0) {
+            $record = $this->cdrRecordById($cdrId);
+            if ($record instanceof CallDetailRecords) {
+                return $record;
+            }
+        }
+
         $callId = trim((string)$job->call_id);
         $jobFilePath = $this->safeMonitorRecordingPath((string)$job->file_path);
         $preferredRecord = null;

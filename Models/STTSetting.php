@@ -26,6 +26,14 @@ class STTSetting extends ModulesModelsBase
     public const string SKIPPED_RECORDINGS = 'skipped_recordings';
     public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
     public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
+    // One-time migration marker for the realtime scan cursor: absent/not 'id'
+    // means the stored CDR_SCAN_CURSOR_ID still follows the legacy
+    // (endtime, id) ordering and must be re-derived before it can be used as
+    // a plain id watermark (see
+    // WorkerLocalSpeechToTextJobs::initializeRealtimeScanCursor()). Once set
+    // to 'id', the cursor is a strict id watermark forever after.
+    public const string CDR_SCAN_CURSOR_MODE = 'cdr_scan_cursor_mode';
+    public const string CDR_SCAN_CURSOR_MODE_ID = 'id';
     public const string CDR_BACKFILL_CURSOR_ENDTIME = 'cdr_backfill_cursor_endtime';
     public const string CDR_BACKFILL_CURSOR_ID = 'cdr_backfill_cursor_id';
     public const string CDR_BACKFILL_DONE = 'cdr_backfill_done';

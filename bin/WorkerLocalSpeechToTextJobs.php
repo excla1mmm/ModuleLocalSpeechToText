@@ -513,6 +513,18 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
     }
 
     /**
+     * The realtime cursor is a plain `id` watermark, not `endtime`. Core
+     * assigns `cdr_general.id` as a fresh autoincrement when a linkedid's
+     * rows are moved out of the temp table - in completion order, not in
+     * endtime order (see CallDetailRecordsTmp::afterSave() /
+     * WorkerCdr::processCompletedRows() in Core). For a transferred or
+     * multi-leg call, an early leg can be inserted (and get its id) long
+     * after a later, short call that already advanced an endtime-based
+     * cursor past that leg's endtime - permanently skipping it. `id` has no
+     * such ordering inversion: it is assigned once, monotonically, at
+     * insertion time, so `id > cursor` never misses a row and never needs
+     * revisiting one already seen.
+     *
      * @param array<int, array<string, mixed>> $delayedRecordings
      * @return int Number of CDR rows the realtime query returned.
      */
@@ -522,13 +534,12 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         int $scanLimit = self::CDR_DISCOVERY_BATCH_SIZE
     ): int
     {
-        [$cursorEndtime, $cursorId] = $this->scanCursor();
+        $cursorId = $this->scanCursor();
         $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
-            . ' AND (endtime > :cursor_endtime: OR (endtime = :cursor_endtime: AND id > :cursor_id:))';
+            . ' AND id > :cursor_id:';
         $bind = [
             'empty' => '',
             'completed' => '1',
-            'cursor_endtime' => $cursorEndtime,
             'cursor_id' => $cursorId,
         ];
         if ($historyStart !== '') {
@@ -539,37 +550,31 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         $records = CallDetailRecords::find([
             'conditions' => $conditions,
             'bind' => $bind,
-            'order' => 'endtime ASC, id ASC',
+            'order' => 'id ASC',
             'limit' => $scanLimit,
         ]);
 
         $rows = $records->toArray();
         $processedRowCount = 0;
 
-        $lastEndtime = $cursorEndtime;
         $lastId = $cursorId;
 
         foreach ($rows as $record) {
             if ($this->needRestart || $this->iterationBudgetExhausted()) {
-                $this->saveScanCursor($lastEndtime, $lastId);
+                $this->saveScanCursor($lastId);
                 return $processedRowCount;
             }
 
             $this->processCompletedRecord($delayedRecordings, $record, $historyStart);
             $processedRowCount++;
 
-            $recordEndtime = $this->endtime($record);
             $recordId = $this->recordId($record);
-            if (
-                $recordEndtime !== ''
-                && ($recordEndtime > $lastEndtime || ($recordEndtime === $lastEndtime && $recordId > $lastId))
-            ) {
-                $lastEndtime = $recordEndtime;
+            if ($recordId > $lastId) {
                 $lastId = $recordId;
             }
         }
 
-        $this->saveScanCursor($lastEndtime, $lastId);
+        $this->saveScanCursor($lastId);
 
         return $processedRowCount;
     }
@@ -662,10 +667,18 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
             return false;
         }
 
-        // Auto-reset the flag if the operator widens the retention window
-        // (history_start moved earlier than the snapshot we stored when we finished).
+        // Auto-reset the flag if the operator widens the retention window:
+        // either history_start moved earlier than the snapshot we stored
+        // when we finished, or the window was widened all the way to
+        // "unlimited" (historyStart === '' while we previously finished
+        // against a bounded window). saveSettingsFromPost() already resets
+        // these settings directly when cdr_history_days changes; this check
+        // is a second line of defense so backfill self-heals even if this
+        // method is reached with stale flags some other way.
         $doneFor = trim(STTSetting::getValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, ''));
-        if ($historyStart !== '' && $doneFor !== '' && $historyStart < $doneFor) {
+        $historyWindowWidened = $doneFor !== ''
+            && ($historyStart === '' || $historyStart < $doneFor);
+        if ($historyWindowWidened) {
             STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE, '0');
             STTSetting::setValue(STTSetting::CDR_BACKFILL_DONE_HISTORY_AT, '');
             return false;
@@ -1236,31 +1249,112 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
         );
     }
 
-    /**
-     * @return array{0: string, 1: int}
-     */
-    private function scanCursor(): array
+    private function scanCursor(): int
     {
-        return [
-            trim(STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, '')),
-            (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0'),
-        ];
+        return (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
     }
 
+    /**
+     * Prepares the id-based realtime cursor before every scan.
+     * CDR_SCAN_CURSOR_ENDTIME is no longer part of the realtime *query* (see
+     * createRealtimeJobsFromCompletedCdr()), but it is still read here, for
+     * two different purposes depending on CDR_SCAN_CURSOR_MODE:
+     *
+     * - Fresh install (marker empty): start the cursor at the current
+     *   MAX(id) so realtime picks up only calls completed from now on;
+     *   existing history is covered by the separate backfill scan. Mode is
+     *   set to 'id' directly - there is no legacy cursor to migrate from.
+     * - Legacy install (marker set, mode not yet 'id'): the marker still
+     *   holds a real (endtime, id) cursor written by a prior run of the old
+     *   endtime-ordered scanner. Reusing CDR_SCAN_CURSOR_ID as-is here would
+     *   be wrong: under (endtime, id) ordering the stored id is the id of
+     *   the row with the greatest *endtime* processed so far, not the
+     *   greatest id, so any still-pending backlog row with a smaller id but
+     *   a larger endtime (batch-limited scanning had not reached it yet)
+     *   would be permanently skipped by a naive `id > old_id` cursor. See
+     *   migrateRealtimeScanCursorToIdMode() for the actual derivation.
+     * - Mode already 'id': nothing to do, cursor is used as-is.
+     */
     private function initializeRealtimeScanCursor(): void
     {
-        [$cursorEndtime] = $this->scanCursor();
-        if ($cursorEndtime !== '') {
+        $endtimeMarker = trim(STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, ''));
+        if ($endtimeMarker === '') {
+            $maxId = (int)(CallDetailRecords::maximum(['column' => 'id']) ?: 0);
+            $this->saveScanCursor($maxId);
+            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, date('Y-m-d H:i:s'));
+            STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_MODE, STTSetting::CDR_SCAN_CURSOR_MODE_ID);
             return;
         }
 
-        $this->saveScanCursor(date('Y-m-d H:i:s'), 0);
+        if (STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_MODE, '') === STTSetting::CDR_SCAN_CURSOR_MODE_ID) {
+            return;
+        }
+
+        $this->migrateRealtimeScanCursorToIdMode($endtimeMarker);
     }
 
-    private function saveScanCursor(string $endtime, int $recordId): void
+    /**
+     * One-time migration from the legacy (endtime, id) realtime cursor to a
+     * plain id watermark. Must find the smallest id among CDR rows the OLD
+     * query would still have returned (same base filters, same
+     * (endtime > :legacy_endtime: OR (endtime = :legacy_endtime: AND
+     * id > :legacy_id:)) backlog condition) and back the new cursor off to
+     * just below it, so nothing already pending under the old ordering gets
+     * skipped by the new `id > cursor` condition. When no such backlog row
+     * exists, the legacy id is already a safe id-cursor value as-is.
+     *
+     * The cursor is persisted before the mode marker: if the process is
+     * interrupted in between, CDR_SCAN_CURSOR_MODE is still not 'id' on the
+     * next run, so this method runs again and recomputes the exact same
+     * result from the still-untouched legacy endtime/id pair - idempotent,
+     * not a partial or duplicated migration.
+     */
+    private function migrateRealtimeScanCursorToIdMode(string $legacyEndtime): void
+    {
+        $legacyId = (int)STTSetting::getValue(STTSetting::CDR_SCAN_CURSOR_ID, '0');
+        $historyStart = STTSetting::cdrHistoryStartDateTime();
+
+        $conditions = 'recordingfile <> :empty: AND endtime <> :empty: AND work_completed = :completed:'
+            . ' AND (endtime > :legacy_endtime: OR (endtime = :legacy_endtime: AND id > :legacy_id:))';
+        $bind = [
+            'empty' => '',
+            'completed' => '1',
+            'legacy_endtime' => $legacyEndtime,
+            'legacy_id' => $legacyId,
+        ];
+        if ($historyStart !== '') {
+            $conditions .= ' AND endtime >= :history_start:';
+            $bind['history_start'] = $historyStart;
+        }
+
+        $pendingMinId = CallDetailRecords::minimum([
+            'column' => 'id',
+            'conditions' => $conditions,
+            'bind' => $bind,
+        ]);
+        $pendingMinId = $pendingMinId === null || $pendingMinId === '' ? null : (int)$pendingMinId;
+
+        $newCursorId = $pendingMinId !== null ? min($legacyId, $pendingMinId - 1) : $legacyId;
+
+        $this->saveScanCursor($newCursorId);
+        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_MODE, STTSetting::CDR_SCAN_CURSOR_MODE_ID);
+
+        LocalSpeechToTextLogger::event(
+            'scanner',
+            'realtime_cursor_migrated',
+            'Realtime CDR scan cursor migrated from endtime ordering to id ordering',
+            LOG_NOTICE,
+            [
+                'legacy_endtime' => $legacyEndtime,
+                'legacy_id' => $legacyId,
+                'new_cursor_id' => $newCursorId,
+            ]
+        );
+    }
+
+    private function saveScanCursor(int $recordId): void
     {
         STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ID, (string)max(0, $recordId));
-        STTSetting::setValue(STTSetting::CDR_SCAN_CURSOR_ENDTIME, $endtime);
     }
 
     /**

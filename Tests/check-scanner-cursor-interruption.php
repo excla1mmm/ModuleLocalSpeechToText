@@ -18,6 +18,8 @@ namespace Modules\ModuleLocalSpeechToText\Models {
     {
         public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
         public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
+        public const string CDR_SCAN_CURSOR_MODE = 'cdr_scan_cursor_mode';
+        public const string CDR_SCAN_CURSOR_MODE_ID = 'id';
         public const string CDR_BACKFILL_CURSOR_ENDTIME = 'cdr_backfill_cursor_endtime';
         public const string CDR_BACKFILL_CURSOR_ID = 'cdr_backfill_cursor_id';
         public const string CDR_BACKFILL_DONE = 'cdr_backfill_done';
@@ -80,13 +82,6 @@ namespace {
     }
 
     /** @param array{endtime: string, id: int} $row */
-    function realtimeCursorIncludes(string $endtime, int $id, array $row): bool
-    {
-        return $row['endtime'] > $endtime
-            || ($row['endtime'] === $endtime && $row['id'] > $id);
-    }
-
-    /** @param array{endtime: string, id: int} $row */
     function backfillCursorIncludes(string $endtime, int $id, array $row): bool
     {
         return $row['endtime'] < $endtime
@@ -120,30 +115,30 @@ namespace {
     $saveBackfill = new ReflectionMethod($worker, 'saveBackfillCursor');
     $markBackfillCompleted = new ReflectionMethod($worker, 'markBackfillCompleted');
 
+    // The realtime cursor is now a single `id` watermark (see item 2's fix in
+    // bin/WorkerLocalSpeechToTextJobs.php): saveScanCursor() makes exactly one
+    // STTSetting write, so it is atomic from the caller's point of view - an
+    // interrupted write either fully applies the new id, or leaves the
+    // previous id untouched. Either way no row can be skipped: with the old
+    // id left in place, the next scan simply reprocesses everything with
+    // id > old_id again, which is idempotent (STTJob::existsForFilePath /
+    // the UNIQUE file_path constraint absorb any repeats).
     STTSetting::reset([
-        STTSetting::CDR_SCAN_CURSOR_ENDTIME => '2026-08-10 10:00:00',
         STTSetting::CDR_SCAN_CURSOR_ID => '9000',
-    ], 2);
-    expectInterruptedCursorWrite($saveRealtime, $worker, '2026-08-10 11:00:00', 7);
-    $realtimeEndtime = STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ENDTIME];
-    $realtimeId = (int)STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ID];
+    ], 1);
+    expectInterruptedCursorWrite($saveRealtime, $worker, 9500);
     expectScannerCursor(
-        realtimeCursorIncludes($realtimeEndtime, $realtimeId, ['endtime' => '2026-08-10 11:00:00', 'id' => 8]),
-        'interrupted ascending cursor write skipped a later row after an adversarial prior ID'
+        (int)STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ID] === 9000,
+        'an interrupted realtime cursor write must leave the previous id cursor untouched, never a partial value'
     );
 
     STTSetting::reset([
-        STTSetting::CDR_SCAN_CURSOR_ENDTIME => '2026-08-10 11:00:00',
         STTSetting::CDR_SCAN_CURSOR_ID => '3',
-    ], 2);
-    expectInterruptedCursorWrite($saveRealtime, $worker, '2026-08-10 11:00:00', 4);
+    ], null);
+    $saveRealtime->invoke($worker, 4);
     expectScannerCursor(
-        realtimeCursorIncludes(
-            STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ENDTIME],
-            (int)STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ID],
-            ['endtime' => '2026-08-10 11:00:00', 'id' => 5]
-        ),
-        'interrupted ascending cursor write skipped an unprocessed row sharing the cursor end time'
+        (int)STTSetting::$values[STTSetting::CDR_SCAN_CURSOR_ID] === 4,
+        'a successful realtime cursor write must persist the new id cursor'
     );
 
     STTSetting::reset([

@@ -44,6 +44,12 @@ namespace MikoPBX\Common\Models {
             \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('cdr_scan');
             return new ScannerRecordSet();
         }
+
+        /** @param array<string, mixed> $parameters */
+        public static function maximum(array $parameters): int
+        {
+            return 0;
+        }
     }
 }
 
@@ -309,6 +315,8 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public const string CDR_SCAN_LIMIT = 'cdr_scan_limit';
         public const string CDR_SCAN_CURSOR_ENDTIME = 'cdr_scan_cursor_endtime';
         public const string CDR_SCAN_CURSOR_ID = 'cdr_scan_cursor_id';
+        public const string CDR_SCAN_CURSOR_MODE = 'cdr_scan_cursor_mode';
+        public const string CDR_SCAN_CURSOR_MODE_ID = 'id';
         public const string CDR_BACKFILL_CURSOR_ENDTIME = 'cdr_backfill_cursor_endtime';
         public const string CDR_BACKFILL_CURSOR_ID = 'cdr_backfill_cursor_id';
         public const string CDR_BACKFILL_DONE = 'cdr_backfill_done';

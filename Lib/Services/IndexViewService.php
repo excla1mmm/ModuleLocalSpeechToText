@@ -59,11 +59,20 @@ final class IndexViewService
             $filter = $transcripts->transcriptDateFilterFromRequest();
             $search = $transcripts->transcriptSearchFromRequest();
             $view->transcriptPath = MenuProvider::TRANSCRIPT_PATH;
-            $view->transcriptRows = $transcripts->transcriptRows(100, $filter, $search['query']);
+            // The transcripts tab is a real navigation target (?tab=transcripts,
+            // see the nav link in index.volt), not a client-side-only tab
+            // switch, so this is the only case where activeTab === 'transcripts'
+            // on the request that renders it. Building the row list (bounded
+            // SQL queries, CDR lookups, employee lookups) is the expensive part
+            // of this whole method; skip it on every other tab's page load.
+            $view->transcriptRows = $activeTab === 'transcripts'
+                ? $transcripts->transcriptRows(100, $filter, $search['query'])
+                : [];
             $view->transcriptFilter = $transcripts->transcriptFilterView($filter);
             $view->transcriptSearch = $search;
             $view->transcriptFilterAction = MenuProvider::DASHBOARD_PATH;
             $view->transcriptFilterKeepTab = true;
+            $view->transcriptsPath = MenuProvider::DASHBOARD_PATH . '?tab=transcripts';
         }
     }
 
