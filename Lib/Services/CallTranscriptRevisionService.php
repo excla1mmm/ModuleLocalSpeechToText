@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ResultPersistenceValidationException;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscript;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptPart;
@@ -335,7 +336,7 @@ final class CallTranscriptRevisionService
     private function save(object $model, string $label): void
     {
         if (!$model->save()) {
-            throw new RuntimeException($label . ': ' . implode(', ', $model->getMessages()));
+            throw new ResultPersistenceValidationException($label . ': ' . implode(', ', $model->getMessages()));
         }
     }
 

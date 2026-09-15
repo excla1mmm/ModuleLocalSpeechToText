@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ResultPersistenceValidationException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptSearchText;
 use Phalcon\Mvc\Model\Relation;
-use RuntimeException;
 
 /**
  * @Indexes(
@@ -69,6 +69,14 @@ class STTResult extends ModulesModelsBase
         $this->setSource('m_STTResult');
         parent::initialize();
 
+        // A transcript that legitimately contains zero segments (e.g. every
+        // segment rejected by TranscriptQualityFilter, or the worker sent an
+        // empty transcript) must still be persisted as a completed result.
+        // Without this, Phalcon's automatic not-null validation treats the
+        // resulting empty search_text as a missing required field and save()
+        // fails, which previously surfaced as a 500 on every short call.
+        $this->allowEmptyStringValues(['search_text']);
+
         $this->belongsTo(
             'job_id',
             STTJob::class,
@@ -111,7 +119,7 @@ class STTResult extends ModulesModelsBase
         $result->created_at = (string)time();
 
         if (!$result->save()) {
-            throw new RuntimeException(implode(', ', $result->getMessages()));
+            throw new ResultPersistenceValidationException(implode(', ', $result->getMessages()));
         }
 
         return $result;

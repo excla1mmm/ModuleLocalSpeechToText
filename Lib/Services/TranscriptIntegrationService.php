@@ -7,11 +7,11 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 use MikoPBX\Common\Models\CallDetailRecords;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Core\System\Directories;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\TranscriptNotFoundException;
 use Modules\ModuleLocalSpeechToText\Lib\TranscriptTimeNormalizer;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
-use RuntimeException;
 
 class TranscriptIntegrationService
 {
@@ -104,7 +104,7 @@ class TranscriptIntegrationService
     {
         $result = STTResult::findFirstById($resultId);
         if (!$result instanceof STTResult) {
-            throw new RuntimeException('Transcript result not found');
+            throw new TranscriptNotFoundException('Transcript result not found');
         }
 
         $summary = $this->summary($result);

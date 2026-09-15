@@ -61,5 +61,19 @@ class STTCallTranscript extends ModulesModelsBase
     {
         $this->setSource('m_STTCallTranscript');
         parent::initialize();
+
+        // These hash/payload columns are documented above as allow_empty_string
+        // because a call transcript legitimately starts (and can stay, for a
+        // short call whose only part has zero segments) with empty pending/
+        // current hashes and payload before anything has been staged or
+        // published. Without this, Phalcon's automatic not-null validation
+        // would reject the empty-string default on save().
+        $this->allowEmptyStringValues([
+            'current_content_hash',
+            'current_parts_hash',
+            'pending_content_hash',
+            'pending_parts_hash',
+            'pending_payload',
+        ]);
     }
 }

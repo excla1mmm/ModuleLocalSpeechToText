@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Slutförda transkriptioner av enskilda samtalsinspelningar',
     'module_local_speech_to_text_worker_api_contract' => 'Kompatibilitetskontrakt för worker-API',
     'module_local_speech_to_text_worker_processing_settings' => 'Centraliserade bearbetningsinställningar för STT-workers',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Registrering av STT-workers och centrala igenkänningsinställningar',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Hämtningen av den auktoriserade inspelningen har startat.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Oföränderlig commit i Hugging Face-arkivet för modellartefakter.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Appversion',
     'rest_response_200_created' => 'Resursen har skapats',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Tillhandahåller en PBX-licenshash för auktoriserade workeruppdateringar.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

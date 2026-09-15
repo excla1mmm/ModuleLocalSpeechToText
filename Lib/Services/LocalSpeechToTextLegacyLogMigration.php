@@ -80,7 +80,7 @@ final class LocalSpeechToTextLegacyLogMigration
         foreach ($candidates as $candidate) {
             if (!isset($successfullyRead[$candidate['path']])
                 || !$this->stillSameContainedFile($candidate, $realDirectory)
-                || !@unlink($candidate['path'])
+                || !QuietOperation::run(static fn (): bool => unlink($candidate['path']))
             ) {
                 $skipped++;
                 continue;

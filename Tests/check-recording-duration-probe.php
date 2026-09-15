@@ -18,6 +18,7 @@ namespace {
     use MikoPBX\Core\System\Util;
     use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
 
+    require_once __DIR__ . '/../Lib/Services/QuietOperation.php';
     require_once __DIR__ . '/../Lib/Services/RecordingDurationProbe.php';
 
     function expectDurationProbe(bool $condition, string $message): void

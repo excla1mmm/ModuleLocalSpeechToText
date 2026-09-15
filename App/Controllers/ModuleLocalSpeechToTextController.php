@@ -54,7 +54,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function saveAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSettings()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSettings()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -77,7 +77,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function saveModelAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSettings()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSettings()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -113,7 +113,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function retryErrorsAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSystem()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -136,7 +136,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             );
         } catch (Throwable $exception) {
             $this->logControllerFailure('retry_failed_jobs', $exception);
-            $this->flash->error($exception->getMessage());
+            $this->flash->error($this->translation->_('module_local_speech_to_text_OperationFailedError'));
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=queue');
@@ -144,7 +144,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function downloadWorkerAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSystem()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -175,7 +175,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function generateWorkerApiKeyAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSystem()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -229,7 +229,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyCreated'));
         } catch (Throwable $exception) {
             $this->logControllerFailure('create_worker_api_key', $exception);
-            $this->flash->error($exception->getMessage());
+            $this->flash->error($this->translation->_('module_local_speech_to_text_OperationFailedError'));
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
@@ -237,7 +237,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
 
     public function deleteWorkerApiKeyAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canManageSystem()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canManageSystem()) {
             $this->denyUsersUIAccess();
             return;
         }
@@ -292,7 +292,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->flash->success($this->translation->_('module_local_speech_to_text_WorkerApiKeyDeleted'));
         } catch (Throwable $exception) {
             $this->logControllerFailure('delete_worker_api_key', $exception);
-            $this->flash->error($exception->getMessage());
+            $this->flash->error($this->translation->_('module_local_speech_to_text_OperationFailedError'));
         }
 
         $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');

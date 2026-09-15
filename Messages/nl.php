@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Voltooide transcripties van afzonderlijke gespreksopnamen',
     'module_local_speech_to_text_worker_api_contract' => 'Compatibiliteitscontract van de worker-API',
     'module_local_speech_to_text_worker_processing_settings' => 'Gecentraliseerde verwerkingsinstellingen voor STT-workers',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Registratie van STT-workers en centrale herkenningsinstellingen',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Het downloaden van de geautoriseerde opname is gestart.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Onwijzigbare commit van de Hugging Face-opslagplaats voor modelartefacten.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'App-versie',
     'rest_response_200_created' => 'Resource is aangemaakt',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Levert een PBX-licentiehash voor geautoriseerde workerupdates.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

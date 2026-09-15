@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Transcripts;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\TranscriptNotFoundException;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptIntegrationService;
 use Phalcon\Di\Injectable;
-use RuntimeException;
 use Throwable;
 
 enum TranscriptAction: string
@@ -26,6 +28,7 @@ class Processor extends Injectable
         $actionString = (string)($request['action'] ?? '');
         $action = TranscriptAction::tryFrom($actionString);
         if ($action === null) {
+            $result->httpCode = 400;
             $result->messages['error'][] = "Unknown action - $actionString in " . __CLASS__;
             $result->function = $actionString;
             return $result;
@@ -39,9 +42,10 @@ class Processor extends Injectable
                 TranscriptAction::GET_LIST => self::success($service->listCompletedTranscripts($data)),
                 TranscriptAction::GET_RECORD => self::success($service->transcriptDetail((int)($data['id'] ?? 0))),
             };
-        } catch (RuntimeException $exception) {
-            $result = self::error('transcript_not_found', $exception->getMessage(), 404);
-        } catch (Throwable) {
+        } catch (TranscriptNotFoundException) {
+            $result = self::error('transcript_not_found', 'Transcript not found', 404);
+        } catch (Throwable $exception) {
+            self::logFailure($actionString, $exception);
             $result = self::error('internal_error', 'Internal server error', 500);
         }
 
@@ -70,6 +74,20 @@ class Processor extends Injectable
         $result->httpCode = $httpCode;
 
         return $result;
+    }
+
+    private static function logFailure(string $action, Throwable $exception): void
+    {
+        LocalSpeechToTextLogger::event(
+            'api',
+            'operation_failed',
+            'STT transcript API operation failed',
+            LOG_ERR,
+            [
+                'operation' => $action,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
     }
 
     private static function requestData(array $request): array

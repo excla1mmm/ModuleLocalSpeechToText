@@ -13,6 +13,10 @@ $controller = file_get_contents($root . '/Lib/RestAPI/Jobs/Controller.php');
 $processor = file_get_contents($root . '/Lib/RestAPI/Jobs/Processor.php');
 $schema = file_get_contents($root . '/Lib/RestAPI/Jobs/DataStructure.php');
 $serviceSource = file_get_contents($service);
+// file_path validation (traversal/symlink/realpath checks) was extracted
+// into a shared guard so it is reused by the worker recording-download
+// path (LocalSpeechToTextMain::safeRecordingPath) too.
+$serviceSource .= (string)file_get_contents($root . '/Lib/Services/RecordingPathGuard.php');
 
 $required = [
     "'GET' => ['getList', 'getRecord']",

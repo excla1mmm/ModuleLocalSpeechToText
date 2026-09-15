@@ -264,6 +264,46 @@ class LocalSpeechToTextBaseController extends BaseController
         $this->response->setContent('Forbidden');
     }
 
+    /**
+     * Guard for every state-changing web action: requires an HTTP POST and a
+     * same-origin request (Origin, falling back to Referer, must match this
+     * request's own host). Both callers missing is treated as cross-origin
+     * and rejected, since a same-origin browser request always sends at
+     * least one of them for a POST. This intentionally does not rely on
+     * Phalcon's security->checkToken(), because it is not confirmed that the
+     * MikoPBX Core layer renders CSRF tokens into these module's forms.
+     */
+    protected function requireSameOriginPost(): bool
+    {
+        if (!$this->request->isPost()) {
+            return false;
+        }
+
+        $host = trim((string)$this->request->getHttpHost());
+        if ($host === '') {
+            return false;
+        }
+
+        $sourceHost = $this->hostFromHeader('Origin');
+        if ($sourceHost === '') {
+            $sourceHost = $this->hostFromHeader('Referer');
+        }
+
+        return $sourceHost !== '' && strcasecmp($sourceHost, $host) === 0;
+    }
+
+    private function hostFromHeader(string $headerName): string
+    {
+        $value = trim((string)$this->request->getHeader($headerName));
+        if ($value === '') {
+            return '';
+        }
+
+        $host = parse_url($value, PHP_URL_HOST);
+
+        return is_string($host) ? $host : '';
+    }
+
     protected function usersUIAccessService(): UsersUIAccessService
     {
         return $this->usersUIAccess ??= new UsersUIAccessService();

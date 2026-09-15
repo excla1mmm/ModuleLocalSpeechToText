@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Завершённые расшифровки отдельных записей звонков',
     'module_local_speech_to_text_worker_api_contract' => 'Контракт совместимости API обработчика',
     'module_local_speech_to_text_worker_processing_settings' => 'Централизованные настройки обработки для STT-обработчиков',
+    'module_local_speech_to_text_worker_update_license' => 'Лицензия обновления для загрузки обновлений приложения обработчика',
     'module_local_speech_to_text_workers' => 'Регистрация STT-обработчиков и получение централизованных настроек распознавания',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Начата загрузка авторизованной записи.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Неизменяемый commit репозитория Hugging Face для артефактов модели.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Версия модуля',
     'rest_response_200_created' => 'Ресурс успешно создан',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Возвращает хеш лицензии PBX для авторизованного обновления воркера.',
+    'module_local_speech_to_text_OperationFailedError' => 'Не удалось выполнить действие. Попробуйте ещё раз.',
 ];

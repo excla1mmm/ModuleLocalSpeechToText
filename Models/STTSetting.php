@@ -52,7 +52,7 @@ class STTSetting extends ModulesModelsBase
 
     // Recording duration hard limit: an internal safety policy, not a user setting.
     // It bounds worker memory usage and prevents a single long recording from
-    // monopolizing a worker; see readme.ru.md / README.md for the operator-facing note.
+    // monopolizing a worker; see README.ru.md / README.md for the operator-facing note.
     private const int RECORDING_DURATION_HARD_LIMIT_MINUTES = 180;
     private const int RECORDING_DURATION_HARD_LIMIT_SECONDS = 10800;
 

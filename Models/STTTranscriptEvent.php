@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Models;
 
 use MikoPBX\Modules\Models\ModulesModelsBase;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ResultPersistenceValidationException;
 use Phalcon\Mvc\Model\Relation;
 use RuntimeException;
 
@@ -118,7 +119,7 @@ class STTTranscriptEvent extends ModulesModelsBase
         ]);
         if ($event instanceof self) {
             if ($job instanceof STTJob && self::fillEventJobFields($event, $job) && !$event->save()) {
-                throw new RuntimeException(implode(', ', $event->getMessages()));
+                throw new ResultPersistenceValidationException(implode(', ', $event->getMessages()));
             }
 
             return $event;
@@ -156,7 +157,7 @@ class STTTranscriptEvent extends ModulesModelsBase
         ]) ?: '{}';
 
         if (!$event->save()) {
-            throw new RuntimeException(implode(', ', $event->getMessages()));
+            throw new ResultPersistenceValidationException(implode(', ', $event->getMessages()));
         }
 
         return $event;

@@ -20,6 +20,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\JobSubmissionReceiptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseIndexService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\QuietOperation;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleMetadataCache;
@@ -602,7 +603,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             if (!is_file($path) && !is_link($path)) {
                 continue;
             }
-            if (!@unlink($path)) {
+            if (!QuietOperation::run(static fn (): bool => unlink($path))) {
                 LocalSpeechToTextLogger::event(
                     'setup',
                     'operation_failed',
@@ -632,7 +633,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 if (!is_file($path) && !is_link($path)) {
                     continue;
                 }
-                if (@unlink($path)) {
+                if (QuietOperation::run(static fn (): bool => unlink($path))) {
                     $removedLegacyRuntime = true;
                 } else {
                     LocalSpeechToTextLogger::event(

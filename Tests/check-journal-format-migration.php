@@ -33,6 +33,7 @@ expectSTTJournalMigration(is_file($migrationPath), 'STT journal format migration
 require_once $root . '/Lib/Services/LocalSpeechToTextLogSanitizer.php';
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
+require_once $root . '/Lib/Services/QuietOperation.php';
 require_once $migrationPath;
 
 $directory = sys_get_temp_dir() . '/stt-journal-format-migration-' . bin2hex(random_bytes(6));

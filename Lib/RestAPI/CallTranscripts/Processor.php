@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts;
 
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CallTranscriptNotFoundException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptIntegrationService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
+use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Phalcon\Di\Injectable;
-use RuntimeException;
 use Throwable;
 
 class Processor extends Injectable
@@ -19,6 +21,7 @@ class Processor extends Injectable
         $result->processor = __METHOD__;
         $result->function = $action;
         if ($action !== 'getRecord') {
+            $result->httpCode = 400;
             $result->messages['error'][] = "Unknown action - {$action} in " . __CLASS__;
             return $result;
         }
@@ -29,12 +32,13 @@ class Processor extends Injectable
             $result->success = true;
             $result->httpCode = 200;
             $result->data = (new CallTranscriptIntegrationService())->callTranscriptDetail((int)($data['id'] ?? 0), $revision);
-        } catch (RuntimeException $exception) {
+        } catch (CallTranscriptNotFoundException) {
             $result->success = false;
             $result->httpCode = 404;
             $result->data = ['error' => 'call_transcript_not_found'];
-            $result->messages['error'][] = $exception->getMessage();
-        } catch (Throwable) {
+            $result->messages['error'][] = 'Call transcript not found';
+        } catch (Throwable $exception) {
+            self::logFailure($action, $exception);
             $result->success = false;
             $result->httpCode = 500;
             $result->data = ['error' => 'internal_error'];
@@ -42,5 +46,19 @@ class Processor extends Injectable
         }
 
         return $result;
+    }
+
+    private static function logFailure(string $action, Throwable $exception): void
+    {
+        LocalSpeechToTextLogger::event(
+            'api',
+            'operation_failed',
+            'STT call transcript API operation failed',
+            LOG_ERR,
+            [
+                'operation' => $action,
+                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+            ]
+        );
     }
 }

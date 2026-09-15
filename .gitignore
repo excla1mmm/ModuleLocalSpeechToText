@@ -11,6 +11,8 @@ __pycache__/
 *.py[cod]
 
 docs/
+.superpowers/
+.worktrees/
 
 *.zip
 *.tar

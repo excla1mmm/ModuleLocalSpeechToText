@@ -73,12 +73,12 @@ final class LocalSpeechToTextLogWriter
                     return false;
                 }
                 if (is_array($previousStat)
-                    && !$this->mutateJournalPath(fn (): bool => @unlink($previousPath))
+                    && !$this->mutateJournalPath(fn (): bool => QuietOperation::run(fn (): bool => unlink($previousPath)))
                 ) {
                     return false;
                 }
                 if (!$this->isSafeJournalPath($activePath, $realDirectory)
-                    || !$this->mutateJournalPath(fn (): bool => @rename($activePath, $previousPath))
+                    || !$this->mutateJournalPath(fn (): bool => QuietOperation::run(fn (): bool => rename($activePath, $previousPath)))
                     || !$this->isSafeJournalPath($previousPath, $realDirectory)
                 ) {
                     return false;
@@ -214,7 +214,7 @@ final class LocalSpeechToTextLogWriter
             }
             if (!$this->isSafeJournalPath($temporaryPath, $realDirectory)
                 || !$this->isSafeJournalPath($previousPath, $realDirectory)
-                || !$this->mutateJournalPath(fn (): bool => @rename($temporaryPath, $previousPath))
+                || !$this->mutateJournalPath(fn (): bool => QuietOperation::run(fn (): bool => rename($temporaryPath, $previousPath)))
             ) {
                 $this->discardTemporaryFile($temporaryPath);
                 return false;
@@ -448,7 +448,7 @@ final class LocalSpeechToTextLogWriter
     private function discardTemporaryFile(string $temporaryPath): void
     {
         $this->mutateJournalPath(
-            fn (): bool => !is_file($temporaryPath) || @unlink($temporaryPath)
+            fn (): bool => !is_file($temporaryPath) || QuietOperation::run(fn (): bool => unlink($temporaryPath))
         );
     }
 

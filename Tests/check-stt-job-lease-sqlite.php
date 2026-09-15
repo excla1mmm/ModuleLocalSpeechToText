@@ -63,7 +63,7 @@ namespace MikoPBX\Modules\Models {
             } else {
                 $bind = $parameters['bind'] ?? [];
                 $sql = 'SELECT * FROM m_STTJob WHERE status = :status';
-                $sql .= ' ORDER BY priority ASC, cdr_endtime DESC, created_at DESC, id DESC LIMIT 1';
+                $sql .= ' ORDER BY priority ASC, cdr_endtime ASC, id ASC LIMIT 1';
                 $statement = $pdo->prepare($sql);
                 $statement->execute(['status' => $bind['status'] ?? 'pending']);
             }

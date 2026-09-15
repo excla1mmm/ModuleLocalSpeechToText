@@ -220,13 +220,13 @@ final class LocalSpeechToTextJournalAccess
             $created = $this->withDirectoryOwner(
                 $owner['uid'],
                 $owner['gid'],
-                fn (): bool => @mkdir($this->directory, 0750)
+                fn (): bool => QuietOperation::run(fn (): bool => mkdir($this->directory, 0750))
             );
 
             return $created === true || is_dir($this->directory);
         }
 
-        return @mkdir($this->directory, 0750, true);
+        return QuietOperation::run(fn (): bool => mkdir($this->directory, 0750, true));
     }
 
     /** @return array{uid: int, gid: int}|null */

@@ -6,6 +6,7 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
 use InvalidArgumentException;
 use MikoPBX\Core\System\Util;
+use Modules\ModuleLocalSpeechToText\Lib\Services\QuietOperation;
 
 final class RecordingDurationProbe
 {
@@ -47,24 +48,26 @@ final class RecordingDurationProbe
             2 => ['pipe', 'w'],
         ];
         try {
-            $process = @proc_open(
-                [
-                    $ffprobe,
-                    '-nostdin',
-                    '-v',
-                    'error',
-                    '-show_entries',
-                    'format=duration',
-                    '-of',
-                    'default=noprint_wrappers=1:nokey=1',
-                    $recordingPath,
-                ],
-                $descriptors,
-                $pipes,
-                null,
-                null,
-                ['bypass_shell' => true]
-            );
+            $process = QuietOperation::run(static function () use ($ffprobe, $recordingPath, $descriptors, &$pipes) {
+                return proc_open(
+                    [
+                        $ffprobe,
+                        '-nostdin',
+                        '-v',
+                        'error',
+                        '-show_entries',
+                        'format=duration',
+                        '-of',
+                        'default=noprint_wrappers=1:nokey=1',
+                        $recordingPath,
+                    ],
+                    $descriptors,
+                    $pipes,
+                    null,
+                    null,
+                    ['bypass_shell' => true]
+                );
+            });
         } catch (\Throwable) {
             return $this->result(self::STATUS_FAILED);
         }
@@ -92,11 +95,11 @@ final class RecordingDurationProbe
             }
             if (microtime(true) >= $deadline) {
                 $timedOut = true;
-                @proc_terminate($process, 15);
+                QuietOperation::run(static fn (): bool => proc_terminate($process, 15));
                 usleep(20_000);
                 $status = proc_get_status($process);
                 if (is_array($status) && ($status['running'] ?? false)) {
-                    @proc_terminate($process, 9);
+                    QuietOperation::run(static fn (): bool => proc_terminate($process, 9));
                 }
                 break;
             }

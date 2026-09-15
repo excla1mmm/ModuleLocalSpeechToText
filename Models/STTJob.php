@@ -23,6 +23,49 @@ class STTJob extends ModulesModelsBase
     public const string STATUS_DONE = 'done';
     public const string STATUS_ERROR = 'error';
 
+    /**
+     * Stable, machine-readable marker prefixed onto error_msg by
+     * markTerminalErrorForWorker() for deterministic, non-retryable
+     * failures (recording file missing, duration too long, file too large,
+     * result persistence failed, etc.). Avoids a schema migration while
+     * letting requeueErrors() tell these apart from ordinary transient
+     * errors, which land in the same status='error' bucket with
+     * attempts=0 when they fail on their very first attempt.
+     */
+    public const string TERMINAL_ERROR_PREFIX = '[terminal] ';
+
+    /**
+     * True if $errorMessage carries the TERMINAL_ERROR_PREFIX bookkeeping
+     * marker, i.e. it was set by markTerminalErrorForWorker() for a
+     * deterministic, non-retryable failure rather than an ordinary
+     * transient error.
+     */
+    public static function isTerminalErrorMessage(?string $errorMessage): bool
+    {
+        return str_starts_with(trim((string)$errorMessage), self::TERMINAL_ERROR_PREFIX);
+    }
+
+    /**
+     * The single place that strips TERMINAL_ERROR_PREFIX before an
+     * error_msg reaches anything outside this model - the administration UI
+     * (QueueViewService) and the management REST API
+     * (STTJobManagementService::format()) both call this instead of
+     * re-implementing the strip. Null in, null out (a job with no error has
+     * error_msg === null); a non-terminal message passes through untouched;
+     * a terminal message has the marker removed and is re-trimmed.
+     */
+    public static function displayErrorMessage(?string $errorMessage): ?string
+    {
+        if ($errorMessage === null) {
+            return null;
+        }
+        if (self::isTerminalErrorMessage($errorMessage)) {
+            return trim(substr(trim($errorMessage), strlen(self::TERMINAL_ERROR_PREFIX)));
+        }
+
+        return $errorMessage;
+    }
+
     // Internal policy, not a user setting: a claim (or heartbeat) grants this many
     // seconds of lease before the job is eligible for stale-lease recovery. Renewing
     // the heartbeat has no cap, so recognition itself can take arbitrarily long.
@@ -146,7 +189,7 @@ class STTJob extends ModulesModelsBase
                 ],
             ]
         );
-        $this->hasOne(
+        $this->belongsTo(
             'worker_id',
             STTWorker::class,
             'id',
@@ -237,7 +280,10 @@ class STTJob extends ModulesModelsBase
                 'bind' => [
                     'status' => self::STATUS_PENDING,
                 ],
-                'order' => 'priority ASC, cdr_endtime DESC, created_at DESC, id DESC',
+                // FIFO within priority: oldest call first, then oldest
+                // enqueued first, to avoid starving old/recovered jobs under
+                // sustained load (newest-first previously starved them).
+                'order' => 'priority ASC, cdr_endtime ASC, id ASC',
             ]);
 
             if ($job === null) {
@@ -378,6 +424,15 @@ class STTJob extends ModulesModelsBase
         return (int)$connection->affectedRows();
     }
 
+    /**
+     * Bulk-requeues error jobs, EXCLUDING deterministic terminal failures
+     * (STTJob::TERMINAL_ERROR_PREFIX) - retrying a recording that is
+     * missing, too long, too large, or otherwise fails validation on every
+     * attempt would just burn workers on a job that can never succeed. An
+     * administrator can still retry/reset one specific terminal job
+     * explicitly via STTJobManagementService::patch(), which is an
+     * intentional, informed override of this default.
+     */
     public static function requeueErrors(): int
     {
         $model = new self();
@@ -394,11 +449,15 @@ class STTJob extends ModulesModelsBase
                     lease_expires_at = NULL,
                     finished_at = NULL,
                     error_msg = NULL
-              WHERE status = :error',
+              WHERE status = :error
+                AND (error_msg IS NULL OR error_msg NOT LIKE :terminal_prefix)',
             [
                 'pending' => self::STATUS_PENDING,
                 'error' => self::STATUS_ERROR,
                 'updated_at' => $updatedAt,
+                // TERMINAL_ERROR_PREFIX is a fixed internal constant with no
+                // '%'/'_' characters, so no LIKE-wildcard escaping is needed.
+                'terminal_prefix' => self::TERMINAL_ERROR_PREFIX . '%',
             ]
         );
 
@@ -613,6 +672,7 @@ class STTJob extends ModulesModelsBase
     {
         $currentAttempts = (int)$this->attempts;
         $finishedAt = (string)time();
+        $storedErrorMessage = substr(self::TERMINAL_ERROR_PREFIX . $errorMessage, 0, 1000);
         $connection = $this->getWriteConnection();
         $connection->execute(
             'UPDATE m_STTJob
@@ -630,7 +690,7 @@ class STTJob extends ModulesModelsBase
                 AND CAST(attempts AS INTEGER) = :current_attempts',
             [
                 'attempts' => (string)($currentAttempts + 1),
-                'error_msg' => substr($errorMessage, 0, 1000),
+                'error_msg' => $storedErrorMessage,
                 'error' => self::STATUS_ERROR,
                 'finished_at' => $finishedAt,
                 'updated_at' => $finishedAt,
@@ -648,7 +708,7 @@ class STTJob extends ModulesModelsBase
 
         $this->status = self::STATUS_ERROR;
         $this->attempts = (string)($currentAttempts + 1);
-        $this->error_msg = substr($errorMessage, 0, 1000);
+        $this->error_msg = $storedErrorMessage;
         $this->lease_token = null;
         $this->lease_expires_at = null;
         $this->finished_at = $finishedAt;

@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Abgeschlossene Transkriptionen einzelner Anrufaufzeichnungen',
     'module_local_speech_to_text_worker_api_contract' => 'Kompatibilitätsvertrag der Worker-API',
     'module_local_speech_to_text_worker_processing_settings' => 'Zentrale Verarbeitungseinstellungen für STT-Worker',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Registrierung von STT-Workern und zentrale Erkennungseinstellungen',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Der Download der autorisierten Aufzeichnung wurde gestartet.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Unveränderlicher Commit des Hugging-Face-Repositorys für Modellartefakte.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'App-Version',
     'rest_response_200_created' => 'Ressource erfolgreich erstellt',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Stellt einen PBX-Lizenz-Hash für autorisierte Worker-Updates bereit.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

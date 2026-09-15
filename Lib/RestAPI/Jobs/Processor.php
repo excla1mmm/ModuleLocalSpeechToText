@@ -1,14 +1,103 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs;
+
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ModuleDatabaseWriterBusyException;
 use Modules\ModuleLocalSpeechToText\Lib\RestAPI\Common\WorkerRequestContext;
-use Modules\ModuleLocalSpeechToText\Lib\Services\{CanonicalJobId,ModuleDatabasePragmas,ModuleDatabaseWriterMutex,ModuleLifecycleGate,STTJobManagementService};
+use Modules\ModuleLocalSpeechToText\Lib\Services\CanonicalJobId;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseWriterMutex;
+use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLifecycleGate;
+use Modules\ModuleLocalSpeechToText\Lib\Services\STTJobManagementService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Phalcon\Di\Injectable;
-enum JobAction:string{case GET_LIST='getList';case GET_RECORD='getRecord';case CREATE='create';case PATCH='patch';case PATCH_COLLECTION='patchCollection';case DELETE='delete';case DELETE_COLLECTION='deleteCollection';}
-class Processor extends Injectable{
- public static function callBack(array$request):PBXApiResult{$actionString=(string)($request['action']??'');$action=JobAction::tryFrom($actionString);$data=WorkerRequestContext::data($request);if(WorkerRequestContext::isRevokedWorkerKey($data))return self::error('worker_resource_forbidden','Worker credentials cannot manage jobs',403);if(WorkerRequestContext::isRestrictedWorkerKey($data)||!WorkerRequestContext::isAdministrator($data))return self::error('worker_resource_forbidden','Worker credentials cannot manage jobs',403);if(!$action instanceof JobAction)return self::error('unknown_action','Unknown action',400);$id=(int)($data['id']??0);if(in_array($action,[JobAction::PATCH,JobAction::DELETE],true)&&array_key_exists('_idFromRequestBody',$data)&&!CanonicalJobId::matchesRoute($data['_idFromRequestBody'],$id))return self::error('job_id_mismatch','Body job ID does not match route',409);$gate=new ModuleLifecycleGate();$lease=$gate->acquireWriteLease();if($lease===null){$result=self::error('module_unavailable','Module is temporarily unavailable',503);$result->data['retry_after']=5;return$result;}try{try{$result=(new ModuleDatabaseWriterMutex())->synchronized(static function()use($action,$data,$id):PBXApiResult{(new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());$service=new STTJobManagementService();return match($action){JobAction::GET_LIST=>$service->getList($data),JobAction::GET_RECORD=>$service->getRecord($id),JobAction::CREATE=>$service->create($data),JobAction::PATCH=>$service->patch($id,$data),JobAction::PATCH_COLLECTION=>$service->patchCollection($data),JobAction::DELETE=>$service->delete($id),JobAction::DELETE_COLLECTION=>$service->deleteCollection($data)};});}catch(ModuleDatabaseWriterBusyException){$result=self::error('database_busy','Module database writer is temporarily busy',503);$result->data['retry_after']=2;return$result;}}finally{$gate->releaseWriteLease($lease);}$result->processor=self::class.'::callBack';$result->function=$actionString;return$result;}
- private static function error(string$code,string$message,int$http):PBXApiResult{$r=new PBXApiResult();$r->success=false;$r->httpCode=$http;$r->data=['error'=>$code,'error_code'=>$code];$r->messages['error'][]=$message;return$r;}
+
+enum JobAction: string
+{
+    case GET_LIST = 'getList';
+    case GET_RECORD = 'getRecord';
+    case CREATE = 'create';
+    case PATCH = 'patch';
+    case PATCH_COLLECTION = 'patchCollection';
+    case DELETE = 'delete';
+    case DELETE_COLLECTION = 'deleteCollection';
+}
+
+class Processor extends Injectable
+{
+    public static function callBack(array $request): PBXApiResult
+    {
+        $actionString = (string)($request['action'] ?? '');
+        $action = JobAction::tryFrom($actionString);
+        $data = WorkerRequestContext::data($request);
+
+        if (WorkerRequestContext::isRevokedWorkerKey($data))
+            return self::error('worker_resource_forbidden', 'Worker credentials cannot manage jobs', 403);
+
+        if (WorkerRequestContext::isRestrictedWorkerKey($data) || !WorkerRequestContext::isAdministrator($data))
+            return self::error('worker_resource_forbidden', 'Worker credentials cannot manage jobs', 403);
+
+        if (!$action instanceof JobAction)
+            return self::error('unknown_action', 'Unknown action', 400);
+
+        $id = (int)($data['id'] ?? 0);
+
+        if (
+            in_array($action, [JobAction::PATCH, JobAction::DELETE], true)
+            && array_key_exists('_idFromRequestBody', $data)
+            && !CanonicalJobId::matchesRoute($data['_idFromRequestBody'], $id)
+        )
+            return self::error('job_id_mismatch', 'Body job ID does not match route', 409);
+
+        $gate = new ModuleLifecycleGate();
+        $lease = $gate->acquireWriteLease();
+        if ($lease === null) {
+            $result = self::error('module_unavailable', 'Module is temporarily unavailable', 503);
+            $result->data['retry_after'] = 5;
+            return $result;
+        }
+
+        try {
+            try {
+                $result = (new ModuleDatabaseWriterMutex())->synchronized(
+                    static function () use ($action, $data, $id): PBXApiResult {
+                        (new ModuleDatabasePragmas())->configureRuntime((new STTJob())->getWriteConnection());
+                        $service = new STTJobManagementService();
+                        return match ($action) {
+                            JobAction::GET_LIST => $service->getList($data),
+                            JobAction::GET_RECORD => $service->getRecord($id),
+                            JobAction::CREATE => $service->create($data),
+                            JobAction::PATCH => $service->patch($id, $data),
+                            JobAction::PATCH_COLLECTION => $service->patchCollection($data),
+                            JobAction::DELETE => $service->delete($id),
+                            JobAction::DELETE_COLLECTION => $service->deleteCollection($data)
+                        };
+                    }
+                );
+            } catch (ModuleDatabaseWriterBusyException) {
+                $result = self::error('database_busy', 'Module database writer is temporarily busy', 503);
+                $result->data['retry_after'] = 2;
+                return $result;
+            }
+        } finally {
+            $gate->releaseWriteLease($lease);
+        }
+
+        $result->processor = self::class . '::callBack';
+        $result->function = $actionString;
+        return $result;
+    }
+
+    private static function error(string $code, string $message, int $http): PBXApiResult
+    {
+        $r = new PBXApiResult();
+        $r->success = false;
+        $r->httpCode = $http;
+        $r->data = ['error' => $code, 'error_code' => $code];
+        $r->messages['error'][] = $message;
+        return $r;
+    }
 }

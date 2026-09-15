@@ -162,11 +162,16 @@ foreach (glob($directory . '/*') ?: [] as $file) {
 rmdir($directory);
 
 $main = (string)file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextMain.php');
+// The exclusive-binding check (worker_api_key_already_bound / 409) now
+// lives in WorkerAuthorizationValidator, extracted out of
+// LocalSpeechToTextMain to shrink that class; Main still owns the
+// transactional reservation and conflict-exception wiring around it.
+$authValidator = (string)file_get_contents(__DIR__ . '/../Lib/Services/WorkerAuthorizationValidator.php');
 expectWorkerRegistrationConcurrency(
     str_contains($main, 'new WorkerRegistrationTransaction()')
         && str_contains($main, 'WorkerApiKeyBindingConflictException')
-        && str_contains($main, "'worker_api_key_already_bound'")
-        && str_contains($main, '409'),
+        && str_contains($authValidator, "'worker_api_key_already_bound'")
+        && str_contains($authValidator, '409'),
     'Production registration must reserve the binding transactionally and map the loser to HTTP 409'
 );
 

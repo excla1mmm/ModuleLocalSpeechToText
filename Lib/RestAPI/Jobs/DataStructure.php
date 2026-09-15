@@ -17,6 +17,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
   'id'=>['type'=>'integer'],'call_id'=>['type'=>'string'],'status'=>['type'=>'string'],'priority'=>['type'=>'integer'],
   'worker_id'=>['type'=>['integer','null']],'attempts'=>['type'=>'integer'],'created_at'=>['type'=>'integer'],'updated_at'=>['type'=>'integer'],
   'started_at'=>['type'=>['integer','null']],'finished_at'=>['type'=>['integer','null']],'error_msg'=>['type'=>['string','null']],
+  'terminal_error'=>['type'=>'boolean'],
  ]];}
  public static function getRelatedSchemas():array{return[];}
 }

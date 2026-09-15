@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Tek tek çağrı kayıtlarının tamamlanmış dökümleri',
     'module_local_speech_to_text_worker_api_contract' => 'Worker API uyumluluk sözleşmesi',
     'module_local_speech_to_text_worker_processing_settings' => 'STT worker’ları için merkezi işleme ayarları',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT worker kaydı ve merkezi tanıma ayarları',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Yetkili kaydın indirilmesi başlatıldı.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Model yapıtları için değiştirilemez Hugging Face deposu commit kaydı.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Uygulama sürümü',
     'rest_response_200_created' => 'Kaynak başarıyla oluşturuldu',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Yetkili worker güncellemeleri için PBX lisans karması sağlar.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

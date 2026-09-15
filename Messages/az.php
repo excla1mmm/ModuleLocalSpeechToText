@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Ayrı-ayrı zəng yazılarının tamamlanmış transkripsiyaları',
     'module_local_speech_to_text_worker_api_contract' => 'Emalçı API-sinin uyğunluq müqaviləsi',
     'module_local_speech_to_text_worker_processing_settings' => 'STT emalçıları üçün mərkəzləşdirilmiş emal ayarları',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT emalçılarının qeydiyyatı və mərkəzləşdirilmiş tanıma ayarları',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Səlahiyyətli yazının endirilməsi başladı.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Model artefaktları üçün dəyişdirilməz Hugging Face repozitoriya commit-i.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Tətbiq versiyası',
     'rest_response_200_created' => 'Resurs uğurla yaradıldı',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'İşçi yeniləmələrini təsdiqləmək üçün PBX lisenziya heşini təqdim edir.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Ukończone transkrypcje pojedynczych nagrań rozmów',
     'module_local_speech_to_text_worker_api_contract' => 'Kontrakt zgodności API workera',
     'module_local_speech_to_text_worker_processing_settings' => 'Scentralizowane ustawienia przetwarzania dla workerów STT',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Rejestracja workerów STT i centralne ustawienia rozpoznawania',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Rozpoczęto pobieranie autoryzowanego nagrania.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Niezmienny commit repozytorium Hugging Face dla artefaktów modelu.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Wersja aplikacji',
     'rest_response_200_created' => 'Zasób został utworzony',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Udostępnia skrót licencji PBX do autoryzowanych aktualizacji workera.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

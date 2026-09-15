@@ -50,6 +50,67 @@ final class ModuleTransaction
         } while (true);
     }
 
+    /**
+     * Runs $operation inside a SAVEPOINT nested within an ambient transaction
+     * the caller does not own (and therefore cannot begin/commit/rollback
+     * itself). Any Throwable rolls back only this savepoint -- not the whole
+     * ambient transaction -- before rethrowing, so callers can catch specific
+     * failures and still let the ambient transaction commit whatever they
+     * do next (e.g. a compensating write) without also committing the
+     * partial work $operation left behind.
+     */
+    public function runNested(mixed $connection, callable $operation, string $savepoint): mixed
+    {
+        if (!$connection->isUnderTransaction()) {
+            throw new RuntimeException('Nested module database savepoint requires an ambient transaction');
+        }
+        self::assertSavepointName($savepoint);
+
+        if ($connection->execute("SAVEPOINT {$savepoint}") !== true) {
+            throw new RuntimeException('Unable to create module database savepoint');
+        }
+
+        try {
+            $result = $operation($connection);
+        } catch (Throwable $exception) {
+            $this->rollbackToSavepoint($connection, $savepoint);
+            throw $exception;
+        }
+
+        if ($connection->execute("RELEASE SAVEPOINT {$savepoint}") !== true) {
+            throw new RuntimeException('Unable to release module database savepoint');
+        }
+
+        return $result;
+    }
+
+    private function rollbackToSavepoint(mixed $connection, string $savepoint): void
+    {
+        try {
+            $rolledBack = $connection->execute("ROLLBACK TO SAVEPOINT {$savepoint}");
+        } catch (Throwable $exception) {
+            throw new TransactionRecoveryException(
+                'Module database savepoint rollback threw an exception',
+                0,
+                $exception
+            );
+        }
+        if ($rolledBack !== true) {
+            throw new TransactionRecoveryException('Module database savepoint rollback failed');
+        }
+
+        if ($connection->execute("RELEASE SAVEPOINT {$savepoint}") !== true) {
+            throw new TransactionRecoveryException('Module database savepoint release after rollback failed');
+        }
+    }
+
+    private static function assertSavepointName(string $savepoint): void
+    {
+        if (preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $savepoint) !== 1) {
+            throw new RuntimeException('Module database savepoint name is invalid');
+        }
+    }
+
     public function recover(mixed $connection): void
     {
         if (!$connection->isUnderTransaction()) {

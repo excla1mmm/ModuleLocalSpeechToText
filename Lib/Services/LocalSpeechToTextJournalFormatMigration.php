@@ -223,7 +223,7 @@ final class LocalSpeechToTextJournalFormatMigration
             ) {
                 return false;
             }
-            $renamed = @rename($temporaryPath, $path);
+            $renamed = QuietOperation::run(static fn (): bool => rename($temporaryPath, $path));
             if (!$renamed) {
                 return false;
             }
@@ -237,7 +237,7 @@ final class LocalSpeechToTextJournalFormatMigration
         } finally {
             fclose($handle);
             if (!$renamed) {
-                @unlink($temporaryPath);
+                QuietOperation::run(static fn (): bool => unlink($temporaryPath));
             }
         }
     }

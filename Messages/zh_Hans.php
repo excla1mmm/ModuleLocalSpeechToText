@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => '单个通话录音的已完成转录',
     'module_local_speech_to_text_worker_api_contract' => '工作节点 API 兼容性契约',
     'module_local_speech_to_text_worker_processing_settings' => 'STT 工作节点的集中式处理设置',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT 工作节点注册和集中式识别设置',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => '已开始下载授权录音。',
     'module_local_speech_to_text_ApiFieldModelRevision' => '用于模型构件的不可变 Hugging Face 仓库提交。',
@@ -542,4 +543,5 @@ return [
     'module_version' => '应用版本',
     'rest_response_200_created' => '资源创建成功',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => '提供 PBX 许可证哈希以授权 worker 更新。',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

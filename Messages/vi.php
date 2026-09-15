@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Bản chép lời đã hoàn tất của từng bản ghi cuộc gọi',
     'module_local_speech_to_text_worker_api_contract' => 'Hợp đồng tương thích API của worker',
     'module_local_speech_to_text_worker_processing_settings' => 'Cài đặt xử lý tập trung cho worker STT',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Đăng ký worker STT và thiết lập nhận dạng tập trung',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Đã bắt đầu tải bản ghi được cấp quyền.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Commit kho lưu trữ Hugging Face bất biến cho các tạo tác mô hình.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Phiên bản ứng dụng',
     'rest_response_200_created' => 'Đã tạo tài nguyên thành công',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Cung cấp hàm băm giấy phép PBX cho các bản cập nhật worker được ủy quyền.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

@@ -38,6 +38,7 @@ expectLegacyLogMigration(is_file($migrationPath), 'Legacy log migration is missi
 require_once $sanitizerPath;
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogFormatter.php';
 require_once $root . '/Lib/Services/LocalSpeechToTextSyslogParser.php';
+require_once $root . '/Lib/Services/QuietOperation.php';
 require_once $writerPath;
 require_once $migrationPath;
 

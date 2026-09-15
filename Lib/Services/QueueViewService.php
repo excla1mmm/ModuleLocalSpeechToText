@@ -112,7 +112,7 @@ class QueueViewService
                 'icon' => $status['icon'],
                 'labelClass' => $status['labelClass'],
                 'statusLabel' => $status['label'],
-                'statusDetailLabel' => trim((string)$job->error_msg),
+                'statusDetailLabel' => trim((string)STTJob::displayErrorMessage($job->error_msg)),
                 'sourceLabel' => $this->translation->_('module_local_speech_to_text_Job') . ' #' . (int)$job->id,
                 'callId' => (string)$job->call_id,
                 'workerLabel' => $worker instanceof STTWorker && trim((string)$worker->name) !== ''
@@ -262,6 +262,7 @@ class QueueViewService
 
         return $normalized;
     }
+
 
     /**
      * @return array{icon: string, labelClass: string, label: string}

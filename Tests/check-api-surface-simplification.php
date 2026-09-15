@@ -17,7 +17,7 @@ expectSimplifiedSTTSurface(!is_file($root . '/Lib/RestAPI/TranscriptEvents/Contr
 
 $main = $read('Lib/LocalSpeechToTextMain.php');
 expectSimplifiedSTTSurface(
-    str_contains($main, "return self::success(['id' => (int)\$worker->id]);"),
+    str_contains($main, "return JobApiResponseBuilder::success(['id' => (int)\$worker->id]);"),
     'worker registration must return only its numeric id'
 );
 expectSimplifiedSTTSurface(!str_contains($main, "'duration_hint' =>"), 'unused duration_hint remains in job lease');

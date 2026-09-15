@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Egyedi hívásfelvételek elkészült átiratai',
     'module_local_speech_to_text_worker_api_contract' => 'A feldolgozó API kompatibilitási szerződése',
     'module_local_speech_to_text_worker_processing_settings' => 'Központosított feldolgozási beállítások az STT-feldolgozókhoz',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT-feldolgozók regisztrációja és központi felismerési beállítások',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Az engedélyezett felvétel letöltése elindult.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Megváltoztathatatlan Hugging Face-tároló commit a modell összetevőihez.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Alkalmazásverzió',
     'rest_response_200_created' => 'Az erőforrás sikeresen létrejött',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'PBX-licenckivonatot biztosít az engedélyezett workerfrissítésekhez.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

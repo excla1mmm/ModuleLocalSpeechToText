@@ -57,7 +57,7 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
 
     public function deleteAction(): void
     {
-        if (!$this->request->isPost() || !$this->usersUIViewCapabilities()->canDeleteTranscripts()) {
+        if (!$this->requireSameOriginPost() || !$this->usersUIViewCapabilities()->canDeleteTranscripts()) {
             $this->denyUsersUIAccess();
             return;
         }

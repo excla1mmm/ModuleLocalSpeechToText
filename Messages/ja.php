@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => '個別の通話録音の完了済み文字起こし',
     'module_local_speech_to_text_worker_api_contract' => 'ワーカー API の互換性契約',
     'module_local_speech_to_text_worker_processing_settings' => 'STT ワーカー向けの一元管理された処理設定',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT ワーカーの登録と集中管理された認識設定',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => '承認された録音のダウンロードを開始しました。',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'モデル成果物用の変更不可能な Hugging Face リポジトリコミット。',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'アプリのバージョン',
     'rest_response_200_created' => 'リソースが正常に作成されました',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'worker の認証済み更新用に PBX ライセンスハッシュを提供します。',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CallTranscriptNotFoundException;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscript;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision;
 use Phalcon\Db\Enum;
-use RuntimeException;
 
 require_once __DIR__ . '/CallTranscriptTurnProjector.php';
 require_once __DIR__ . '/CallTranscriptTimelineProjector.php';
@@ -82,11 +82,11 @@ final class CallTranscriptIntegrationService
     {
         $call = STTCallTranscript::findFirstById($aggregateId);
         if (!$call instanceof STTCallTranscript) {
-            throw new RuntimeException('Call transcript aggregate not found');
+            throw new CallTranscriptNotFoundException('Call transcript aggregate not found');
         }
         $revision ??= (int)$call->current_revision;
         if ($revision <= 0) {
-            throw new RuntimeException('Call transcript revision not found');
+            throw new CallTranscriptNotFoundException('Call transcript revision not found');
         }
 
         $stored = STTCallTranscriptRevision::findFirst([
@@ -94,7 +94,7 @@ final class CallTranscriptIntegrationService
             'bind' => ['aggregate_id' => $aggregateId, 'revision' => $revision],
         ]);
         if (!$stored instanceof STTCallTranscriptRevision) {
-            throw new RuntimeException('Call transcript revision not found');
+            throw new CallTranscriptNotFoundException('Call transcript revision not found');
         }
         $payload = json_decode((string)$stored->payload, true);
         $payload = is_array($payload) ? $payload : [];

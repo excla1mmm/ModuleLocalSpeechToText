@@ -16,7 +16,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
 }
 namespace Modules\ModuleLocalSpeechToText\Lib\Services { class LocalSpeechToTextLogger { public static array $messages=[]; public static function event(mixed ...$x):void{self::$messages[]=json_encode($x);} } class LocalSpeechToTextLogSanitizer { public static function errorCode(\Throwable $e):string{return 'runtime_exception';} } }
 namespace {
-    require_once __DIR__.'/../Lib/LocalSpeechToTextMain.php';
+    require_once __DIR__ . '/../Lib/Services/JobApiResponseBuilder.php';require_once __DIR__ . '/../Lib/Services/WorkerAuthorizationValidator.php';require_once __DIR__ . '/../Lib/Services/JobResultPayloadNormalizer.php';require_once __DIR__.'/../Lib/LocalSpeechToTextMain.php';
     $result=\Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain::getNextJob(['worker_uid'=>'worker']);
     $job=\Modules\ModuleLocalSpeechToText\Models\STTJob::$claimed;
     if($result->httpCode!==500||$job!==null)throw new RuntimeException('Fallible payload preparation must fail before claim');

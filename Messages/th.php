@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'การถอดเสียงที่เสร็จสมบูรณ์ของไฟล์บันทึกการโทรแต่ละรายการ',
     'module_local_speech_to_text_worker_api_contract' => 'สัญญาความเข้ากันได้ของ API ตัวประมวลผล',
     'module_local_speech_to_text_worker_processing_settings' => 'การตั้งค่าการประมวลผลแบบรวมศูนย์สำหรับตัวประมวลผล STT',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'การลงทะเบียนตัวประมวลผล STT และการตั้งค่าการรู้จำแบบรวมศูนย์',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'เริ่มดาวน์โหลดไฟล์บันทึกที่ได้รับอนุญาตแล้ว',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'commit ของที่เก็บ Hugging Face แบบแก้ไขไม่ได้สำหรับอาร์ติแฟกต์โมเดล',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'เวอร์ชันแอป',
     'rest_response_200_created' => 'สร้างทรัพยากรสำเร็จแล้ว',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'ให้แฮชใบอนุญาต PBX สำหรับการอัปเดต worker ที่ได้รับอนุญาต',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

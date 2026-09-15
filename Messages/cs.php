@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Dokončené přepisy jednotlivých záznamů hovorů',
     'module_local_speech_to_text_worker_api_contract' => 'Kontrakt kompatibility API workera',
     'module_local_speech_to_text_worker_processing_settings' => 'Centralizované nastavení zpracování pro STT workery',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Registrace STT workerů a centralizované nastavení rozpoznávání',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Stahování autorizované nahrávky bylo zahájeno.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Neměnný commit repozitáře Hugging Face pro artefakty modelu.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Verze aplikace',
     'rest_response_200_created' => 'Prostředek byl úspěšně vytvořen',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Poskytuje hash licence PBX pro autorizované aktualizace workeru.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

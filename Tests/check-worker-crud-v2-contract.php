@@ -37,6 +37,13 @@ namespace MikoPBX\Common\Models {
     }
 }
 
+namespace MikoPBX\Common\Providers {
+    class AclProvider
+    {
+        public const string ROLE_ADMINS = 'admins';
+    }
+}
+
 namespace Modules\ModuleLocalSpeechToText\Models {
     class STTSetting
     {
@@ -348,8 +355,13 @@ namespace {
             },
             'sessionContext' => [
                 'remote_addr' => '198.51.100.10',
-                'auth_type' => $restricted ? 'bearer_token' : 'session',
+                // Empty auth_type mirrors a Core SecurityType::LOCALHOST
+                // request (no sessionContext at all), which
+                // WorkerRequestContext::isAdministrator() treats as
+                // administrator - see that method's docblock.
+                'auth_type' => $restricted ? 'bearer_token' : '',
                 'token_id' => $restricted ? $apiKeyId : 0,
+                'role' => $restricted ? '' : 'admins',
             ],
             'httpHeaders' => [],
         ];
@@ -719,7 +731,7 @@ namespace {
     expectWorkerCrud(
         str_contains($main, 'WorkerApiContract::API_VERSION')
             && str_contains($main, "self::stringField(\$data, 'app_version')")
-            && str_contains($main, "return self::success(['id' => (int)\$worker->id]);"),
+            && str_contains($main, "return JobApiResponseBuilder::success(['id' => (int)\$worker->id]);"),
         'Registration must pass v2/app versions and return the numeric resource id',
     );
 

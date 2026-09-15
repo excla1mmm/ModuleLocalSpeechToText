@@ -17,7 +17,7 @@ final class STTWorkerResourceService
     private const array MUTABLE_FIELDS = ['name', 'model', 'status'];
     private const array INTERNAL_FIELDS = [
         'id', 'httpMethod', '_remote_addr', '_auth_type', '_api_key_id', '_http_method',
-        '_auth_user_name', '_auth_session_id',
+        '_auth_user_name', '_auth_session_id', '_auth_role',
         '_worker_uid_header', '_lease_token_header',
     ];
 

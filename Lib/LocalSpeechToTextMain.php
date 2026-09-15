@@ -6,19 +6,23 @@ namespace Modules\ModuleLocalSpeechToText\Lib;
 
 use JsonException;
 use InvalidArgumentException;
-use MikoPBX\Core\System\Directories;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\AssignedJobConflictException;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\ResultPersistenceValidationException;
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\WorkerApiKeyBindingConflictException;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
+use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingPathGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobApiResponseBuilder;
+use Modules\ModuleLocalSpeechToText\Lib\Services\JobResultPayloadNormalizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\JobTerminalSubmissionService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerAuthorizationValidator;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
@@ -31,36 +35,28 @@ class LocalSpeechToTextMain
 {
     public const string API_BASE_PATH = '/pbxcore/api/v3/module-local-speech-to-text';
 
-    private const array AUDIO_CONTENT_TYPES = [
-        'ogg' => 'audio/ogg',
-        'oga' => 'audio/ogg',
-        'webm' => 'audio/webm',
-        'wav' => 'audio/wav',
-        'mp3' => 'audio/mpeg',
-    ];
-
     public static function registerWorker(array $data): PBXApiResult
     {
         $workerUid = self::stringField($data, 'worker_uid');
         if ($workerUid === '') {
-            return self::error('validation_error', 'worker_uid is required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'worker_uid is required', 422);
         }
         if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/', $workerUid) !== 1) {
-            return self::error('validation_error', 'worker_uid format is invalid', 422);
+            return JobApiResponseBuilder::error('validation_error', 'worker_uid format is invalid', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
 
-        $registrationBindingError = self::validateWorkerRegistrationBinding($workerUid, $data);
+        $registrationBindingError = WorkerAuthorizationValidator::validateWorkerRegistrationBinding($workerUid, $data);
         if ($registrationBindingError !== null) {
             return $registrationBindingError;
         }
 
         try {
-            $apiKeyId = self::requestApiKeyId($data);
+            $apiKeyId = WorkerAuthorizationValidator::requestApiKeyId($data);
             $connection = (new STTWorker())->getWriteConnection();
             $worker = (new WorkerRegistrationTransaction())->run(
                 $connection,
@@ -87,15 +83,15 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success(['id' => (int)$worker->id]);
+            return JobApiResponseBuilder::success(['id' => (int)$worker->id]);
         } catch (WorkerApiKeyBindingConflictException $exception) {
-            $result = self::error($exception->errorCode, $exception->getMessage(), 409);
+            $result = JobApiResponseBuilder::error($exception->errorCode, $exception->getMessage(), 409);
             $result->data['error_code'] = $exception->errorCode;
 
             return $result;
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -106,20 +102,20 @@ class LocalSpeechToTextMain
         $claimedLeaseToken = '';
         $workerUid = self::stringField($data, 'worker_uid');
         if ($workerUid === '') {
-            return self::error('validation_error', 'worker_uid is required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'worker_uid is required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
 
         try {
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
@@ -130,7 +126,7 @@ class LocalSpeechToTextMain
             $jobSnapshot = self::prepareJobSnapshot();
             $job = STTJob::claimNextForWorker($worker);
             if ($job === null) {
-                return self::success([
+                return JobApiResponseBuilder::success([
                     'job' => null,
                     'has_settings_changed' => $hasSettingsChanged,
                 ]);
@@ -152,7 +148,7 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success([
+            return JobApiResponseBuilder::success([
                 'job' => $payload,
                 'has_settings_changed' => $hasSettingsChanged,
             ]);
@@ -165,8 +161,12 @@ class LocalSpeechToTextMain
                     self::bestEffortEvent('queue', 'job_claim_compensation_failed', 'Unexpected post-claim failure compensation threw', LOG_ERR, ['job_id' => (int)$claimedJob->id, 'worker_uid' => $workerUid]);
                 }
             }
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(
+                __METHOD__,
+                $exception,
+                $claimedJob instanceof STTJob ? ['job_id' => (int)$claimedJob->id] : []
+            );
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -174,20 +174,20 @@ class LocalSpeechToTextMain
     {
         $workerUid = self::stringField($data, 'worker_uid');
         if ($workerUid === '') {
-            return self::error('validation_error', 'worker_uid is required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'worker_uid is required', 422);
         }
 
-        $apiKeyError = self::requireBearerWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::requireBearerWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
 
         try {
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
@@ -195,12 +195,12 @@ class LocalSpeechToTextMain
             $worker->touchOnline(self::clientIp($data));
             $payload = (new WorkerProcessingSettingsService())->fetchForWorker($worker);
 
-            return self::success($payload);
+            return JobApiResponseBuilder::success($payload);
         } catch (InvalidArgumentException $exception) {
-            return self::error('validation_error', $exception->getMessage(), 422);
+            return JobApiResponseBuilder::error('validation_error', $exception->getMessage(), 422);
         } catch (Throwable $exception) {
             self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -210,10 +210,10 @@ class LocalSpeechToTextMain
         $workerUid = self::stringField($data, 'worker_uid');
         $leaseToken = self::stringField($data, 'lease_token');
         if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
-            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -221,18 +221,18 @@ class LocalSpeechToTextMain
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
-                return self::error('job_not_found', "Job #$jobId not found", 404);
+                return JobApiResponseBuilder::error('job_not_found', "Job #$jobId not found", 404);
             }
 
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
-            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            $ownershipError = WorkerAuthorizationValidator::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
@@ -246,11 +246,11 @@ class LocalSpeechToTextMain
                     $leaseToken,
                     'Recording file is not available'
                 )) {
-                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                    return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
                 self::logRecordingAccessFailure($jobId, $workerUid, 'recording_unavailable');
 
-                return self::error('file_not_found', 'Recording file is not available', 404);
+                return JobApiResponseBuilder::error('file_not_found', 'Recording file is not available', 404);
             }
 
             $durationSeconds = self::jobDurationSeconds($job);
@@ -259,18 +259,18 @@ class LocalSpeechToTextMain
                 if ($probe['status'] !== RecordingDurationProbe::STATUS_OK || $probe['duration_sec'] === null) {
                     self::logRecordingAccessFailure($jobId, $workerUid, 'duration_probe_failed');
 
-                    return self::error('duration_probe_failed', 'Recording duration could not be determined', 503);
+                    return JobApiResponseBuilder::error('duration_probe_failed', 'Recording duration could not be determined', 503);
                 }
                 $durationSeconds = $probe['duration_sec'];
             }
             if (!STTSetting::recordingDurationAllowed($durationSeconds)) {
                 $message = 'Recording duration exceeds fixed maximum';
                 if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $message)) {
-                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                    return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
                 self::logRecordingAccessFailure($jobId, $workerUid, 'duration_too_long');
 
-                return self::error('duration_too_long', $message, 413);
+                return JobApiResponseBuilder::error('duration_too_long', $message, 413);
             }
             if (!self::fileWithinSizeLimit($filePath)) {
                 if (!$job->markTerminalErrorForWorker(
@@ -278,17 +278,17 @@ class LocalSpeechToTextMain
                     $leaseToken,
                     'Recording file exceeds fixed maximum size'
                 )) {
-                    return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                    return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
                 }
                 self::logRecordingAccessFailure($jobId, $workerUid, 'file_too_large');
 
-                return self::error('file_too_large', 'Recording file exceeds fixed maximum size', 413);
+                return JobApiResponseBuilder::error('file_too_large', 'Recording file exceeds fixed maximum size', 413);
             }
 
             return self::fileResponse($filePath);
         } catch (Throwable $exception) {
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(__METHOD__, $exception, ['job_id' => $jobId]);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -299,10 +299,10 @@ class LocalSpeechToTextMain
         $leaseToken = self::stringField($data, 'lease_token');
 
         if ($jobId <= 0 || $workerUid === '' || $leaseToken === '' || !isset($data['transcript']) || !is_array($data['transcript'])) {
-            return self::error('validation_error', 'job id, worker_uid, lease_token and transcript are required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'job id, worker_uid, lease_token and transcript are required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -310,19 +310,19 @@ class LocalSpeechToTextMain
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
-                return self::error('job_not_found', "Job #$jobId not found", 404);
+                return JobApiResponseBuilder::error('job_not_found', "Job #$jobId not found", 404);
             }
 
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
 
-            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            $ownershipError = WorkerAuthorizationValidator::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
@@ -345,10 +345,10 @@ class LocalSpeechToTextMain
                         $language = self::nullableStringField($data, 'language');
                         $filterLanguage = $language
                             ?? self::nullableStringField($data, 'language_hint')
-                            ?? self::languageHintFromTechnicalInfo($technicalInfo);
+                            ?? JobResultPayloadNormalizer::languageHintFromTechnicalInfo($technicalInfo);
                         $filterResult = TranscriptQualityFilter::filterSegments($transcript, $filterLanguage);
                         $state['transcript'] = $filterResult['segments'];
-                        $state['technical_info'] = self::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
+                        $state['technical_info'] = JobResultPayloadNormalizer::mergeTranscriptQualityInfo($technicalInfo, $filterResult['stats']);
                         $state['duration'] = TranscriptTimeNormalizer::durationSecondsFromPayload($data);
                         $model = self::nullableStringField($data, 'model_used');
                         $segmentCount = count($state['transcript']);
@@ -356,11 +356,11 @@ class LocalSpeechToTextMain
                     static function () use ($job, &$state, &$language, &$model): void {
                         $state['result'] = STTResult::saveForJob(
                             $job,
-                            self::encodeTranscript($state['transcript']),
+                            JobResultPayloadNormalizer::encodeTranscript($state['transcript']),
                             $language,
                             $state['duration'],
                             $model,
-                            self::encodeTechnicalInfo($state['technical_info'])
+                            JobResultPayloadNormalizer::encodeTechnicalInfo($state['technical_info'])
                         );
                     },
                     static function () use ($job, &$state, &$completionEventId): void {
@@ -377,12 +377,32 @@ class LocalSpeechToTextMain
                     );
                 };
                 if ($connection->isUnderTransaction()) {
-                    $storeResult();
+                    // submitResult() is only ever invoked in production through
+                    // Lib/RestAPI/JobResults/Processor.php, which already runs
+                    // inside a transaction owned by JobSubmissionReceiptService.
+                    // $storeResult() cannot be allowed to leave partial writes
+                    // (e.g. STTResult saved but STTTranscriptEvent/CallTranscript
+                    // recording failed) sitting uncommitted-but-present for the
+                    // ambient transaction to later commit alongside a terminal
+                    // job-error write. A SAVEPOINT makes this inner sequence
+                    // atomic on its own: any Throwable rolls back only these
+                    // writes, not the receipt/ownership work the ambient
+                    // transaction is also responsible for.
+                    (new ModuleTransaction())->runNested($connection, static fn () => $storeResult(), 'stt_submit_result');
                 } else {
                     (new ModuleTransaction())->run($connection, $storeResult);
                 }
             } catch (AssignedJobConflictException) {
-                return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
+            } catch (ResultPersistenceValidationException $exception) {
+                return self::handleDeterministicResultPersistenceFailure(
+                    $job,
+                    $worker,
+                    $leaseToken,
+                    $jobId,
+                    $workerUid,
+                    $exception
+                );
             }
             $durationMs = (int)$job->started_at > 0 && (int)$job->finished_at > 0
                 ? max(0, (int)$job->finished_at - (int)$job->started_at) * 1000
@@ -416,13 +436,70 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success();
+            return JobApiResponseBuilder::success();
         } catch (InvalidArgumentException | JsonException $exception) {
-            return self::error('validation_error', $exception->getMessage(), 422);
+            return JobApiResponseBuilder::error('validation_error', $exception->getMessage(), 422);
         } catch (Throwable $exception) {
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(__METHOD__, $exception, ['job_id' => $jobId]);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
+    }
+
+    /**
+     * Handles a deterministic result-persistence failure (a Phalcon model
+     * validation rejection, not a transient DB error) by moving the job to a
+     * terminal error state instead of leaving it "processing" for the worker
+     * to retry identically. See the call site in submitResult() for why this
+     * must return a success=true PBXApiResult.
+     */
+    private static function handleDeterministicResultPersistenceFailure(
+        STTJob $job,
+        STTWorker $worker,
+        string $leaseToken,
+        int $jobId,
+        string $workerUid,
+        Throwable $exception
+    ): PBXApiResult {
+        // $job may carry in-memory mutations from steps that ran (and were
+        // then rolled back to the SAVEPOINT) before the failure -- e.g. a
+        // markDoneForWorker() call that updated $job->status/lease_token in
+        // PHP before the DB write was undone. Reload from the
+        // now-rolled-back DB state so markTerminalErrorForWorker()'s CAS
+        // check is not evaluated against stale in-memory fields.
+        $reloadedJob = STTJob::findFirstById((int)$job->id);
+        if ($reloadedJob instanceof STTJob) {
+            $job = $reloadedJob;
+        }
+
+        $sanitizedMessage = LocalSpeechToTextLogSanitizer::message($exception->getMessage());
+        $errorMsg = 'Result submission could not be persisted (' . $sanitizedMessage . ')';
+        if (!$job->markTerminalErrorForWorker((int)$worker->id, $leaseToken, $errorMsg)) {
+            return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
+        }
+
+        LocalSpeechToTextLogger::event(
+            'queue',
+            'job_failed',
+            'Result submission failed deterministic validation; job moved to a terminal error state',
+            LOG_ERR,
+            [
+                'job_id' => $jobId,
+                'worker_uid' => $workerUid,
+                'error_code' => 'result_persistence_failed',
+                'message' => $sanitizedMessage,
+            ]
+        );
+
+        // success=true: this must be a "the submission was handled, do not
+        // retry" response, not a transient failure. Returning success=false
+        // would make Lib/Services/JobSubmissionReceiptService roll back this
+        // whole transaction (JobSubmissionMutationRejected), undoing the
+        // markTerminalErrorForWorker() write above and leaving the job stuck
+        // "processing" again -- reproducing the original incident.
+        return JobApiResponseBuilder::success([
+            'status' => (string)$job->status,
+            'error_code' => 'result_persistence_failed',
+        ]);
     }
 
     public static function submitError(array $data): PBXApiResult
@@ -431,10 +508,10 @@ class LocalSpeechToTextMain
         $workerUid = self::stringField($data, 'worker_uid');
         $leaseToken = self::stringField($data, 'lease_token');
         if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
-            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -442,19 +519,19 @@ class LocalSpeechToTextMain
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
-                return self::error('job_not_found', "Job #$jobId not found", 404);
+                return JobApiResponseBuilder::error('job_not_found', "Job #$jobId not found", 404);
             }
 
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
 
-            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            $ownershipError = WorkerAuthorizationValidator::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
@@ -468,7 +545,7 @@ class LocalSpeechToTextMain
                 static fn (): bool => true,
             );
             if (!$failureAccepted) {
-                return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             $failed = (string)$job->status === STTJob::STATUS_ERROR;
             LocalSpeechToTextLogger::event(
@@ -487,13 +564,13 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success([
+            return JobApiResponseBuilder::success([
                 'status' => (string)$job->status,
                 'attempts' => (int)$job->attempts,
             ]);
         } catch (Throwable $exception) {
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(__METHOD__, $exception, ['job_id' => $jobId]);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -503,10 +580,10 @@ class LocalSpeechToTextMain
         $workerUid = self::stringField($data, 'worker_uid');
         $leaseToken = self::stringField($data, 'lease_token');
         if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
-            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -514,35 +591,35 @@ class LocalSpeechToTextMain
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
-                return self::error('job_not_found', "Job #$jobId not found", 404);
+                return JobApiResponseBuilder::error('job_not_found', "Job #$jobId not found", 404);
             }
 
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
 
-            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            $ownershipError = WorkerAuthorizationValidator::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
 
             if (!$job->refreshProcessingLeaseForWorker((int)$worker->id, $leaseToken)) {
-                return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
 
-            return self::success([
+            return JobApiResponseBuilder::success([
                 'status' => (string)$job->status,
                 'lease_expires_at' => (int)$job->lease_expires_at,
             ]);
         } catch (Throwable $exception) {
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(__METHOD__, $exception, ['job_id' => $jobId]);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -552,10 +629,10 @@ class LocalSpeechToTextMain
         $workerUid = self::stringField($data, 'worker_uid');
         $leaseToken = self::stringField($data, 'lease_token');
         if ($jobId <= 0 || $workerUid === '' || $leaseToken === '') {
-            return self::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
+            return JobApiResponseBuilder::error('validation_error', 'Job id, worker_uid and lease_token are required', 422);
         }
 
-        $apiKeyError = self::validateWorkerApiKey($data);
+        $apiKeyError = WorkerAuthorizationValidator::validateWorkerApiKey($data);
         if ($apiKeyError !== null) {
             return $apiKeyError;
         }
@@ -563,25 +640,25 @@ class LocalSpeechToTextMain
         try {
             $job = STTJob::findFirstById($jobId);
             if ($job === null) {
-                return self::error('job_not_found', "Job #$jobId not found", 404);
+                return JobApiResponseBuilder::error('job_not_found', "Job #$jobId not found", 404);
             }
 
-            $worker = self::findWorker($workerUid);
+            $worker = WorkerAuthorizationValidator::findWorker($workerUid);
             if ($worker === null) {
-                return self::error('worker_not_registered', 'Worker is not registered', 404);
+                return JobApiResponseBuilder::error('worker_not_registered', 'Worker is not registered', 404);
             }
-            $bindingError = self::validateWorkerApiKeyBinding($worker, $data);
+            $bindingError = WorkerAuthorizationValidator::validateWorkerApiKeyBinding($worker, $data);
             if ($bindingError !== null) {
                 return $bindingError;
             }
 
-            $ownershipError = self::validateAssignedJob($job, $worker, $leaseToken);
+            $ownershipError = WorkerAuthorizationValidator::validateAssignedJob($job, $worker, $leaseToken);
             if ($ownershipError !== null) {
                 return $ownershipError;
             }
 
             if (!$job->releaseForWorker((int)$worker->id, $leaseToken)) {
-                return self::assignedJobConflict($jobId, $worker, $leaseToken);
+                return JobApiResponseBuilder::assignedJobConflict($jobId, $worker, $leaseToken);
             }
             self::bestEffortWorkerTouch($worker, self::clientIp($data), $jobId, $workerUid);
             self::bestEffortEvent(
@@ -596,12 +673,12 @@ class LocalSpeechToTextMain
                 ]
             );
 
-            return self::success([
+            return JobApiResponseBuilder::success([
                 'status' => (string)$job->status,
             ]);
         } catch (Throwable $exception) {
-            self::logException(__METHOD__, $exception);
-            return self::error('internal_error', 'Internal server error', 500);
+            self::logException(__METHOD__, $exception, ['job_id' => $jobId]);
+            return JobApiResponseBuilder::error('internal_error', 'Internal server error', 500);
         }
     }
 
@@ -676,160 +753,9 @@ class LocalSpeechToTextMain
         $worker->updateModel(self::currentWorkerModelName());
     }
 
-    private static function findWorker(string $workerUid): ?STTWorker
-    {
-        $worker = STTWorker::findFirst([
-            'conditions' => 'worker_uid = :worker_uid:',
-            'bind' => [
-                'worker_uid' => $workerUid,
-            ],
-        ]);
-
-        return $worker instanceof STTWorker ? $worker : null;
-    }
-
-    private static function validateWorkerApiKey(array $data): ?PBXApiResult
-    {
-        if (!self::isBearerAuthenticatedRequest($data)) {
-            return null;
-        }
-
-        $apiKeyId = self::requestApiKeyId($data) ?? 0;
-        if ($apiKeyId <= 0) {
-            return self::error('worker_api_key_required', 'Worker REST API key is required', 403);
-        }
-
-        $workerApiKeyIds = STTSetting::workerApiKeyIds();
-        if ($workerApiKeyIds === []) {
-            return self::error('worker_api_key_not_configured', 'Worker REST API key is not configured', 403);
-        }
-
-        if (!in_array($apiKeyId, $workerApiKeyIds, true)) {
-            return self::error('worker_api_key_forbidden', 'This API key is not assigned to Local Speech To Text workers', 403);
-        }
-
-        return null;
-    }
-
-    private static function requireBearerWorkerApiKey(array $data): ?PBXApiResult
-    {
-        if (!self::isBearerAuthenticatedRequest($data)) {
-            return self::error('worker_api_key_required', 'Worker REST API key is required', 403);
-        }
-
-        return self::validateWorkerApiKey($data);
-    }
-
-    private static function validateWorkerRegistrationBinding(string $workerUid, array $data): ?PBXApiResult
-    {
-        if (!self::isBearerAuthenticatedRequest($data)) {
-            return null;
-        }
-
-        $worker = self::findWorker($workerUid);
-        $requestApiKeyId = self::requestApiKeyId($data) ?? 0;
-        if (!$worker instanceof STTWorker) {
-            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
-        }
-
-        $boundApiKeyId = (int)$worker->api_key_id;
-        if ($boundApiKeyId <= 0 || $boundApiKeyId === $requestApiKeyId) {
-            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
-        }
-
-        if (!STTSetting::isWorkerApiKeyIdAllowed($boundApiKeyId)) {
-            return self::validateWorkerApiKeyExclusiveBinding($workerUid, $requestApiKeyId);
-        }
-
-        return self::error('worker_api_key_mismatch', 'Worker is bound to another API key', 403);
-    }
-
-    private static function validateWorkerApiKeyExclusiveBinding(string $workerUid, int $apiKeyId): ?PBXApiResult
-    {
-        if ($apiKeyId <= 0) {
-            return null;
-        }
-
-        $worker = STTWorker::findFirst([
-            'conditions' => 'api_key_id = :api_key_id: AND worker_uid <> :worker_uid:',
-            'bind' => [
-                'api_key_id' => $apiKeyId,
-                'worker_uid' => $workerUid,
-            ],
-        ]);
-        if ($worker instanceof STTWorker) {
-            return self::error('worker_api_key_already_bound', 'This API key is already bound to another worker', 409);
-        }
-
-        return null;
-    }
-
-    private static function validateWorkerApiKeyBinding(STTWorker $worker, array $data): ?PBXApiResult
-    {
-        if (!self::isBearerAuthenticatedRequest($data)) {
-            return null;
-        }
-
-        $boundApiKeyId = (int)$worker->api_key_id;
-        if ($boundApiKeyId <= 0) {
-            return self::error('worker_api_key_not_bound', 'Worker must be registered with the configured API key', 403);
-        }
-
-        if ($boundApiKeyId !== self::requestApiKeyId($data)) {
-            return self::error('worker_api_key_mismatch', 'Worker is bound to another API key', 403);
-        }
-
-        return null;
-    }
-
-    private static function validateAssignedJob(STTJob $job, STTWorker $worker, string $leaseToken): ?PBXApiResult
-    {
-        if ((string)$job->status !== STTJob::STATUS_PROCESSING) {
-            return self::error('job_not_processing', 'Job is not assigned for processing', 409);
-        }
-
-        if ((int)$job->worker_id !== (int)$worker->id) {
-            return self::error('job_assigned_to_another_worker', 'Job is assigned to another worker', 403);
-        }
-
-        if ((string)$job->lease_token === '' || !hash_equals((string)$job->lease_token, $leaseToken)) {
-            return self::error('job_lease_mismatch', 'Job lease token is invalid or expired', 409);
-        }
-
-        if ((int)$job->lease_expires_at > 0 && (int)$job->lease_expires_at < time()) {
-            STTJob::requeueStaleProcessing();
-            return self::error('job_lease_expired', 'Job lease has expired', 409);
-        }
-
-        return null;
-    }
-
-    private static function assignedJobConflict(int $jobId, STTWorker $worker, string $leaseToken): PBXApiResult
-    {
-        $job = STTJob::findFirstById($jobId);
-        if (!$job instanceof STTJob) {
-            return self::error('job_not_found', "Job #$jobId not found", 404);
-        }
-
-        return self::validateAssignedJob($job, $worker, $leaseToken)
-            ?? self::error('job_update_conflict', 'Job state changed while processing request', 409);
-    }
-
     private static function safeRecordingPath(string $filePath): ?string
     {
-        $allowedBase = realpath(Directories::getDir(Directories::AST_MONITOR_DIR));
-        $resolvedPath = realpath($filePath);
-
-        if ($allowedBase === false || $resolvedPath === false) {
-            return null;
-        }
-
-        $allowedPrefix = rtrim($allowedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        if ($resolvedPath !== $allowedBase && strncmp($resolvedPath, $allowedPrefix, strlen($allowedPrefix)) !== 0) {
-            return null;
-        }
-
-        return $resolvedPath;
+        return RecordingPathGuard::resolve($filePath);
     }
 
     private static function fileWithinSizeLimit(string $filePath): bool
@@ -844,42 +770,14 @@ class LocalSpeechToTextMain
         return $fileSize !== false && $fileSize <= STTSetting::maxFileSizeBytes();
     }
 
+    /**
+     * Kept as a real method (not just a call site) because
+     * Tests/check-recording-runtime-security.php exercises it directly via
+     * ReflectionMethod.
+     */
     private static function fileResponse(string $filePath): PBXApiResult
     {
-        $result = self::success([
-            'fpassthru' => [
-                'filename' => $filePath,
-                'need_delete' => false,
-                'content_type' => self::detectContentType($filePath),
-                'download_name' => basename($filePath),
-                'additional_headers' => [
-                    'X-Accel-Buffering' => 'no',
-                ],
-            ],
-        ]);
-
-        return $result;
-    }
-
-    private static function success(array $data = [], int $httpCode = 200): PBXApiResult
-    {
-        $result = new PBXApiResult();
-        $result->success = true;
-        $result->data = $data;
-        $result->httpCode = $httpCode;
-
-        return $result;
-    }
-
-    private static function error(string $code, string $message, int $httpCode): PBXApiResult
-    {
-        $result = new PBXApiResult();
-        $result->success = false;
-        $result->data = ['error' => $code];
-        $result->messages['error'][] = $message;
-        $result->httpCode = $httpCode;
-
-        return $result;
+        return JobApiResponseBuilder::fileResponse($filePath);
     }
 
     private static function stringField(array $data, string $field, string $default = ''): string
@@ -896,122 +794,37 @@ class LocalSpeechToTextMain
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param array<string, mixed>|null $technicalInfo
-     */
-    private static function languageHintFromTechnicalInfo(?array $technicalInfo): ?string
-    {
-        if (!is_array($technicalInfo)) {
-            return null;
-        }
-
-        $model = is_array($technicalInfo['model'] ?? null) ? $technicalInfo['model'] : [];
-        foreach ([$model['language_hint'] ?? null, $model['language'] ?? null] as $value) {
-            if (is_scalar($value)) {
-                $language = trim((string)$value);
-                if ($language !== '') {
-                    return $language;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $segments
-     *
-     * @throws JsonException
-     */
-    private static function encodeTranscript(array $segments): string
-    {
-        return json_encode($segments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * @param array<string, mixed>|null $technicalInfo
-     * @param array<string, mixed> $stats
-     * @return array<string, mixed>
-     */
-    private static function mergeTranscriptQualityInfo(?array $technicalInfo, array $stats): array
-    {
-        $technicalInfo ??= [];
-        $quality = is_array($technicalInfo['quality'] ?? null) ? $technicalInfo['quality'] : [];
-        $existingReasons = is_array($quality['reasons'] ?? null) ? $quality['reasons'] : [];
-        $serverReasons = is_array($stats['reasons'] ?? null) ? $stats['reasons'] : [];
-
-        $quality['server_filter'] = true;
-        $quality['server_raw_segments'] = (int)($stats['raw_segments'] ?? 0);
-        $quality['server_submitted_segments'] = (int)($stats['submitted_segments'] ?? 0);
-        $quality['server_rejected_segments'] = (int)($stats['rejected_segments'] ?? 0);
-        $quality['server_trimmed_segments'] = (int)($stats['trimmed_segments'] ?? 0);
-        $quality['rejected_segments'] = (int)($quality['rejected_segments'] ?? 0) + (int)($stats['rejected_segments'] ?? 0);
-        $quality['trimmed_segments'] = (int)($quality['trimmed_segments'] ?? 0) + (int)($stats['trimmed_segments'] ?? 0);
-        $quality['reasons'] = array_values(array_unique(array_merge(
-            array_map('strval', $existingReasons),
-            array_map('strval', $serverReasons)
-        )));
-
-        $technicalInfo['quality'] = $quality;
-        $technicalInfo['server_quality'] = [
-            'transcript_filter' => true,
-            'raw_segments' => (int)($stats['raw_segments'] ?? 0),
-            'submitted_segments' => (int)($stats['submitted_segments'] ?? 0),
-            'rejected_segments' => (int)($stats['rejected_segments'] ?? 0),
-            'trimmed_segments' => (int)($stats['trimmed_segments'] ?? 0),
-            'reasons' => $serverReasons,
-        ];
-
-        return $technicalInfo;
-    }
-
-    /**
-     * @throws JsonException
-     */
-    private static function encodeTechnicalInfo(mixed $technicalInfo): ?string
-    {
-        if (!is_array($technicalInfo) || $technicalInfo === []) {
-            return null;
-        }
-
-        return json_encode($technicalInfo, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    private static function detectContentType(string $filePath): string
-    {
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
-        return self::AUDIO_CONTENT_TYPES[$extension] ?? 'application/octet-stream';
-    }
-
     private static function clientIp(array $data): string
     {
         return self::stringField($data, '_remote_addr');
     }
 
-    private static function isBearerAuthenticatedRequest(array $data): bool
+    /**
+     * @param array<string, bool|float|int|string|null> $extraContext Additional
+     *   identifying context (e.g. job_id). Values pass through the same
+     *   sanitizer as $message before being logged.
+     */
+    private static function logException(string $context, Throwable $exception, array $extraContext = []): void
     {
-        return self::stringField($data, '_auth_type') === 'bearer_token';
-    }
-
-    private static function requestApiKeyId(array $data): ?int
-    {
-        $apiKeyId = (int)($data['_api_key_id'] ?? 0);
-
-        return $apiKeyId > 0 ? $apiKeyId : null;
-    }
-
-    private static function logException(string $context, Throwable $exception): void
-    {
+        // The exception message is the only place the actual root cause (e.g. a
+        // Phalcon model validation failure like "search_text is required") is
+        // available. Losing it here previously meant production incidents
+        // surfaced only the exception class name, which was not enough to
+        // diagnose the failure. LocalSpeechToTextLogSanitizer strips
+        // transcript text, paths, tokens and phone numbers before it is logged.
         LocalSpeechToTextLogger::event(
             'api',
             'operation_failed',
             'STT API operation failed',
             LOG_ERR,
-            [
-                'operation' => $context,
-                'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
-            ]
+            array_merge(
+                [
+                    'operation' => $context,
+                    'error_code' => LocalSpeechToTextLogSanitizer::errorCode($exception),
+                    'message' => $exception->getMessage(),
+                ],
+                $extraContext
+            )
         );
     }
 

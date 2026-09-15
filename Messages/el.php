@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Ολοκληρωμένες απομαγνητοφωνήσεις μεμονωμένων εγγραφών κλήσεων',
     'module_local_speech_to_text_worker_api_contract' => 'Συμβόλαιο συμβατότητας του API του worker',
     'module_local_speech_to_text_worker_processing_settings' => 'Κεντρικές ρυθμίσεις επεξεργασίας για workers STT',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Καταχώριση worker STT και κεντρικές ρυθμίσεις αναγνώρισης',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Ξεκίνησε η λήψη της εξουσιοδοτημένης εγγραφής.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Αμετάβλητο commit αποθετηρίου Hugging Face για τα τεχνουργήματα του μοντέλου.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Έκδοση εφαρμογής',
     'rest_response_200_created' => 'Ο πόρος δημιουργήθηκε με επιτυχία',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Παρέχει κατακερματισμό άδειας PBX για εξουσιοδοτημένες ενημερώσεις worker.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

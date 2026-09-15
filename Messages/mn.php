@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Тус тусын дуудлагын бичлэгийн дууссан транскрипцүүд',
     'module_local_speech_to_text_worker_api_contract' => 'Ажиллагчийн API-ийн нийцлийн гэрээ',
     'module_local_speech_to_text_worker_processing_settings' => 'STT ажиллагчдын төвлөрсөн боловсруулалтын тохиргоо',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT ажиллагчийн бүртгэл ба төвлөрсөн таних тохиргоо',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Зөвшөөрөгдсөн бичлэгийг татаж эхэллээ.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Загварын артефактын өөрчлөгдөшгүй Hugging Face репозиторийн commit.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Аппын хувилбар',
     'rest_response_200_created' => 'Нөөцийг амжилттай үүсгэлээ',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Зөвшөөрөгдсөн worker шинэчлэлтэд PBX лицензийн хэшийг олгоно.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

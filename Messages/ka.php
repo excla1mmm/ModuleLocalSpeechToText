@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'ცალკეული ზარის ჩანაწერების დასრულებული ტრანსკრიფციები',
     'module_local_speech_to_text_worker_api_contract' => 'მუშაკის API-ს თავსებადობის კონტრაქტი',
     'module_local_speech_to_text_worker_processing_settings' => 'ცენტრალიზებული დამუშავების პარამეტრები STT მუშაკებისთვის',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT მუშაკების რეგისტრაცია და ცენტრალიზებული ამოცნობის პარამეტრები',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'ავტორიზებული ჩანაწერის ჩამოტვირთვა დაიწყო.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Hugging Face რეპოზიტორიის უცვლელი commit მოდელის არტეფაქტებისთვის.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'აპლიკაციის ვერსია',
     'rest_response_200_created' => 'რესურსი წარმატებით შეიქმნა',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'ავტორიზებული worker განახლებებისთვის PBX ლიცენზიის ჰეშს აბრუნებს.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

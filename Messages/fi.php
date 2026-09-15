@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Yksittäisten puhelutallenteiden valmiit litteroinnit',
     'module_local_speech_to_text_worker_api_contract' => 'Käsittelijän API-yhteensopivuussopimus',
     'module_local_speech_to_text_worker_processing_settings' => 'STT-käsittelijöiden keskitetyt käsittelyasetukset',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT-käsittelijöiden rekisteröinti ja keskitetyt tunnistusasetukset',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Valtuutetun tallenteen lataus aloitettiin.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Muuttumaton Hugging Face -tietovaraston commit mallin artefakteille.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Sovellusversio',
     'rest_response_200_created' => 'Resurssi luotiin onnistuneesti',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Tarjoaa PBX-lisenssin tiivisteen workerin valtuutettuja päivityksiä varten.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Transcrieri finalizate ale înregistrărilor individuale de apel',
     'module_local_speech_to_text_worker_api_contract' => 'Contractul de compatibilitate al API-ului workerului',
     'module_local_speech_to_text_worker_processing_settings' => 'Setări centralizate de procesare pentru workerii STT',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Înregistrare de workeri STT și setări centralizate de recunoaștere',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'A început descărcarea înregistrării autorizate.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Commit imuabil al depozitului Hugging Face pentru artefactele modelului.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Versiunea aplicației',
     'rest_response_200_created' => 'Resursa a fost creată',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Furnizează hash-ul licenței PBX pentru actualizări autorizate ale workerului.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

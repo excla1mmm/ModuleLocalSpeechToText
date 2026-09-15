@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => 'Dovršene transkripcije pojedinačnih snimaka poziva',
     'module_local_speech_to_text_worker_api_contract' => 'Ugovor o kompatibilnosti API-ja radnika',
     'module_local_speech_to_text_worker_processing_settings' => 'Središnje postavke obrade za STT radnike',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'Registracija STT radnika i centralizirane postavke prepoznavanja',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => 'Pokrenuto je preuzimanje autorizirane snimke.',
     'module_local_speech_to_text_ApiFieldModelRevision' => 'Nepromjenjivi commit repozitorija Hugging Face za artefakte modela.',
@@ -542,4 +543,5 @@ return [
     'module_version' => 'Verzija aplikacije',
     'rest_response_200_created' => 'Resurs je uspješno stvoren',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => 'Pruža sažetak PBX licence za autorizirana ažuriranja workera.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

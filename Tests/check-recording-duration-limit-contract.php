@@ -145,7 +145,7 @@ namespace {
         'Claim response must not expose unused job duration'
     );
     expectDurationContract(
-        str_contains($main, "self::error('duration_too_long'"),
+        str_contains($main, "JobApiResponseBuilder::error('duration_too_long'"),
         'Download must expose stable duration error'
     );
     expectDurationContract(
@@ -214,7 +214,7 @@ namespace {
     }
 
     $readmeEn = file_get_contents(__DIR__ . '/../README.md');
-    $readmeRu = file_get_contents(__DIR__ . '/../readme.ru.md');
+    $readmeRu = file_get_contents(__DIR__ . '/../README.ru.md');
     expectDurationContract($readmeEn !== false && $readmeRu !== false, 'Cannot read module documentation');
     expectDurationContract(
         str_contains($readmeEn, '180 minutes')

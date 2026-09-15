@@ -535,6 +535,7 @@ return [
     'module_local_speech_to_text_transcripts' => '개별 통화 녹음의 완료된 전사본',
     'module_local_speech_to_text_worker_api_contract' => '워커 API 호환성 계약',
     'module_local_speech_to_text_worker_processing_settings' => 'STT 워커용 중앙 관리 처리 설정',
+    'module_local_speech_to_text_worker_update_license' => 'Worker update license for downloading worker app updates',
     'module_local_speech_to_text_workers' => 'STT 워커 등록 및 중앙 관리형 인식 설정',
     'module_local_speech_to_text_ApiResponseRecordingDownloaded' => '승인된 녹음 다운로드를 시작했습니다.',
     'module_local_speech_to_text_ApiFieldModelRevision' => '모델 아티팩트용 변경 불가능한 Hugging Face 저장소 커밋입니다.',
@@ -542,4 +543,5 @@ return [
     'module_version' => '앱 버전',
     'rest_response_200_created' => '리소스가 생성되었습니다',
     'module_local_speech_to_text_WorkerUpdateLicenseApiDescription' => '인증된 worker 업데이트를 위한 PBX 라이선스 해시를 제공합니다.',
+    'module_local_speech_to_text_OperationFailedError' => 'Something went wrong while completing this action. Please try again.',
 ];

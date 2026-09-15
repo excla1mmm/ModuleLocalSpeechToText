@@ -51,7 +51,7 @@ namespace MikoPBX\Modules\Models {
             } else {
                 $statement = $pdo->prepare(
                     'SELECT * FROM m_STTJob WHERE status = :status
-                     ORDER BY priority ASC, cdr_endtime DESC, created_at DESC, id DESC LIMIT 1'
+                     ORDER BY priority ASC, cdr_endtime ASC, id ASC LIMIT 1'
                 );
                 $statement->execute(['status' => $parameters['bind']['status'] ?? 'pending']);
             }
@@ -149,7 +149,7 @@ namespace {
             'call_id' => $label,
             'file_path' => '/tmp/' . $label . '.wav',
             'status' => STTJob::STATUS_PENDING,
-            'now' => $now + (3 - $id),
+            'now' => $now + $id,
         ]);
     }
     ModulesModelsBase::useTestPdo($pdo);
