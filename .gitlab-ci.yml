@@ -37,12 +37,13 @@ test:
     - if: '$CI_COMMIT_TAG'
   before_script:
     - apt-get update
-    - apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev ca-certificates
+    - apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev ca-certificates nodejs
     - php -m | grep -qi '^mbstring$' || docker-php-ext-install mbstring
     - php -m | grep -qi '^pcntl$' || docker-php-ext-install pcntl
     - php -m | grep -qi '^pdo_sqlite$' || docker-php-ext-install pdo_sqlite
     - php -m | grep -qi '^sqlite3$' || docker-php-ext-install sqlite3
     - php -v
+    - node --version
   script:
     - test -f Tests/run-all.php
     - test -f Tests/fixtures/core/ApiKeyPermissionChecker.php

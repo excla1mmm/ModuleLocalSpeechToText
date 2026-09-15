@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
-$test = __DIR__ . '/cdr-transcript-navigation.test.js';
+// .mjs: node treats it as an ES module on every version; a bare .js file with
+// `import` needs module-syntax detection, which Debian bookworm's node 18 lacks.
+$test = __DIR__ . '/cdr-transcript-navigation.test.mjs';
 passthru('node --test ' . escapeshellarg($test), $exitCode);
 exit($exitCode);
