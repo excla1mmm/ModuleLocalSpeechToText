@@ -15,6 +15,9 @@ use Modules\ModuleLocalSpeechToText\Models\STTTranscriptEvent;
 
 class CallRecordingService
 {
+    /** @var array<string, true>|null */
+    private ?array $staffIdentities = null;
+
     public function __construct(
         private mixed $translation,
         private mixed $url,
@@ -220,6 +223,15 @@ class CallRecordingService
         $extension = $this->employeeExtensionByNumber($number);
         if (!$extension instanceof Extensions) {
             $external = CdrDisplayName::forNumber($cdrDisplayName, $number);
+            // Asterisk does not reliably put the far end's identity in an
+            // external leg's name field: an outgoing leg carries the dialling
+            // extension's number there, and a callback leg carries that
+            // employee's own name, so the field can label the customer with
+            // the operator. A name that identifies staff is dropped, leaving
+            // the bare number instead of an actively misleading one.
+            if ($external !== '' && $this->identifiesStaff($external)) {
+                $external = '';
+            }
 
             return $external === '' ? $number : sprintf('%s (%s)', $number, $external);
         }
@@ -234,6 +246,42 @@ class CallRecordingService
         }
 
         return $employeeName === '' ? $number : sprintf('%s (%s)', $number, $employeeName);
+    }
+
+    /**
+     * True when $label is an internal extension number or the name of a PBX
+     * employee. Built once per request from the extension list, which is the
+     * same source numberWithEmployeeName() names employees from, so the two
+     * can never disagree.
+     */
+    private function identifiesStaff(string $label): bool
+    {
+        $label = trim($label);
+        if ($label === '') {
+            return false;
+        }
+
+        if ($this->staffIdentities === null) {
+            $this->staffIdentities = [];
+            foreach (Extensions::find(['conditions' => 'userid IS NOT NULL AND userid > 0']) as $extension) {
+                if (!$extension instanceof Extensions) {
+                    continue;
+                }
+                $user = $extension->Users;
+                foreach ([
+                    (string)$extension->number,
+                    (string)$extension->callerid,
+                    $user instanceof Users ? (string)$user->username : '',
+                ] as $identity) {
+                    $identity = trim($identity);
+                    if ($identity !== '') {
+                        $this->staffIdentities[mb_strtolower($identity)] = true;
+                    }
+                }
+            }
+        }
+
+        return isset($this->staffIdentities[mb_strtolower($label)]);
     }
 
     private function employeeExtensionByNumber(string $number): ?Extensions

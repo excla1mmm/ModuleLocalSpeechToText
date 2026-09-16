@@ -12,6 +12,7 @@ namespace MikoPBX\Common\Models {
     {
         /** @var array<string, Extensions> */
         public static array $byNumber = [];
+        public string $number = '';
         public string $callerid = '';
         public ?Users $Users = null;
 
@@ -19,6 +20,12 @@ namespace MikoPBX\Common\Models {
         public static function findFirst(array $parameters = []): ?Extensions
         {
             return self::$byNumber[(string)($parameters['bind']['number'] ?? '')] ?? null;
+        }
+
+        /** The staff roster the identity guard reads. @return array<int, Extensions> */
+        public static function find(array $parameters = []): array
+        {
+            return array_values(self::$byNumber);
         }
     }
 }
@@ -41,9 +48,13 @@ namespace {
     }
 
     $employee = new Extensions();
+    $employee->number = '206';
     $employee->Users = new Users();
     $employee->Users->username = 'Ефимова Юлия';
-    Extensions::$byNumber = ['206' => $employee];
+    $calleridOnly = new Extensions();
+    $calleridOnly->number = '207';
+    $calleridOnly->callerid = 'Отдел продаж';
+    Extensions::$byNumber = ['206' => $employee, '207' => $calleridOnly];
 
     $service = new CallRecordingService(null, null, null, null);
 
@@ -88,13 +99,41 @@ namespace {
     expectPartyName('', $service->numberWithEmployeeName('', 'ALL:SP INVEST'), 'An empty number has no label');
 
     // The employee name falls back to the extension caller id.
-    $calleridOnly = new Extensions();
-    $calleridOnly->callerid = 'Отдел продаж';
-    Extensions::$byNumber['207'] = $calleridOnly;
     expectPartyName(
         '207 (Отдел продаж)',
         $service->numberWithEmployeeName('207', 'spoofed'),
         'An extension without a user must fall back to its caller id, not the CDR name'
+    );
+
+    // Asterisk puts the dialling extension's number on the customer's leg of
+    // an outgoing call, and that employee's own name on a callback leg. Either
+    // would label the customer with the operator.
+    expectPartyName(
+        '79263977535',
+        $service->numberWithEmployeeName('79263977535', '206'),
+        "An extension number on the customer's leg never labels the customer"
+    );
+    expectPartyName(
+        '79611359896',
+        $service->numberWithEmployeeName('79611359896', 'Ефимова Юлия'),
+        "An employee's own name on an external leg never labels the customer"
+    );
+    expectPartyName(
+        '79611359896',
+        $service->numberWithEmployeeName('79611359896', 'ефимова юлия'),
+        'The staff check ignores letter case'
+    );
+    expectPartyName(
+        '74957654321',
+        $service->numberWithEmployeeName('74957654321', 'Отдел продаж'),
+        'An extension caller id is a staff identity too'
+    );
+
+    // A genuine external identity is untouched.
+    expectPartyName(
+        '78612059222 (Yug-Agro)',
+        $service->numberWithEmployeeName('78612059222', 'Yug-Agro'),
+        'A genuine external identity still labels the customer'
     );
 
     echo "Call party name resolution OK\n";
