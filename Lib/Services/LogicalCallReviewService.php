@@ -106,17 +106,24 @@ final class LogicalCallReviewService
         }
         $source = trim((string)$cdr->src_num);
         $destination = trim((string)$cdr->dst_num);
+        $sourceName = (string)($cdr->src_name ?? '');
+        $destinationName = (string)($cdr->dst_name ?? '');
         $numbers = match ($direction) {
-            CallDirectionResolver::DIRECTION_INCOMING => [$destination],
-            CallDirectionResolver::DIRECTION_OUTGOING => [$source],
-            CallDirectionResolver::DIRECTION_INTERNAL => [$source, $destination],
+            CallDirectionResolver::DIRECTION_INCOMING => [$destination => $destinationName],
+            CallDirectionResolver::DIRECTION_OUTGOING => [$source => $sourceName],
+            CallDirectionResolver::DIRECTION_INTERNAL => [$source => $sourceName, $destination => $destinationName],
             default => [],
         };
 
-        return array_values(array_filter(array_map(
-            fn (string $number): string => $this->recordings->numberWithEmployeeName($number),
-            array_unique(array_filter($numbers))
-        )));
+        $labels = [];
+        foreach ($numbers as $number => $displayName) {
+            $label = $this->recordings->numberWithEmployeeName((string)$number, $displayName);
+            if ($label !== '') {
+                $labels[] = $label;
+            }
+        }
+
+        return array_values(array_unique($labels));
     }
 
     private function routeTitle(?CallDetailRecords $cdr): string
@@ -124,8 +131,8 @@ final class LogicalCallReviewService
         if (!$cdr instanceof CallDetailRecords) {
             return '';
         }
-        $source = $this->recordings->numberWithEmployeeName((string)$cdr->src_num);
-        $destination = $this->recordings->numberWithEmployeeName((string)$cdr->dst_num);
+        $source = $this->recordings->numberWithEmployeeName((string)$cdr->src_num, (string)($cdr->src_name ?? ''));
+        $destination = $this->recordings->numberWithEmployeeName((string)$cdr->dst_num, (string)($cdr->dst_name ?? ''));
 
         return trim($source . ($source !== '' && $destination !== '' ? ' → ' : '') . $destination);
     }

@@ -9,7 +9,9 @@ namespace MikoPBX\Common\Models {
         public string $linkedid = '';
         public string $UNIQUEID = '';
         public string $src_num = '';
+        public string $src_name = '';
         public string $dst_num = '';
+        public string $dst_name = '';
         public string $did = '';
         public string $from_account = '';
         public string $to_account = '';
@@ -102,9 +104,14 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
             return $this->cdrByFilePath[$job->file_path] ?? $this->cdrByCallId[$job->call_id] ?? null;
         }
 
-        public function numberWithEmployeeName(string $number): string
+        // Mirrors production precedence: a known extension outranks the CDR
+        // display name, which only labels everyone the extension list misses.
+        public function numberWithEmployeeName(string $number, string $cdrDisplayName = ''): string
         {
             $name = $this->employeeNamesByNumber[$number] ?? '';
+            if ($name === '') {
+                $name = trim($cdrDisplayName) === $number ? '' : trim($cdrDisplayName);
+            }
 
             return $name === '' ? $number : sprintf('%s (%s)', $number, $name);
         }
@@ -185,6 +192,7 @@ namespace {
         $cdr = new CallDetailRecords();
         $cdr->src_num = $source;
         $cdr->dst_num = $destination;
+        $cdr->src_name = $source === '790099241808' ? 'ALL:SP INVEST' : '';
         $cdr->did = $did;
         $cdr->from_account = $fromAccount;
         $cdr->to_account = $toAccount;
@@ -269,7 +277,10 @@ namespace {
     );
     expectTranscriptList($byDirection['outgoing']['callDurationLabel'] === '00:46', 'duration must come from CDR');
     expectTranscriptList($byDirection['incoming']['directionIcon'] === '↙', 'incoming direction icon mismatch');
-    expectTranscriptList($byDirection['incoming']['clientLabel'] === '790099241808', 'incoming client mismatch');
+    expectTranscriptList(
+        $byDirection['incoming']['clientLabel'] === '790099241808 (ALL:SP INVEST)',
+        'incoming client must carry the company name the CDR row recorded'
+    );
     expectTranscriptList(
         $byDirection['incoming']['employeesLabel'] === '208 (Портнов Алексей)',
         'incoming employee must include the resolved employee name'

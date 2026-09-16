@@ -75,12 +75,16 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
             return ['hasPlayback' => true, 'playbackUrl' => '/recording?id=' . $result->id, 'rows' => []];
         }
 
-        public function numberWithEmployeeName(string $number): string
+        // Mirrors production precedence: a known extension outranks the CDR
+        // display name, which only labels everyone the extension list misses.
+        public function numberWithEmployeeName(string $number, string $cdrDisplayName = ''): string
         {
             return match ($number) {
                 '208' => '208 (Портнов Алексей)',
                 '206' => '206 (Васильева Анна)',
-                default => $number,
+                default => trim($cdrDisplayName) === '' || trim($cdrDisplayName) === $number
+                    ? $number
+                    : sprintf('%s (%s)', $number, trim($cdrDisplayName)),
             };
         }
     }

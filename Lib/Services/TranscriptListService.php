@@ -538,30 +538,35 @@ class TranscriptListService
         $destination = trim((string)($cdr->dst_num ?? ''));
         $duration = (float)($cdr->duration ?? 0);
         $direction = $this->directionResolver->resolve($cdr)['direction'];
+        // The counterparty is labelled the same way as the employee: the CDR
+        // row already carries the name the phone book resolved for it, so the
+        // client column no longer shows a bare number.
+        $sourceLabel = $this->partyLabel($source, (string)($cdr->src_name ?? ''));
+        $destinationLabel = $this->partyLabel($destination, (string)($cdr->dst_name ?? ''));
 
         return match ($direction) {
             CallDirectionResolver::DIRECTION_INTERNAL => $this->presentCall(
                 'internal',
                 '—',
-                $this->routeLabel($this->employeeLabel($source), $this->employeeLabel($destination)),
+                $this->routeLabel($sourceLabel, $destinationLabel),
                 $duration,
-                [$this->employeeLabel($source), $this->employeeLabel($destination)]
+                [$sourceLabel, $destinationLabel]
             ),
             CallDirectionResolver::DIRECTION_OUTGOING => $this->presentCall(
                 'outgoing',
-                $destination,
-                $this->employeeLabel($source),
+                $destinationLabel,
+                $sourceLabel,
                 $duration,
-                [$this->employeeLabel($source)]
+                [$sourceLabel]
             ),
             CallDirectionResolver::DIRECTION_INCOMING => $this->presentCall(
                 'incoming',
-                $source,
-                $this->employeeLabel($destination),
+                $sourceLabel,
+                $destinationLabel,
                 $duration,
-                [$this->employeeLabel($destination)]
+                [$destinationLabel]
             ),
-            default => $this->presentCall('unknown', '—', $this->routeLabel($source, $destination), $duration),
+            default => $this->presentCall('unknown', '—', $this->routeLabel($sourceLabel, $destinationLabel), $duration),
         };
     }
 
@@ -674,9 +679,9 @@ class TranscriptListService
         return $grouped;
     }
 
-    private function employeeLabel(string $number): string
+    private function partyLabel(string $number, string $cdrDisplayName = ''): string
     {
-        return $number === '' ? '' : $this->recordings->numberWithEmployeeName($number);
+        return $number === '' ? '' : $this->recordings->numberWithEmployeeName($number, $cdrDisplayName);
     }
 
     private function routeLabel(string $source, string $destination): string

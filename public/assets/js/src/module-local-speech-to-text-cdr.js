@@ -255,6 +255,23 @@
             $meta.find('[data-field="duration"]').text(String(rowData[3] || ''));
         }
 
+        // The history row only ever holds bare numbers, and for an incoming
+        // call with a DID it does not even hold the extension the transcript
+        // is about. The detail response labels the call's own parties, so it
+        // replaces those numbers once it arrives.
+        function applyPartyLabels(parties) {
+            if (!parties || typeof parties !== 'object') {
+                return;
+            }
+            const $meta = $modal.find('.stt-cdr-transcript-call-meta');
+            ['source', 'destination'].forEach(function (field) {
+                const label = String(parties[field] || '');
+                if (label !== '') {
+                    $meta.find('[data-field="' + field + '"]').text(label);
+                }
+            });
+        }
+
         function showError(message) {
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
             clearConversation();
@@ -322,6 +339,7 @@
                 data: { call_id: callId },
                 beforeSend: addAuthorizationHeader,
             }).done(function (response) {
+                applyPartyLabels(response && response.transcript ? response.transcript.parties : null);
                 renderConversation(response && response.transcript ? response.transcript : null, rowData);
             }).fail(function (xhr, status) {
                 if (status === 'abort') {

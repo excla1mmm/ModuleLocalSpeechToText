@@ -39,8 +39,8 @@ class CallRecordingService
         if ($duration <= 0 && $cdr instanceof CallDetailRecords) {
             $duration = (float)$cdr->duration;
         }
-        $sourceNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->src_num) : '';
-        $destinationNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->dst_num) : '';
+        $sourceNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->src_num, (string)($cdr->src_name ?? '')) : '';
+        $destinationNumber = $cdr instanceof CallDetailRecords ? $this->numberWithEmployeeName((string)$cdr->dst_num, (string)($cdr->dst_name ?? '')) : '';
 
         $rows = [
             [
@@ -201,7 +201,16 @@ class CallRecordingService
         };
     }
 
-    public function numberWithEmployeeName(string $number): string
+    /**
+     * Labels a call party as `number (name)`.
+     *
+     * An extension the PBX knows always wins: that name is current and
+     * trusted, whereas $cdrDisplayName comes from `CALLERID(name)`, which on
+     * an inbound call is chosen by the remote side and must never be able to
+     * relabel a known internal extension. The CDR name then covers everyone
+     * the extension list cannot - most usefully the counterparty's company.
+     */
+    public function numberWithEmployeeName(string $number, string $cdrDisplayName = ''): string
     {
         $number = trim($number);
         if ($number === '') {
@@ -210,7 +219,9 @@ class CallRecordingService
 
         $extension = $this->employeeExtensionByNumber($number);
         if (!$extension instanceof Extensions) {
-            return $number;
+            $external = CdrDisplayName::forNumber($cdrDisplayName, $number);
+
+            return $external === '' ? $number : sprintf('%s (%s)', $number, $external);
         }
 
         $employeeName = '';

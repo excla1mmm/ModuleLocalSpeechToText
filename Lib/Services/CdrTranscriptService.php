@@ -24,6 +24,37 @@ final class CdrTranscriptService
     ) {
     }
 
+    /**
+     * Labels the call's own parties for the call-history modal.
+     *
+     * The modal cannot take these from the history row it was opened from:
+     * for an incoming call with a DID, Core shows the DID as the row's
+     * destination and deliberately blanks its name, so the extension the
+     * transcript is actually about is never named there. The transcript's own
+     * CDR rows carry both names, ungrouped.
+     *
+     * Labels are decoration; without a CDR record the modal keeps showing the
+     * bare numbers it already had.
+     *
+     * @param array<int, int> $cdrIds
+     * @return array<string, string>
+     */
+    private function partyLabels(array $cdrIds): array
+    {
+        if ($this->recordings === null || $cdrIds === []) {
+            return [];
+        }
+        $cdr = $this->recordings->cdrRecordById(array_values($cdrIds)[0]);
+        if ($cdr === null) {
+            return [];
+        }
+
+        return array_filter([
+            'source' => $this->recordings->numberWithEmployeeName((string)($cdr->src_num ?? ''), (string)($cdr->src_name ?? '')),
+            'destination' => $this->recordings->numberWithEmployeeName((string)($cdr->dst_num ?? ''), (string)($cdr->dst_name ?? '')),
+        ], static fn (string $label): bool => $label !== '');
+    }
+
     /** @param array<int, mixed> $callIds @return array<string, int> */
     public function lookup(array $callIds, UsersUICallScope $scope): array
     {
@@ -139,6 +170,7 @@ final class CdrTranscriptService
             'revision' => (int)$revision->revision,
             'completenessStatus' => (string)$revision->completeness_status,
             'playbackCdrId' => $playbackCdrId,
+            'parties' => $this->partyLabels($cdrIds),
             'conversation' => $conversation,
         ];
     }
