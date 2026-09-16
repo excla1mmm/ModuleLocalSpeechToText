@@ -37,6 +37,13 @@ final class CdrDisplayName
         $withoutControls = preg_replace('/[\p{C}]+/u', ' ', $raw);
         $collapsed = preg_replace('/\s+/u', ' ', $withoutControls ?? '');
         $trimmed = trim($collapsed ?? '');
+        // A caller-name lookup that found nothing still returns its own source
+        // label - "ALL:", "SBIS:", "1C:ALL:" - which names nobody. A display
+        // name ending in a separator has an empty payload, so it is treated as
+        // absent rather than rendered as a bare label next to the number.
+        if (str_ends_with($trimmed, ':')) {
+            return '';
+        }
 
         return mb_strlen($trimmed) > self::MAXIMUM_LENGTH
             ? rtrim(mb_substr($trimmed, 0, self::MAXIMUM_LENGTH)) . '…'

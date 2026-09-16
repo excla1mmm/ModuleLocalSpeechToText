@@ -54,5 +54,16 @@ namespace {
         'A name exactly at the cap must not be truncated'
     );
 
+    // Caller-name lookups that found nothing return only their source label.
+    // These are the exact shapes a production station records.
+    expectCdrDisplayName('', CdrDisplayName::forNumber('ALL:', '74733003008'), 'A lookup label with no payload names nobody');
+    expectCdrDisplayName('', CdrDisplayName::forNumber('1C:ALL:', '74733003008'), 'Stacked empty labels name nobody');
+    expectCdrDisplayName('', CdrDisplayName::forNumber('SBIS:', '74733003008'), 'The rule is not tied to one provider label');
+    expectCdrDisplayName('', CdrDisplayName::forNumber('TEL: ', '74733003008'), 'Trailing space does not hide an empty payload');
+
+    // A label that did resolve a name keeps it: only the payload was missing above.
+    expectCdrDisplayName('ALL:SP INVEST', CdrDisplayName::forNumber('ALL:SP INVEST', '79031557353'), 'A label with a payload is a real identity');
+    expectCdrDisplayName('1C:Akvatar OOO', CdrDisplayName::forNumber('1C:Akvatar OOO', '74957654321'), 'A stacked label with a payload is kept');
+
     echo "CDR display name OK\n";
 }
