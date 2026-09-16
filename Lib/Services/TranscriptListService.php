@@ -49,14 +49,27 @@ class TranscriptListService
     // value from callTimestamp() is still computed and checked per row below,
     // so this expression only needs to be a close enough approximation to
     // avoid excluding rows a precise check would keep.
+    //
+    // The outer CAST is load-bearing, not cosmetic. A bare CASE expression has
+    // no SQLite type affinity, while PDO (and Phalcon on top of it) binds
+    // integer parameters as TEXT unless a type map is passed. Comparing an
+    // affinity-less INTEGER expression against a TEXT parameter compares
+    // storage classes instead of numbers - every integer sorts before every
+    // string - so `CASE ... >= :date_bound_start` was false for every row and
+    // the transcripts list came back empty whenever the date filter was
+    // active (which is always: transcriptDateFilterFromRequest() defaults to
+    // the last seven days). CAST(... AS INTEGER) gives the expression INTEGER
+    // affinity, which makes SQLite coerce the bound text operand to a number
+    // before comparing. Keep the wrapper here rather than at the comparison
+    // sites so every current and future use of this constant is safe.
     private const string EFFECTIVE_TIME_SQL = <<<'SQL'
-        CASE
+        CAST(CASE
             WHEN j.cdr_start_ms IS NOT NULL AND CAST(j.cdr_start_ms AS INTEGER) > 0
                 THEN CAST(j.cdr_start_ms AS INTEGER) / 1000
             WHEN j.cdr_endtime IS NOT NULL AND CAST(j.cdr_endtime AS INTEGER) > 0
                 THEN CAST(j.cdr_endtime AS INTEGER)
             ELSE CAST(r.created_at AS INTEGER)
-        END
+        END AS INTEGER)
         SQL;
 
     private readonly UsersUICallScope $callScope;
