@@ -137,6 +137,22 @@ namespace {
     expectSpeakerLabels($labelsByKey === ['left' => 'Клиент', 'right' => 'Сотрудник'], 'conversation speakers must use the resolved client/employee labels');
     expectSpeakerLabels($conversation['timeline'][0]['speakerLabel'] === 'Клиент', 'turn speaker label must reflect the override');
 
+    // A known employee is labeled with the PBX name; a nameless one stays generic.
+    $names = ['208' => 'Ефимова Юлия', '206' => '', '790099241808' => 'Клиент по ошибке'];
+    $namedResolver = new ConversationSpeakerLabelResolver($translation, $directionResolver, static fn (string $number): string => $names[$number] ?? '');
+    expectSpeakerLabels(
+        $namedResolver->resolve(cdr('790099241808', '208', '0')) === ['left' => 'Клиент', 'right' => 'Ефимова Юлия'],
+        'incoming call: the employee side must carry the employee name and the client side must never be renamed'
+    );
+    expectSpeakerLabels(
+        $namedResolver->resolve(cdr('208', '790099241808', '1')) === ['left' => 'Клиент', 'right' => 'Ефимова Юлия'],
+        'outgoing call: the employee name follows the recorded channel'
+    );
+    expectSpeakerLabels(
+        $namedResolver->resolve(cdr('208', '206', '0')) === ['left' => 'Ефимова Юлия', 'right' => 'Сотрудник'],
+        'internal call: each employee is named, and one without a name falls back to employee'
+    );
+
     // Without an override, the generic speaker labels are preserved.
     $genericConversation = (new TranscriptConversationService($translation))->conversationFromTranscript(
         json_encode($segments, JSON_THROW_ON_ERROR)

@@ -326,9 +326,12 @@ class LocalSpeechToTextBaseController extends BaseController
 
     protected function conversationSpeakerLabelResolver(): ConversationSpeakerLabelResolver
     {
+        $recordings = $this->callRecordingService();
+
         return new ConversationSpeakerLabelResolver(
             $this->translation,
             new CallDirectionResolver(CallDirectionResolver::loadInternalNumbers()),
+            $recordings->employeeName(...),
         );
     }
 

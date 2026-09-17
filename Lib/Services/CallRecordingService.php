@@ -236,16 +236,29 @@ class CallRecordingService
             return $external === '' ? $number : sprintf('%s (%s)', $number, $external);
         }
 
-        $employeeName = '';
-        $user = $extension->Users;
-        if ($user instanceof Users) {
-            $employeeName = trim((string)$user->username);
-        }
-        if ($employeeName === '') {
-            $employeeName = trim((string)$extension->callerid);
-        }
+        $employeeName = $this->extensionEmployeeName($extension);
 
         return $employeeName === '' ? $number : sprintf('%s (%s)', $number, $employeeName);
+    }
+
+    /**
+     * The trusted PBX name of the employee behind an internal number, or ''
+     * when the number is not an employee extension or carries no name. The
+     * CDR display name is deliberately never consulted here.
+     */
+    public function employeeName(string $number): string
+    {
+        $extension = $this->employeeExtensionByNumber($number);
+
+        return $extension instanceof Extensions ? $this->extensionEmployeeName($extension) : '';
+    }
+
+    private function extensionEmployeeName(Extensions $extension): string
+    {
+        $user = $extension->Users;
+        $employeeName = $user instanceof Users ? trim((string)$user->username) : '';
+
+        return $employeeName !== '' ? $employeeName : trim((string)$extension->callerid);
     }
 
     /**
