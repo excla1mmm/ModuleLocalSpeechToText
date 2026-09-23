@@ -12,6 +12,7 @@ use MikoPBX\Core\System\Upgrade\UpdateDatabase;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
 use MikoPBX\PBXCoreREST\Services\TokenValidationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptSchemaService;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptStorageCompaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextJournalFormatMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
@@ -154,6 +155,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             $connection = (new STTJob())->getWriteConnection();
             $databasePragmas->enableWalAfterVerifiedSetup($connection, $databasePath);
             $databasePragmas->checkpoint($connection);
+            $databasePragmas->enableIncrementalAutoVacuum($connection, $databasePath);
 
             if (!$this->registerNewModule()) {
                 throw new \RuntimeException('Unable to register STT module');
@@ -415,6 +417,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyModuleOwnedIndexMigration($connection),
                 'stt-schema-017-module-owned-partial-indexes'
             ),
+            new ModuleSchemaMigration(
+                18,
+                'compact call transcript storage',
+                fn (mixed $connection): null => $this->applyCallTranscriptStorageCompactionMigration($connection),
+                'stt-schema-018-compact-call-transcript-storage'
+            ),
         ];
     }
 
@@ -603,6 +611,20 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     private function applyJobSubmissionReceiptMigration(mixed $connection): null
     {
         (new JobSubmissionReceiptMigration())->migrate($connection);
+        return null;
+    }
+
+    private function applyCallTranscriptStorageCompactionMigration(mixed $connection): null
+    {
+        $summary = (new CallTranscriptStorageCompaction())->run($connection);
+        LocalSpeechToTextLogger::event(
+            'setup',
+            'call_transcript_storage_compacted',
+            'Call transcript storage converted to the compact format',
+            LOG_NOTICE,
+            $summary
+        );
+
         return null;
     }
 

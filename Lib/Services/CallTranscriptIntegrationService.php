@@ -15,6 +15,7 @@ require_once __DIR__ . '/CallTranscriptTimelineProjector.php';
 require_once __DIR__ . '/TranscriptPublicProjection.php';
 require_once __DIR__ . '/SttSourceInstance.php';
 require_once __DIR__ . '/CallTranscriptDeletionEvents.php';
+require_once __DIR__ . '/CallTranscriptPayloadCodec.php';
 
 final class CallTranscriptIntegrationService
 {
@@ -95,8 +96,7 @@ final class CallTranscriptIntegrationService
         if (!$stored instanceof STTCallTranscriptRevision) {
             throw new CallTranscriptNotFoundException('Call transcript revision not found');
         }
-        $payload = json_decode((string)$stored->payload, true);
-        $payload = is_array($payload) ? $payload : [];
+        $payload = (new CallTranscriptPayloadCodec())->decodeOrEmpty((string)$stored->payload);
         $language = $this->callLanguage(is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : []);
         if (is_array($payload['transcript'] ?? null)) {
             $manifest = is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : [];

@@ -9,6 +9,7 @@ use PDO;
 use RuntimeException;
 
 require_once __DIR__ . '/CallTranscriptDeletionEvents.php';
+require_once __DIR__ . '/ModuleDatabasePragmas.php';
 
 final class TranscriptRetentionService
 {
@@ -19,6 +20,16 @@ final class TranscriptRetentionService
     {
         $this->connection = $connection ?? (new STTResult())->getWriteConnection();
         $this->transaction = $transaction ?? new ModuleTransaction();
+    }
+
+    /**
+     * Returns pages freed by a purge to the file system (no-op until the
+     * database runs with incremental auto-vacuum). Call after purgeExpired(),
+     * outside any transaction.
+     */
+    public function releaseFreePages(?ModuleDatabasePragmas $pragmas = null): int
+    {
+        return ($pragmas ?? new ModuleDatabasePragmas())->releaseFreePages($this->connection);
     }
 
     /**

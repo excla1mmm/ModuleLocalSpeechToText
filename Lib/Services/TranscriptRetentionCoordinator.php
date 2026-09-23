@@ -32,7 +32,11 @@ final class TranscriptRetentionCoordinator
             return;
         }
 
-        $summary = (new TranscriptRetentionService())->purgeExpired($retentionDays, $now);
+        $retention = new TranscriptRetentionService();
+        $summary = $retention->purgeExpired($retentionDays, $now);
+        $releasedPages = $summary['calls'] > 0 || $summary['results'] > 0
+            ? $retention->releaseFreePages()
+            : 0;
         STTSetting::setValue(
             STTSetting::TRANSCRIPT_RETENTION_LAST_CLEANUP_AT,
             $summary['has_more'] ? '0' : (string)$now
@@ -47,6 +51,7 @@ final class TranscriptRetentionCoordinator
                     'calls_count' => $summary['calls'],
                     'results_count' => $summary['results'],
                     'has_more' => $summary['has_more'],
+                    'released_pages' => $releasedPages,
                 ]
             );
         }

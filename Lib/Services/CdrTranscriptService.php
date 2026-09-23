@@ -11,6 +11,8 @@ use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptRevision;
 use Phalcon\Db\Enum;
 use RuntimeException;
 
+require_once __DIR__ . '/CallTranscriptPayloadCodec.php';
+
 final class CdrTranscriptService
 {
     private const int MAX_CALL_IDS = 100;
@@ -125,10 +127,7 @@ final class CdrTranscriptService
             throw new RuntimeException('Published transcript revision is missing');
         }
 
-        $payload = json_decode((string)$revision->payload, true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($payload)) {
-            throw new RuntimeException('Published transcript revision payload is invalid');
-        }
+        $payload = (new CallTranscriptPayloadCodec())->decode((string)$revision->payload);
 
         $manifest = is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : [];
         $segments = is_array($payload['transcript']['segments'] ?? null)

@@ -14,15 +14,27 @@ use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use RuntimeException;
 
+require_once __DIR__ . '/CallTranscriptPayloadCodec.php';
+
 final class CallTranscriptRevisionService
 {
+    /**
+     * Value of m_STTCallTranscriptPart.segments_json for parts whose segments
+     * are read from m_STTResult.transcript (the result row is updated in place
+     * only together with a new current part, inside the same transaction).
+     */
+    public const string SEGMENTS_IN_RESULT = '[]';
+
     private readonly CallTranscriptAssembler $assembler;
     private readonly CallTranscriptRevisionPolicy $policy;
+    private readonly CallTranscriptPayloadCodec $payloadCodec;
 
     public function __construct(
         ?CallTranscriptAssembler $assembler = null,
         ?CallTranscriptRevisionPolicy $policy = null,
+        ?CallTranscriptPayloadCodec $payloadCodec = null,
     ) {
+        $this->payloadCodec = $payloadCodec ?? new CallTranscriptPayloadCodec();
         $this->assembler = $assembler ?? new CallTranscriptAssembler();
         $this->policy = $policy ?? new CallTranscriptRevisionPolicy(
             max(0, min(3600, (int)STTSetting::getValue(STTSetting::CALL_TRANSCRIPT_STABILITY_SEC, '30')))
@@ -100,7 +112,7 @@ final class CallTranscriptRevisionService
         $part->content_hash = $contentHash;
         $part->source_label = $part->cdr_id === null ? 'legacy:' . (int)$result->id : 'cdr:' . $part->cdr_id;
         $part->resolution_status = $resolutionStatus;
-        $part->segments_json = $this->canonicalJson($segments);
+        $part->segments_json = self::SEGMENTS_IN_RESULT;
         $part->is_current = '1';
         $part->created_at = (string)$now;
         $this->save($part, 'call transcript part');
@@ -110,12 +122,15 @@ final class CallTranscriptRevisionService
             $this->save($existing, 'call transcript part supersession link');
         }
 
-        $assembled = $this->assembler->assemble($callId, $this->currentParts((int)$call->id));
+        $assembled = $this->assembler->assemble(
+            $callId,
+            $this->currentParts((int)$call->id, [(int)$result->id => $segments])
+        );
         $staged = $this->policy->stage(
             $this->callState($call),
             (string)$assembled['content_hash'],
             (string)$assembled['parts_hash'],
-            $this->canonicalJson($assembled),
+            $this->payloadCodec->encode($assembled),
             (string)$assembled['completeness_status'],
             $now
         );
@@ -272,8 +287,11 @@ final class CallTranscriptRevisionService
         return $calls;
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function currentParts(int $callTranscriptId): array
+    /**
+     * @param array<int, array<int, mixed>> $knownSegments segments by result id already in memory
+     * @return array<int, array<string, mixed>>
+     */
+    private function currentParts(int $callTranscriptId, array $knownSegments = []): array
     {
         $parts = [];
         foreach (STTCallTranscriptPart::find([
@@ -283,7 +301,7 @@ final class CallTranscriptRevisionService
             if (!$part instanceof STTCallTranscriptPart) {
                 continue;
             }
-            $segments = json_decode((string)$part->segments_json, true);
+            $segments = $this->partSegments($part, $knownSegments);
             $parts[] = [
                 'result_id' => (int)$part->result_id,
                 'job_id' => $part->job_id === null ? null : (int)$part->job_id,
@@ -300,6 +318,37 @@ final class CallTranscriptRevisionService
         }
 
         return $parts;
+    }
+
+    /**
+     * Legacy parts still carry their own segment copy; compact parts read the
+     * segments of the result they point to.
+     *
+     * @param array<int, array<int, mixed>> $knownSegments
+     * @return array<int, mixed>
+     */
+    private function partSegments(STTCallTranscriptPart $part, array $knownSegments): array
+    {
+        $resultId = (int)$part->result_id;
+        if (array_key_exists($resultId, $knownSegments)) {
+            return $knownSegments[$resultId];
+        }
+        $stored = json_decode((string)$part->segments_json, true);
+        if (is_array($stored) && $stored !== []) {
+            return $stored;
+        }
+        $result = $resultId > 0
+            ? STTResult::findFirst([
+                'conditions' => 'id = :id:',
+                'bind' => ['id' => $resultId],
+            ])
+            : null;
+        if (!$result instanceof STTResult) {
+            return [];
+        }
+        $segments = json_decode((string)$result->transcript, true);
+
+        return is_array($segments) ? array_values(array_filter($segments, 'is_array')) : [];
     }
 
     /** @return array<string, mixed> */
