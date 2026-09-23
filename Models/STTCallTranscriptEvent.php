@@ -16,6 +16,8 @@ class STTCallTranscriptEvent extends ModulesModelsBase
 {
     public const string TYPE_COMPLETED = 'call-transcript.completed';
     public const string TYPE_UPDATED = 'call-transcript.updated';
+    /** Tombstone, see CallTranscriptDeletionEvents; served only with include_deleted. */
+    public const string TYPE_DELETED = 'call-transcript.deleted';
 
     /**
      * @Primary

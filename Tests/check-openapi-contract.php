@@ -325,7 +325,9 @@ namespace {
     $callEventParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getParameterDefinitions()['request'];
     expectOpenApi(($callEventParameters['cursor']['pattern'] ?? null) === '^\\d+:\\d+$' && ($callEventParameters['limit']['minimum'] ?? null) === 1 && ($callEventParameters['limit']['maximum'] ?? null) === 200, 'Call transcript event cursor constraints changed');
     $callEventSchema = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscriptEvents\DataStructure::getDetailSchema();
-    expectOpenApi(array_keys($callEventSchema['properties'] ?? []) === ['source_instance_id', 'events', 'next_cursor'], 'Call transcript event wrapper must expose source identity');
+    expectOpenApi(array_keys($callEventSchema['properties'] ?? []) === ['source_instance_id', 'contract_version', 'events', 'next_cursor'], 'Call transcript event wrapper must expose source identity and contract version');
+    expectOpenApi(($callEventParameters['include_deleted']['type'] ?? null) === 'boolean' && ($callEventParameters['include_deleted']['default'] ?? null) === false, 'Deletion events must stay opt-in');
+    expectOpenApi(in_array('call-transcript.deleted', $callEventSchema['properties']['events']['items']['properties']['event_type']['enum'] ?? [], true), 'Call transcript event types must document deletion tombstones');
     expectOpenApi(($callEventSchema['properties']['source_instance_id']['pattern'] ?? null) === '^[a-f0-9]{32}$', 'Call transcript event source identity constraint changed');
     $callParameters = \Modules\ModuleLocalSpeechToText\Lib\RestAPI\CallTranscripts\DataStructure::getParameterDefinitions()['request'];
     expectOpenApi(($callParameters['id']['minimum'] ?? null) === 1 && ($callParameters['revision']['minimum'] ?? null) === 1, 'Call transcript revision constraints changed');

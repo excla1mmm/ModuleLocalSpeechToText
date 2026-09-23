@@ -9,6 +9,8 @@ use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use PDO;
 use RuntimeException;
 
+require_once __DIR__ . '/CallTranscriptDeletionEvents.php';
+
 final class TranscriptDeletionService
 {
     private const string JOB_PENDING = 'pending';
@@ -30,7 +32,9 @@ final class TranscriptDeletionService
             throw new RuntimeException('Transcript was not found');
         }
 
-        return $this->transaction->run($this->connection, function (mixed $connection) use ($resultId): array {
+        $deletedAt = time();
+
+        return $this->transaction->run($this->connection, function (mixed $connection) use ($resultId, $deletedAt): array {
             $row = $connection->fetchOne(
                 'SELECT j.call_id FROM m_STTResult r JOIN m_STTJob j ON j.id = r.job_id WHERE r.id = :id LIMIT 1',
                 PDO::FETCH_ASSOC,
@@ -81,12 +85,15 @@ final class TranscriptDeletionService
                 );
             }
 
+            $deletionEvents = new CallTranscriptDeletionEvents();
+            $tombstones = $deletionEvents->prepare($connection, $callTranscriptIds, $deletedAt);
             $this->deleteByIds($connection, 'm_STTCallTranscriptEvent', 'call_transcript_id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTCallTranscriptRevision', 'call_transcript_id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTCallTranscriptPart', 'call_transcript_id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTCallTranscript', 'id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTTranscriptEvent', 'result_id', $resultIds);
             $this->deleteByIds($connection, 'm_STTResult', 'id', $resultIds);
+            $deletionEvents->publish($connection, $tombstones, CallTranscriptDeletionEvents::REASON_MANUAL, $deletedAt);
 
             return ['call_id' => $callId, 'results' => count($resultIds)];
         });

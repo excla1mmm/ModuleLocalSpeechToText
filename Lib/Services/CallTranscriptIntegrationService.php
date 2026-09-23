@@ -14,36 +14,42 @@ require_once __DIR__ . '/CallTranscriptTurnProjector.php';
 require_once __DIR__ . '/CallTranscriptTimelineProjector.php';
 require_once __DIR__ . '/TranscriptPublicProjection.php';
 require_once __DIR__ . '/SttSourceInstance.php';
+require_once __DIR__ . '/CallTranscriptDeletionEvents.php';
 
 final class CallTranscriptIntegrationService
 {
+    /**
+     * Version of the call-transcript REST contract. 2 adds contract_version
+     * itself and the opt-in include_deleted tombstone feed; consumers that
+     * do not opt in receive exactly the version 1 events.
+     */
+    public const int CONTRACT_VERSION = 2;
+
     /** @param array<string, mixed> $filters @return array<string, mixed> */
     public function callTranscriptEvents(array $filters): array
     {
         $limit = max(1, min(200, (int)($filters['limit'] ?? 100)));
         [$createdAt, $eventId] = $this->decodeCursor((string)($filters['cursor'] ?? '0:0'));
-        $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
-            'SELECT event.id, event.event_type, event.call_transcript_id, event.revision, event.created_at,
-                    aggregate.call_id, revision.content_hash, revision.parts_hash,
-                    revision.completeness_status
-               FROM m_STTCallTranscriptEvent event
-               JOIN m_STTCallTranscript aggregate ON aggregate.id = event.call_transcript_id
-               JOIN m_STTCallTranscriptRevision revision
-                 ON revision.call_transcript_id = event.call_transcript_id
-                AND revision.revision = event.revision
-              WHERE CAST(event.created_at AS INTEGER) > :created_at
-                 OR (CAST(event.created_at AS INTEGER) = :created_at AND CAST(event.id AS INTEGER) > :event_id)
-              ORDER BY CAST(event.created_at AS INTEGER) ASC, CAST(event.id AS INTEGER) ASC
-              LIMIT ' . $limit,
-            Enum::FETCH_ASSOC,
-            ['created_at' => $createdAt, 'event_id' => $eventId]
-        );
+        $includeDeleted = $this->flag($filters['include_deleted'] ?? null);
+        $rows = $includeDeleted
+            ? $this->eventRowsWithDeletions($createdAt, $eventId, $limit)
+            : $this->eventRows($createdAt, $eventId, $limit);
 
         $events = [];
         $nextCursor = $this->encodeCursor($createdAt, $eventId);
         foreach ($rows as $row) {
             $rowCreatedAt = (int)($row['created_at'] ?? 0);
             $rowId = (int)($row['id'] ?? 0);
+            if ($includeDeleted && (string)($row['event_type'] ?? '') === CallTranscriptDeletionEvents::EVENT_TYPE) {
+                $event = $this->deletionEvent($row, $rowCreatedAt, $rowId);
+                if ($event === null) {
+                    $this->logRejectedEvent($rowId, (int)($row['call_transcript_id'] ?? 0));
+                    break;
+                }
+                $events[] = $event;
+                $nextCursor = $this->encodeCursor($rowCreatedAt, $rowId);
+                continue;
+            }
             $event = [
                 'cursor' => $this->encodeCursor($rowCreatedAt, $rowId),
                 'event_type' => (string)($row['event_type'] ?? ''),
@@ -55,15 +61,7 @@ final class CallTranscriptIntegrationService
                 'completeness_status' => trim((string)($row['completeness_status'] ?? '')),
             ];
             if (!$this->validEvent($event)) {
-                if (class_exists(LocalSpeechToTextLogger::class)) {
-                    LocalSpeechToTextLogger::event(
-                        'transcript_import',
-                        'contract_event_rejected',
-                        'Stored transcript event identity is invalid',
-                        LOG_ERR,
-                        ['event_id' => $rowId, 'aggregate_id' => $event['aggregate_id']]
-                    );
-                }
+                $this->logRejectedEvent($rowId, $event['aggregate_id']);
                 break;
             }
             $events[] = $event;
@@ -72,6 +70,7 @@ final class CallTranscriptIntegrationService
 
         return [
             'source_instance_id' => (new SttSourceInstance())->current(),
+            'contract_version' => self::CONTRACT_VERSION,
             'events' => $events,
             'next_cursor' => $nextCursor,
         ];
@@ -107,6 +106,7 @@ final class CallTranscriptIntegrationService
 
         return [
             'source_instance_id' => (new SttSourceInstance())->current(),
+            'contract_version' => self::CONTRACT_VERSION,
             'aggregate_id' => $aggregateId,
             'call_id' => (string)$call->call_id,
             'revision' => (int)$stored->revision,
@@ -116,6 +116,104 @@ final class CallTranscriptIntegrationService
             'is_current' => (int)$stored->revision === (int)$call->current_revision,
             'created_at' => (int)$stored->created_at,
         ] + $payload;
+    }
+
+    /**
+     * Version 1 event page: completed/updated events of live aggregates only.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function eventRows(int $createdAt, int $eventId, int $limit): array
+    {
+        return (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT event.id, event.event_type, event.call_transcript_id, event.revision, event.created_at,
+                    aggregate.call_id, revision.content_hash, revision.parts_hash,
+                    revision.completeness_status
+               FROM m_STTCallTranscriptEvent event
+               JOIN m_STTCallTranscript aggregate ON aggregate.id = event.call_transcript_id
+               JOIN m_STTCallTranscriptRevision revision
+                 ON revision.call_transcript_id = event.call_transcript_id
+                AND revision.revision = event.revision
+              WHERE CAST(event.created_at AS INTEGER) > :created_at
+                 OR (CAST(event.created_at AS INTEGER) = :created_at AND CAST(event.id AS INTEGER) > :event_id)
+              ORDER BY CAST(event.created_at AS INTEGER) ASC, CAST(event.id AS INTEGER) ASC
+              LIMIT ' . $limit,
+            Enum::FETCH_ASSOC,
+            ['created_at' => $createdAt, 'event_id' => $eventId]
+        );
+    }
+
+    /**
+     * Same keyset page as the default feed, plus tombstones whose aggregate
+     * is already gone (hence the LEFT JOINs).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function eventRowsWithDeletions(int $createdAt, int $eventId, int $limit): array
+    {
+        return (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT event.id, event.event_type, event.event_key, event.call_transcript_id, event.revision,
+                    event.created_at, aggregate.call_id, revision.content_hash, revision.parts_hash,
+                    revision.completeness_status
+               FROM m_STTCallTranscriptEvent event
+          LEFT JOIN m_STTCallTranscript aggregate ON aggregate.id = event.call_transcript_id
+          LEFT JOIN m_STTCallTranscriptRevision revision
+                 ON revision.call_transcript_id = event.call_transcript_id
+                AND revision.revision = event.revision
+              WHERE (CAST(event.created_at AS INTEGER) > :created_at
+                     OR (CAST(event.created_at AS INTEGER) = :created_at AND CAST(event.id AS INTEGER) > :event_id))
+                AND (event.event_type = :deleted_type
+                     OR (aggregate.id IS NOT NULL AND revision.id IS NOT NULL))
+              ORDER BY CAST(event.created_at AS INTEGER) ASC, CAST(event.id AS INTEGER) ASC
+              LIMIT ' . $limit,
+            Enum::FETCH_ASSOC,
+            [
+                'created_at' => $createdAt,
+                'event_id' => $eventId,
+                'deleted_type' => CallTranscriptDeletionEvents::EVENT_TYPE,
+            ]
+        );
+    }
+
+    /** @param array<string, mixed> $row @return array<string, mixed>|null */
+    private function deletionEvent(array $row, int $createdAt, int $rowId): ?array
+    {
+        $aggregateId = (int)($row['call_transcript_id'] ?? 0);
+        $reason = CallTranscriptDeletionEvents::reasonFromEventKey((string)($row['event_key'] ?? ''));
+        if ($aggregateId < 1 || $reason === null || $createdAt < 1) {
+            return null;
+        }
+
+        return [
+            'cursor' => $this->encodeCursor($createdAt, $rowId),
+            'event_type' => CallTranscriptDeletionEvents::EVENT_TYPE,
+            'call_id' => null,
+            'aggregate_id' => $aggregateId,
+            'revision' => max(0, (int)($row['revision'] ?? 0)),
+            'content_hash' => null,
+            'parts_hash' => null,
+            'completeness_status' => null,
+            'deleted_at' => $createdAt,
+            'deletion_reason' => $reason,
+        ];
+    }
+
+    private function logRejectedEvent(int $rowId, int $aggregateId): void
+    {
+        if (class_exists(LocalSpeechToTextLogger::class)) {
+            LocalSpeechToTextLogger::event(
+                'transcript_import',
+                'contract_event_rejected',
+                'Stored transcript event identity is invalid',
+                LOG_ERR,
+                ['event_id' => $rowId, 'aggregate_id' => $aggregateId]
+            );
+        }
+    }
+
+    private function flag(mixed $value): bool
+    {
+        return $value === true || in_array(strtolower(trim((string)(is_scalar($value) ? $value : ''))), ['1', 'true', 'yes'], true);
     }
 
     /** @return array{0: int, 1: int} */

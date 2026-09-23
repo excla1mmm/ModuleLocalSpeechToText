@@ -183,6 +183,15 @@ Public segments and turns use integer `start_ms`/`end_ms` and expose only the ph
 
 Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling. Event rows preserve `result_id`, `job_id`, and `call_id` when available. Summary generation can fall back from job data to event and CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
 
+### Call transcripts
+
+Logical-call transcripts (all recording parts of one call, versioned by revision) are served by:
+
+- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true]`
+- `GET /call-transcripts/{aggregate_id}?revision=N`
+
+Both responses carry `contract_version` (currently `2`). By default the event feed returns only `call-transcript.completed` and `call-transcript.updated` events, exactly as in version 1. A consumer that passes `include_deleted=true` also receives `call-transcript.deleted` tombstones when a transcript is deleted by an administrator (`deletion_reason: manual`) or purged by the retention period (`deletion_reason: retention`). A tombstone carries the deleted `aggregate_id`, its last `revision` and `deleted_at`; `call_id`, `content_hash`, `parts_hash` and `completeness_status` are `null`. Tombstones follow the same cursor order as other events and are kept for 90 days. Opt in only after checking `contract_version >= 2`, and handle every event type your importer receives.
+
 These endpoints use the same MikoPBX REST v3 `PBXApiResult` envelope and should be used instead of direct table reads by new modules.
 
 ## Data Tables

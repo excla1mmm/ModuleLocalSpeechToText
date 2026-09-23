@@ -8,6 +8,8 @@ use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use PDO;
 use RuntimeException;
 
+require_once __DIR__ . '/CallTranscriptDeletionEvents.php';
+
 final class TranscriptRetentionService
 {
     private readonly mixed $connection;
@@ -33,7 +35,7 @@ final class TranscriptRetentionService
 
         return $this->transaction->run(
             $this->connection,
-            function (mixed $connection) use ($cutoff, $batchSize): array {
+            function (mixed $connection) use ($cutoff, $batchSize, $now): array {
                 $candidates = $connection->fetchAll(
                     "SELECT CASE
                                 WHEN TRIM(COALESCE(j.call_id, '')) = ''
@@ -106,12 +108,15 @@ final class TranscriptRetentionService
                     }
                 }
 
+                $deletionEvents = new CallTranscriptDeletionEvents();
+                $tombstones = $deletionEvents->prepare($connection, $callTranscriptIds, $now);
                 $this->deleteByIds($connection, 'm_STTCallTranscriptEvent', 'call_transcript_id', $callTranscriptIds, 'call_event');
                 $this->deleteByIds($connection, 'm_STTCallTranscriptRevision', 'call_transcript_id', $callTranscriptIds, 'call_revision');
                 $this->deleteByIds($connection, 'm_STTCallTranscriptPart', 'call_transcript_id', $callTranscriptIds, 'call_part');
                 $this->deleteByIds($connection, 'm_STTCallTranscript', 'id', $callTranscriptIds, 'call_transcript');
                 $this->deleteByIds($connection, 'm_STTTranscriptEvent', 'result_id', $resultIds, 'result_event');
                 $this->deleteByIds($connection, 'm_STTResult', 'id', $resultIds, 'result');
+                $deletionEvents->publish($connection, $tombstones, CallTranscriptDeletionEvents::REASON_RETENTION, $now);
 
                 return [
                     'calls' => count($candidates),

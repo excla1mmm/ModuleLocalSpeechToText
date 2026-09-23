@@ -36,6 +36,7 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('cursor')]
     #[ApiParameterRef('limit')]
+    #[ApiParameterRef('include_deleted')]
     #[ApiResponse(200, 'rest_response_200_list', PBXApiResult::class)]
     #[ApiResponse(401, 'rest_response_401_unauthorized', PBXApiResult::class)]
     #[ApiResponse(403, 'rest_response_403_forbidden', PBXApiResult::class)]

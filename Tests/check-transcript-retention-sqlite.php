@@ -75,10 +75,11 @@ function retentionDatabase(): PDO
         'CREATE TABLE m_STTJob (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL, file_path TEXT NOT NULL UNIQUE);
          CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL UNIQUE, created_at INTEGER NOT NULL);
          CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL);
-         CREATE TABLE m_STTCallTranscript (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL UNIQUE);
+         CREATE TABLE m_STTCallTranscript (id INTEGER PRIMARY KEY AUTOINCREMENT, call_id TEXT NOT NULL UNIQUE, current_revision INTEGER NOT NULL DEFAULT 1);
          CREATE TABLE m_STTCallTranscriptPart (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL, result_id INTEGER NOT NULL);
          CREATE TABLE m_STTCallTranscriptRevision (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL);
-         CREATE TABLE m_STTCallTranscriptEvent (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL);'
+         CREATE TABLE m_STTCallTranscriptEvent (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL DEFAULT \'call-transcript.completed\', event_key TEXT NOT NULL DEFAULT \'\', call_transcript_id INTEGER NOT NULL, call_id TEXT NOT NULL DEFAULT \'\', revision INTEGER NOT NULL DEFAULT 1, content_hash TEXT NOT NULL DEFAULT \'\', parts_hash TEXT NOT NULL DEFAULT \'\', completeness_status TEXT NOT NULL DEFAULT \'complete\', created_at INTEGER NOT NULL DEFAULT 0);
+         CREATE UNIQUE INDEX i_m_STTCallTranscriptEvent_key ON m_STTCallTranscriptEvent (event_key);'
     );
 
     return $pdo;
@@ -108,7 +109,7 @@ function seedRetentionGraph(PDO $pdo, int $now): void
         $pdo->prepare('INSERT INTO m_STTCallTranscript (id, call_id) VALUES (?, ?)')
             ->execute([$callTranscriptId, $callId]);
         $pdo->exec("INSERT INTO m_STTCallTranscriptRevision (id, call_transcript_id) VALUES ({$callTranscriptId}, {$callTranscriptId})");
-        $pdo->exec("INSERT INTO m_STTCallTranscriptEvent (id, call_transcript_id) VALUES ({$callTranscriptId}, {$callTranscriptId})");
+        $pdo->exec("INSERT INTO m_STTCallTranscriptEvent (id, event_key, call_transcript_id, created_at) VALUES ({$callTranscriptId}, 'completed:{$callTranscriptId}', {$callTranscriptId}, {$callTranscriptId})");
         foreach ($resultIds as $resultId) {
             $pdo->exec("INSERT INTO m_STTCallTranscriptPart (id, call_transcript_id, result_id) VALUES ({$resultId}, {$callTranscriptId}, {$resultId})");
         }
@@ -144,6 +145,21 @@ expectRetentionSqlite(
     (int)$pdo->query("SELECT COUNT(*) FROM m_STTResult WHERE id = 103")->fetchColumn() === 1,
     'old part of a recently processed call must remain'
 );
+$retentionTombstones = $pdo->query(
+    "SELECT call_transcript_id, event_key, created_at FROM m_STTCallTranscriptEvent WHERE event_type = 'call-transcript.deleted'"
+)->fetchAll(PDO::FETCH_ASSOC);
+expectRetentionSqlite(
+    count($retentionTombstones) === 1
+        && (int)$retentionTombstones[0]['call_transcript_id'] === 201
+        && $retentionTombstones[0]['event_key'] === 'call-transcript.deleted:201:retention'
+        && (int)$retentionTombstones[0]['created_at'] === $now,
+    'retention purge must publish one retention tombstone per purged aggregate: ' . json_encode($retentionTombstones)
+);
+expectRetentionSqlite(
+    (int)$pdo->query('SELECT COUNT(*) FROM m_STTCallTranscriptEvent WHERE id = 201')->fetchColumn() === 0
+        && (int)$pdo->query('SELECT COUNT(*) FROM m_STTCallTranscriptEvent WHERE id IN (202, 203)')->fetchColumn() === 2,
+    'retention must remove only the purged aggregate events'
+);
 
 $unlimitedPdo = retentionDatabase();
 seedRetentionGraph($unlimitedPdo, $now);
@@ -151,6 +167,7 @@ $unlimited = (new TranscriptRetentionService(new RetentionSqliteConnection($unli
     ->purgeExpired(0, $now);
 expectRetentionSqlite($unlimited === ['calls' => 0, 'results' => 0, 'has_more' => false, 'cutoff' => 0], 'unlimited retention must be a no-op');
 expectRetentionSqlite(retentionCount($unlimitedPdo, 'm_STTResult') === 5, 'unlimited retention deleted results');
+expectRetentionSqlite(retentionCount($unlimitedPdo, 'm_STTCallTranscriptEvent') === 3, 'unlimited retention must not publish tombstones');
 
 $batchPdo = retentionDatabase();
 seedRetentionGraph($batchPdo, $now);
@@ -173,6 +190,10 @@ try {
 expectRetentionSqlite($rollbackFailed, 'injected deletion failure must escape the service');
 expectRetentionSqlite(retentionCount($rollbackPdo, 'm_STTResult') === 5, 'failed purge must roll back results');
 expectRetentionSqlite(retentionCount($rollbackPdo, 'm_STTCallTranscript') === 3, 'failed purge must roll back aggregates');
+expectRetentionSqlite(
+    (int)$rollbackPdo->query("SELECT COUNT(*) FROM m_STTCallTranscriptEvent WHERE event_type = 'call-transcript.deleted'")->fetchColumn() === 0,
+    'failed purge must roll back its tombstones'
+);
 
 $falsePdo = retentionDatabase();
 seedRetentionGraph($falsePdo, $now);

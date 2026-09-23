@@ -179,6 +179,15 @@
 
 Метод событий читает идемпотентные события `transcript.completed` из таблицы `m_STTTranscriptEvent`. Потребитель может сохранить `next_cursor` и продолжить чтение событий позже. События сохраняют `result_id`, `job_id` и `call_id`, когда эти данные доступны.
 
+### Расшифровки звонков
+
+Расшифровки логических звонков (все части записи одного звонка с версиями-ревизиями) отдают методы:
+
+- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true]`
+- `GET /call-transcripts/{aggregate_id}?revision=N`
+
+Оба ответа содержат `contract_version` (сейчас `2`). По умолчанию лента событий возвращает только `call-transcript.completed` и `call-transcript.updated`, как в версии 1. Потребитель, передающий `include_deleted=true`, дополнительно получает события `call-transcript.deleted`, когда расшифровку удалил администратор (`deletion_reason: manual`) или она удалена по сроку хранения (`deletion_reason: retention`). Событие удаления содержит `aggregate_id` удалённой расшифровки, её последнюю `revision` и `deleted_at`; поля `call_id`, `content_hash`, `parts_hash` и `completeness_status` равны `null`. События удаления идут в общем порядке курсора и хранятся 90 дней. Включайте их только после проверки `contract_version >= 2` и обрабатывайте каждый тип событий, который получает импортёр.
+
 Новые модули должны использовать эти эндпоинты вместо прямого чтения таблиц.
 
 ## Таблицы Данных
