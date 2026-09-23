@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => '0부터 시작하는 항목 위치입니다.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => '요청한 리비전이 통화의 현재 리비전이면 true입니다.',
     'module_local_speech_to_text_ApiFieldLanguage' => '저장된 전사본의 언어입니다.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => '워커가 모든 파트에 대해 보고한 통화 언어(ISO 639 코드)입니다. 알 수 없거나 파트마다 다르면 null입니다.',
     'module_local_speech_to_text_ApiFieldLimit' => '실제로 적용된 페이지 또는 이벤트 배치 크기입니다.',
     'module_local_speech_to_text_ApiFieldModelUsed' => '녹음 인식에 사용한 모델입니다.',
     'module_local_speech_to_text_ApiFieldNextCursor' => '다음 요청을 위한 커서입니다. 반환된 모든 이벤트가 성공적으로 처리된 후에만 저장합니다.',

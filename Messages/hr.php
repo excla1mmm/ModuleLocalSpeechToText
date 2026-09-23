@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Položaj stavke koji počinje od nule.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true kada je zatražena revizija trenutačna za poziv.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Jezik pohranjenog prijepisa.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Jezik poziva (ISO 639 kod) koji je obrađivač naveo za sve dijelove; null ako je nepoznat ili se dijelovi razlikuju.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Stvarno primijenjena veličina stranice ili skupine događaja.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model korišten za prepoznavanje snimke.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Kursor za sljedeći zahtjev. Trajno ga spremite tek nakon uspješne obrade svakog vraćenog događaja.',

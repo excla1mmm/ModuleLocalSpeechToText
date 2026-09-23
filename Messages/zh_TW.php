@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => '以零為起點的項目位置。',
     'module_local_speech_to_text_ApiFieldIsCurrent' => '請求的修訂版本為該通話目前版本時為 true。',
     'module_local_speech_to_text_ApiFieldLanguage' => '已儲存逐字稿的語言。',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => '處理程式為所有部分回報的通話語言（ISO 639 代碼）；未知或各部分不一致時為 null。',
     'module_local_speech_to_text_ApiFieldLimit' => '實際套用的頁面或事件批次大小。',
     'module_local_speech_to_text_ApiFieldModelUsed' => '用於辨識該錄音的模型。',
     'module_local_speech_to_text_ApiFieldNextCursor' => '下一次請求的游標。僅在每個傳回事件均成功處理後才永久儲存。',

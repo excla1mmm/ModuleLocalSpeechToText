@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Тэгээс эхлэх элементийн байрлал.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'Хүссэн хувилбар тухайн дуудлагын одоогийнх бол true.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Хадгалсан транскрипцийн хэл.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Боловсруулагчийн бүх хэсэгт заасан дуудлагын хэл (ISO 639 код); тодорхойгүй эсвэл хэсгүүд зөрвөл null.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Бодитоор хэрэглэсэн хуудас эсвэл үйл явдлын багцын хэмжээ.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Бичлэгийг танихад ашигласан загвар.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Дараагийн хүсэлтийн курсор. Буцаасан үйл явдал бүрийг амжилттай боловсруулсны дараа л хадгална.',

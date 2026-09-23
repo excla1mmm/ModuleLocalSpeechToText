@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Elementets nollbaserade position.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true när den begärda revisionen är aktuell för samtalet.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Språk för den lagrade transkriptionen.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Samtalets språk (ISO 639-kod) som workern angett för alla delar; null om det är okänt eller om delarna skiljer sig åt.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Faktiskt tillämpad storlek på sidan eller händelsebatchen.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Modell som användes för att känna igen inspelningen.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Cursor för nästa begäran. Spara den först när alla returnerade händelser har hanterats utan fel.',

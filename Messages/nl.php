@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Op nul gebaseerde positie van het item.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true wanneer de opgevraagde revisie de huidige revisie voor het gesprek is.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Taal van de opgeslagen transcriptie.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Taal van het gesprek (ISO 639-code) die de worker voor alle delen heeft gemeld; null als deze onbekend is of de delen verschillen.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Werkelijk toegepaste grootte van de pagina of gebeurtenisbundel.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model dat is gebruikt om de opname te herkennen.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Cursor voor de volgende aanvraag. Sla deze pas op nadat elke teruggegeven gebeurtenis succesvol is verwerkt.',

@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Позиція елемента, що відлічується з нуля.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, якщо запитана ревізія є поточною для дзвінка.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Мова збереженої транскрипції.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Мова дзвінка (код ISO 639), яку обробник вказав для всіх частин; null, якщо вона невідома або частини розходяться.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Фактично застосований розмір сторінки або пакета подій.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Модель, використана для розпізнавання запису.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Курсор для наступного запиту. Зберігайте його лише після успішної обробки кожної поверненої події.',

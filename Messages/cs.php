@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Pozice položky počítaná od nuly.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'Hodnota true, pokud je požadovaná revize pro hovor aktuální.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Jazyk uloženého přepisu.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Jazyk hovoru (kód ISO 639) nahlášený zpracovatelem pro všechny části; null, pokud není znám nebo se části liší.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Skutečně použitá velikost stránky nebo dávky událostí.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model použitý k rozpoznání záznamu.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Kurzor pro další požadavek. Uložte jej až po úspěšném zpracování všech vrácených událostí.',

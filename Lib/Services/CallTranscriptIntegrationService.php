@@ -97,6 +97,7 @@ final class CallTranscriptIntegrationService
         }
         $payload = json_decode((string)$stored->payload, true);
         $payload = is_array($payload) ? $payload : [];
+        $language = $this->callLanguage(is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : []);
         if (is_array($payload['transcript'] ?? null)) {
             $manifest = is_array($payload['part_manifest'] ?? null) ? $payload['part_manifest'] : [];
             $payload['transcript'] = (new CallTranscriptTurnProjector())->project($payload['transcript']);
@@ -113,9 +114,78 @@ final class CallTranscriptIntegrationService
             'content_hash' => (string)$stored->content_hash,
             'parts_hash' => (string)$stored->parts_hash,
             'completeness_status' => (string)$stored->completeness_status,
+            'language' => $language,
             'is_current' => (int)$stored->revision === (int)$call->current_revision,
             'created_at' => (int)$stored->created_at,
         ] + $payload;
+    }
+
+    /**
+     * Language of the whole call: the one language every part's worker
+     * result reports, or null when a part has none or the parts disagree
+     * (a mixed-language call). Read from the part results at request time
+     * instead of the stored revision payload, so adding it never changes
+     * content_hash and never creates new revisions.
+     *
+     * @param array<int, mixed> $manifest
+     */
+    private function callLanguage(array $manifest): ?string
+    {
+        $resultIds = [];
+        foreach ($manifest as $part) {
+            $resultId = is_array($part) ? (int)($part['result_id'] ?? 0) : 0;
+            if ($resultId > 0) {
+                $resultIds[$resultId] = $resultId;
+            }
+        }
+        if ($resultIds === []) {
+            return null;
+        }
+
+        $placeholders = [];
+        $bind = [];
+        foreach (array_values($resultIds) as $index => $resultId) {
+            $placeholders[] = ':result_' . $index;
+            $bind['result_' . $index] = $resultId;
+        }
+        $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT id AS result_id, language FROM m_STTResult WHERE id IN (' . implode(', ', $placeholders) . ')',
+            Enum::FETCH_ASSOC,
+            $bind
+        );
+
+        $languages = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $resultId = (int)($row['result_id'] ?? 0);
+            if (!isset($resultIds[$resultId])) {
+                continue;
+            }
+            $seen[$resultId] = true;
+            $language = self::primaryLanguage($row['language'] ?? null);
+            if ($language === null) {
+                return null;
+            }
+            $languages[$language] = true;
+        }
+
+        return count($seen) === count($resultIds) && count($languages) === 1
+            ? (string)array_key_first($languages)
+            : null;
+    }
+
+    /** 'ru', 'ru-RU', 'RU_ru' -> 'ru'; anything that is not a language tag -> null. */
+    private static function primaryLanguage(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+        $value = strtolower(trim($value));
+        if ($value === 'auto' || preg_match('/\A([a-z]{2,3})(?:[-_][a-z0-9]{2,8})*\z/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
     }
 
     /**

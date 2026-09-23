@@ -192,6 +192,8 @@ Logical-call transcripts (all recording parts of one call, versioned by revision
 
 Both responses carry `contract_version` (currently `2`). By default the event feed returns only `call-transcript.completed` and `call-transcript.updated` events, exactly as in version 1. A consumer that passes `include_deleted=true` also receives `call-transcript.deleted` tombstones when a transcript is deleted by an administrator (`deletion_reason: manual`) or purged by the retention period (`deletion_reason: retention`). A tombstone carries the deleted `aggregate_id`, its last `revision` and `deleted_at`; `call_id`, `content_hash`, `parts_hash` and `completeness_status` are `null`. Tombstones follow the same cursor order as other events and are kept for 90 days. Opt in only after checking `contract_version >= 2`, and handle every event type your importer receives.
 
+The call transcript detail also carries `language`: the ISO 639 code (for example `ru`, `kk`) that the worker reported for every part of the call, or `null` when it is unknown or the parts are in different languages. It is read from the part results on each request, so it never changes `content_hash` or creates a new revision.
+
 These endpoints use the same MikoPBX REST v3 `PBXApiResult` envelope and should be used instead of direct table reads by new modules.
 
 ## Data Tables

@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Elementin sıfırdan başlayan mövqeyi.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'Tələb olunan reviziya zəng üçün cari olduqda true.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Saxlanılmış transkripsiyanın dili.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Emalçının bütün hissələr üçün bildirdiyi zəng dili (ISO 639 kodu); naməlumdursa və ya hissələr fərqlidirsə null.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Faktiki tətbiq edilmiş səhifə və ya hadisə paketinin ölçüsü.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Yazının tanınması üçün istifadə edilmiş model.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Növbəti sorğu üçün kursor. Onu yalnız qaytarılan hər hadisə uğurla emal edildikdən sonra yadda saxlayın.',

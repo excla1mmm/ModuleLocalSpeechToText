@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => '从零开始的项目位置。',
     'module_local_speech_to_text_ApiFieldIsCurrent' => '当请求的修订版本是该通话的当前版本时为 true。',
     'module_local_speech_to_text_ApiFieldLanguage' => '已存储转录的语言。',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => '处理程序为所有部分报告的通话语言（ISO 639 代码）；未知或各部分不一致时为 null。',
     'module_local_speech_to_text_ApiFieldLimit' => '实际应用的页面或事件批次大小。',
     'module_local_speech_to_text_ApiFieldModelUsed' => '用于识别该录音的模型。',
     'module_local_speech_to_text_ApiFieldNextCursor' => '下一次请求的游标。仅在每个返回事件均成功处理后才持久保存它。',

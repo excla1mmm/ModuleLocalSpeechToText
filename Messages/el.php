@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Θέση στοιχείου με βάση το μηδέν.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true όταν η ζητούμενη αναθεώρηση είναι η τρέχουσα για την κλήση.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Γλώσσα της αποθηκευμένης απομαγνητοφώνησης.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Γλώσσα της κλήσης (κωδικός ISO 639) που ανέφερε ο επεξεργαστής για όλα τα μέρη· null αν είναι άγνωστη ή τα μέρη διαφέρουν.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Μέγεθος σελίδας ή δέσμης συμβάντων που εφαρμόστηκε πράγματι.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Μοντέλο που χρησιμοποιήθηκε για την αναγνώριση της εγγραφής.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Δρομέας για το επόμενο αίτημα. Αποθηκεύστε τον μόνο αφού ολοκληρωθεί επιτυχώς η επεξεργασία κάθε συμβάντος που επιστράφηκε.',

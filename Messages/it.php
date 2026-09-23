@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Posizione dell\'elemento a base zero.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true quando la revisione richiesta è quella corrente della chiamata.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Lingua della trascrizione memorizzata.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Lingua della chiamata (codice ISO 639) indicata dal worker per tutte le parti; null se sconosciuta o se le parti differiscono.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Dimensione effettivamente applicata della pagina o del gruppo di eventi.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Modello usato per riconoscere la registrazione.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Cursore per la richiesta successiva. Salvarlo solo dopo aver elaborato con successo tutti gli eventi restituiti.',

@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Poziția elementului, bazată pe zero.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true când revizia solicitată este curentă pentru apel.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Limba transcrierii stocate.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Limba apelului (cod ISO 639) raportată de procesor pentru toate părțile; null dacă este necunoscută sau părțile diferă.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Dimensiunea efectiv aplicată a paginii sau lotului de evenimente.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Modelul utilizat pentru recunoașterea înregistrării.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Cursor pentru următoarea cerere. Păstrați-l doar după ce fiecare eveniment returnat a fost gestionat cu succes.',

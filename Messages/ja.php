@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'ゼロ始まりの項目位置。',
     'module_local_speech_to_text_ApiFieldIsCurrent' => '要求したリビジョンが通話の現在リビジョンなら true。',
     'module_local_speech_to_text_ApiFieldLanguage' => '保存済み文字起こしの言語。',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'ワーカーがすべてのパートについて報告した通話の言語（ISO 639 コード）。不明な場合やパートごとに異なる場合は null。',
     'module_local_speech_to_text_ApiFieldLimit' => '実際に適用したページまたはイベントバッチのサイズ。',
     'module_local_speech_to_text_ApiFieldModelUsed' => '録音の認識に使用したモデル。',
     'module_local_speech_to_text_ApiFieldNextCursor' => '次回要求用カーソル。返された全イベントを正常処理した後にのみ保存してください。',

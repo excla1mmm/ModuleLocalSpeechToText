@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Kohteen nollasta alkava sijainti.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, kun pyydetty revisio on puhelun nykyinen revisio.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Tallennetun litteroinnin kieli.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Puhelun kieli (ISO 639 -koodi), jonka käsittelijä ilmoitti kaikille osille; null, jos kieli on tuntematon tai osat eroavat.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Tosiasiallisesti käytetty sivun tai tapahtumaerän koko.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Tallenteen tunnistamiseen käytetty malli.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Seuraavan pyynnön kursori. Tallenna se vasta, kun kaikki palautetut tapahtumat on käsitelty onnistuneesti.',

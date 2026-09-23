@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Elementets nulbaserede position.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, når den anmodede revision er den aktuelle for opkaldet.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Sprog for den gemte transskription.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Opkaldets sprog (ISO 639-kode), som workeren har angivet for alle dele; null, hvis det er ukendt, eller delene er forskellige.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Den faktisk anvendte størrelse på siden eller hændelsesbatchen.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model, der blev brugt til at genkende optagelsen.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Markør til den næste forespørgsel. Gem den først, når alle returnerede hændelser er behandlet korrekt.',

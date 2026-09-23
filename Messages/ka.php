@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'ელემენტის პოზიცია ნულიდან ათვლით.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, თუ მოთხოვნილი რევიზია ამ ზარის მიმდინარე რევიზიაა.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'შენახული ტრანსკრიფციის ენა.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'ზარის ენა (ISO 639 კოდი), რომელიც დამმუშავებელმა ყველა ნაწილისთვის მიუთითა; null, თუ უცნობია ან ნაწილები განსხვავდება.',
     'module_local_speech_to_text_ApiFieldLimit' => 'ფაქტობრივად გამოყენებული გვერდის ან მოვლენების პაკეტის ზომა.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'ჩანაწერის ამოსაცნობად გამოყენებული მოდელი.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'შემდეგი მოთხოვნის კურსორი. შეინახეთ მხოლოდ ყველა დაბრუნებული მოვლენის წარმატებით დამუშავების შემდეგ.',

@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Порядковый номер элемента, начиная с нуля.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, если запрошенная ревизия является текущей для звонка.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Язык сохранённой расшифровки.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Язык звонка (код ISO 639), который обработчик указал для всех частей; null, если он неизвестен или части расходятся.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Фактически применённый размер страницы или пакета событий.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Модель, использованная при распознавании записи.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Курсор для следующего запроса. Сохраняйте его только после успешной обработки всех возвращённых событий.',

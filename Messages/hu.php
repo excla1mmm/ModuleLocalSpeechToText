@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Az elem nulla alapú pozíciója.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, ha a kért revízió a hívás aktuális revíziója.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'A tárolt átirat nyelve.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'A hívás nyelve (ISO 639 kód), amelyet a feldolgozó minden részhez jelzett; null, ha ismeretlen, vagy a részek eltérnek.',
     'module_local_speech_to_text_ApiFieldLimit' => 'A ténylegesen alkalmazott oldal- vagy eseménycsomagméret.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'A felvétel felismeréséhez használt modell.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'A következő kérés kurzora. Csak az összes visszaadott esemény sikeres feldolgozása után mentse el.',

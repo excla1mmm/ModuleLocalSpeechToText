@@ -52,6 +52,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'content_hash' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$', 'description' => 'module_local_speech_to_text_ApiFieldContentHash', 'example' => str_repeat('a', 64)],
                 'parts_hash' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$', 'description' => 'module_local_speech_to_text_ApiFieldPartsHash', 'example' => str_repeat('b', 64)],
                 'completeness_status' => ['type' => 'string', 'enum' => ['complete', 'legacy_unresolved'], 'description' => 'module_local_speech_to_text_ApiFieldCompletenessStatus', 'example' => 'complete'],
+                'language' => ['type' => ['string', 'null'], 'pattern' => '^[a-z]{2,3}$', 'description' => 'module_local_speech_to_text_ApiFieldCallTranscriptLanguage', 'example' => 'ru'],
                 'is_current' => ['type' => 'boolean', 'description' => 'module_local_speech_to_text_ApiFieldIsCurrent', 'example' => true],
                 'created_at' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldCreatedAt', 'example' => 1784455400],
                 'part_manifest' => [
@@ -194,6 +195,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'content_hash' => str_repeat('a', 64),
             'parts_hash' => str_repeat('b', 64),
             'completeness_status' => 'complete',
+            'language' => 'ru',
             'is_current' => true,
             'created_at' => 1784455400,
             'part_manifest' => [$part],

@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Zero-based item position.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true when the requested revision is current for the call.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Language of the stored transcript.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Language of the call (ISO 639 code) reported by the worker for every part; null when unknown or when the parts differ.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Page or event-batch size actually applied.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model used to recognize the recording.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Cursor for the next request. Persist it only after every returned event is handled successfully.',

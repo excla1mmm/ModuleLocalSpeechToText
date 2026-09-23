@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Pozycja elementu liczona od zera.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true, gdy żądana rewizja jest bieżącą rewizją rozmowy.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Język zapisanej transkrypcji.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Język rozmowy (kod ISO 639) zgłoszony przez procesor dla wszystkich części; null, gdy jest nieznany lub części się różnią.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Faktycznie zastosowany rozmiar strony lub pakietu zdarzeń.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Model użyty do rozpoznania nagrania.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Kursor następnego żądania. Zapisz go dopiero po pomyślnym obsłużeniu wszystkich zwróconych zdarzeń.',

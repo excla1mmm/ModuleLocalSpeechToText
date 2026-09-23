@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Vị trí phần tử tính từ 0.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'true nếu bản sửa đổi được yêu cầu là bản hiện tại của cuộc gọi.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Ngôn ngữ của bản chép lời đã lưu.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'Ngôn ngữ cuộc gọi (mã ISO 639) do trình xử lý báo cho mọi phần; null nếu không xác định hoặc các phần khác nhau.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Kích thước trang hoặc lô sự kiện thực tế được áp dụng.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Mô hình dùng để nhận dạng bản ghi.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Con trỏ cho yêu cầu tiếp theo. Chỉ lưu sau khi mọi sự kiện trả về được xử lý thành công.',

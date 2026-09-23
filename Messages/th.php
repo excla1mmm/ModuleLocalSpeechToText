@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'ตำแหน่งรายการโดยเริ่มนับจากศูนย์',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'เป็น true เมื่อรุ่นแก้ไขที่ร้องขอเป็นรุ่นปัจจุบันของการโทร',
     'module_local_speech_to_text_ApiFieldLanguage' => 'ภาษาของบทถอดเสียงที่จัดเก็บไว้',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'ภาษาของการโทร (รหัส ISO 639) ที่ตัวประมวลผลรายงานสำหรับทุกส่วน เป็น null หากไม่ทราบหรือแต่ละส่วนไม่ตรงกัน',
     'module_local_speech_to_text_ApiFieldLimit' => 'ขนาดหน้าหรือชุดเหตุการณ์ที่นำไปใช้จริง',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'โมเดลที่ใช้รู้จำไฟล์บันทึก',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'เคอร์เซอร์สำหรับคำขอถัดไป ให้บันทึกหลังจัดการทุกเหตุการณ์ที่ส่งคืนสำเร็จเท่านั้น',

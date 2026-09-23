@@ -410,6 +410,7 @@ return [
     'module_local_speech_to_text_ApiFieldIndex' => 'Sıfır tabanlı öğe konumu.',
     'module_local_speech_to_text_ApiFieldIsCurrent' => 'İstenen revizyon çağrı için geçerliyse true.',
     'module_local_speech_to_text_ApiFieldLanguage' => 'Saklanan dökümün dili.',
+    'module_local_speech_to_text_ApiFieldCallTranscriptLanguage' => 'İşleyicinin tüm bölümler için bildirdiği çağrı dili (ISO 639 kodu); bilinmiyorsa veya bölümler farklıysa null.',
     'module_local_speech_to_text_ApiFieldLimit' => 'Gerçekte uygulanan sayfa veya olay toplu iş boyutu.',
     'module_local_speech_to_text_ApiFieldModelUsed' => 'Kaydı tanımak için kullanılan model.',
     'module_local_speech_to_text_ApiFieldNextCursor' => 'Sonraki istek için imleç. Yalnızca döndürülen her olay başarıyla işlendikten sonra kalıcı olarak saklayın.',
