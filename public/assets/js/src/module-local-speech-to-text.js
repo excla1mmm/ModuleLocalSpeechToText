@@ -748,6 +748,58 @@
         });
     }
 
+    // Transcript deletion is irreversible, so it needs an explicit
+    // acknowledgement: the dialog lists what is and is not removed, the
+    // Delete button stays disabled until the checkbox is ticked, and only then
+    // is confirm_delete added to the form the server requires it on.
+    function initializeTranscriptDeletion() {
+        var $modal = $('#stt-delete-transcript-modal');
+        var $forms = $('.module-local-speech-to-text .stt-delete-transcript-form');
+
+        if ($modal.length === 0 || $forms.length === 0 || typeof $modal.modal !== 'function') {
+            return;
+        }
+
+        var $acknowledge = $modal.find('#stt-delete-transcript-acknowledge');
+        var $approve = $modal.find('.approve.button');
+        var pendingForm = null;
+
+        function setApproveEnabled(enabled) {
+            $approve.toggleClass('disabled', !enabled).prop('disabled', !enabled);
+        }
+
+        // Pre-initialize so Semantic UI moves the element to <body> and hides it properly
+        $modal.modal({});
+        $acknowledge.on('change', function () {
+            setApproveEnabled($acknowledge.prop('checked'));
+        });
+
+        $forms.on('submit.stt-delete-transcript', function (event) {
+            event.preventDefault();
+            pendingForm = this;
+            $(this).closest('details').prop('open', false);
+            $acknowledge.prop('checked', false);
+            setApproveEnabled(false);
+            $modal.modal({
+                closable: true,
+                onApprove: function () {
+                    if (!$acknowledge.prop('checked') || pendingForm === null) {
+                        return false;
+                    }
+                    var form = pendingForm;
+                    pendingForm = null;
+                    $('<input>', { type: 'hidden', name: 'confirm_delete', value: '1' }).appendTo(form);
+                    // The native submit skips this handler, so the dialog is not shown again.
+                    form.submit();
+                    return true;
+                },
+                onHidden: function () {
+                    pendingForm = null;
+                }
+            }).modal('show');
+        });
+    }
+
     function initializeTranscriptRows() {
         $('.module-local-speech-to-text .stt-transcript-row').on('click', function (event) {
             if ($(event.target).closest('a, button, input, select, textarea').length > 0) {
@@ -877,6 +929,7 @@
         initializeTranscriptRetentionSlider($settingsForm);
         updateRetentionConflict($settingsForm);
         initializeConfirmModal();
+        initializeTranscriptDeletion();
         initializeTranscriptRows();
         initializeTranscriptActionMenu();
         initializeTranscriptLegTabs();

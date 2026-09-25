@@ -38,3 +38,24 @@
         {% endfor %}
     {% endif %}
 </div>
+
+{% if canDeleteTranscript %}
+    <div class="ui tiny modal" id="stt-delete-transcript-modal" role="dialog" aria-modal="true" aria-labelledby="stt-delete-transcript-title" style="display:none">
+        <div class="header" id="stt-delete-transcript-title">{{ t._('module_local_speech_to_text_DeleteTranscript') }}</div>
+        <div class="content">
+            <ul class="ui list">
+                <li>{{ t._('module_local_speech_to_text_DeleteTranscriptConsequence') }}</li>
+                <li>{{ t._('module_local_speech_to_text_DeleteTranscriptKeepsCdr') }}</li>
+                <li>{{ t._('module_local_speech_to_text_DeleteTranscriptBackupWarning') }}</li>
+            </ul>
+            <div class="ui checkbox">
+                <input type="checkbox" id="stt-delete-transcript-acknowledge">
+                <label for="stt-delete-transcript-acknowledge">{{ t._('module_local_speech_to_text_DeleteTranscriptConfirm') }}</label>
+            </div>
+        </div>
+        <div class="actions">
+            <button type="button" class="ui cancel basic button">{{ t._('module_local_speech_to_text_ConfirmCancel') }}</button>
+            <button type="button" class="ui red approve button disabled" disabled>{{ t._('module_local_speech_to_text_ConfirmDelete') }}</button>
+        </div>
+    </div>
+{% endif %}

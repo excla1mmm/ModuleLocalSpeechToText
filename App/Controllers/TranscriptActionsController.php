@@ -69,6 +69,14 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
             return;
         }
 
+        // Only the confirmation dialog adds this field, after the administrator
+        // acknowledges the consequences; a bare form post never deletes.
+        if ((string)$this->request->getPost('confirm_delete', 'string', '') !== '1') {
+            $this->flash->error($this->translation->_('module_local_speech_to_text_TranscriptDeleteFailed'));
+            $this->response->redirect(MenuProvider::TRANSCRIPT_PATH . '?id=' . $resultId);
+            return;
+        }
+
         try {
             $summary = (new TranscriptDeletionService())->deleteByResultId($resultId);
             $identity = $this->usersUIIdentity();

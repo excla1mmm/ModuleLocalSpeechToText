@@ -91,6 +91,39 @@ expectTranscriptAction(
     'Delegated transcript viewers must not receive deletion access'
 );
 
+// Deletion is irreversible: it needs an acknowledged dialog, and the server
+// refuses a post that did not come through it.
+expectTranscriptAction(
+    str_contains($controller, "getPost('confirm_delete'") && str_contains($controller, "!== '1'"),
+    'Transcript deletion must refuse a post without the explicit confirm_delete acknowledgement'
+);
+expectTranscriptAction(
+    strpos($controller, "getPost('confirm_delete'") < strpos($controller, 'deleteByResultId('),
+    'The acknowledgement must be checked before anything is deleted'
+);
+expectTranscriptAction(
+    !str_contains($template, 'name="confirm_delete"'),
+    'The page must not pre-fill confirm_delete; only the dialog adds it'
+);
+foreach (['DeleteTranscriptConsequence', 'DeleteTranscriptKeepsCdr', 'DeleteTranscriptBackupWarning', 'DeleteTranscriptConfirm'] as $suffix) {
+    expectTranscriptAction(
+        str_contains($template, "t._('module_local_speech_to_text_{$suffix}')"),
+        "The deletion dialog must show module_local_speech_to_text_{$suffix}"
+    );
+}
+expectTranscriptAction(
+    str_contains($template, 'id="stt-delete-transcript-modal"')
+        && str_contains($template, 'id="stt-delete-transcript-acknowledge"')
+        && (bool)preg_match('/class="ui red approve button disabled" disabled/', $template),
+    'The deletion dialog must start with Delete disabled until the acknowledgement checkbox is ticked'
+);
+expectTranscriptAction(
+    str_contains($javascript, "'.module-local-speech-to-text .stt-delete-transcript-form'")
+        && str_contains($javascript, "name: 'confirm_delete', value: '1'")
+        && str_contains($javascript, 'if (!$acknowledge.prop(\'checked\')'),
+    'The deletion form must open the dialog and add confirm_delete only after acknowledgement'
+);
+
 foreach (glob($root . '/Messages/*.php') ?: [] as $messageFile) {
     $messages = require $messageFile;
     foreach ([
