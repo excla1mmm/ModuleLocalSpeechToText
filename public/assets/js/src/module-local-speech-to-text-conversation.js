@@ -219,6 +219,64 @@
         return Math.floor(total / 60) + ':' + String(rest).padStart(2, '0');
     }
 
+    // A transcript page address may carry the recording (stage result id) and
+    // second the reader stopped at: ?id=<result>&stage=<result>&t=<seconds>.
+    var transcriptLocation = {
+        read: function (search) {
+            var query;
+            try {
+                query = new URLSearchParams(search || '');
+            } catch (error) {
+                return { stage: '', t: 0, leg: '' };
+            }
+            var stage = String(query.get('stage') || '');
+            var seconds = Number(query.get('t'));
+            var valid = /^[1-9][0-9]*$/.test(stage) && query.get('t') !== null && Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400;
+
+            return {
+                stage: valid ? stage : '',
+                t: valid ? Math.floor(seconds) : 0,
+                leg: query.get('leg') === 'internal' ? 'internal' : ''
+            };
+        },
+        search: function (search, changes) {
+            var query;
+            try {
+                query = new URLSearchParams(search || '');
+            } catch (error) {
+                return '';
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, 'stage')) {
+                var seconds = Math.floor(Number(changes.t) || 0);
+                if (changes.stage && seconds > 0) {
+                    query.set('stage', String(changes.stage));
+                    query.set('t', String(seconds));
+                } else {
+                    query.delete('stage');
+                    query.delete('t');
+                }
+            }
+            if (Object.prototype.hasOwnProperty.call(changes, 'leg')) {
+                if (changes.leg === 'internal') {
+                    query.set('leg', 'internal');
+                } else {
+                    query.delete('leg');
+                }
+            }
+            var result = query.toString();
+
+            return result === '' ? '' : '?' + result;
+        },
+        write: function (changes) {
+            try {
+                var location = window.location;
+                window.history.replaceState(window.history.state, '', location.pathname + transcriptLocation.search(location.search, changes) + location.hash);
+            } catch (error) {
+                // The address is a convenience; playback never depends on it.
+            }
+        }
+    };
+
     function initializePlayer($root) {
         var audio = $root.find('.stt-transcript-audio').get(0);
         var $player = $root.find('.stt-transcript-player');
@@ -235,6 +293,9 @@
         var pendingRangeValue = null;
         var waitingForMetadata = false;
         var synchronizedDuration = 0;
+        // Only server-rendered transcript pages name their stage; the call-history modal never touches the address.
+        var stageId = String($root.attr('data-stt-stage') || '');
+        var linkable = /^[1-9][0-9]*$/.test(stageId);
 
         if (!audio || $range.length === 0 || $root.data('stt-player-initialized')) {
             return;
@@ -345,6 +406,7 @@
 
         function seekTurn($turn) {
             var seconds = safeNumber($turn.data('start'));
+            rememberMoment(seconds);
 
             function applySeek() {
                 audio.currentTime = Math.min(seconds, currentDuration() || seconds);
@@ -366,15 +428,48 @@
             update();
         }
 
+        function rememberMoment(seconds) {
+            if (linkable) {
+                transcriptLocation.write({ stage: stageId, t: seconds });
+            }
+        }
+
+        // A shared moment is held without playing: browsers start audio only on a user gesture.
+        function holdMoment(seconds) {
+            function apply() {
+                var duration = currentDuration();
+                audio.currentTime = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.01)) : seconds;
+                update();
+                var turn = $root.find('.stt-turn-active').get(0) || $root.get(0);
+                if (turn && typeof turn.scrollIntoView === 'function') {
+                    turn.scrollIntoView({ block: 'center' });
+                }
+            }
+
+            if (!ensureSource()) {
+                return;
+            }
+            if (audio.readyState >= 1) {
+                apply();
+            } else {
+                audio.addEventListener('loadedmetadata', apply, { once: true });
+            }
+        }
+
         $playButton.on('click.sttTranscript', function () {
             if (audio.paused) {
                 play();
             } else {
                 audio.pause();
+                rememberMoment(audio.currentTime);
             }
         });
         $range.on('input.sttTranscript change.sttTranscript', function () {
             seekByRange(safeNumber(this.value));
+        });
+        // Only the settled position is written; browsers throttle address updates.
+        $range.on('change.sttTranscript', function () {
+            rememberMoment((currentDuration() * safeNumber(this.value)) / 1000);
         });
         $seek.on('mousemove.sttTranscript', function (event) {
             var offset = $seek.offset();
@@ -405,6 +500,12 @@
         });
         update();
         ensureSource();
+        if (linkable) {
+            var moment = transcriptLocation.read(window.location.search);
+            if (moment.stage === stageId) {
+                holdMoment(moment.t);
+            }
+        }
     }
 
     function initialize(root) {
@@ -454,7 +555,8 @@
 
     window.SttTranscriptView = {
         create: create,
-        initialize: initialize
+        initialize: initialize,
+        location: transcriptLocation
     };
 
     $(function () {

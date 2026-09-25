@@ -777,16 +777,22 @@
     }
 
     function initializeTranscriptLegTabs() {
+        var transcriptLocation = window.SttTranscriptView && window.SttTranscriptView.location;
+
         $('.module-local-speech-to-text .stt-call-leg-review').each(function () {
             var $review = $(this);
             var $tabs = $review.find('[data-stt-call-leg]');
             var $panels = $review.find('[data-stt-call-leg-panel]');
 
-            $tabs.on('click', function () {
-                var callLeg = String($(this).data('stt-call-leg') || '');
+            function panelLeg($element) {
+                return String($element.closest('[data-stt-call-leg-panel]').data('stt-call-leg-panel') || '');
+            }
 
-                $tabs.removeClass('active').attr('aria-selected', 'false');
-                $(this).addClass('active').attr('aria-selected', 'true');
+            function show(callLeg) {
+                $tabs.each(function () {
+                    var active = String($(this).data('stt-call-leg') || '') === callLeg;
+                    $(this).toggleClass('active', active).attr('aria-selected', active ? 'true' : 'false');
+                });
                 $panels.each(function () {
                     var hidden = String($(this).data('stt-call-leg-panel') || '') !== callLeg;
 
@@ -798,7 +804,33 @@
                         });
                     }
                 });
+            }
+
+            $tabs.on('click', function () {
+                var callLeg = String($(this).data('stt-call-leg') || '');
+
+                show(callLeg);
+                if (transcriptLocation) {
+                    // A held moment in the other leg no longer describes what is on screen.
+                    var moment = transcriptLocation.read(window.location.search);
+                    var $stage = moment.stage ? $review.find('.stt-transcript-view[data-stt-stage="' + moment.stage + '"]') : $();
+                    var changes = { leg: callLeg };
+                    if ($stage.length > 0 && panelLeg($stage) !== callLeg) {
+                        changes.stage = '';
+                    }
+                    transcriptLocation.write(changes);
+                }
             });
+
+            // The address picks the leg: the leg of a shared moment first, then an explicit leg.
+            if (transcriptLocation) {
+                var initial = transcriptLocation.read(window.location.search);
+                var $target = initial.stage ? $review.find('.stt-transcript-view[data-stt-stage="' + initial.stage + '"]') : $();
+                var leg = $target.length > 0 ? panelLeg($target) : initial.leg;
+                if (leg !== '' && $tabs.filter('[data-stt-call-leg="' + leg + '"]').length > 0) {
+                    show(leg);
+                }
+            }
         });
     }
 

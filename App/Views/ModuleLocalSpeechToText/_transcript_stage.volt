@@ -18,7 +18,7 @@
     </div>
 
     {% if conversation['hasSegments'] %}
-        <div class="stt-transcript-view">
+        <div class="stt-transcript-view" data-stt-stage="{{ stageResult.id|e }}">
             <div class="stt-transcript-overview">
                 <div class="stt-transcript-overview-header">
                     {% if recording['hasPlayback'] %}
