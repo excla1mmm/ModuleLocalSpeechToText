@@ -220,7 +220,14 @@
     }
 
     // A transcript page address may carry the recording (stage result id) and
-    // second the reader stopped at: ?id=<result>&stage=<result>&t=<seconds>.
+    // second the reader stopped at, and the open call leg:
+    // ?id=<result>&lstt_stage=<result>&lstt_t=<seconds>&lstt_leg=internal.
+    // The module prefix keeps these names clear of Core and other modules;
+    // links shared before it (stage/t/leg) still open and are rewritten on
+    // the next address update.
+    var LOCATION_KEYS = { stage: 'lstt_stage', t: 'lstt_t', leg: 'lstt_leg' };
+    var LEGACY_LOCATION_KEYS = { stage: 'stage', t: 't', leg: 'leg' };
+
     var transcriptLocation = {
         read: function (search) {
             var query;
@@ -229,14 +236,15 @@
             } catch (error) {
                 return { stage: '', t: 0, leg: '' };
             }
-            var stage = String(query.get('stage') || '');
-            var seconds = Number(query.get('t'));
-            var valid = /^[1-9][0-9]*$/.test(stage) && query.get('t') !== null && Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400;
+            var keys = query.has(LOCATION_KEYS.stage) || query.has(LOCATION_KEYS.leg) ? LOCATION_KEYS : LEGACY_LOCATION_KEYS;
+            var stage = String(query.get(keys.stage) || '');
+            var seconds = Number(query.get(keys.t));
+            var valid = /^[1-9][0-9]*$/.test(stage) && query.get(keys.t) !== null && Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400;
 
             return {
                 stage: valid ? stage : '',
                 t: valid ? Math.floor(seconds) : 0,
-                leg: query.get('leg') === 'internal' ? 'internal' : ''
+                leg: query.get(keys.leg) === 'internal' ? 'internal' : ''
             };
         },
         search: function (search, changes) {
@@ -246,22 +254,30 @@
             } catch (error) {
                 return '';
             }
+            var current = transcriptLocation.read(search);
+            var next = {
+                stage: current.stage,
+                t: current.t,
+                leg: current.leg
+            };
             if (Object.prototype.hasOwnProperty.call(changes, 'stage')) {
-                var seconds = Math.floor(Number(changes.t) || 0);
-                if (changes.stage && seconds > 0) {
-                    query.set('stage', String(changes.stage));
-                    query.set('t', String(seconds));
-                } else {
-                    query.delete('stage');
-                    query.delete('t');
-                }
+                next.stage = changes.stage ? String(changes.stage) : '';
+                next.t = Math.floor(Number(changes.t) || 0);
             }
             if (Object.prototype.hasOwnProperty.call(changes, 'leg')) {
-                if (changes.leg === 'internal') {
-                    query.set('leg', 'internal');
-                } else {
-                    query.delete('leg');
-                }
+                next.leg = changes.leg === 'internal' ? 'internal' : '';
+            }
+            [LOCATION_KEYS, LEGACY_LOCATION_KEYS].forEach(function (keys) {
+                query.delete(keys.stage);
+                query.delete(keys.t);
+                query.delete(keys.leg);
+            });
+            if (next.stage && next.t > 0) {
+                query.set(LOCATION_KEYS.stage, next.stage);
+                query.set(LOCATION_KEYS.t, String(next.t));
+            }
+            if (next.leg === 'internal') {
+                query.set(LOCATION_KEYS.leg, 'internal');
             }
             var result = query.toString();
 
