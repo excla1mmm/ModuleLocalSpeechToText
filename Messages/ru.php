@@ -191,6 +191,7 @@ return [
     'module_local_speech_to_text_SourceNumber' => 'Откуда',
     'module_local_speech_to_text_DestinationNumber' => 'Куда',
     'module_local_speech_to_text_PlayRecording' => 'Воспроизвести запись',
+    'module_local_speech_to_text_PlaybackSpeed' => 'Скорость воспроизведения',
     'module_local_speech_to_text_DownloadRecording' => 'Скачать запись',
     'module_local_speech_to_text_Language' => 'Язык',
     'module_local_speech_to_text_Duration' => 'Длительность',

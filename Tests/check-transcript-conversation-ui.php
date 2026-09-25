@@ -35,6 +35,16 @@ expectTranscriptUi(str_contains($viewJs, 'stt-transcript-search'), 'shared trans
 expectTranscriptUi(!str_contains($viewJs, 'stt-turn-overlap'), 'CDR transcript must not render overlap badges');
 expectTranscriptUi(!str_contains($viewJs, 'stt-turn-duration'), 'CDR transcript must not render per-turn durations');
 expectTranscriptUi(str_contains($template, 'stt-transcript-range'), 'speech timeline must contain the player range control');
+expectTranscriptUi(
+    str_contains($template, 'stt-player-speed') && str_contains($template, "['0.5', '1', '2']"),
+    'transcript card player must offer the 0.5x / 1x / 2x speed switch'
+);
+expectTranscriptUi(
+    str_contains($viewJs, 'PLAYBACK_RATES = [0.5, 1, 2]') && str_contains($viewJs, 'createSpeed(labels)'),
+    'call-history player must offer the same speed switch'
+);
+expectTranscriptUi(str_contains($viewJs, 'audio.defaultPlaybackRate = rate'), 'speed must survive the lazy audio source load');
+expectTranscriptUi(str_contains($css, '.stt-player-speed-option.active'), 'speed switch styles missing');
 expectTranscriptUi(str_contains($template, 'stt-transcript-playhead'), 'speech timeline must render the live playhead');
 expectTranscriptUi(
     str_contains($template, 'data-start="{{ turn[\'start\']|e }}"')

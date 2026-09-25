@@ -446,6 +446,7 @@
                 search: translate('module_local_speech_to_text_LogsSearch'),
                 empty: labels.empty,
                 play: translate('module_local_speech_to_text_PlayRecording'),
+                speed: translate('module_local_speech_to_text_PlaybackSpeed'),
                 download: translate('module_local_speech_to_text_DownloadRecording'),
                 audioUrl: String(recording.playback_url || ''),
                 downloadUrl: String(recording.download_url || ''),

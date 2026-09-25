@@ -744,6 +744,37 @@
     white-space: nowrap;
 }
 
+.module-local-speech-to-text .stt-player-speed {
+    background: #e9eeee;
+    border-radius: 999px;
+    display: flex;
+    flex: 0 0 auto;
+    padding: 0.22em;
+}
+
+.module-local-speech-to-text .stt-player-speed-option {
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: rgba(0, 0, 0, 0.58);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    padding: 0.55em 0.8em;
+}
+
+.module-local-speech-to-text .stt-player-speed-option.active {
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 59, 64, 0.1);
+    color: var(--stt-speaker-left);
+    font-weight: 700;
+}
+
+.module-local-speech-to-text .stt-player-speed-option:focus-visible {
+    outline: 2px solid rgba(79, 128, 120, 0.45);
+    outline-offset: 1px;
+}
+
 .module-local-speech-to-text .stt-player-download {
     color: var(--stt-speaker-left);
     flex: 0 0 auto;

@@ -1,6 +1,8 @@
 (function (window, $) {
     'use strict';
 
+    var PLAYBACK_RATES = [0.5, 1, 2];
+
     function safeNumber(value) {
         var number = Number(value);
 
@@ -26,6 +28,21 @@
         return $legend;
     }
 
+    // Same markup as the server-rendered transcript card.
+    function createSpeed(labels) {
+        var $speed = $('<div>', { class: 'stt-player-speed', role: 'group', 'aria-label': labels.speed || '' });
+        PLAYBACK_RATES.forEach(function (rate) {
+            $speed.append($('<button>', {
+                type: 'button',
+                class: 'stt-player-speed-option' + (rate === 1 ? ' active' : ''),
+                'data-rate': rate,
+                'aria-pressed': rate === 1 ? 'true' : 'false'
+            }).text(rate + 'x'));
+        });
+
+        return $speed;
+    }
+
     function createPlayer(labels, durationLabel) {
         var $player = $('<div>', {
             class: 'stt-transcript-player',
@@ -42,7 +59,8 @@
                 'aria-label': labels.play,
                 'data-content': labels.play
             }).append($('<i>', { class: 'play icon' })),
-            $('<span>', { class: 'stt-player-duration' }).text('00:00 / ' + durationLabel)
+            $('<span>', { class: 'stt-player-duration' }).text('00:00 / ' + durationLabel),
+            createSpeed(labels)
         );
 
         if (labels.downloadUrl) {
@@ -474,6 +492,15 @@
             }
         }
 
+        // defaultPlaybackRate survives the audio.load() that attaches the
+        // lazily loaded source; playbackRate applies to the running audio.
+        $player.find('.stt-player-speed-option').on('click.sttTranscript', function () {
+            var rate = safeNumber($(this).data('rate')) || 1;
+            audio.defaultPlaybackRate = rate;
+            audio.playbackRate = rate;
+            $player.find('.stt-player-speed-option').removeClass('active').attr('aria-pressed', 'false');
+            $(this).addClass('active').attr('aria-pressed', 'true');
+        });
         $playButton.on('click.sttTranscript', function () {
             if (audio.paused) {
                 play();

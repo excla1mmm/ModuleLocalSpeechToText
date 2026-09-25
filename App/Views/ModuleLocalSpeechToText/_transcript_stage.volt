@@ -26,6 +26,11 @@
                             <audio class="stt-transcript-audio" preload="metadata" data-src="{{ recording['playbackUrl']|e }}"></audio>
                             <button type="button" class="stt-player-play" aria-label="{{ t._('module_local_speech_to_text_PlayRecording')|e }}" data-content="{{ t._('module_local_speech_to_text_PlayRecording')|e }}"><i class="play icon"></i></button>
                             <span class="stt-player-duration">00:00 / {% if recording['durationLabel'] !== '' %}{{ recording['durationLabel']|e }}{% else %}{{ conversation['durationLabel']|e }}{% endif %}</span>
+                            <div class="stt-player-speed" role="group" aria-label="{{ t._('module_local_speech_to_text_PlaybackSpeed')|e }}">
+                                {% for rate in ['0.5', '1', '2'] %}
+                                    <button type="button" class="stt-player-speed-option{% if rate === '1' %} active{% endif %}" data-rate="{{ rate }}" aria-pressed="{% if rate === '1' %}true{% else %}false{% endif %}">{{ rate }}x</button>
+                                {% endfor %}
+                            </div>
                             {% if recording['downloadUrl'] !== '' %}
                                 <a class="stt-player-download" href="{{ recording['downloadUrl']|e }}" data-content="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}" aria-label="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}" title="{{ t._('module_local_speech_to_text_DownloadRecording')|e }}"><i class="download icon"></i></a>
                             {% endif %}

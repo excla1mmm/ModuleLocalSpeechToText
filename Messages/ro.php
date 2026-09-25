@@ -191,6 +191,7 @@ return [
     'module_local_speech_to_text_SourceNumber' => 'From',
     'module_local_speech_to_text_DestinationNumber' => 'To',
     'module_local_speech_to_text_PlayRecording' => 'Play recording',
+    'module_local_speech_to_text_PlaybackSpeed' => 'Playback speed',
     'module_local_speech_to_text_DownloadRecording' => 'Download recording',
     'module_local_speech_to_text_Language' => 'Language',
     'module_local_speech_to_text_Duration' => 'Duration',
