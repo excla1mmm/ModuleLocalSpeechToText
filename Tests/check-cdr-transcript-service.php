@@ -40,7 +40,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
                 if ($fixture === null || $fixture['current_revision'] <= 0) {
                     continue;
                 }
-                $rows[] = ['id' => $fixture['id'], 'call_id' => $callId];
+                $rows[] = ['call_id' => $callId, 'result_id' => self::$results[$callId] ?? null];
             }
 
             return $rows;
@@ -157,7 +157,7 @@ namespace {
         'call-legacy' => ['id' => 15, 'current_revision' => 1],
         'call-corrupt' => ['id' => 16, 'current_revision' => 1],
     ];
-    FakeCdrTranscriptDb::$results = ['call-1' => 77];
+    FakeCdrTranscriptDb::$results = ['call-1' => 77, 'call-2' => 78];
     $payload = static fn (array $manifest, array $segments): string => json_encode([
         'part_manifest' => $manifest,
         'transcript' => ['segments' => $segments],
@@ -235,11 +235,11 @@ namespace {
 
     expectCdrTranscript(
         $service->lookup([' call-1 ', 'call-1', '', 'call-2', 'call-pending'], $admin)
-            === ['call-1' => 11, 'call-2' => 12],
-        'lookup must normalize, deduplicate, and omit unpublished calls'
+            === ['call-1' => 77, 'call-2' => 78],
+        'lookup must normalize, deduplicate, omit unpublished calls, and map to first-leg result ids'
     );
     expectCdrTranscript(
-        $service->lookup(['call-1', 'call-2'], $restricted) === ['call-1' => 11],
+        $service->lookup(['call-1', 'call-2'], $restricted) === ['call-1' => 77],
         'lookup must apply the logical-call scope'
     );
 

@@ -17,6 +17,11 @@ final class CdrTranscriptService
 {
     private const int MAX_CALL_IDS = 100;
     private const int MAX_CALL_ID_BYTES = 255;
+    // First-leg result of a call, in the full transcript card's stage order;
+    // %s is the call id expression.
+    private const string FIRST_LEG_RESULT_SQL = 'SELECT r.id FROM m_STTResult r JOIN m_STTJob j ON j.id = r.job_id'
+        . " WHERE j.call_id = %s AND j.status = 'done'"
+        . ' ORDER BY j.cdr_start_ms ASC, j.id ASC LIMIT 1';
 
     public function __construct(
         private readonly mixed $translation,
@@ -57,7 +62,14 @@ final class CdrTranscriptService
         ], static fn (string $label): bool => $label !== '');
     }
 
-    /** @param array<int, mixed> $callIds @return array<string, int> */
+    /**
+     * Maps each published call to the result id of its first leg: the
+     * history button links to the full transcript card, which is addressed
+     * by result id, never by the call-level aggregate id.
+     *
+     * @param array<int, mixed> $callIds
+     * @return array<string, int>
+     */
     public function lookup(array $callIds, UsersUICallScope $scope): array
     {
         $callIds = $this->normalizeCallIds($callIds);
@@ -74,9 +86,10 @@ final class CdrTranscriptService
         }
 
         $rows = (new STTCallTranscript())->getReadConnection()->fetchAll(
-            'SELECT id, call_id FROM m_STTCallTranscript'
-            . ' WHERE CAST(current_revision AS INTEGER) > 0'
-            . ' AND call_id IN (' . implode(', ', $placeholders) . ')',
+            'SELECT c.call_id, (' . sprintf(self::FIRST_LEG_RESULT_SQL, 'c.call_id') . ') AS result_id'
+            . ' FROM m_STTCallTranscript c'
+            . ' WHERE CAST(c.current_revision AS INTEGER) > 0'
+            . ' AND c.call_id IN (' . implode(', ', $placeholders) . ')',
             Enum::FETCH_ASSOC,
             $bind
         );
@@ -84,8 +97,9 @@ final class CdrTranscriptService
         $result = [];
         foreach ($rows as $row) {
             $callId = (string)($row['call_id'] ?? '');
-            if ($callId !== '' && $this->access->allowsCallId($callId, $scope)) {
-                $result[$callId] = (int)($row['id'] ?? 0);
+            $resultId = (int)($row['result_id'] ?? 0);
+            if ($callId !== '' && $resultId > 0 && $this->access->allowsCallId($callId, $scope)) {
+                $result[$callId] = $resultId;
             }
         }
         ksort($result);
@@ -184,11 +198,9 @@ final class CdrTranscriptService
     private function firstResultId(STTCallTranscript $call): ?int
     {
         $row = $call->getReadConnection()->fetchOne(
-            'SELECT r.id FROM m_STTResult r JOIN m_STTJob j ON j.id = r.job_id'
-            . ' WHERE j.call_id = :call_id AND j.status = :status'
-            . ' ORDER BY j.cdr_start_ms ASC, j.id ASC LIMIT 1',
+            sprintf(self::FIRST_LEG_RESULT_SQL, ':call_id'),
             Enum::FETCH_ASSOC,
-            ['call_id' => (string)$call->call_id, 'status' => 'done']
+            ['call_id' => (string)$call->call_id]
         );
         $resultId = is_array($row) ? (int)($row['id'] ?? 0) : 0;
 
