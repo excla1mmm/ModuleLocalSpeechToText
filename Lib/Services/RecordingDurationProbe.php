@@ -42,15 +42,24 @@ final class RecordingDurationProbe
             return $this->result(self::STATUS_UNAVAILABLE);
         }
 
+        // Probing yields the CPU to Asterisk like Core's background jobs. The
+        // path is used as found: on MikoPBX `nice` is usually a BusyBox applet
+        // symlink, and nice execs the tool in place, so termination is unchanged.
+        $nice = trim((string)Util::which('nice'));
+        $lowPriority = $nice !== '' && str_starts_with($nice, '/') && is_file($nice) && is_executable($nice)
+            ? [$nice, '-n', '19']
+            : [];
+
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
         try {
-            $process = QuietOperation::run(static function () use ($ffprobe, $recordingPath, $descriptors, &$pipes) {
+            $process = QuietOperation::run(static function () use ($lowPriority, $ffprobe, $recordingPath, $descriptors, &$pipes) {
                 return proc_open(
                     [
+                        ...$lowPriority,
                         $ffprobe,
                         '-nostdin',
                         '-v',

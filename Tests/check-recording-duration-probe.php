@@ -6,10 +6,15 @@ namespace MikoPBX\Core\System {
     final class Util
     {
         public static string $ffprobePath = '';
+        public static string $nicePath = '';
 
         public static function which(string $command): string
         {
-            return $command === 'ffprobe' ? self::$ffprobePath : '';
+            return match ($command) {
+                'ffprobe' => self::$ffprobePath,
+                'nice' => self::$nicePath,
+                default => '',
+            };
         }
     }
 }
@@ -97,6 +102,30 @@ PHP
             (new RecordingDurationProbe(0.05))->probe($slowPath)['status'] === RecordingDurationProbe::STATUS_TIMEOUT,
             'A stalled ffprobe process must be terminated by the deadline'
         );
+
+        if (function_exists('pcntl_exec')) {
+            $fakeNice = $temporaryDirectory . '/fake-nice';
+            $niceLog = $temporaryDirectory . '/nice.log';
+            // Records its arguments, then execs the probe in place like nice(1).
+            file_put_contents($fakeNice, "#!/usr/bin/env php\n<?php\nfile_put_contents(" . var_export($niceLog, true) . ", implode(' ', array_slice(\$argv, 1, 2)) . \"\\n\", FILE_APPEND);\npcntl_exec(\$argv[3], array_slice(\$argv, 4));\nexit(127);\n");
+            chmod($fakeNice, 0700);
+            Util::$nicePath = $fakeNice;
+            expectDurationProbe(
+                (new RecordingDurationProbe())->probe($normalPath) === ['status' => RecordingDurationProbe::STATUS_OK, 'duration_sec' => 9],
+                'The duration probe works through the low-priority wrapper'
+            );
+            expectDurationProbe(trim((string)file_get_contents($niceLog)) === '-n 19', 'ffprobe runs at the lowest CPU priority');
+            expectDurationProbe(
+                (new RecordingDurationProbe(0.05))->probe($slowPath)['status'] === RecordingDurationProbe::STATUS_TIMEOUT,
+                'The deadline still terminates a probe started through nice'
+            );
+            Util::$nicePath = $temporaryDirectory . '/missing-nice';
+            expectDurationProbe(
+                (new RecordingDurationProbe())->probe($normalPath)['status'] === RecordingDurationProbe::STATUS_OK,
+                'An unusable nice path never blocks probing'
+            );
+            Util::$nicePath = '';
+        }
 
         Util::$ffprobePath = '';
         expectDurationProbe(

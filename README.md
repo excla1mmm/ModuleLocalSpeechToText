@@ -32,7 +32,7 @@ Before intentionally deleting an old Local STT database, install the new source-
 - Shows transcripts as a conversation view, including left/right speaker columns for stereo recordings.
 - Adds a transcript button to each MikoPBX call-history row that has a published transcript and opens the conversation in a modal window.
 - Exposes queue, delayed recording, skipped recording, worker, transcript, and log status in the MikoPBX admin UI.
-- Publishes idempotent `transcript.completed` events for downstream modules such as `ModuleAISupervisor`.
+- Publishes a versioned call-transcript event feed (`call-transcript.completed`/`updated`/`deleted`) for downstream modules such as `ModuleAISupervisor`.
 
 ## Architecture
 
@@ -175,13 +175,12 @@ The module exposes read-only completed transcript endpoints for other local modu
 
 - `GET /transcripts?limit=50&offset=0&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 - `GET /transcripts/{result_id}`
-- `GET /transcripts/events?cursor=created_at:event_id&limit=100`
 
 Transcript list responses return compact summaries only. Transcript detail responses return normalized raw segments with stable `segment_id` values in the form `stt:{result_id}:{index}`, plus readable coalesced `turns` and plain `text` for downstream modules that do not need low-level STT chunks.
 
 Public segments and turns use integer `start_ms`/`end_ms` and expose only the physical audio `channel` used by downstream modules for participant-role mapping. Worker speaker aliases, technical source labels, and duplicate floating-point `start`/`end` seconds remain internal. A distinct speaker identifier should be added only with an actual diarization contract.
 
-Event responses read idempotent `transcript.completed` records from `m_STTTranscriptEvent`, so consumers can store `next_cursor` and resume polling. Event rows preserve `result_id`, `job_id`, and `call_id` when available. Summary generation can fall back from job data to event and CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
+Downstream imports follow the call-transcript event feed below; the earlier per-recording `GET /transcripts/events` feed is retired. Each stored result still records an idempotent `transcript.completed` row in `m_STTTranscriptEvent`: its id is returned to the worker as `published_event_id`, and summary generation can fall back from job data to that row and to CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
 
 ### Call transcripts
 
@@ -204,7 +203,7 @@ The module stores its state in module tables:
 - `m_STTWorker`: registered worker identity, status, IP, model, API key binding, and heartbeat timestamp.
 - `m_STTJob`: transcription queue records.
 - `m_STTResult`: completed transcript JSON and optional technical report.
-- `m_STTTranscriptEvent`: integration event outbox for completed transcripts.
+- `m_STTTranscriptEvent`: idempotent marks of stored results (the id returned to the worker, also used by transcript summaries).
 - `m_STTRetryState`: durable delayed/skipped recording retry state.
 - `m_STTCallTranscript*`: assembled call transcripts, parts, revisions, and integration events.
 - `m_STTSchemaMigration`: applied module database migration ledger.

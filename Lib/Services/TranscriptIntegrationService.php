@@ -142,66 +142,6 @@ class TranscriptIntegrationService
     }
 
     /**
-     * @param array<string, mixed> $filters
-     * @return array<string, mixed>
-     */
-    public function completedTranscriptEvents(array $filters): array
-    {
-        $limit = $this->limit($filters['limit'] ?? null);
-        [$cursorCreatedAt, $cursorEventId] = $this->decodeCursor((string)($filters['cursor'] ?? ''));
-
-        $connection = (new STTTranscriptEvent())->getReadConnection();
-        $rows = $connection->fetchAll(
-            "SELECT e.id AS event_id,
-                    e.event_type AS event_type,
-                    e.result_id AS result_id,
-                    e.job_id AS job_id,
-                    e.call_id AS call_id,
-                    e.update_type AS update_type,
-                    e.created_at AS created_at
-               FROM m_STTTranscriptEvent e
-              WHERE (
-                    CAST(e.created_at AS INTEGER) > :cursor_created_at
-                 OR (
-                        CAST(e.created_at AS INTEGER) = :cursor_created_at
-                    AND CAST(e.id AS INTEGER) > :cursor_event_id
-                 )
-              )
-           ORDER BY CAST(e.created_at AS INTEGER) ASC, CAST(e.id AS INTEGER) ASC
-              LIMIT {$limit}",
-            \Phalcon\Db\Enum::FETCH_ASSOC,
-            [
-                'cursor_created_at' => $cursorCreatedAt,
-                'cursor_event_id' => $cursorEventId,
-            ]
-        );
-
-        $events = [];
-        $nextCursor = $this->encodeCursor($cursorCreatedAt, $cursorEventId);
-        foreach ($rows as $row) {
-            $createdAt = (int)($row['created_at'] ?? 0);
-            $eventId = (int)($row['event_id'] ?? 0);
-            $resultId = (int)($row['result_id'] ?? 0);
-            $events[] = [
-                'cursor' => $this->encodeCursor($createdAt, $eventId),
-                'event_type' => (string)($row['event_type'] ?? STTTranscriptEvent::TYPE_TRANSCRIPT_COMPLETED),
-                'result_id' => $resultId,
-                'job_id' => isset($row['job_id']) ? (int)$row['job_id'] : null,
-                'call_id' => (string)($row['call_id'] ?? ''),
-                'created_at' => $createdAt,
-                'update_type' => (string)($row['update_type'] ?? STTTranscriptEvent::UPDATE_CREATED),
-            ];
-            $nextCursor = $this->encodeCursor($createdAt, $eventId);
-        }
-
-        return [
-            'events' => $events,
-            'next_cursor' => $nextCursor,
-            'limit' => $limit,
-        ];
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function summary(STTResult $result): array
@@ -955,22 +895,5 @@ class TranscriptIntegrationService
         }
 
         return max(1, min(self::MAX_LIMIT, $limit));
-    }
-
-    /**
-     * @return array{0: int, 1: int}
-     */
-    private function decodeCursor(string $cursor): array
-    {
-        if (!preg_match('/^(\d+):(\d+)$/', trim($cursor), $matches)) {
-            return [0, 0];
-        }
-
-        return [(int)$matches[1], (int)$matches[2]];
-    }
-
-    private function encodeCursor(int $createdAt, int $resultId): string
-    {
-        return max(0, $createdAt) . ':' . max(0, $resultId);
     }
 }
