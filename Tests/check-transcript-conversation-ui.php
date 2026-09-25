@@ -66,10 +66,17 @@ expectTranscriptUi(
 expectTranscriptUi(
     str_contains($viewJs, 'function synchronizeTimeline(duration)')
         && str_contains($viewJs, "find('.stt-transcript-scale span').last()")
-        && str_contains($viewJs, "audio.addEventListener('loadedmetadata', synchronize)"),
+        && str_contains($viewJs, "audio.addEventListener('loadedmetadata', function ()"),
     'audio metadata must synchronize the scale label and speech geometry'
 );
-expectTranscriptUi(str_contains($viewJs, "audio.currentTime = (duration * value) / 1000"), 'timeline range must seek the recording');
+expectTranscriptUi(str_contains($viewJs, 'seek((currentDuration() * safeNumber(this.value)) / 1000)'), 'timeline range must seek the recording');
+// Playback follows the standard call history player (CDRPlayer).
+expectTranscriptUi(!str_contains($template . $viewJs, "preload=\"metadata\"") && !str_contains($viewJs, "preload: 'metadata'"), 'opening a transcript must not preload the recording');
+expectTranscriptUi(str_contains($viewJs, "method: 'HEAD'"), 'recording availability must be checked with HEAD only');
+expectTranscriptUi(str_contains($viewJs, "audio.addEventListener('canplaythrough'"), 'playback must start once enough is buffered');
+expectTranscriptUi(str_contains($viewJs, 'function stopOthers(player)'), 'only one recording may play at a time');
+expectTranscriptUi(str_contains($viewJs, '* 0.65) + (inR[index] * 0.35)'), 'stereo recordings must be blended like the call history player');
+expectTranscriptUi(str_contains($cdrJs, 'SttTranscriptView.dispose'), 'closing the modal must release the player');
 expectTranscriptUi(!str_contains($moduleJs, 'function initializeTranscriptPlayer'), 'legacy separate player implementation must be removed');
 expectTranscriptUi(str_contains($cdrJs, 'SttTranscriptView.create'), 'CDR modal must use the shared transcript renderer');
 expectTranscriptUi(str_contains($cdrJs, 'audioUrl:'), 'CDR modal must pass its recording to the shared timeline player');

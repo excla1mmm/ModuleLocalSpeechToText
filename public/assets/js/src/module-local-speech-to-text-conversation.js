@@ -46,11 +46,14 @@
     function createPlayer(labels, durationLabel) {
         var $player = $('<div>', {
             class: 'stt-transcript-player',
-            'data-duration': safeNumber(labels.durationSeconds)
+            'data-duration': safeNumber(labels.durationSeconds),
+            'data-label-loading': labels.loading || '',
+            'data-label-unavailable': labels.unavailable || '',
+            'data-label-failed': labels.failed || ''
         }).append(
             $('<audio>', {
                 class: 'stt-transcript-audio',
-                preload: 'metadata',
+                preload: 'none',
                 'data-src': String(labels.audioUrl || '')
             }),
             $('<button>', {
@@ -131,7 +134,8 @@
             $('<div>', { class: 'stt-transcript-scale' }).append(
                 $('<span>').text('0:00'),
                 $('<span>').text(durationLabel)
-            )
+            ),
+            playable ? $('<p>', { class: 'stt-player-status', role: 'status', hidden: true }) : null
         );
     }
 
@@ -313,12 +317,112 @@
         }
     };
 
+    // Playback follows the standard MikoPBX call history player (CDRPlayer):
+    // opening a transcript downloads nothing, a HEAD request only checks that
+    // the recording exists. The first Play attaches the URL as a stream (the
+    // browser fetches it with Range requests) and audio starts on
+    // canplaythrough, once enough is buffered, from the held position: 0:00,
+    // a clicked turn, the slider or a shared moment. Only one recording plays
+    // at a time on the page.
+    var activePlayer = null;
+
+    function stopOthers(player) {
+        if (activePlayer && activePlayer !== player) {
+            activePlayer.pause();
+        }
+        activePlayer = player;
+    }
+
+    // A missing file or a network failure disables the player, as in CDRPlayer.
+    function probeRecording(url, done) {
+        var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+        if (typeof window.TokenManager !== 'undefined' && window.TokenManager && window.TokenManager.accessToken) {
+            headers.Authorization = 'Bearer ' + window.TokenManager.accessToken;
+        }
+        if (typeof window.fetch !== 'function') {
+            done(true);
+            return;
+        }
+        window.fetch(url, { method: 'HEAD', credentials: 'same-origin', headers: headers }).then(function (response) {
+            // An endpoint that cannot answer HEAD says nothing about the file.
+            done(response.ok || response.status === 405 || response.status === 501);
+        }, function () {
+            done(false);
+        });
+    }
+
+    // Stereo call recordings carry one party per channel; like CDRPlayer the
+    // channels are blended 65/35 so both parties are heard in each ear. One
+    // AudioContext serves every player; it is created on the first Play click.
+    var mixerContext = null;
+
+    function blendChannels(event) {
+        var input = event.inputBuffer;
+        var output = event.outputBuffer;
+        var outL = output.getChannelData(0);
+        var outR = output.numberOfChannels > 1 ? output.getChannelData(1) : null;
+        var inL = input.getChannelData(0);
+        var inR = input.numberOfChannels > 1 ? input.getChannelData(1) : inL;
+        var index;
+
+        for (index = 0; index < inL.length; index += 1) {
+            outL[index] = (inL[index] * 0.65) + (inR[index] * 0.35);
+            if (outR) {
+                outR[index] = (inL[index] * 0.35) + (inR[index] * 0.65);
+            }
+        }
+    }
+
+    function attachMixer(audio) {
+        var Context = window.AudioContext || window.webkitAudioContext;
+        var processor;
+        var source;
+
+        if (!Context) {
+            return;
+        }
+        try {
+            if (!audio.sttMixer) {
+                mixerContext = mixerContext || new Context();
+                // The processor exists before the element is captured: a capture
+                // without a connected graph would leave the recording silent.
+                processor = mixerContext.createScriptProcessor(4096, 2, 2);
+                processor.onaudioprocess = blendChannels;
+                source = mixerContext.createMediaElementSource(audio);
+                source.connect(processor);
+                processor.connect(mixerContext.destination);
+                audio.sttMixer = { source: source, processor: processor };
+            }
+            if (mixerContext.state === 'suspended') {
+                mixerContext.resume();
+            }
+        } catch (error) {
+            // Plain stereo playback through the element.
+        }
+    }
+
+    function detachMixer(audio) {
+        var graph = audio && audio.sttMixer;
+        if (!graph) {
+            return;
+        }
+        audio.sttMixer = null;
+        try {
+            graph.processor.onaudioprocess = null;
+            graph.source.disconnect();
+            graph.processor.disconnect();
+        } catch (error) {
+            // Already disconnected.
+        }
+    }
+
     function initializePlayer($root) {
         var audio = $root.find('.stt-transcript-audio').get(0);
         var $player = $root.find('.stt-transcript-player');
         var $playButton = $player.find('.stt-player-play');
         var $playIcon = $playButton.find('i');
         var $duration = $player.find('.stt-player-duration');
+        var $status = $root.find('.stt-player-status');
         var $seek = $root.find('.stt-transcript-seek.is-playable');
         var $range = $seek.find('.stt-transcript-range');
         var $playhead = $seek.find('.stt-transcript-playhead');
@@ -326,9 +430,19 @@
         var $scaleEnd = $root.find('.stt-transcript-scale span').last();
         var $segments = $seek.find('.stt-transcript-lane-segment');
         var $turns = $root.find('.stt-playable-turn');
-        var pendingRangeValue = null;
-        var waitingForMetadata = false;
+        var source = String((audio && audio.getAttribute('data-src')) || '');
+        var labels = {
+            loading: String($player.attr('data-label-loading') || ''),
+            unavailable: String($player.attr('data-label-unavailable') || ''),
+            failed: String($player.attr('data-label-failed') || '')
+        };
         var synchronizedDuration = 0;
+        // phase: checking, idle, loading, ready, unavailable, failed
+        var phase = 'checking';
+        var intent = null;
+        var position = 0;
+        var buffering = false;
+        var player;
         // Only server-rendered transcript pages name their stage; the call-history modal never touches the address.
         var stageId = String($root.attr('data-stt-stage') || '');
         var linkable = /^[1-9][0-9]*$/.test(stageId);
@@ -346,26 +460,49 @@
             return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : fallbackDuration();
         }
 
-        function ensureSource() {
-            if (audio.getAttribute('src')) {
-                return true;
-            }
-            var source = String(audio.getAttribute('data-src') || '');
-            if (!source) {
-                return false;
-            }
-            audio.setAttribute('src', source);
-            audio.load();
-
-            return true;
+        function attached() {
+            return Boolean(audio.getAttribute('src'));
         }
 
-        function setPlayIcon(playing) {
-            $playIcon.toggleClass('play', !playing).toggleClass('pause', playing);
+        function clamp(seconds) {
+            var value = safeNumber(seconds);
+            var duration = currentDuration();
+
+            return duration > 0 ? Math.min(value, Math.max(0, duration - 0.01)) : value;
         }
 
-        function setActiveTurns() {
-            var current = audio.currentTime;
+        // Until the stream can play through, the clock and playhead hold the requested position.
+        function shownTime() {
+            if (intent !== null) {
+                return intent;
+            }
+
+            return attached() && audio.readyState >= 1 ? audio.currentTime : position;
+        }
+
+        function showStatus(text, error) {
+            $status.text(text).toggleClass('is-error', Boolean(error)).prop('hidden', text === '');
+        }
+
+        function renderButton() {
+            var loading = intent !== null || buffering;
+            var playing = !audio.paused && !loading;
+
+            $playIcon.removeClass('play pause spinner loading');
+            if (loading) {
+                $playIcon.addClass('spinner loading');
+            } else {
+                $playIcon.addClass(playing ? 'pause' : 'play');
+            }
+            $playButton.attr('aria-busy', loading ? 'true' : null);
+            if (loading) {
+                showStatus(labels.loading, false);
+            } else if ($status.text() === labels.loading) {
+                showStatus('', false);
+            }
+        }
+
+        function setActiveTurns(current) {
             $turns.each(function () {
                 var $turn = $(this);
                 var start = safeNumber($turn.data('start'));
@@ -393,74 +530,115 @@
 
         function update() {
             var duration = currentDuration();
-            var value = duration > 0 ? Math.min(1000, Math.round((audio.currentTime / duration) * 1000)) : 0;
+            var current = shownTime();
+            var value = duration > 0 ? Math.min(1000, Math.round((current / duration) * 1000)) : 0;
+
+            if (phase === 'unavailable') {
+                return;
+            }
             synchronizeTimeline(duration);
-            $range.val(value).attr('aria-valuetext', formatTime(audio.currentTime));
+            $range.val(value).attr('aria-valuetext', formatTime(current));
             $playhead.css('left', (value / 10) + '%');
-            $duration.text(formatTime(audio.currentTime) + ' / ' + (duration > 0 ? formatTime(duration) : '--:--'));
-            setActiveTurns();
+            $duration.text(formatTime(current) + ' / ' + (duration > 0 ? formatTime(duration) : '--:--'));
+            setActiveTurns(current);
         }
 
-        function play() {
-            if (!ensureSource()) {
+        function disable() {
+            phase = 'unavailable';
+            $playButton.prop('disabled', true).addClass('disabled');
+            $player.find('.stt-player-speed, .stt-player-download').hide();
+            $range.prop('disabled', true);
+            $turns.removeClass('stt-playable-turn').removeAttr('tabindex');
+            $duration.text('--:-- / --:--');
+            showStatus(labels.unavailable, false);
+        }
+
+        function fail() {
+            intent = null;
+            buffering = false;
+            showStatus(labels.failed, true);
+            renderButton();
+        }
+
+        function moveTo(seconds) {
+            if (Math.abs((audio.currentTime || 0) - seconds) < 0.25) {
                 return;
             }
-            var result = audio.play();
-            if (result && typeof result.catch === 'function') {
-                result.catch(function () {
-                    setPlayIcon(false);
-                });
+            try {
+                audio.currentTime = seconds;
+            } catch (error) {
+                // Applied again once metadata arrives.
             }
         }
 
-        function seekByRange(value) {
-            function applySeek() {
-                var duration = currentDuration();
-                if (duration <= 0) {
-                    return;
+        function apply() {
+            var seconds;
+            var result;
+
+            if (phase !== 'ready' || intent === null) {
+                return;
+            }
+            seconds = clamp(intent);
+            intent = null;
+            position = seconds;
+            moveTo(seconds);
+            try {
+                result = audio.play();
+                if (result && typeof result.catch === 'function') {
+                    result.catch(fail);
                 }
-                var value = pendingRangeValue;
-                pendingRangeValue = null;
-                audio.currentTime = (duration * value) / 1000;
-                update();
-            }
-
-            pendingRangeValue = value;
-            if (!ensureSource()) {
+            } catch (error) {
+                fail();
                 return;
             }
-            if (audio.readyState >= 1) {
-                applySeek();
-            } else if (!waitingForMetadata) {
-                waitingForMetadata = true;
-                audio.addEventListener('loadedmetadata', function () {
-                    waitingForMetadata = false;
-                    applySeek();
-                }, { once: true });
-            }
+            renderButton();
+            update();
         }
 
-        function seekTurn($turn) {
-            var seconds = safeNumber($turn.data('start'));
-            rememberMoment(seconds);
-
-            function applySeek() {
-                audio.currentTime = Math.min(seconds, currentDuration() || seconds);
-                update();
-                play();
-            }
-
-            if (!ensureSource()) {
+        function play(seconds) {
+            if (phase === 'unavailable' || !source) {
                 return;
             }
-            if (audio.readyState >= 1) {
-                applySeek();
-            } else {
-                audio.addEventListener('loadedmetadata', applySeek, { once: true });
+            intent = clamp(seconds);
+            position = intent;
+            if ($status.hasClass('is-error')) {
+                showStatus('', false);
             }
+            stopOthers(player);
+            // Inside the click: browsers only start an AudioContext on a gesture.
+            attachMixer(audio);
+            if (phase === 'ready' && attached()) {
+                apply();
+                return;
+            }
+            if (!attached()) {
+                phase = 'loading';
+                audio.setAttribute('src', source);
+                audio.load();
+            }
+            renderButton();
+            update();
         }
 
-        function synchronize() {
+        function pause() {
+            intent = null;
+            buffering = false;
+            if (!audio.paused) {
+                audio.pause();
+            }
+            renderButton();
+        }
+
+        // Moves the held or live position without changing whether it plays.
+        function seek(seconds) {
+            var value = clamp(seconds);
+
+            position = value;
+            if (intent !== null) {
+                intent = value;
+            } else if (attached() && audio.readyState >= 1) {
+                moveTo(value);
+            }
             update();
         }
 
@@ -470,27 +648,30 @@
             }
         }
 
-        // A shared moment is held without playing: browsers start audio only on a user gesture.
+        // A shared moment is held without playing or loading: browsers start audio only on a user gesture.
         function holdMoment(seconds) {
-            function apply() {
-                var duration = currentDuration();
-                audio.currentTime = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.01)) : seconds;
-                update();
-                var turn = $root.find('.stt-turn-active').get(0) || $root.get(0);
-                if (turn && typeof turn.scrollIntoView === 'function') {
-                    turn.scrollIntoView({ block: 'center' });
-                }
-            }
+            var turn;
 
-            if (!ensureSource()) {
-                return;
-            }
-            if (audio.readyState >= 1) {
-                apply();
-            } else {
-                audio.addEventListener('loadedmetadata', apply, { once: true });
+            seek(seconds);
+            turn = $root.find('.stt-turn-active').get(0) || $root.get(0);
+            if (turn && typeof turn.scrollIntoView === 'function') {
+                turn.scrollIntoView({ block: 'center' });
             }
         }
+
+        player = { pause: pause };
+        $root.data('stt-player', {
+            pause: pause,
+            dispose: function () {
+                pause();
+                if (activePlayer === player) {
+                    activePlayer = null;
+                }
+                audio.removeAttribute('src');
+                audio.load();
+                detachMixer(audio);
+            }
+        });
 
         // defaultPlaybackRate survives the audio.load() that attaches the
         // lazily loaded source; playbackRate applies to the running audio.
@@ -502,15 +683,15 @@
             $(this).addClass('active').attr('aria-pressed', 'true');
         });
         $playButton.on('click.sttTranscript', function () {
-            if (audio.paused) {
-                play();
+            if (!audio.paused || intent !== null) {
+                rememberMoment(shownTime());
+                pause();
             } else {
-                audio.pause();
-                rememberMoment(audio.currentTime);
+                play(shownTime());
             }
         });
         $range.on('input.sttTranscript change.sttTranscript', function () {
-            seekByRange(safeNumber(this.value));
+            seek((currentDuration() * safeNumber(this.value)) / 1000);
         });
         // Only the settled position is written; browsers throttle address updates.
         $range.on('change.sttTranscript', function () {
@@ -523,34 +704,84 @@
             $tooltip.text(formatTime((currentDuration() * percent) / 100)).css('left', percent + '%');
         });
         $turns.on('click.sttTranscript', function () {
-            seekTurn($(this));
+            var seconds = safeNumber($(this).data('start'));
+            rememberMoment(seconds);
+            play(seconds);
         }).on('keydown.sttTranscript', function (event) {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                seekTurn($(this));
+                $(this).trigger('click');
             }
         });
 
-        audio.addEventListener('loadedmetadata', synchronize);
-        audio.addEventListener('timeupdate', update);
-        audio.addEventListener('play', function () {
-            setPlayIcon(true);
-        });
-        audio.addEventListener('pause', function () {
-            setPlayIcon(false);
-        });
-        audio.addEventListener('ended', function () {
-            audio.currentTime = 0;
+        // loadedmetadata: jump to the held position before buffering starts there.
+        audio.addEventListener('loadedmetadata', function () {
+            if (intent !== null) {
+                moveTo(clamp(intent));
+            }
             update();
         });
+        // canplaythrough: enough is buffered to play without stalling.
+        audio.addEventListener('canplaythrough', function () {
+            if (!attached()) {
+                return;
+            }
+            phase = 'ready';
+            apply();
+        });
+        audio.addEventListener('waiting', function () {
+            if (!audio.paused && !buffering) {
+                buffering = true;
+                renderButton();
+            }
+        });
+        audio.addEventListener('playing', function () {
+            buffering = false;
+            renderButton();
+        });
+        audio.addEventListener('timeupdate', update);
+        audio.addEventListener('play', renderButton);
+        audio.addEventListener('pause', renderButton);
+        audio.addEventListener('ended', function () {
+            audio.currentTime = 0;
+            position = 0;
+            if (activePlayer === player) {
+                activePlayer = null;
+            }
+            renderButton();
+            update();
+        });
+        // The stream is dropped so the next Play attaches it again.
+        audio.addEventListener('error', function () {
+            if (!attached()) {
+                return;
+            }
+            audio.removeAttribute('src');
+            audio.load();
+            phase = 'failed';
+            fail();
+        });
+
         update();
-        ensureSource();
         if (linkable) {
             var moment = transcriptLocation.read(window.location.search);
             if (moment.stage === stageId) {
                 holdMoment(moment.t);
             }
         }
+        if (!source) {
+            return;
+        }
+        probeRecording(source, function (ok) {
+            if (phase !== 'checking') {
+                return;
+            }
+            if (ok) {
+                phase = 'idle';
+            } else {
+                disable();
+            }
+        });
     }
 
     function initialize(root) {
@@ -597,9 +828,32 @@
         initializePlayer($root);
     }
 
+    function eachPlayer(root, action) {
+        $(root).find('.stt-transcript-view').addBack('.stt-transcript-view').each(function () {
+            var player = $(this).data('stt-player');
+            if (player) {
+                player[action]();
+            }
+        });
+    }
+
+    // Pauses and cancels a pending start (a recording still buffering would
+    // otherwise begin playing once it can), e.g. when a tab hides it.
+    function pause(root) {
+        eachPlayer(root, 'pause');
+    }
+
+    // Stops the audio, aborts its stream and releases the mixer, e.g. when
+    // the call-history modal closes.
+    function dispose(root) {
+        eachPlayer(root, 'dispose');
+    }
+
     window.SttTranscriptView = {
         create: create,
         initialize: initialize,
+        pause: pause,
+        dispose: dispose,
         location: transcriptLocation
     };
 

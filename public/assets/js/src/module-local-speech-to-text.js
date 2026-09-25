@@ -849,7 +849,9 @@
                     var hidden = String($(this).data('stt-call-leg-panel') || '') !== callLeg;
 
                     $(this).prop('hidden', hidden);
-                    if (hidden) {
+                    if (hidden && window.SttTranscriptView && typeof window.SttTranscriptView.pause === 'function') {
+                        window.SttTranscriptView.pause(this);
+                    } else if (hidden) {
                         $(this).find('audio').each(function () {
                             var audio = this;
                             audio.pause();

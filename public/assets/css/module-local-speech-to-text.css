@@ -775,6 +775,22 @@
     outline-offset: 1px;
 }
 
+.module-local-speech-to-text .stt-player-play:disabled,
+.module-local-speech-to-text .stt-player-play.disabled {
+    background: rgba(0, 0, 0, 0.3);
+    cursor: not-allowed;
+}
+
+.module-local-speech-to-text .stt-player-status {
+    color: rgba(0, 0, 0, 0.56);
+    font-size: 0.9em;
+    margin: 0.5em 0 0;
+}
+
+.module-local-speech-to-text .stt-player-status.is-error {
+    color: #c43d36;
+}
+
 .module-local-speech-to-text .stt-player-download {
     color: var(--stt-speaker-left);
     flex: 0 0 auto;

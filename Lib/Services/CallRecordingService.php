@@ -162,7 +162,16 @@ class CallRecordingService
         if ($statusCode === 206) {
             $this->response->setHeader('Content-Range', sprintf('bytes %d-%d/%d', $start, $end, $fileSize));
         }
+        // Stream chunks straight through nginx instead of letting it buffer the
+        // whole file first, as the Core CDR playback endpoint does.
+        $this->response->setHeader('X-Accel-Buffering', 'no');
         $this->response->sendHeaders();
+
+        // The player's availability check (HEAD) needs only the headers.
+        if ($this->request->isHead()) {
+            fclose($fileHandle);
+            return;
+        }
 
         fseek($fileHandle, $start);
         $remainingBytes = $length;

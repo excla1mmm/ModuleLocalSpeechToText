@@ -231,6 +231,9 @@
         }
 
         function stopModalPlayback() {
+            if (window.SttTranscriptView && typeof window.SttTranscriptView.dispose === 'function') {
+                window.SttTranscriptView.dispose($modal.find('.stt-cdr-transcript-conversation'));
+            }
             const audio = $modal.find('.stt-transcript-audio').get(0);
             if (!audio) {
                 return;
@@ -447,6 +450,9 @@
                 empty: labels.empty,
                 play: translate('module_local_speech_to_text_PlayRecording'),
                 speed: translate('module_local_speech_to_text_PlaybackSpeed'),
+                loading: translate('module_local_speech_to_text_LoadingRecording'),
+                unavailable: translate('module_local_speech_to_text_RecordingUnavailable'),
+                failed: translate('module_local_speech_to_text_PlaybackFailed'),
                 download: translate('module_local_speech_to_text_DownloadRecording'),
                 audioUrl: String(recording.playback_url || ''),
                 downloadUrl: String(recording.download_url || ''),

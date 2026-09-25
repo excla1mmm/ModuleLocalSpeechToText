@@ -22,8 +22,11 @@
             <div class="stt-transcript-overview">
                 <div class="stt-transcript-overview-header">
                     {% if recording['hasPlayback'] %}
-                        <div class="stt-transcript-player" data-duration="{{ recording['durationSeconds']|e }}">
-                            <audio class="stt-transcript-audio" preload="metadata" data-src="{{ recording['playbackUrl']|e }}"></audio>
+                        <div class="stt-transcript-player" data-duration="{{ recording['durationSeconds']|e }}"
+                             data-label-loading="{{ t._('module_local_speech_to_text_LoadingRecording')|e }}"
+                             data-label-unavailable="{{ t._('module_local_speech_to_text_RecordingUnavailable')|e }}"
+                             data-label-failed="{{ t._('module_local_speech_to_text_PlaybackFailed')|e }}">
+                            <audio class="stt-transcript-audio" preload="none" data-src="{{ recording['playbackUrl']|e }}"></audio>
                             <button type="button" class="stt-player-play" aria-label="{{ t._('module_local_speech_to_text_PlayRecording')|e }}" data-content="{{ t._('module_local_speech_to_text_PlayRecording')|e }}"><i class="play icon"></i></button>
                             <span class="stt-player-duration">00:00 / {% if recording['durationLabel'] !== '' %}{{ recording['durationLabel']|e }}{% else %}{{ conversation['durationLabel']|e }}{% endif %}</span>
                             <div class="stt-player-speed" role="group" aria-label="{{ t._('module_local_speech_to_text_PlaybackSpeed')|e }}">
@@ -62,6 +65,7 @@
                     {% endif %}
                 </div>
                 <div class="stt-transcript-scale"><span>0:00</span><span>{{ conversation['durationLabel']|e }}</span></div>
+                {% if recording['hasPlayback'] %}<p class="stt-player-status" role="status" hidden></p>{% endif %}
             </div>
 
             <div class="stt-transcript-toolbar">
