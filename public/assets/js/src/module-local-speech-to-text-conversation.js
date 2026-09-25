@@ -145,7 +145,9 @@
                 })
             ),
             $filters,
-            $('<span>', { class: 'stt-transcript-count', 'aria-live': 'polite' })
+            // Optional actions menu supplied by the host (the call-history
+            // modal), matching the full transcript card's toolbar.
+            labels.actions instanceof $ ? labels.actions : null
         );
     }
 
@@ -554,7 +556,6 @@
                 }
             });
             $gaps.prop('hidden', query !== '' || activeSpeaker !== 'all');
-            $root.find('.stt-transcript-count').text(String(visible));
             $empty.prop('hidden', visible !== 0);
         }
 

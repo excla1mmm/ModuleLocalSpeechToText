@@ -19,6 +19,17 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         /** @var array<string, array{id: int, current_revision: int}> */
         public static array $calls = [];
 
+        /** @var array<string, int> call id => first-leg result id */
+        public static array $results = [];
+
+        /** @param array<string, string> $bind @return array{id: int}|false */
+        public function fetchOne(string $sql, int $fetchMode, array $bind): array|false
+        {
+            $resultId = self::$results[$bind['call_id'] ?? ''] ?? null;
+
+            return $resultId === null ? false : ['id' => $resultId];
+        }
+
         /** @param array<string, string> $bind @return array<int, array{id: int, call_id: string}> */
         public function fetchAll(string $sql, int $fetchMode, array $bind): array
         {
@@ -146,6 +157,7 @@ namespace {
         'call-legacy' => ['id' => 15, 'current_revision' => 1],
         'call-corrupt' => ['id' => 16, 'current_revision' => 1],
     ];
+    FakeCdrTranscriptDb::$results = ['call-1' => 77];
     $payload = static fn (array $manifest, array $segments): string => json_encode([
         'part_manifest' => $manifest,
         'transcript' => ['segments' => $segments],
@@ -239,6 +251,7 @@ namespace {
     expectCdrTranscript($detail['aggregateId'] === 11, 'aggregate id mismatch');
     expectCdrTranscript($detail['callId'] === 'call-1', 'call id mismatch');
     expectCdrTranscript($detail['revision'] === 3, 'revision mismatch');
+    expectCdrTranscript($detail['resultId'] === 77, 'first-leg result id mismatch');
     expectCdrTranscript($detail['playbackCdrId'] === 501, 'single-leg playback CDR mismatch');
     expectCdrTranscript($detail['conversation']['timelineReliable'] === true, 'single-leg timeline must be reliable');
     expectCdrTranscript($detail['conversation']['hasSegments'] === true, 'conversation projection missing');

@@ -91,6 +91,8 @@
         const lookupUrl = `${rootUrl}module-local-speech-to-text/cdr-transcript/lookup`;
         const detailUrl = `${rootUrl}module-local-speech-to-text/cdr-transcript/detail`;
         const transcriptUrl = `${rootUrl}module-local-speech-to-text/module-local-speech-to-text/transcript`;
+        const exportUrl = `${rootUrl}module-local-speech-to-text/transcript-actions/export`;
+        const deleteUrl = `${rootUrl}module-local-speech-to-text/transcript-actions/delete`;
         const availability = Object.create(null);
         const pending = Object.create(null);
         let accessDenied = false;
@@ -278,7 +280,138 @@
             $modal.find('.stt-cdr-transcript-error').removeAttr('hidden').addClass('error').text(message);
         }
 
-        function renderConversation(transcript, rowData) {
+        function showMessages(messages) {
+            if (typeof UserMessage !== 'undefined' && messages && typeof UserMessage.showMultiString === 'function') {
+                UserMessage.showMultiString(messages);
+            }
+        }
+
+        // Same consequences and acknowledgement as the full transcript card:
+        // Delete stays disabled until the checkbox is ticked, and only then is
+        // confirm_delete sent.
+        function ensureDeleteModal() {
+            let $confirm = $('#stt-cdr-delete-transcript-modal');
+            if ($confirm.length > 0) {
+                return $confirm;
+            }
+            const $list = $('<ul>', { class: 'ui list' });
+            [
+                'module_local_speech_to_text_DeleteTranscriptConsequence',
+                'module_local_speech_to_text_DeleteTranscriptKeepsCdr',
+                'module_local_speech_to_text_DeleteTranscriptBackupWarning',
+            ].forEach(function (key) {
+                $list.append($('<li>').text(translate(key)));
+            });
+            $confirm = $('<div>', {
+                class: 'ui tiny modal',
+                id: 'stt-cdr-delete-transcript-modal',
+                role: 'dialog',
+                'aria-modal': 'true',
+                'aria-labelledby': 'stt-cdr-delete-transcript-title',
+            }).append(
+                $('<div>', { class: 'header', id: 'stt-cdr-delete-transcript-title' })
+                    .text(translate('module_local_speech_to_text_DeleteTranscript')),
+                $('<div>', { class: 'content' }).append(
+                    $list,
+                    $('<div>', { class: 'ui checkbox' }).append(
+                        $('<input>', { type: 'checkbox', id: 'stt-cdr-delete-transcript-acknowledge' }),
+                        $('<label>', { for: 'stt-cdr-delete-transcript-acknowledge' })
+                            .text(translate('module_local_speech_to_text_DeleteTranscriptConfirm'))
+                    )
+                ),
+                $('<div>', { class: 'actions' }).append(
+                    $('<button>', { type: 'button', class: 'ui cancel basic button' })
+                        .text(translate('module_local_speech_to_text_ConfirmCancel')),
+                    $('<button>', { type: 'button', class: 'ui red approve button disabled', disabled: true })
+                        .text(translate('module_local_speech_to_text_ConfirmDelete'))
+                )
+            );
+            $('body').append($confirm);
+            $confirm.find('#stt-cdr-delete-transcript-acknowledge').on('change', function () {
+                const checked = $(this).prop('checked');
+                $confirm.find('.approve.button').toggleClass('disabled', !checked).prop('disabled', !checked);
+            });
+            return $confirm;
+        }
+
+        function deleteTranscript(resultId, callId) {
+            const $confirm = ensureDeleteModal();
+            const $approve = $confirm.find('.approve.button');
+            $confirm.find('#stt-cdr-delete-transcript-acknowledge').prop('checked', false);
+            $approve.addClass('disabled').prop('disabled', true).removeClass('loading');
+            $confirm.modal({
+                allowMultiple: true,
+                closable: true,
+                onApprove: function () {
+                    if (!$confirm.find('#stt-cdr-delete-transcript-acknowledge').prop('checked')) {
+                        return false;
+                    }
+                    $approve.addClass('loading disabled').prop('disabled', true);
+                    $.ajax({
+                        url: deleteUrl,
+                        method: 'POST',
+                        dataType: 'json',
+                        data: { result_id: resultId, confirm_delete: '1' },
+                        beforeSend: addAuthorizationHeader,
+                    }).done(function (response) {
+                        showMessages(response && response.message);
+                        if (response && response.success === true) {
+                            delete availability[callId];
+                            $table.find('.stt-cdr-transcript-button').filter(function () {
+                                return $(this).attr('data-call-id') === callId;
+                            }).remove();
+                            $confirm.modal('hide');
+                            $modal.modal('hide');
+                            return;
+                        }
+                        $confirm.modal('hide');
+                    }).fail(function () {
+                        $confirm.modal('hide');
+                        showMessages({ error: [translate('module_local_speech_to_text_TranscriptDeleteFailed')] });
+                    }).always(function () {
+                        $approve.removeClass('loading');
+                    });
+                    return false;
+                },
+            }).modal('show');
+        }
+
+        function createActionsMenu(resultId, callId, canDelete) {
+            const $menu = $('<div>', { class: 'ui vertical menu' });
+            ['txt', 'json'].forEach(function (format) {
+                $menu.append($('<a>', {
+                    class: 'item',
+                    href: `${exportUrl}?id=${encodeURIComponent(String(resultId))}&format=${format}`,
+                }).text(translate(format === 'txt'
+                    ? 'module_local_speech_to_text_DownloadTranscriptTxt'
+                    : 'module_local_speech_to_text_DownloadTranscriptJson')));
+            });
+            if (canDelete) {
+                $menu.append(
+                    $('<div>', { class: 'divider' }),
+                    $('<div>', { class: 'item stt-delete-transcript-form' }).append(
+                        $('<button>', { type: 'button' })
+                            .text(translate('module_local_speech_to_text_DeleteTranscript'))
+                            .on('click', function () {
+                                deleteTranscript(resultId, callId);
+                            })
+                    )
+                );
+            }
+            const label = translate('module_local_speech_to_text_TranscriptActions');
+            const $details = $('<details>', { class: 'stt-transcript-actions' }).append(
+                $('<summary>', { 'aria-label': label, title: label }).append(
+                    $('<i>', { class: 'ellipsis horizontal icon' })
+                ),
+                $menu
+            );
+            $menu.on('click', 'a, button', function () {
+                $details.removeAttr('open');
+            });
+            return $details;
+        }
+
+        function renderConversation(transcript, rowData, callId, canDelete) {
             const conversation = transcript && typeof transcript.conversation === 'object'
                 ? transcript.conversation
                 : null;
@@ -317,6 +450,7 @@
                 audioUrl: String(recording.playback_url || ''),
                 downloadUrl: String(recording.download_url || ''),
                 durationSeconds: conversation.durationSeconds,
+                actions: transcript.resultId ? createActionsMenu(transcript.resultId, callId, canDelete) : null,
             }));
         }
 
@@ -340,7 +474,12 @@
                 beforeSend: addAuthorizationHeader,
             }).done(function (response) {
                 applyPartyLabels(response && response.transcript ? response.transcript.parties : null);
-                renderConversation(response && response.transcript ? response.transcript : null, rowData);
+                renderConversation(
+                    response && response.transcript ? response.transcript : null,
+                    rowData,
+                    callId,
+                    Boolean(response && response.canDeleteTranscript)
+                );
             }).fail(function (xhr, status) {
                 if (status === 'abort') {
                     return;
@@ -375,6 +514,13 @@
                     }
                     clearConversation();
                 },
+            });
+            $(document).on('click.sttCdrTranscriptActions', function (event) {
+                $modal.find('.stt-transcript-actions[open]').each(function () {
+                    if (!this.contains(event.target)) {
+                        $(this).removeAttr('open');
+                    }
+                });
             });
             $table.on('draw.dt.sttCdrTranscript', function () {
                 refreshButtons(dataTable);

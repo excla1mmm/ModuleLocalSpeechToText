@@ -83,6 +83,11 @@ namespace Modules\ModuleLocalSpeechToText\App\Controllers {
                 {
                     return true;
                 }
+
+                public function canDeleteTranscripts(): bool
+                {
+                    return false;
+                }
             };
         }
 

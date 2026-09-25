@@ -100,6 +100,7 @@ final class CdrTranscriptService
      *     revision: int,
      *     completenessStatus: string,
      *     playbackCdrId: ?int,
+     *     resultId: ?int,
      *     conversation: array<string, mixed>
      * }
      * @throws CdrTranscriptNotFoundException
@@ -169,9 +170,29 @@ final class CdrTranscriptService
             'revision' => (int)$revision->revision,
             'completenessStatus' => (string)$revision->completeness_status,
             'playbackCdrId' => $playbackCdrId,
+            'resultId' => $this->firstResultId($call),
             'parties' => $this->partyLabels($cdrIds),
             'conversation' => $conversation,
         ];
+    }
+
+    /**
+     * The per-recording result behind the call's first leg, in the same order
+     * the full transcript card lists its stages. The modal's export and
+     * delete actions address it; deletion removes every result of the call.
+     */
+    private function firstResultId(STTCallTranscript $call): ?int
+    {
+        $row = $call->getReadConnection()->fetchOne(
+            'SELECT r.id FROM m_STTResult r JOIN m_STTJob j ON j.id = r.job_id'
+            . ' WHERE j.call_id = :call_id AND j.status = :status'
+            . ' ORDER BY j.cdr_start_ms ASC, j.id ASC LIMIT 1',
+            Enum::FETCH_ASSOC,
+            ['call_id' => (string)$call->call_id, 'status' => 'done']
+        );
+        $resultId = is_array($row) ? (int)($row['id'] ?? 0) : 0;
+
+        return $resultId > 0 ? $resultId : null;
     }
 
     /** @param array<int, mixed> $callIds @return array<int, string> */

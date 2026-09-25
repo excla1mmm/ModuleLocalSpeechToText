@@ -62,10 +62,13 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
             return;
         }
 
+        // The call-history modal posts over AJAX: it gets the Core JSON
+        // envelope (success + flash messages) instead of a page redirect.
+        $ajax = $this->request->isAjax();
         $resultId = (int)$this->request->getPost('result_id', 'int', 0);
         if (!$this->accessibleResult($resultId) instanceof STTResult) {
             $this->flash->error($this->translation->_('module_local_speech_to_text_TranscriptNotFound'));
-            $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=transcripts');
+            $this->finishDelete(false, MenuProvider::DASHBOARD_PATH . '?tab=transcripts', $ajax);
             return;
         }
 
@@ -73,9 +76,11 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
         // acknowledges the consequences; a bare form post never deletes.
         if ((string)$this->request->getPost('confirm_delete', 'string', '') !== '1') {
             $this->flash->error($this->translation->_('module_local_speech_to_text_TranscriptDeleteFailed'));
-            $this->response->redirect(MenuProvider::TRANSCRIPT_PATH . '?id=' . $resultId);
+            $this->finishDelete(false, MenuProvider::TRANSCRIPT_PATH . '?id=' . $resultId, $ajax);
             return;
         }
+
+        $deleted = false;
 
         try {
             $summary = (new TranscriptDeletionService())->deleteByResultId($resultId);
@@ -92,6 +97,7 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
                 ]
             );
             $this->flash->success($this->translation->_('module_local_speech_to_text_TranscriptDeleted'));
+            $deleted = true;
         } catch (TranscriptDeletionBlockedException) {
             $this->flash->error(
                 $this->translation->_('module_local_speech_to_text_TranscriptDeleteProcessingActive')
@@ -107,7 +113,16 @@ final class TranscriptActionsController extends LocalSpeechToTextBaseController
             $this->flash->error($this->translation->_('module_local_speech_to_text_TranscriptDeleteFailed'));
         }
 
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=transcripts');
+        $this->finishDelete($deleted, MenuProvider::DASHBOARD_PATH . '?tab=transcripts', $ajax);
+    }
+
+    private function finishDelete(bool $success, string $redirectPath, bool $ajax): void
+    {
+        if ($ajax) {
+            $this->view->success = $success;
+            return;
+        }
+        $this->response->redirect($redirectPath);
     }
 
     private function accessibleResult(int $resultId): ?STTResult

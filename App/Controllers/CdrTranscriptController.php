@@ -27,10 +27,12 @@ final class CdrTranscriptController extends LocalSpeechToTextBaseController
 
     public function detailAction(): void
     {
-        if (!$this->usersUIViewCapabilities()->canViewTranscripts()) {
+        $capabilities = $this->usersUIViewCapabilities();
+        if (!$capabilities->canViewTranscripts()) {
             $this->denyUsersUIAccess();
             return;
         }
+        $this->view->canDeleteTranscript = $capabilities->canDeleteTranscripts();
 
         try {
             $this->view->transcript = $this->cdrTranscriptService()->detail(
