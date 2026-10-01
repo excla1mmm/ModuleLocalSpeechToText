@@ -56,20 +56,85 @@
     margin-bottom: 1rem !important;
 }
 
+.ui.modal.stt-cdr-transcript-modal > .header.stt-cdr-transcript-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.15rem 4.5rem 1.15rem 1.5rem;
+    border-bottom: 1px solid rgba(71, 91, 99, 0.13);
+}
+
+.stt-cdr-transcript-header-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: .75rem;
+    background: #e7f5f0;
+    color: #2f8a6d;
+}
+
+.stt-cdr-transcript-header-icon .icon {
+    margin: 0 !important;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.stt-cdr-transcript-header-text {
+    min-width: 0;
+}
+
+.stt-cdr-transcript-title {
+    color: #1f2d33;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
 .stt-cdr-transcript-call-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: .75rem 1.25rem;
-    color: rgba(0, 0, 0, .6);
+    gap: .25rem 1.1rem;
+    margin-top: .3rem;
+    color: rgba(31, 45, 51, .55);
+    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: .85rem;
+    font-weight: 400;
+    line-height: 1.4;
 }
 
-.stt-cdr-transcript-call-meta span:not(:empty) + span:not(:empty)::before {
-    content: "·";
-    margin-right: 1.25rem;
+.stt-cdr-transcript-parties span:not(:empty) + span:not(:empty)::before {
+    content: "\2192";
+    margin: 0 .5em;
 }
 
-.stt-cdr-transcript-conversation {
-    margin-top: 1rem;
+.ui.modal.stt-cdr-transcript-modal > .close {
+    top: 1.35rem !important;
+    right: 1.5rem !important;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(71, 91, 99, 0.2);
+    border-radius: .6rem;
+    background: #fff;
+    color: rgba(31, 45, 51, .7) !important;
+    font-size: 1rem;
+    opacity: 1;
+}
+
+.ui.modal.stt-cdr-transcript-modal > .close:hover {
+    border-color: #2f8a6d;
+    color: #2f8a6d !important;
+}
+
+.stt-cdr-transcript-modal .stt-transcript-view {
+    margin-top: 0;
 }
 
 @media only screen and (max-width: 767px) {
@@ -78,12 +143,12 @@
         margin: 0 0 0 -1rem;
     }
 
-    .stt-cdr-transcript-call-meta {
-        flex-direction: column;
-        gap: .35rem;
+    .ui.modal.stt-cdr-transcript-modal > .header.stt-cdr-transcript-header {
+        padding: 1rem 4rem 1rem 1rem;
     }
 
-    .stt-cdr-transcript-call-meta span:not(:empty) + span:not(:empty)::before {
-        content: none;
+    .ui.modal.stt-cdr-transcript-modal > .close {
+        top: 1.1rem !important;
+        right: 1rem !important;
     }
 }

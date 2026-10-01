@@ -5,9 +5,15 @@
      data-label-not-found="{{ t._('module_local_speech_to_text_CdrTranscriptNotFound')|e }}"
      data-label-empty="{{ t._('module_local_speech_to_text_NoConversationSegments')|e }}">
     <i class="close icon"></i>
-    <div class="header">
-        <i class="comment alternate outline icon"></i>
-        {{ t._('module_local_speech_to_text_CdrTranscriptModalTitle') }}
+    <div class="header stt-cdr-transcript-header">
+        <span class="stt-cdr-transcript-header-icon" aria-hidden="true"><i class="file alternate outline icon"></i></span>
+        <div class="stt-cdr-transcript-header-text">
+            <div class="stt-cdr-transcript-title">{{ t._('module_local_speech_to_text_CdrTranscriptModalTitle') }}</div>
+            <div class="stt-cdr-transcript-call-meta" hidden>
+                <span data-field="date"></span>
+                <span class="stt-cdr-transcript-parties"><span data-field="source"></span><span data-field="destination"></span></span>
+            </div>
+        </div>
     </div>
     <div class="content">
         <div class="stt-cdr-transcript-loading" role="status" aria-live="polite">
@@ -18,12 +24,6 @@
              role="alert"
              aria-live="assertive"
              hidden></div>
-        <div class="stt-cdr-transcript-call-meta" hidden>
-            <span data-field="date"></span>
-            <span data-field="source"></span>
-            <span data-field="destination"></span>
-            <span data-field="duration"></span>
-        </div>
         <div class="stt-cdr-transcript-conversation" hidden></div>
     </div>
 </div>

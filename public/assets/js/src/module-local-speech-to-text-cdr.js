@@ -25,9 +25,24 @@
                 notFound: translate('module_local_speech_to_text_CdrTranscriptNotFound'),
                 empty: translate('module_local_speech_to_text_NoConversationSegments'),
             };
-            const $header = $('<div>', { class: 'header' }).append(
-                $('<i>', { class: 'comment alternate outline icon' }),
-                document.createTextNode(labels.title)
+            const $callMeta = $('<div>', {
+                class: 'stt-cdr-transcript-call-meta',
+                hidden: true,
+            }).append(
+                $('<span>', { 'data-field': 'date' }),
+                $('<span>', { class: 'stt-cdr-transcript-parties' }).append(
+                    $('<span>', { 'data-field': 'source' }),
+                    $('<span>', { 'data-field': 'destination' })
+                )
+            );
+            const $header = $('<div>', { class: 'header stt-cdr-transcript-header' }).append(
+                $('<span>', { class: 'stt-cdr-transcript-header-icon', 'aria-hidden': 'true' }).append(
+                    $('<i>', { class: 'file alternate outline icon' })
+                ),
+                $('<div>', { class: 'stt-cdr-transcript-header-text' }).append(
+                    $('<div>', { class: 'stt-cdr-transcript-title' }).text(labels.title),
+                    $callMeta
+                )
             );
             const $loading = $('<div>', {
                 class: 'stt-cdr-transcript-loading',
@@ -36,15 +51,6 @@
             }).append(
                 $('<div>', { class: 'ui active centered inline loader stt-cdr-transcript-loader' }),
                 $('<div>').text(labels.loading)
-            );
-            const $callMeta = $('<div>', {
-                class: 'stt-cdr-transcript-call-meta',
-                hidden: true,
-            }).append(
-                $('<span>', { 'data-field': 'date' }),
-                $('<span>', { 'data-field': 'source' }),
-                $('<span>', { 'data-field': 'destination' }),
-                $('<span>', { 'data-field': 'duration' })
             );
             $modal = $('<div>', {
                 class: 'ui large modal module-local-speech-to-text stt-cdr-transcript-modal',
@@ -64,7 +70,6 @@
                         'aria-live': 'assertive',
                         hidden: true,
                     }),
-                    $callMeta,
                     $('<div>', { class: 'stt-cdr-transcript-conversation', hidden: true })
                 )
             );
@@ -257,7 +262,6 @@
             $meta.find('[data-field="date"]').text(String(rowData[0] || ''));
             $meta.find('[data-field="source"]').text(String(rowData[1] || ''));
             $meta.find('[data-field="destination"]').text(String(rowData[2] || ''));
-            $meta.find('[data-field="duration"]').text(String(rowData[3] || ''));
         }
 
         // The history row only ever holds bare numbers, and for an incoming

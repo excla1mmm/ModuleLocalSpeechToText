@@ -652,11 +652,7 @@
     --stt-speaker-right: #c1573f;
     --stt-speaker-right-soft: #fbebe7;
     --stt-transcript-border: rgba(71, 91, 99, 0.13);
-    background: #f4f7f7;
-    border: 1px solid rgba(71, 91, 99, 0.08);
-    border-radius: 1rem;
     margin-top: 1.2em;
-    padding: 1.2em;
 }
 
 .module-local-speech-to-text .stt-transcript-overview,
@@ -1201,11 +1197,6 @@
 
     .module-local-speech-to-text .stt-recording-file {
         max-width: 12em;
-    }
-
-    .module-local-speech-to-text .stt-transcript-view {
-        border-radius: 0.75rem;
-        padding: 0.75em;
     }
 
     .module-local-speech-to-text .stt-transcript-overview-header,
