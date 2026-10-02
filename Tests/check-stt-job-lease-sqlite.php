@@ -61,15 +61,28 @@ namespace MikoPBX\Modules\Models {
                 $statement = $pdo->prepare('SELECT * FROM m_STTJob WHERE id = :id');
                 $statement->execute(['id' => (int)$parameters]);
             } else {
-                $bind = $parameters['bind'] ?? [];
-                $sql = 'SELECT * FROM m_STTJob WHERE status = :status';
-                $sql .= ' ORDER BY priority ASC, cdr_endtime ASC, id ASC LIMIT 1';
-                $statement = $pdo->prepare($sql);
-                $statement->execute(['status' => $bind['status'] ?? 'pending']);
+                $statement = $pdo->prepare(
+                    'SELECT * FROM m_STTJob WHERE ' . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+                    . ' ORDER BY ' . $parameters['order'] . ' LIMIT 1'
+                );
+                $statement->execute($parameters['bind']);
             }
             $row = $statement->fetch(PDO::FETCH_ASSOC);
 
             return is_array($row) ? self::hydrate($row) : null;
+        }
+
+        public static function minimum(array $parameters): mixed
+        {
+            $pdo = self::$testPdo ?? throw new \RuntimeException('Missing PDO');
+            $statement = $pdo->prepare(
+                'SELECT MIN(' . $parameters['column'] . ') FROM m_STTJob WHERE '
+                . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+            );
+            $statement->execute($parameters['bind']);
+            $value = $statement->fetchColumn();
+
+            return $value === null || $value === false ? null : (string)$value;
         }
 
         public static function findFirstById(mixed $id): ?static

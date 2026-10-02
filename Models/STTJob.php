@@ -275,19 +275,31 @@ class STTJob extends ModulesModelsBase
             $now = time();
             $leaseToken = self::newLeaseToken();
             $leaseExpiresAt = $now + self::processingTimeoutSeconds();
-            $job = self::findFirst([
+            // Lowest priority number first, then the freshest call: a live
+            // call overtakes a historical backfill. Two index reads instead of
+            // one mixed ASC/DESC ORDER BY, which the queue index cannot serve
+            // and SQLite would answer by sorting every pending row.
+            $priority = self::minimum([
+                'column' => 'priority',
                 'conditions' => 'status = :status:',
                 'bind' => [
                     'status' => self::STATUS_PENDING,
                 ],
-                // FIFO within priority: oldest call first, then oldest
-                // enqueued first, to avoid starving old/recovered jobs under
-                // sustained load (newest-first previously starved them).
-                'order' => 'priority ASC, cdr_endtime ASC, id ASC',
+            ]);
+            if ($priority === null) {
+                return null;
+            }
+            $job = self::findFirst([
+                'conditions' => 'status = :status: AND priority = :priority:',
+                'bind' => [
+                    'status' => self::STATUS_PENDING,
+                    'priority' => (int)$priority,
+                ],
+                'order' => 'cdr_endtime DESC, created_at DESC, id DESC',
             ]);
 
             if ($job === null) {
-                return null;
+                continue;
             }
 
             $connection->execute(

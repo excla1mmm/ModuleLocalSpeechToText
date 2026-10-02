@@ -50,10 +50,10 @@ namespace MikoPBX\Modules\Models {
                 $statement->execute(['id' => (int)$parameters]);
             } else {
                 $statement = $pdo->prepare(
-                    'SELECT * FROM m_STTJob WHERE status = :status
-                     ORDER BY priority ASC, cdr_endtime ASC, id ASC LIMIT 1'
+                    'SELECT * FROM m_STTJob WHERE ' . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+                    . ' ORDER BY ' . $parameters['order'] . ' LIMIT 1'
                 );
-                $statement->execute(['status' => $parameters['bind']['status'] ?? 'pending']);
+                $statement->execute($parameters['bind']);
             }
             $row = $statement->fetch(PDO::FETCH_ASSOC);
             if (!is_array($row)) {
@@ -68,6 +68,19 @@ namespace MikoPBX\Modules\Models {
             }
 
             return $model;
+        }
+
+        public static function minimum(array $parameters): mixed
+        {
+            $pdo = self::$testPdo ?? throw new \RuntimeException('Missing PDO');
+            $statement = $pdo->prepare(
+                'SELECT MIN(' . $parameters['column'] . ') FROM m_STTJob WHERE '
+                . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+            );
+            $statement->execute($parameters['bind']);
+            $value = $statement->fetchColumn();
+
+            return $value === null || $value === false ? null : (string)$value;
         }
 
         public static function findFirstById(mixed $id): ?static { return static::findFirst((int)$id); }
@@ -180,7 +193,7 @@ namespace {
     )->fetchColumn();
     expectWorkerDeleteClaimRace($orphanProcessing === 0, 'Queue contains a processing job for a missing worker');
     expectWorkerDeleteClaimRace(
-        (string)$pdo->query('SELECT status FROM m_STTJob WHERE id=2')->fetchColumn() === STTJob::STATUS_PENDING,
+        (string)$pdo->query('SELECT status FROM m_STTJob WHERE id<>' . (int)$claimed->id)->fetchColumn() === STTJob::STATUS_PENDING,
         'Delete-first loser mutated the pending job'
     );
 

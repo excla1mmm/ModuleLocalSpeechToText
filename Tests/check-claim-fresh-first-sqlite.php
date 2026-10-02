@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 /**
- * STTJob::claimNextForWorker() must claim within a priority band in FIFO
- * order (oldest call / oldest job first), not LIFO (newest first), so that
- * an old or recovered pending job is not starved by a steady stream of new
- * jobs at the same priority.
+ * STTJob::claimNextForWorker() claims the lowest priority number first and,
+ * within that band, the freshest call first: a live call must overtake a
+ * historical backfill, even one enqueued after it. The old backlog is worked
+ * off when no fresher call is waiting.
  */
 
 namespace Phalcon\Mvc\Model {
@@ -19,7 +19,7 @@ namespace Phalcon\Mvc\Model {
 namespace MikoPBX\Modules\Models {
     use PDO;
 
-    final class FifoSqliteConnection
+    final class FreshFirstSqliteConnection
     {
         private int $affectedRows = 0;
 
@@ -51,9 +51,9 @@ namespace MikoPBX\Modules\Models {
             self::$testPdo = $pdo;
         }
 
-        public function getWriteConnection(): FifoSqliteConnection
+        public function getWriteConnection(): FreshFirstSqliteConnection
         {
-            return new FifoSqliteConnection(self::$testPdo ?? throw new \RuntimeException('Missing PDO'));
+            return new FreshFirstSqliteConnection(self::$testPdo ?? throw new \RuntimeException('Missing PDO'));
         }
 
         public static function findFirst(mixed $parameters): ?static
@@ -64,10 +64,10 @@ namespace MikoPBX\Modules\Models {
                 $statement->execute(['id' => (int)$parameters]);
             } else {
                 $statement = $pdo->prepare(
-                    'SELECT * FROM m_STTJob WHERE status = :status
-                     ORDER BY priority ASC, cdr_endtime ASC, id ASC LIMIT 1'
+                    'SELECT * FROM m_STTJob WHERE ' . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+                    . ' ORDER BY ' . $parameters['order'] . ' LIMIT 1'
                 );
-                $statement->execute(['status' => $parameters['bind']['status'] ?? 'pending']);
+                $statement->execute($parameters['bind']);
             }
             $row = $statement->fetch(PDO::FETCH_ASSOC);
             if (!is_array($row)) {
@@ -82,6 +82,19 @@ namespace MikoPBX\Modules\Models {
             }
 
             return $model;
+        }
+
+        public static function minimum(array $parameters): mixed
+        {
+            $pdo = self::$testPdo ?? throw new \RuntimeException('Missing PDO');
+            $statement = $pdo->prepare(
+                'SELECT MIN(' . $parameters['column'] . ') FROM m_STTJob WHERE '
+                . preg_replace('/:(\\w+):/', ':$1', $parameters['conditions'])
+            );
+            $statement->execute($parameters['bind']);
+            $value = $statement->fetchColumn();
+
+            return $value === null || $value === false ? null : (string)$value;
         }
 
         public static function findFirstById(mixed $id): ?static
@@ -136,7 +149,7 @@ namespace {
     require_once __DIR__ . '/../Models/STTWorker.php';
     require_once __DIR__ . '/../Models/STTJob.php';
 
-    function expectFifoFairness(bool $condition, string $message): void
+    function expectFreshFirst(bool $condition, string $message): void
     {
         if (!$condition) {
             throw new RuntimeException($message);
@@ -144,7 +157,7 @@ namespace {
     }
 
     if (!extension_loaded('pdo_sqlite')) {
-        fwrite(STDERR, "pdo_sqlite is required for claim fairness tests\n");
+        fwrite(STDERR, "pdo_sqlite is required for claim order tests\n");
         exit(1);
     }
 
@@ -173,20 +186,24 @@ namespace {
 
     $insert = $pdo->prepare(
         'INSERT INTO m_STTJob(id, call_id, file_path, status, priority, attempts, created_at, updated_at, cdr_endtime)
-         VALUES (:id, :call_id, :file_path, :status, 5, 0, :now, :now, :cdr_endtime)'
+         VALUES (:id, :call_id, :file_path, :status, :priority, 0, :now, :now, :cdr_endtime)'
     );
-    // An old, recovered job (id=1, oldest call) sits pending alongside two
-    // newer jobs (id=2, id=3) at the same priority.
+    // id 1-3: calls at the normal priority, oldest to freshest; id 4: a fresh
+    // long call (priority 8 runs later); id 5: a backfilled call enqueued last
+    // but a day old.
     foreach ([
-        1 => $now - 3600,
-        2 => $now - 60,
-        3 => $now,
-    ] as $id => $cdrEndtime) {
+        1 => [5, $now - 3600],
+        2 => [5, $now - 60],
+        3 => [5, $now],
+        4 => [8, $now],
+        5 => [5, $now - 86400],
+    ] as $id => [$priority, $cdrEndtime]) {
         $insert->execute([
             'id' => $id,
             'call_id' => 'call-' . $id,
             'file_path' => '/tmp/call-' . $id . '.wav',
             'status' => STTJob::STATUS_PENDING,
+            'priority' => $priority,
             'now' => $now,
             'cdr_endtime' => $cdrEndtime,
         ]);
@@ -196,18 +213,14 @@ namespace {
     $worker = new STTWorker();
     $worker->id = 1;
 
-    $first = STTJob::claimNextForWorker($worker);
-    expectFifoFairness($first instanceof STTJob, 'Expected a job to be claimed');
-    expectFifoFairness(
-        (int)$first->id === 1,
-        'FIFO claim must pick the oldest pending job first, not the newest (LIFO would pick id=3)'
+    $claimed = [];
+    while (($job = STTJob::claimNextForWorker($worker)) instanceof STTJob) {
+        $claimed[] = (int)$job->id;
+    }
+    expectFreshFirst(
+        $claimed === [3, 2, 1, 5, 4],
+        'Claim order must be freshest call first within the lowest priority number, got ' . implode(',', $claimed)
     );
 
-    // Job 1 is now processing (claimed above); the next claim must move on
-    // to the next-oldest pending job rather than re-claiming it or jumping
-    // to the newest one.
-    $second = STTJob::claimNextForWorker($worker);
-    expectFifoFairness($second instanceof STTJob && (int)$second->id === 2, 'Second claim must pick the next-oldest job');
-
-    echo "Claim FIFO fairness SQLite behavior OK\n";
+    echo "Claim fresh-first SQLite behavior OK\n";
 }
