@@ -692,10 +692,12 @@
 
         function updateCompatibilityState() {
             var compatible = selectedModelSupportsLanguage();
+            // After a platform switch nothing is selected yet; there is no model to warn about.
+            var warn = !compatible && selectedModel() !== '';
 
             $compatibilityMessage
-                .toggleClass('hidden', compatible)
-                .attr('aria-hidden', compatible ? 'true' : 'false');
+                .toggleClass('hidden', !warn)
+                .attr('aria-hidden', warn ? 'false' : 'true');
 
             return compatible;
         }
