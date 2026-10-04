@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Sürətli',
     'module_local_speech_to_text_ModelTOneBestFor' => 'CPU-da böyük zəng axını',
     'module_local_speech_to_text_ModelTOneTradeoff' => '8 kHs telefoniya üzərində öyrədilib və GPU olmadan sürətlidir. Yalnız rus dilini dəstəkləyir.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Docker olan Linux serverində Linux üçün Local STT Worker-i əldə edin və compose.yaml-ın yanında .env faylı yaradın:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Worker-i işə salın; bir dəqiqə ərzində aşağıdakı siyahıda görünəcək:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<API açarını yapışdırın>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX-in özü tərəfindən imzalanmış sertifikatı: aşağıdakı sətrin şərhini silin (yalnız etibarlı şəbəkədə)',
 ];

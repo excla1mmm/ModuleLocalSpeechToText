@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Brz',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Velik broj poziva na CPU-u',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Treniran na telefoniji od 8 kHz i brz bez GPU-a. Podržava samo ruski.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Na Linux poslužitelju s Dockerom preuzmite Local STT Worker za Linux i pokraj compose.yaml stvorite datoteku .env:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Pokrenite worker; pojavit će se na popisu ispod u roku od minute:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<zalijepite API ključ>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Samopotpisani PBX certifikat: uklonite komentar s retka ispod (samo u pouzdanim mrežama)',
 ];

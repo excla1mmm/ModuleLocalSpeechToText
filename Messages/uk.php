@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Швидка',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Великий потік дзвінків на CPU',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Навчена на телефонії 8 кГц і швидко працює без відеокарти. Підтримує лише російську мову.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'На Linux-сервері з Docker отримайте Local STT Worker для Linux і створіть поруч із compose.yaml файл .env:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Запустіть обробник — за хвилину він з\'явиться в списку нижче:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<вставте ключ доступу>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Самопідписаний сертифікат PBX: розкоментуйте рядок нижче (лише в довіреній мережі)',
 ];

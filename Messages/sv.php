@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Snabb',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Stor samtalsvolym på CPU',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Tränad på 8 kHz-telefoni och snabb utan GPU. Stöder endast ryska.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Hämta Local STT Worker för Linux på en Linux-server med Docker och skapa en .env-fil bredvid compose.yaml:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Starta workern; den visas i listan nedan inom en minut:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<klistra in API-nyckeln>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Självsignerat PBX-certifikat: avkommentera raden nedan (endast i betrodda nätverk)',
 ];

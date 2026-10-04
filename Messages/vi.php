@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Nhanh',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Lưu lượng cuộc gọi lớn trên CPU',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Được huấn luyện trên âm thanh điện thoại 8 kHz và chạy nhanh không cần GPU. Chỉ hỗ trợ tiếng Nga.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Trên máy chủ Linux có Docker, tải Local STT Worker cho Linux và tạo tệp .env cạnh compose.yaml:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Khởi động worker; nó xuất hiện trong danh sách bên dưới trong vòng một phút:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<dán khóa API>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Chứng chỉ PBX tự ký: bỏ chú thích dòng bên dưới (chỉ trong mạng tin cậy)',
 ];

@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => '快速',
     'module_local_speech_to_text_ModelTOneBestFor' => '在 CPU 上處理大量通話',
     'module_local_speech_to_text_ModelTOneTradeoff' => '以 8 kHz 電話語音訓練，無需 GPU 即可快速執行。僅支援俄語。',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => '在裝有 Docker 的 Linux 伺服器上取得 Linux 版 Local STT Worker，並在 compose.yaml 旁建立 .env 檔案：',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => '啟動 worker，一分鐘內它會出現在下方清單中：',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<貼上 API 金鑰>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX 使用自簽憑證：取消下面一行的註解（僅限可信網路）',
 ];

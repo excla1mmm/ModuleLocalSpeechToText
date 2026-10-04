@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Gyors',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Nagy hívásforgalom CPU-n',
     'module_local_speech_to_text_ModelTOneTradeoff' => '8 kHz-es telefonhangon tanítva, GPU nélkül is gyors. Csak az orosz nyelvet támogatja.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Egy Dockert futtató Linux-szerveren töltse le a Local STT Worker for Linux programot, és hozzon létre egy .env fájlt a compose.yaml mellett:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Indítsa el a workert; egy percen belül megjelenik az alábbi listában:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<illessze be az API-kulcsot>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Önaláírt PBX-tanúsítvány: vegye ki a megjegyzésből az alábbi sort (csak megbízható hálózatban)',
 ];

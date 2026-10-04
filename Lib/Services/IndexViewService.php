@@ -112,6 +112,9 @@ final class IndexViewService
         $view->workerApiKeyRows = (new WorkerApiKeyService())->workerApiKeyRows();
         $view->generatedApiKey = $generatedApiKey['apiKey'];
         $view->isSecureConnection = $this->request->isSecure();
+        $view->workerPlatform = STTSetting::selectedPlatform();
+        // The address the administrator reached the PBX by is the best default for a worker's PBX_URL.
+        $view->pbxWorkerUrl = $this->request->getScheme() . '://' . $this->request->getHttpHost();
         $view->logsDataPath = MenuProvider::LOGS_PATH;
     }
 

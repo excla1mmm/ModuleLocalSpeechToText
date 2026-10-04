@@ -370,7 +370,22 @@
                 </tbody>
             </table>
         </div>
-        {% if workers is empty %}
+        {% if workers is empty and workerPlatform === 'linux' %}
+        <div class="ui info message stt-workers-onboarding stt-workers-onboarding-linux">
+            <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
+            <div class="ui ordered list">
+                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingStep1') }}</div>
+                <div class="item">
+                    {{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep2') }}
+                    <pre class="stt-worker-env">PBX_URL={{ pbxWorkerUrl|e }}
+WORKER_TOKEN={% if generatedApiKey !== '' %}{{ generatedApiKey|e }}{% else %}{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder')|e }}{% endif %}{% if isSecureConnection %}
+# {{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTlsHint')|e }}
+# PBX_TLS_VERIFY=false{% endif %}</pre>
+                </div>
+                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep3') }} <code>docker compose up -d</code></div>
+            </div>
+        </div>
+        {% elseif workers is empty %}
         <div class="ui info message stt-workers-onboarding">
             <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
             <div class="ui ordered list">

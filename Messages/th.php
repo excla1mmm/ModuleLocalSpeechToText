@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'รวดเร็ว',
     'module_local_speech_to_text_ModelTOneBestFor' => 'ปริมาณการโทรสูงบน CPU',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'ฝึกด้วยเสียงโทรศัพท์ 8 kHz และทำงานได้เร็วโดยไม่ต้องใช้ GPU รองรับเฉพาะภาษารัสเซีย',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'บนเซิร์ฟเวอร์ Linux ที่มี Docker ให้ดาวน์โหลด Local STT Worker สำหรับ Linux และสร้างไฟล์ .env ไว้ข้าง compose.yaml:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'เริ่ม worker แล้วจะปรากฏในรายการด้านล่างภายในหนึ่งนาที:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<วางคีย์ API>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'ใบรับรอง PBX แบบลงนามเอง: ยกเลิกการคอมเมนต์บรรทัดด้านล่าง (เฉพาะเครือข่ายที่เชื่อถือได้)',
 ];

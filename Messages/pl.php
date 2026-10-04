@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Szybki',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Duży wolumen rozmów na CPU',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Wytrenowany na telefonii 8 kHz i szybki bez GPU. Obsługuje tylko rosyjski.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Na serwerze Linux z Dockerem pobierz Local STT Worker dla Linuksa i utwórz obok compose.yaml plik .env:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Uruchom workera; w ciągu minuty pojawi się na liście poniżej:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<wklej klucz API>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Samopodpisany certyfikat PBX: odkomentuj wiersz poniżej (tylko w zaufanych sieciach)',
 ];

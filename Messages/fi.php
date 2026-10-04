@@ -562,4 +562,8 @@ return [
     'module_local_speech_to_text_ModelProfileTOne' => 'Nopea',
     'module_local_speech_to_text_ModelTOneBestFor' => 'Suuri puhelumäärä CPU:lla',
     'module_local_speech_to_text_ModelTOneTradeoff' => 'Koulutettu 8 kHz:n puhelinääneen ja nopea ilman näytönohjainta. Tukee vain venäjää.',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Hae Docker-palvelimella toimivalle Linuxille Local STT Worker for Linux ja luo compose.yaml-tiedoston viereen .env-tiedosto:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Käynnistä worker; se näkyy alla olevassa luettelossa minuutin kuluessa:',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<liitä API-avain>',
+    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX:n itse allekirjoitettu varmenne: poista kommentti alla olevalta riviltä (vain luotetuissa verkoissa)',
 ];
