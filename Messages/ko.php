@@ -18,6 +18,7 @@ return [
     'BreadcrumbModuleLocalSpeechToText' => 'Local Speech To Text',
     'AdditionalMenuItemModuleLocalSpeechToText' => 'Local Speech To Text',
     'BreadcrumbModuleLocalSpeechToTexttranscripts' => 'Local Speech To Text transcripts',
+    'BreadcrumbModuleLocalSpeechToTexttranscript' => '통화 녹취록',
     'SubHeaderModuleLocalSpeechToText' => 'Local call transcription queue',
     'module_local_speech_to_text_Dashboard' => 'Dashboard',
     'module_local_speech_to_text_Transcripts' => 'Transcripts',

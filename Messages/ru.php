@@ -18,6 +18,7 @@ return [
     'BreadcrumbModuleLocalSpeechToText' => 'Модуль локальной транскрибации',
     'AdditionalMenuItemModuleLocalSpeechToText' => 'Модуль локальной транскрибации',
     'BreadcrumbModuleLocalSpeechToTexttranscripts' => 'Расшифровки звонков',
+    'BreadcrumbModuleLocalSpeechToTexttranscript' => 'Расшифровка звонка',
     'SubHeaderModuleLocalSpeechToText' => 'Локальное распознавание речи и транскрибация записей звонков в MikoPBX без отправки аудио во внешние облачные сервисы.',
     'module_local_speech_to_text_Dashboard' => 'Обзор',
     'module_local_speech_to_text_Transcripts' => 'Расшифровки',
