@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'On a Linux server with Docker, get Local STT Worker for Linux and create a .env file next to compose.yaml:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Start the worker; it appears in the list below within a minute:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<paste the API key>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Self-signed PBX certificate: uncomment the line below (trusted networks only)',
 ];

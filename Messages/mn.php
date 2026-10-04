@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Docker бүхий Linux сервер дээр Linux-д зориулсан Local STT Worker-ийг аваад compose.yaml-ийн хажууд .env файл үүсгэнэ үү:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Воркерийг эхлүүлнэ үү; нэг минутын дотор доорх жагсаалтад гарч ирнэ:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<API түлхүүрийг буулгана уу>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX-ийн өөрөө гарын үсэг зурсан гэрчилгээ: доорх мөрийн тайлбарыг арилгана уу (зөвхөн итгэмжлэгдсэн сүлжээнд)',
 ];

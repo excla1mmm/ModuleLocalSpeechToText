@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Docker가 설치된 Linux 서버에서 Linux용 Local STT Worker를 받고 compose.yaml 옆에 .env 파일을 만드세요:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => '워커를 시작하세요. 1분 안에 아래 목록에 나타납니다:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<API 키 붙여넣기>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX 자체 서명 인증서: 아래 줄의 주석을 해제하세요 (신뢰할 수 있는 네트워크에서만)',
 ];

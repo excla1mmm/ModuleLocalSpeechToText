@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Pe un server Linux cu Docker, obțineți Local STT Worker pentru Linux și creați un fișier .env lângă compose.yaml:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Porniți workerul; apare în lista de mai jos în cel mult un minut:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<lipiți cheia API>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Certificat PBX autosemnat: decomentați linia de mai jos (doar în rețele de încredere)',
 ];

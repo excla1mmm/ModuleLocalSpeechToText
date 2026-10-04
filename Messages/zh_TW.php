@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => '在裝有 Docker 的 Linux 伺服器上取得 Linux 版 Local STT Worker，並在 compose.yaml 旁建立 .env 檔案：',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => '啟動 worker，一分鐘內它會出現在下方清單中：',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<貼上 API 金鑰>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX 使用自簽憑證：取消下面一行的註解（僅限可信網路）',
 ];

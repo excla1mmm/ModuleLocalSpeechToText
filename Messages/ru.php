@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'На Linux-сервере с Docker получите Local STT Worker для Linux и создайте рядом с compose.yaml файл .env:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Запустите обработчик — через минуту он появится в списке ниже:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<вставьте ключ доступа>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Самоподписанный сертификат PBX: раскомментируйте строку ниже (только в доверенной сети)',
 ];

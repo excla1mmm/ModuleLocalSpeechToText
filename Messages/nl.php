@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Haal op een Linux-server met Docker Local STT Worker voor Linux op en maak naast compose.yaml een bestand .env aan:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Start de worker; hij verschijnt binnen een minuut in de lijst hieronder:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<plak de API-sleutel>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Zelfondertekend PBX-certificaat: haal de regel hieronder uit commentaar (alleen in vertrouwde netwerken)',
 ];

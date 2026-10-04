@@ -378,9 +378,7 @@
                 <div class="item">
                     {{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep2') }}
                     <pre class="stt-worker-env">PBX_URL={{ pbxWorkerUrl|e }}
-WORKER_TOKEN={% if generatedApiKey !== '' %}{{ generatedApiKey|e }}{% else %}{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder')|e }}{% endif %}{% if isSecureConnection %}
-# {{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTlsHint')|e }}
-# PBX_TLS_VERIFY=false{% endif %}</pre>
+WORKER_TOKEN={% if generatedApiKey !== '' %}{{ generatedApiKey|e }}{% else %}{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder')|e }}{% endif %}</pre>
                 </div>
                 <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep3') }} <code>docker compose up -d</code></div>
             </div>

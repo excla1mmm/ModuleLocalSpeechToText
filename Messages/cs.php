@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Na linuxovém serveru s Dockerem získejte Local STT Worker pro Linux a vedle compose.yaml vytvořte soubor .env:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Spusťte worker; do minuty se objeví v seznamu níže:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<vložte klíč API>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Certifikát PBX podepsaný sám sebou: odkomentujte řádek níže (pouze v důvěryhodných sítích)',
 ];

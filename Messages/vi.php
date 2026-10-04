@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Trên máy chủ Linux có Docker, tải Local STT Worker cho Linux và tạo tệp .env cạnh compose.yaml:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Khởi động worker; nó xuất hiện trong danh sách bên dưới trong vòng một phút:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<dán khóa API>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Chứng chỉ PBX tự ký: bỏ chú thích dòng bên dưới (chỉ trong mạng tin cậy)',
 ];

@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Docker kurulu bir Linux sunucusunda Linux için Local STT Worker\'ı edinin ve compose.yaml dosyasının yanına bir .env dosyası oluşturun:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'Worker\'ı başlatın; bir dakika içinde aşağıdaki listede görünür:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<API anahtarını yapıştırın>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'Kendinden imzalı PBX sertifikası: aşağıdaki satırın yorumunu kaldırın (yalnızca güvenilir ağlarda)',
 ];

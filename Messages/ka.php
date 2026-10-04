@@ -565,5 +565,4 @@ return [
     'module_local_speech_to_text_WorkersOnboardingLinuxStep2' => 'Docker-იან Linux სერვერზე მიიღეთ Local STT Worker Linux-ისთვის და compose.yaml-ის გვერდით შექმენით ფაილი .env:',
     'module_local_speech_to_text_WorkersOnboardingLinuxStep3' => 'გაუშვით ვორკერი; ერთ წუთში ის გამოჩნდება ქვემოთ სიაში:',
     'module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder' => '<ჩასვით API გასაღები>',
-    'module_local_speech_to_text_WorkersOnboardingLinuxTlsHint' => 'PBX-ის თვითხელმოწერილი სერტიფიკატი: მოხსენით კომენტარი ქვემოთ მოცემულ ხაზს (მხოლოდ სანდო ქსელში)',
 ];
