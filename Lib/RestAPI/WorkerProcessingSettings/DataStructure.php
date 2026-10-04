@@ -87,7 +87,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             ],
             'model_artifact_type' => [
                 'type' => 'string',
-                'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-pytorch', 't-one-onnx'],
+                'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx'],
                 'example' => 'parakeet-coreml',
             ],
             'model_platform' => [

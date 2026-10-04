@@ -215,7 +215,7 @@ final class WorkerProcessingSettingsService
             'model_display_name' => (string)($preset['display_name'] ?? $repository . '/' . $modelId),
         ];
 
-        if ((string)$preset['engine'] === 'whisperKit') {
+        if (isset($preset['revision'], $preset['sha256_manifest'])) {
             $payload['model_revision'] = (string)($preset['revision'] ?? '');
             $payload['model_sha256_manifest'] = $preset['sha256_manifest'] ?? [];
         }

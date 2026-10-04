@@ -22,7 +22,7 @@ class DataStructure extends \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Da
                         'model_id' => ['type' => 'string'],
                         'model_repo' => ['type' => 'string'],
                         'model_engine' => ['type' => 'string', 'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne']],
-                        'model_artifact_type' => ['type' => 'string', 'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-pytorch', 't-one-onnx']],
+                        'model_artifact_type' => ['type' => 'string', 'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx']],
                         'whisperkit_model' => ['type' => ['string', 'null']],
                         'model_display_name' => ['type' => 'string'],
                         'model_revision' => ['type' => ['string', 'null']],

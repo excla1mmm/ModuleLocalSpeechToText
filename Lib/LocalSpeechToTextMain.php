@@ -708,8 +708,9 @@ class LocalSpeechToTextMain
             'model_artifact_type' => (string)$modelPreset['artifact_type'],
             'whisperkit_model' => $modelEngine === 'whisperKit' ? $modelRuntimeId : null,
             'model_display_name' => $modelRepo . '/' . $modelRuntimeId,
-            'model_revision' => $modelEngine === 'whisperKit' ? (string)($modelPreset['revision'] ?? '') : null,
-            'model_sha256_manifest' => $modelEngine === 'whisperKit' ? ($modelPreset['sha256_manifest'] ?? []) : null,
+            // Every preset with a pinned revision ships its manifest; workers refuse unpinned Linux models.
+            'model_revision' => isset($modelPreset['revision']) ? (string)$modelPreset['revision'] : null,
+            'model_sha256_manifest' => isset($modelPreset['sha256_manifest']) ? $modelPreset['sha256_manifest'] : null,
             'vocabulary_terms' => STTSetting::selectedVocabularyTerms(),
         ];
     }

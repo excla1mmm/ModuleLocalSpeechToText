@@ -67,10 +67,11 @@ namespace {
             'podlodka',
             'large-v3',
             'parakeet-tdt-0.6b-v3',
-            'faster-whisper-large-v3-turbo',
-            'faster-whisper-large-v3',
             'gigaam-v3',
             't-one',
+            'faster-whisper-large-v3-turbo',
+            'parakeet-tdt-0.6b-v3-linux',
+            'gigaam-multilingual',
         ],
         'Built-in marketplace must contain only the approved macOS and Linux models in display order'
     );
@@ -99,10 +100,11 @@ namespace {
             'podlodka',
             'large-v3',
             'parakeet-tdt-0.6b-v3',
-            'faster-whisper-large-v3-turbo',
-            'faster-whisper-large-v3',
             'gigaam-v3',
             't-one',
+            'faster-whisper-large-v3-turbo',
+            'parakeet-tdt-0.6b-v3-linux',
+            'gigaam-multilingual',
         ],
         'Saved custom model data must not extend the supported marketplace catalog'
     );
@@ -118,10 +120,11 @@ namespace {
             'podlodka',
             'large-v3',
             'parakeet-tdt-0.6b-v3',
-            'faster-whisper-large-v3-turbo',
-            'faster-whisper-large-v3',
             'gigaam-v3',
             't-one',
+            'faster-whisper-large-v3-turbo',
+            'parakeet-tdt-0.6b-v3-linux',
+            'gigaam-multilingual',
         ],
         'Marketplace rows must expose only the approved models in display order'
     );

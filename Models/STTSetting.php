@@ -69,7 +69,7 @@ class STTSetting extends ModulesModelsBase
     ];
     public const array PLATFORM_DEFAULT_MODELS = [
         self::PLATFORM_MACOS => self::DEFAULT_MODEL,
-        self::PLATFORM_LINUX => 'faster-whisper-large-v3-turbo',
+        self::PLATFORM_LINUX => 'gigaam-v3',
     ];
 
     // Recording duration hard limit: an internal safety policy, not a user setting.
@@ -116,6 +116,8 @@ class STTSetting extends ModulesModelsBase
     ];
 
     public const array RUSSIAN_LANGUAGE_IDS = ['ru'];
+    // Kazakh, Kyrgyz and Uzbek are not in the hint list; the model needs no hint for them (Auto).
+    public const array GIGAAM_MULTILINGUAL_LANGUAGE_IDS = ['ru', 'en'];
 
     public const string ARGMAX_WHISPERKIT_REVISION = '0f63a7800b00dd0226abd051b906c246e1907482';
     public const string PODLODKA_WHISPERKIT_REVISION = '33ba8cea6ef3ffc11ff0d9cd0f432f12aad9766c';
@@ -191,6 +193,48 @@ class STTSetting extends ModulesModelsBase
         ],
     ];
 
+    // Linux models: pinned Hugging Face commits and every file the engine loads.
+    public const array LINUX_MODEL_REVISIONS = [
+        'gigaam-v3' => '322c3b29492673eb7d0b434bfa9dfb8653e34d02',
+        't-one' => '106f3b0b32a9e107eb613312e4ebc61ff3d53926',
+        'faster-whisper-large-v3-turbo' => '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf',
+        'parakeet-tdt-0.6b-v3-linux' => '8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce',
+        'gigaam-multilingual' => '458860e1983aef670dd9795fb6af603c82767d5d',
+    ];
+
+    public const array LINUX_SHA256_MANIFESTS = [
+        'gigaam-v3' => [
+            ['path' => 'config.json', 'size' => 135, 'sha256' => '0641fcf73f4af791c73f05083e38a658ff5dcbee3534a0c61396c10f4b97f0fe'],
+            ['path' => 'v3_e2e_rnnt_decoder.onnx', 'size' => 4599910, 'sha256' => '7b0a16d67fd2cb37061decc93c69e364a9ab27afee3c57495d55b1c974cf7231'],
+            ['path' => 'v3_e2e_rnnt_encoder.onnx', 'size' => 885084534, 'sha256' => 'cd60b3764a832e8560ae6d3ad0b10adc1a42ffae412b9476f25620aae4f4a508'],
+            ['path' => 'v3_e2e_rnnt_joint.onnx', 'size' => 2712896, 'sha256' => '602ff7017a93311aad34df1437c8d7f49911353c13d6eae7a6ee7b041339465c'],
+            ['path' => 'v3_e2e_rnnt_vocab.txt', 'size' => 13354, 'sha256' => '39abae20e692998290c574e606f11a9edef2902a1995463fcff63d1490cf22b7'],
+        ],
+        't-one' => [
+            ['path' => 'model.onnx', 'size' => 144193371, 'sha256' => '707e4a282d5036304a0b8603ad83945840c3075f53c49911ef88c19bcc5a7d52'],
+            ['path' => 'kenlm.bin', 'size' => 5463477004, 'sha256' => '8c31a489a51a6e9236112dacb6bed12f45e8df734057615fa6bf220a5a769a1d'],
+        ],
+        'faster-whisper-large-v3-turbo' => [
+            ['path' => 'config.json', 'size' => 2263, 'sha256' => 'b0253ea6c0d3bea6b1e19e91a02acfd3b53f4467362efcb5a3e6b16c9b3a9b7e'],
+            ['path' => 'model.bin', 'size' => 1617884929, 'sha256' => 'e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da'],
+            ['path' => 'preprocessor_config.json', 'size' => 340, 'sha256' => '7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711'],
+            ['path' => 'tokenizer.json', 'size' => 2710337, 'sha256' => '297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd'],
+            ['path' => 'vocabulary.json', 'size' => 1068114, 'sha256' => 'c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1'],
+        ],
+        'parakeet-tdt-0.6b-v3-linux' => [
+            ['path' => 'config.json', 'size' => 97, 'sha256' => '666903c76b9798caf2c210afd4f6cd60b08a8dbf9800ec8d7a3bc0d2148ac466'],
+            ['path' => 'decoder_joint-model.onnx', 'size' => 72520893, 'sha256' => 'e978ddf6688527182c10fde2eb4b83068421648985ef23f7a86be732be8706c1'],
+            ['path' => 'encoder-model.onnx', 'size' => 41770866, 'sha256' => '98a74b21b4cc0017c1e7030319a4a96f4a9506e50f0708f3a516d02a77c96bb1'],
+            ['path' => 'encoder-model.onnx.data', 'size' => 2435420160, 'sha256' => '9a22d372c51455c34f13405da2520baefb7125bd16981397561423ed32d24f36'],
+            ['path' => 'vocab.txt', 'size' => 93939, 'sha256' => 'd58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d'],
+        ],
+        'gigaam-multilingual' => [
+            ['path' => 'config.json', 'size' => 152, 'sha256' => 'd82b4672db0e04db93620ce41081115439ab315abf4f6dbf389a1aa1f0336779'],
+            ['path' => 'multilingual_ctc.onnx', 'size' => 885388622, 'sha256' => '8bc803289f9cb5147ee95451fd9bdba219b1ecf1ddcd59a3651177c103c9eeec'],
+            ['path' => 'multilingual_vocab.txt', 'size' => 393, 'sha256' => '4d130287892e1099fedfb3f93c4b4cf8a263151158801680b28977d1be4133f4'],
+        ],
+    ];
+
     public const array MODEL_PRESETS = [
         'large-v3-turbo' => [
             'platform' => self::PLATFORM_MACOS,
@@ -257,40 +301,14 @@ class STTSetting extends ModulesModelsBase
             'license' => 'CC BY 4.0',
             'supported_languages' => self::PARAKEET_LANGUAGE_IDS,
         ],
-        'faster-whisper-large-v3-turbo' => [
-            'platform' => self::PLATFORM_LINUX,
-            'repo' => 'dropbox-dash/faster-whisper-large-v3-turbo',
-            'model' => 'large-v3-turbo',
-            'engine' => 'fasterWhisper',
-            'artifact_type' => 'ctranslate2',
-            'display_name' => 'Whisper Large V3 Turbo (CTranslate2)',
-            'label' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Turbo',
-            'description' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboDesc',
-            'source_url' => 'https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo',
-            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3Turbo',
-            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboBestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboTradeoff',
-        ],
-        'faster-whisper-large-v3' => [
-            'platform' => self::PLATFORM_LINUX,
-            'repo' => 'Systran/faster-whisper-large-v3',
-            'model' => 'large-v3',
-            'engine' => 'fasterWhisper',
-            'artifact_type' => 'ctranslate2',
-            'display_name' => 'Whisper Large V3 (CTranslate2)',
-            'label' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3',
-            'description' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Desc',
-            'source_url' => 'https://huggingface.co/Systran/faster-whisper-large-v3',
-            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3',
-            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3BestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Tradeoff',
-        ],
         'gigaam-v3' => [
             'platform' => self::PLATFORM_LINUX,
-            'repo' => 'ai-sage/GigaAM-v3',
+            'repo' => 'istupakov/gigaam-v3-onnx',
             'model' => 'v3_e2e_rnnt',
             'engine' => 'gigaam',
-            'artifact_type' => 'gigaam-pytorch',
+            'artifact_type' => 'gigaam-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['gigaam-v3'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['gigaam-v3'],
             'display_name' => 'GigaAM v3',
             'label' => 'module_local_speech_to_text_ModelGigaamV3',
             'description' => 'module_local_speech_to_text_ModelGigaamV3Desc',
@@ -299,6 +317,7 @@ class STTSetting extends ModulesModelsBase
             'best_for' => 'module_local_speech_to_text_ModelGigaamV3BestFor',
             'tradeoff' => 'module_local_speech_to_text_ModelGigaamV3Tradeoff',
             'language' => 'Russian',
+            'license' => 'MIT',
             'supported_languages' => self::RUSSIAN_LANGUAGE_IDS,
         ],
         't-one' => [
@@ -307,6 +326,8 @@ class STTSetting extends ModulesModelsBase
             'model' => 't-one',
             'engine' => 'tOne',
             'artifact_type' => 't-one-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['t-one'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['t-one'],
             'display_name' => 'T-one',
             'label' => 'module_local_speech_to_text_ModelTOne',
             'description' => 'module_local_speech_to_text_ModelTOneDesc',
@@ -315,7 +336,63 @@ class STTSetting extends ModulesModelsBase
             'best_for' => 'module_local_speech_to_text_ModelTOneBestFor',
             'tradeoff' => 'module_local_speech_to_text_ModelTOneTradeoff',
             'language' => 'Russian',
+            'license' => 'Apache 2.0',
             'supported_languages' => self::RUSSIAN_LANGUAGE_IDS,
+        ],
+        'faster-whisper-large-v3-turbo' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'dropbox-dash/faster-whisper-large-v3-turbo',
+            'model' => 'large-v3-turbo',
+            'engine' => 'fasterWhisper',
+            'artifact_type' => 'ctranslate2',
+            'revision' => self::LINUX_MODEL_REVISIONS['faster-whisper-large-v3-turbo'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['faster-whisper-large-v3-turbo'],
+            'display_name' => 'Whisper Large V3 Turbo (CTranslate2)',
+            'label' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Turbo',
+            'description' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboDesc',
+            'source_url' => 'https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo',
+            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3Turbo',
+            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboTradeoff',
+            'license' => 'MIT',
+        ],
+        'parakeet-tdt-0.6b-v3-linux' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'istupakov/parakeet-tdt-0.6b-v3-onnx',
+            'model' => 'parakeet-tdt-0.6b-v3',
+            'engine' => 'parakeet',
+            'artifact_type' => 'parakeet-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['parakeet-tdt-0.6b-v3-linux'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['parakeet-tdt-0.6b-v3-linux'],
+            'display_name' => 'Parakeet TDT 0.6B v3',
+            'label' => 'module_local_speech_to_text_ModelParakeetV3',
+            'description' => 'module_local_speech_to_text_ModelParakeetV3LinuxDesc',
+            'source_url' => 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileParakeetV3Linux',
+            'best_for' => 'module_local_speech_to_text_ModelParakeetV3LinuxBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelParakeetV3LinuxTradeoff',
+            'language' => '25 languages',
+            'license' => 'CC BY 4.0',
+            'supported_languages' => self::PARAKEET_LANGUAGE_IDS,
+        ],
+        'gigaam-multilingual' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'istupakov/gigaam-multilingual-ctc-onnx',
+            'model' => 'multilingual_ctc',
+            'engine' => 'gigaam',
+            'artifact_type' => 'gigaam-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['gigaam-multilingual'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['gigaam-multilingual'],
+            'display_name' => 'GigaAM Multilingual',
+            'label' => 'module_local_speech_to_text_ModelGigaamMultilingual',
+            'description' => 'module_local_speech_to_text_ModelGigaamMultilingualDesc',
+            'source_url' => 'https://github.com/salute-developers/GigaAM',
+            'profile' => 'module_local_speech_to_text_ModelProfileGigaamMultilingual',
+            'best_for' => 'module_local_speech_to_text_ModelGigaamMultilingualBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelGigaamMultilingualTradeoff',
+            'language' => 'Kazakh, Kyrgyz, Uzbek, Russian, English',
+            'license' => 'MIT',
+            'supported_languages' => self::GIGAAM_MULTILINGUAL_LANGUAGE_IDS,
         ],
     ];
 

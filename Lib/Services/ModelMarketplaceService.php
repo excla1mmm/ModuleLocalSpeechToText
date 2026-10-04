@@ -85,8 +85,7 @@ class ModelMarketplaceService
         return match ($artifactType) {
             'whisperkit-coreml', 'parakeet-coreml' => 'Core ML',
             'ctranslate2' => 'CTranslate2',
-            'gigaam-pytorch' => 'PyTorch',
-            't-one-onnx' => 'ONNX',
+            'gigaam-onnx', 'parakeet-onnx', 't-one-onnx' => 'ONNX',
             '' => '',
             default => $artifactType,
         };

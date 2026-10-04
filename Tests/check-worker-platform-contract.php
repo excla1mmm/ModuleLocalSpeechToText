@@ -50,7 +50,7 @@ namespace {
     foreach (['large-v3-turbo', 'podlodka', 'large-v3', 'parakeet-tdt-0.6b-v3'] as $modelId) {
         expectWorkerPlatform(STTSetting::modelPlatform($modelId) === 'macos', "{$modelId} must stay a macOS model");
     }
-    foreach (['faster-whisper-large-v3-turbo', 'faster-whisper-large-v3', 'gigaam-v3', 't-one'] as $modelId) {
+    foreach (['gigaam-v3', 't-one', 'faster-whisper-large-v3-turbo', 'parakeet-tdt-0.6b-v3-linux', 'gigaam-multilingual'] as $modelId) {
         expectWorkerPlatform(STTSetting::modelPlatform($modelId) === 'linux', "{$modelId} must be a Linux model");
     }
 
@@ -100,6 +100,28 @@ namespace {
         );
     }
 
+    // Every Linux model ships a pinned revision and a SHA-256 manifest: the worker refuses anything else.
+    foreach (STTSetting::modelPresets() as $modelId => $preset) {
+        if ($preset['platform'] !== 'linux') {
+            continue;
+        }
+        expectWorkerPlatform(
+            preg_match('/^[0-9a-f]{40}$/', (string)($preset['revision'] ?? '')) === 1,
+            "{$modelId} must pin a 40-character repository revision"
+        );
+        $manifest = $preset['sha256_manifest'] ?? [];
+        expectWorkerPlatform(is_array($manifest) && $manifest !== [], "{$modelId} must have a SHA-256 manifest");
+        foreach ($manifest as $entry) {
+            expectWorkerPlatform(
+                preg_match('/^[A-Za-z0-9._-]+$/', (string)$entry['path']) === 1
+                    && (int)$entry['size'] > 0
+                    && preg_match('/^[0-9a-f]{64}$/', (string)$entry['sha256']) === 1,
+                "{$modelId} has a malformed manifest entry"
+            );
+        }
+    }
+    expectWorkerPlatform(STTSetting::defaultModelForPlatform('linux') === 'gigaam-v3', 'GigaAM v3 is the Linux default');
+
     // Russian-only engines keep automatic language and reject other explicit languages.
     foreach (['gigaam-v3', 't-one'] as $modelId) {
         expectWorkerPlatform(STTSetting::modelSupportsLanguage($modelId, 'auto'), "{$modelId} must allow Auto");
@@ -117,7 +139,7 @@ namespace {
     expectWorkerPlatform(($rowsById['t-one']['platform'] ?? '') === 'linux', 'Marketplace row must expose its platform');
     expectWorkerPlatform(($rowsById['parakeet-tdt-0.6b-v3']['platform'] ?? '') === 'macos', 'Marketplace row must expose its platform');
     expectWorkerPlatform(
-        ($rowsById['gigaam-v3']['technical'] ?? '') === 'GigaAM · PyTorch · Russian',
+        ($rowsById['gigaam-v3']['technical'] ?? '') === 'GigaAM · ONNX · Russian · MIT',
         'GigaAM technical label mismatch'
     );
     $platformRows = $service->platformRows();
