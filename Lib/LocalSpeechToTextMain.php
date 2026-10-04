@@ -123,13 +123,24 @@ class LocalSpeechToTextMain
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
             self::syncWorkerModel($worker);
+            // A worker of another platform cannot run the selected model; handing it
+            // a job would only turn that job into a failure. Older workers send no
+            // platform and are macOS, so they see an ordinary empty queue.
+            $requiredPlatform = STTSetting::selectedPlatform();
+            $platformMismatch = STTSetting::workerPlatformFromRequest($data['worker_platform'] ?? null) !== $requiredPlatform;
             $jobSnapshot = self::prepareJobSnapshot();
-            $job = STTJob::claimNextForWorker($worker);
+            $job = $platformMismatch ? null : STTJob::claimNextForWorker($worker);
             if ($job === null) {
-                return JobApiResponseBuilder::success([
+                $payload = [
                     'job' => null,
                     'has_settings_changed' => $hasSettingsChanged,
-                ]);
+                ];
+                if ($platformMismatch) {
+                    $payload['platform_mismatch'] = true;
+                    $payload['required_platform'] = $requiredPlatform;
+                }
+
+                return JobApiResponseBuilder::success($payload);
             }
             $claimedJob = $job;
             $claimedWorkerId = (int)$worker->id;

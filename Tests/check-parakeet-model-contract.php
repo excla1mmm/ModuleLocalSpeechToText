@@ -41,6 +41,7 @@ namespace {
     }
 
     $expected = [
+        'platform' => 'macos',
         'repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
         'model' => 'parakeet-tdt-0.6b-v3',
         'engine' => 'parakeet',
@@ -66,8 +67,12 @@ namespace {
             'podlodka',
             'large-v3',
             'parakeet-tdt-0.6b-v3',
+            'faster-whisper-large-v3-turbo',
+            'faster-whisper-large-v3',
+            'gigaam-v3',
+            't-one',
         ],
-        'Built-in marketplace must contain only the four approved models in display order'
+        'Built-in marketplace must contain only the approved macOS and Linux models in display order'
     );
     expectParakeet(
         (STTSetting::MODEL_PRESETS['parakeet-tdt-0.6b-v3'] ?? null) === $expected,
@@ -94,6 +99,10 @@ namespace {
             'podlodka',
             'large-v3',
             'parakeet-tdt-0.6b-v3',
+            'faster-whisper-large-v3-turbo',
+            'faster-whisper-large-v3',
+            'gigaam-v3',
+            't-one',
         ],
         'Saved custom model data must not extend the supported marketplace catalog'
     );
@@ -104,8 +113,17 @@ namespace {
     };
     $rows = (new ModelMarketplaceService($translation))->modelMarketplaceRows();
     expectParakeet(
-        array_column($rows, 'id') === ['large-v3-turbo', 'podlodka', 'large-v3', 'parakeet-tdt-0.6b-v3'],
-        'Marketplace rows must expose only the four approved models in display order'
+        array_column($rows, 'id') === [
+            'large-v3-turbo',
+            'podlodka',
+            'large-v3',
+            'parakeet-tdt-0.6b-v3',
+            'faster-whisper-large-v3-turbo',
+            'faster-whisper-large-v3',
+            'gigaam-v3',
+            't-one',
+        ],
+        'Marketplace rows must expose only the approved models in display order'
     );
     $matches = array_values(array_filter($rows, static fn (array $row): bool => ($row['id'] ?? '') === 'parakeet-tdt-0.6b-v3'));
     expectParakeet(count($matches) === 1, 'Marketplace must contain exactly one Parakeet row');

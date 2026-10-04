@@ -41,7 +41,10 @@ final class IndexViewService
             $view->modelPresets = STTSetting::modelPresets();
             $view->selectedModel = STTSetting::selectedModelId();
             $view->selectedLanguage = STTSetting::selectedLanguageId();
-            $view->modelMarketplaceRows = (new ModelMarketplaceService($this->translation))->modelMarketplaceRows();
+            $marketplace = new ModelMarketplaceService($this->translation);
+            $view->modelMarketplaceRows = $marketplace->modelMarketplaceRows();
+            $view->modelPlatformRows = $marketplace->platformRows();
+            $view->selectedPlatform = STTSetting::selectedPlatform();
         }
 
         if ($capabilities->canManageSystem()) {

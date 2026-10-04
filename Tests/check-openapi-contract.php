@@ -212,7 +212,7 @@ namespace {
     $requiredParameters = [
         ['WorkerProcessingSettings', 'getList', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID']],
         ['WorkerUpdateLicense', 'getList', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID']],
-        ['JobLeases', 'create', ['X-MikoPBX-Worker-API-Version', 'worker_uid']],
+        ['JobLeases', 'create', ['X-MikoPBX-Worker-API-Version', 'worker_uid', 'worker_platform']],
         ['JobLeases', 'patch', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
         ['JobLeases', 'delete', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
         ['JobRecordings', 'getRecord', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID', 'X-MikoPBX-Job-Lease-Token', 'id']],
@@ -222,7 +222,14 @@ namespace {
     foreach ($requiredParameters as [$resource, $method, $expected]) {
         $parameters = methodAttributes($controller($resource), $method, ApiParameterRef::class);
         expectOpenApi(array_map(static fn(ApiParameterRef $parameter): string => $parameter->name, $parameters) === $expected, "{$resource}::{$method} v2 request parameters changed");
-        expectOpenApi(!in_array(false, array_map(static fn(ApiParameterRef $parameter): bool => $parameter->required, $parameters), true), "{$resource}::{$method} parameters must be required");
+        // worker_platform is optional: workers that predate it are macOS.
+        $optional = ['worker_platform'];
+        foreach ($parameters as $parameter) {
+            expectOpenApi(
+                $parameter->required === !in_array($parameter->name, $optional, true),
+                "{$resource}::{$method} parameter {$parameter->name} has the wrong required flag"
+            );
+        }
     }
 
     foreach ([

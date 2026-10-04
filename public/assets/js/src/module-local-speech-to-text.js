@@ -627,9 +627,48 @@
         var $compatibilityMessage = $('#stt-model-language-compatibility');
         var initialSelectedModel = String($modelForm.data('initial-selected-model') || $modelInputs.filter(':checked').val() || '');
         var selectedLanguage = String($modelForm.data('selected-language') || '').trim().toLowerCase();
+        var $platformButtons = $('.module-local-speech-to-text .stt-model-platform-switch [data-platform]');
+        var $platformChangeMessage = $('#stt-model-platform-change');
+        var initialPlatform = String($modelForm.data('selected-platform') || 'macos');
 
         function selectedModel() {
             return String($modelInputs.filter(':checked').val() || '');
+        }
+
+        function selectedModelPlatform() {
+            return String($modelInputs.filter(':checked').attr('data-platform') || '');
+        }
+
+        function updatePlatformChangeState() {
+            var platform = selectedModelPlatform();
+            var changesPlatform = platform !== '' && platform !== initialPlatform;
+
+            $platformChangeMessage
+                .toggleClass('hidden', !changesPlatform)
+                .attr('aria-hidden', changesPlatform ? 'false' : 'true');
+        }
+
+        function showPlatform(platform) {
+            var $rows = $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr');
+
+            $platformButtons.each(function () {
+                var active = String($(this).attr('data-platform')) === platform;
+
+                $(this).toggleClass('active', active).attr('aria-pressed', active ? 'true' : 'false');
+            });
+            $rows.each(function () {
+                $(this).prop('hidden', String($(this).attr('data-platform')) !== platform);
+            });
+
+            if (selectedModelPlatform() !== platform) {
+                $modelInputs.prop('checked', false);
+                $rows.removeClass('positive');
+                if (platform === initialPlatform) {
+                    $modelInputs.filter(function () {
+                        return String($(this).val()) === initialSelectedModel;
+                    }).closest('.ui.radio.checkbox').checkbox('check');
+                }
+            }
         }
 
         function selectedModelSupportsLanguage() {
@@ -663,6 +702,8 @@
 
         function updateSaveButtonState() {
             var compatible = updateCompatibilityState();
+
+            updatePlatformChangeState();
             var hasChanges = selectedModel() !== ''
                 && selectedModel() !== initialSelectedModel
                 && compatible;
@@ -681,6 +722,11 @@
             }
 
             $(this).find('.ui.radio.checkbox').checkbox('check');
+        });
+
+        $platformButtons.on('click', function () {
+            showPlatform(String($(this).attr('data-platform')));
+            updateSaveButtonState();
         });
 
         $modelInputs.on('change', function () {

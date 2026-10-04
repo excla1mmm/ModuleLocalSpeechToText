@@ -26,6 +26,7 @@ class ModelMarketplaceService
                 : array_keys(STTSetting::LANGUAGE_PRESETS);
             $rows[] = [
                 'id' => $modelId,
+                'platform' => (string)($model['platform'] ?? STTSetting::PLATFORM_MACOS),
                 'title' => $this->modelText((string)$model['label']),
                 'repo' => (string)($model['repo'] ?? ''),
                 'runtime' => (string)($model['model'] ?? $modelId),
@@ -39,7 +40,7 @@ class ModelMarketplaceService
                 'supportedLanguageIds' => $supportedLanguageIds,
                 'supportedLanguagesAttribute' => implode(',', $supportedLanguageIds),
                 'technical' => implode(' · ', array_values(array_filter([
-                    (string)($model['engine'] ?? 'WhisperKit'),
+                    $this->modelEngineLabel((string)($model['engine'] ?? '')),
                     $this->modelArtifactLabel((string)($model['artifact_type'] ?? '')),
                     (string)($model['language'] ?? ''),
                     (string)($model['license'] ?? ''),
@@ -50,10 +51,42 @@ class ModelMarketplaceService
         return $rows;
     }
 
+    /**
+     * @return array<int, array{id: string, label: string, selected: bool}>
+     */
+    public function platformRows(): array
+    {
+        $selectedPlatform = STTSetting::selectedPlatform();
+        $rows = [];
+        foreach (STTSetting::PLATFORM_PRESETS as $platform => $label) {
+            $rows[] = [
+                'id' => $platform,
+                'label' => $this->modelText($label),
+                'selected' => $platform === $selectedPlatform,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function modelEngineLabel(string $engine): string
+    {
+        return match ($engine) {
+            '' => 'WhisperKit',
+            'fasterWhisper' => 'faster-whisper',
+            'gigaam' => 'GigaAM',
+            'tOne' => 'T-one',
+            default => $engine,
+        };
+    }
+
     private function modelArtifactLabel(string $artifactType): string
     {
         return match ($artifactType) {
             'whisperkit-coreml', 'parakeet-coreml' => 'Core ML',
+            'ctranslate2' => 'CTranslate2',
+            'gigaam-pytorch' => 'PyTorch',
+            't-one-onnx' => 'ONNX',
             '' => '',
             default => $artifactType,
         };

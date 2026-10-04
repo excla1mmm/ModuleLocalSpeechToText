@@ -58,6 +58,20 @@ class STTSetting extends ModulesModelsBase
     public const string DEFAULT_MODEL = 'parakeet-tdt-0.6b-v3';
     public const string AUTO_LANGUAGE = 'auto';
 
+    // Worker platforms. A PBX serves exactly one platform at a time: the
+    // platform of the selected model. Workers that predate platform reporting
+    // (macOS worker 1.7 and older) send no platform and are treated as macOS.
+    public const string PLATFORM_MACOS = 'macos';
+    public const string PLATFORM_LINUX = 'linux';
+    public const array PLATFORM_PRESETS = [
+        self::PLATFORM_MACOS => 'module_local_speech_to_text_PlatformMacos',
+        self::PLATFORM_LINUX => 'module_local_speech_to_text_PlatformLinux',
+    ];
+    public const array PLATFORM_DEFAULT_MODELS = [
+        self::PLATFORM_MACOS => self::DEFAULT_MODEL,
+        self::PLATFORM_LINUX => 'faster-whisper-large-v3-turbo',
+    ];
+
     // Recording duration hard limit: an internal safety policy, not a user setting.
     // It bounds worker memory usage and prevents a single long recording from
     // monopolizing a worker; see README.ru.md / README.md for the operator-facing note.
@@ -100,6 +114,8 @@ class STTSetting extends ModulesModelsBase
         'bg', 'hr', 'cs', 'da', 'nl', 'en', 'et', 'fi', 'fr', 'de', 'el', 'hu', 'it',
         'lv', 'lt', 'mt', 'pl', 'pt', 'ro', 'sk', 'sl', 'es', 'sv', 'ru', 'uk',
     ];
+
+    public const array RUSSIAN_LANGUAGE_IDS = ['ru'];
 
     public const string ARGMAX_WHISPERKIT_REVISION = '0f63a7800b00dd0226abd051b906c246e1907482';
     public const string PODLODKA_WHISPERKIT_REVISION = '33ba8cea6ef3ffc11ff0d9cd0f432f12aad9766c';
@@ -177,6 +193,7 @@ class STTSetting extends ModulesModelsBase
 
     public const array MODEL_PRESETS = [
         'large-v3-turbo' => [
+            'platform' => self::PLATFORM_MACOS,
             'repo' => 'argmaxinc/whisperkit-coreml',
             'model' => 'large-v3-v20240930_turbo',
             'engine' => 'whisperKit',
@@ -192,6 +209,7 @@ class STTSetting extends ModulesModelsBase
             'tradeoff' => 'module_local_speech_to_text_ModelLargeV3TurboTradeoff',
         ],
         'podlodka' => [
+            'platform' => self::PLATFORM_MACOS,
             'repo' => 'smkrv/whisper-podlodka-turbo-coreml',
             'model' => 'bond005_whisper-podlodka-turbo',
             'engine' => 'whisperKit',
@@ -207,6 +225,7 @@ class STTSetting extends ModulesModelsBase
             'tradeoff' => 'module_local_speech_to_text_ModelPodlodkaTradeoff',
         ],
         'large-v3' => [
+            'platform' => self::PLATFORM_MACOS,
             'repo' => 'argmaxinc/whisperkit-coreml',
             'model' => 'large-v3',
             'engine' => 'whisperKit',
@@ -222,6 +241,7 @@ class STTSetting extends ModulesModelsBase
             'tradeoff' => 'module_local_speech_to_text_ModelLargeV3Tradeoff',
         ],
         'parakeet-tdt-0.6b-v3' => [
+            'platform' => self::PLATFORM_MACOS,
             'repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
             'model' => 'parakeet-tdt-0.6b-v3',
             'engine' => 'parakeet',
@@ -236,6 +256,66 @@ class STTSetting extends ModulesModelsBase
             'language' => '25 languages',
             'license' => 'CC BY 4.0',
             'supported_languages' => self::PARAKEET_LANGUAGE_IDS,
+        ],
+        'faster-whisper-large-v3-turbo' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'mobiuslabsgmbh/faster-whisper-large-v3-turbo',
+            'model' => 'large-v3-turbo',
+            'engine' => 'fasterWhisper',
+            'artifact_type' => 'ctranslate2',
+            'display_name' => 'Whisper Large V3 Turbo (CTranslate2)',
+            'label' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Turbo',
+            'description' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboDesc',
+            'source_url' => 'https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo',
+            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3Turbo',
+            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboTradeoff',
+        ],
+        'faster-whisper-large-v3' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'Systran/faster-whisper-large-v3',
+            'model' => 'large-v3',
+            'engine' => 'fasterWhisper',
+            'artifact_type' => 'ctranslate2',
+            'display_name' => 'Whisper Large V3 (CTranslate2)',
+            'label' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3',
+            'description' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Desc',
+            'source_url' => 'https://huggingface.co/Systran/faster-whisper-large-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3',
+            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3BestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3Tradeoff',
+        ],
+        'gigaam-v3' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 'ai-sage/GigaAM-v3',
+            'model' => 'v3_e2e_rnnt',
+            'engine' => 'gigaam',
+            'artifact_type' => 'gigaam-pytorch',
+            'display_name' => 'GigaAM v3',
+            'label' => 'module_local_speech_to_text_ModelGigaamV3',
+            'description' => 'module_local_speech_to_text_ModelGigaamV3Desc',
+            'source_url' => 'https://huggingface.co/ai-sage/GigaAM-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileGigaamV3',
+            'best_for' => 'module_local_speech_to_text_ModelGigaamV3BestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelGigaamV3Tradeoff',
+            'language' => 'Russian',
+            'supported_languages' => self::RUSSIAN_LANGUAGE_IDS,
+        ],
+        't-one' => [
+            'platform' => self::PLATFORM_LINUX,
+            'repo' => 't-tech/T-one',
+            'model' => 't-one',
+            'engine' => 'tOne',
+            'artifact_type' => 't-one-onnx',
+            'display_name' => 'T-one',
+            'label' => 'module_local_speech_to_text_ModelTOne',
+            'description' => 'module_local_speech_to_text_ModelTOneDesc',
+            'source_url' => 'https://huggingface.co/t-tech/T-one',
+            'profile' => 'module_local_speech_to_text_ModelProfileTOne',
+            'best_for' => 'module_local_speech_to_text_ModelTOneBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelTOneTradeoff',
+            'language' => 'Russian',
+            'supported_languages' => self::RUSSIAN_LANGUAGE_IDS,
         ],
     ];
 
@@ -325,6 +405,49 @@ class STTSetting extends ModulesModelsBase
     public static function selectedModelArtifactType(): string
     {
         return (string)self::selectedModelPreset()['artifact_type'];
+    }
+
+    public static function selectedPlatform(): string
+    {
+        return self::modelPlatform(self::selectedModelId());
+    }
+
+    public static function modelPlatform(string $modelId): string
+    {
+        return (string)(self::modelPresets()[self::normalizeModelId($modelId)]['platform'] ?? self::PLATFORM_MACOS);
+    }
+
+    public static function normalizePlatform(string $platform): string
+    {
+        $platform = strtolower(trim($platform));
+
+        return array_key_exists($platform, self::PLATFORM_PRESETS) ? $platform : self::PLATFORM_MACOS;
+    }
+
+    /**
+     * Platform a worker declares on a lease request. A missing or empty value
+     * means a worker that predates platform reporting, which is always macOS.
+     * An unknown value returns null so that worker never receives jobs.
+     */
+    public static function workerPlatformFromRequest(mixed $value): ?string
+    {
+        if ($value === null) {
+            return self::PLATFORM_MACOS;
+        }
+        if (!is_string($value)) {
+            return null;
+        }
+        $platform = strtolower(trim($value));
+        if ($platform === '') {
+            return self::PLATFORM_MACOS;
+        }
+
+        return array_key_exists($platform, self::PLATFORM_PRESETS) ? $platform : null;
+    }
+
+    public static function defaultModelForPlatform(string $platform): string
+    {
+        return self::PLATFORM_DEFAULT_MODELS[self::normalizePlatform($platform)];
     }
 
     public static function selectedModelDisplayName(): string

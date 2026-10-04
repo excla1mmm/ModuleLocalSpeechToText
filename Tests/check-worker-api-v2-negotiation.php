@@ -264,6 +264,7 @@ namespace {
             'job-recordings',
             'job-results',
             'job-failures',
+            'worker-platforms',
         ],
     ], 'contract response shape changed', $contract->data);
 

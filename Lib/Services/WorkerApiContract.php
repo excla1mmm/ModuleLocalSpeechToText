@@ -22,6 +22,7 @@ final class WorkerApiContract
         'job-recordings',
         'job-results',
         'job-failures',
+        'worker-platforms',
     ];
 
     public static function requireVersion(array $request): ?PBXApiResult

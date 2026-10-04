@@ -25,6 +25,7 @@ class Controller extends BaseRestController
     #[ApiOperation(summary: 'module_local_speech_to_text_GetNextJob', description: 'module_local_speech_to_text_GetNextJobDesc', operationId: 'createLocalSTTJobLease')]
     #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
+    #[ApiParameterRef('worker_platform', required: false)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobClaimed')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function create(): void {}

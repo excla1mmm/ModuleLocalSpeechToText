@@ -208,6 +208,7 @@ namespace {
                 'model_repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
                 'model_engine' => 'parakeet',
                 'model_artifact_type' => 'parakeet-coreml',
+                'model_platform' => 'macos',
                 'model_display_name' => 'Parakeet TDT 0.6B v3',
             ],
             'Fetch must return the PBX-selected model descriptor'

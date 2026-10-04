@@ -82,13 +82,19 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             ],
             'model_engine' => [
                 'type' => 'string',
-                'enum' => ['whisperKit', 'parakeet'],
+                'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne'],
                 'example' => 'parakeet',
             ],
             'model_artifact_type' => [
                 'type' => 'string',
-                'enum' => ['whisperkit-coreml', 'parakeet-coreml'],
+                'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-pytorch', 't-one-onnx'],
                 'example' => 'parakeet-coreml',
+            ],
+            'model_platform' => [
+                'type' => 'string',
+                'enum' => ['macos', 'linux'],
+                'description' => 'module_local_speech_to_text_ApiFieldModelPlatform',
+                'example' => 'macos',
             ],
             'model_display_name' => [
                 'type' => 'string',
@@ -150,6 +156,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'model_repo' => 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
                     'model_engine' => 'parakeet',
                     'model_artifact_type' => 'parakeet-coreml',
+                    'model_platform' => 'macos',
                     'model_display_name' => 'Parakeet TDT 0.6B v3',
                 ],
             ],

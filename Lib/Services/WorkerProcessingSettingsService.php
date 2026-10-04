@@ -211,6 +211,7 @@ final class WorkerProcessingSettingsService
             'model_repo' => $repository,
             'model_engine' => (string)$preset['engine'],
             'model_artifact_type' => (string)$preset['artifact_type'],
+            'model_platform' => (string)($preset['platform'] ?? STTSetting::PLATFORM_MACOS),
             'model_display_name' => (string)($preset['display_name'] ?? $repository . '/' . $modelId),
         ];
 

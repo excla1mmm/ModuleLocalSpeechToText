@@ -70,7 +70,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 The main module page has six tabs:
 
 - `Settings`: language hint, custom vocabulary terms and TXT import, CDR processing period, and transcript retention. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
-- `Model marketplace`: built-in and custom Hugging Face WhisperKit/Core ML models, labels, runtime IDs, and selected model.
+- `Model marketplace`: worker platform switch (macOS on Apple Silicon or Linux in Docker) and the built-in models of that platform: WhisperKit/Parakeet Core ML for macOS; faster-whisper (CTranslate2), GigaAM v3 and T-one for Linux. The PBX serves one platform at a time, the platform of the selected model; workers of the other platform receive no jobs.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
