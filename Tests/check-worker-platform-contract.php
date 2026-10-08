@@ -169,6 +169,17 @@ namespace {
             && str_contains($getNext, "\$payload['required_platform'] = \$requiredPlatform;"),
         'A platform mismatch must be reported to the worker'
     );
+    // The Workers tab shows each worker's own model: a worker of the other platform runs none.
+    expectWorkerPlatform(
+        str_contains($getNext, 'self::syncWorkerModel($worker, $platformMismatch);')
+            && str_contains($main, "\$worker->updateModel(\$platformMismatch ? '' : self::currentWorkerModelName());"),
+        'A worker of another platform must not be shown with the selected model'
+    );
+    $view = (string)file_get_contents(__DIR__ . '/../App/Views/ModuleLocalSpeechToText/index.volt');
+    expectWorkerPlatform(
+        str_contains($view, '{{ worker.model|e }}') && !str_contains($view, 'workerRuntimeModel'),
+        'The workers table must show the model stored for each worker'
+    );
 
     echo "Worker platform contract OK\n";
 }

@@ -122,12 +122,12 @@ class LocalSpeechToTextMain
 
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
-            self::syncWorkerModel($worker);
             // A worker of another platform cannot run the selected model; handing it
             // a job would only turn that job into a failure. Older workers send no
             // platform and are macOS, so they see an ordinary empty queue.
             $requiredPlatform = STTSetting::selectedPlatform();
             $platformMismatch = STTSetting::workerPlatformFromRequest($data['worker_platform'] ?? null) !== $requiredPlatform;
+            self::syncWorkerModel($worker, $platformMismatch);
             $jobSnapshot = self::prepareJobSnapshot();
             $job = $platformMismatch ? null : STTJob::claimNextForWorker($worker);
             if ($job === null) {
@@ -760,9 +760,10 @@ class LocalSpeechToTextMain
         return STTSetting::selectedModelDisplayName();
     }
 
-    private static function syncWorkerModel(STTWorker $worker): void
+    // The Workers tab shows the model a worker runs: none for a worker of the other platform.
+    private static function syncWorkerModel(STTWorker $worker, bool $platformMismatch): void
     {
-        $worker->updateModel(self::currentWorkerModelName());
+        $worker->updateModel($platformMismatch ? '' : self::currentWorkerModelName());
     }
 
     private static function safeRecordingPath(string $filePath): ?string

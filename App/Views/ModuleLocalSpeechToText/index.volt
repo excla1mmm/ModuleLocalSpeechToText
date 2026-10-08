@@ -430,7 +430,7 @@
                     <td>{{ worker.name|e }}</td>
                     <td>{{ worker.worker_uid|e }}</td>
                     <td>{{ worker.ip|e }}</td>
-                    <td><span class="stt-model-text">{{ workerRuntimeModel|e }}</span></td>
+                    <td>{% if worker.model %}<span class="stt-model-text">{{ worker.model|e }}</span>{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td>{{ worker.app_version|e }}</td>
                     <td class="center aligned">
                         {% if workerCompatibility[worker.id] and worker.status === 'online' %}
