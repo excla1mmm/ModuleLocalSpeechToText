@@ -268,7 +268,7 @@
         </table>
     </div>
 
-    <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers">
+    <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers" data-worker-platform="{% if workerDownloadPlatform === 'linux' %}linux{% else %}macos{% endif %}">
         {% if not isSecureConnection %}
             <div class="ui warning message stt-insecure-connection-warning">
                 <i class="exclamation triangle icon"></i>
@@ -279,26 +279,56 @@
             </div>
         {% endif %}
         <div class="ui segment stt-worker-download">
-            <div class="ui middle aligned stackable grid">
-                <div class="ten wide column">
-                    <h4 class="ui header">
-                        <i class="download icon"></i>
-                        <span class="content">
-                            {{ t._('module_local_speech_to_text_WorkerDownloadTitle') }}
-                            <span class="sub header">{{ t._('module_local_speech_to_text_WorkerDownloadDescription') }}</span>
-                        </span>
-                    </h4>
-                    <div class="stt-table-muted stt-worker-download-meta">
-                        macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>releases.mikopbx.com</strong>
+            <h4 class="ui header">
+                <i class="download icon"></i>
+                <span class="content">{{ t._('module_local_speech_to_text_WorkerDownloadTitle') }}</span>
+            </h4>
+            <div class="stt-worker-download-body">
+                <div class="stt-worker-platform-field">
+                    <label>{{ t._('module_local_speech_to_text_WorkerDownloadPlatform') }}</label>
+                    <div class="ui basic buttons stt-worker-platform-switch" role="group">
+                        <button type="button" class="ui button{% if workerDownloadPlatform !== 'linux' %} active{% endif %}" data-platform="macos" aria-pressed="{% if workerDownloadPlatform !== 'linux' %}true{% else %}false{% endif %}">
+                            <i class="apple icon"></i>{{ t._('module_local_speech_to_text_PlatformMacos') }}
+                        </button>
+                        <button type="button" class="ui button{% if workerDownloadPlatform === 'linux' %} active{% endif %}" data-platform="linux" aria-pressed="{% if workerDownloadPlatform === 'linux' %}true{% else %}false{% endif %}">
+                            <i class="docker icon"></i>{{ t._('module_local_speech_to_text_WorkerDownloadPlatformDocker') }}
+                        </button>
                     </div>
                 </div>
-                <div class="six wide right aligned column stt-worker-download-action">
-                    <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
-                        <button class="ui left labeled icon blue button" type="submit">
-                            <i class="download icon"></i>
-                            {{ t._('module_local_speech_to_text_DownloadWorker') }}
+                <div class="stt-worker-platform-panel" data-platform="macos"{% if workerDownloadPlatform === 'linux' %} hidden{% endif %}>
+                    <div class="ui middle aligned stackable grid">
+                        <div class="ten wide column">
+                            <div class="stt-worker-download-description">{{ t._('module_local_speech_to_text_WorkerDownloadDescription') }}</div>
+                            <div class="stt-table-muted stt-worker-download-meta">
+                                macOS &middot; Apple Silicon &middot; {{ t._('module_local_speech_to_text_Source') }}: <strong>releases.mikopbx.com</strong>
+                            </div>
+                        </div>
+                        <div class="six wide right aligned column stt-worker-download-action">
+                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
+                                <button class="ui left labeled icon blue button" type="submit">
+                                    <i class="download icon"></i>
+                                    {{ t._('module_local_speech_to_text_DownloadWorker') }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="stt-worker-platform-panel" data-platform="linux"{% if workerDownloadPlatform !== 'linux' %} hidden{% endif %}>
+                    <div class="stt-worker-download-description">{{ t._('module_local_speech_to_text_WorkerDockerDescription') }}</div>
+                    <div class="stt-table-muted stt-worker-download-meta">Linux &middot; macOS &middot; x86_64 &middot; arm64 &middot; Docker 20.10+</div>
+                    <div class="stt-worker-docker-heading">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</div>
+                    {% if generatedApiKey !== '' %}
+                        <div class="ui positive message">{{ t._('module_local_speech_to_text_WorkerDockerKeyInserted') }}</div>
+                    {% else %}
+                        <div class="ui warning message">{{ t._('module_local_speech_to_text_WorkerDockerKeyHint', ['placeholder': '<strong>' ~ (t._('module_local_speech_to_text_WorkerDockerKeyPlaceholder')|e) ~ '</strong>', 'button': t._('module_local_speech_to_text_GenerateWorkerApiKey')]) }}</div>
+                    {% endif %}
+                    <div class="stt-worker-docker-heading stt-worker-docker-command-heading">
+                        <span>{{ t._('module_local_speech_to_text_WorkerDockerRunOnServer') }}</span>
+                        <button type="button" class="stt-copy-button stt-copy-link" data-clipboard-text="{{ dockerWorkerCommand|e }}">
+                            <i class="copy outline icon"></i>{{ t._('module_local_speech_to_text_Copy') }}
                         </button>
-                    </form>
+                    </div>
+                    <pre class="stt-worker-docker-command">{{ dockerWorkerCommand|e }}</pre>
                 </div>
             </div>
         </div>
@@ -312,6 +342,7 @@
                 </div>
                 <div class="six wide right aligned column">
                     <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/generateWorkerApiKey') }}">
+                        <input type="hidden" name="worker_platform" value="{{ workerDownloadPlatform|e }}">
                         <button class="ui left labeled icon blue button" type="submit">
                             <i class="add circle icon"></i>
                             {{ t._('module_local_speech_to_text_GenerateWorkerApiKey') }}
@@ -356,6 +387,7 @@
                         <td class="right aligned collapsing stt-api-key-actions">
                             <form class="stt-delete-api-key-form stt-confirmable-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/deleteWorkerApiKey') }}" data-confirm="{{ t._('module_local_speech_to_text_DeleteWorkerApiKeyConfirm') }}">
                                 <input type="hidden" name="api_key_id" value="{{ row['id']|e }}">
+                                <input type="hidden" name="worker_platform" value="{{ workerDownloadPlatform|e }}">
                                 <button class="ui compact icon button" type="submit" data-content="{{ t._('module_local_speech_to_text_DeleteWorkerApiKey') }}">
                                     <i class="trash alternate outline icon"></i>
                                 </button>
@@ -370,20 +402,7 @@
                 </tbody>
             </table>
         </div>
-        {% if workers is empty and workerPlatform === 'linux' %}
-        <div class="ui info message stt-workers-onboarding stt-workers-onboarding-linux">
-            <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
-            <div class="ui ordered list">
-                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingStep1') }}</div>
-                <div class="item">
-                    {{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep2') }}
-                    <pre class="stt-worker-env">PBX_URL={{ pbxWorkerUrl|e }}
-WORKER_TOKEN={% if generatedApiKey !== '' %}{{ generatedApiKey|e }}{% else %}{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxTokenPlaceholder')|e }}{% endif %}</pre>
-                </div>
-                <div class="item">{{ t._('module_local_speech_to_text_WorkersOnboardingLinuxStep3') }} <code>docker compose up -d</code></div>
-            </div>
-        </div>
-        {% elseif workers is empty %}
+        {% if workers is empty and workerPlatform !== 'linux' %}
         <div class="ui info message stt-workers-onboarding">
             <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
             <div class="ui ordered list">

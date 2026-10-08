@@ -113,8 +113,18 @@ final class IndexViewService
         $view->generatedApiKey = $generatedApiKey['apiKey'];
         $view->isSecureConnection = $this->request->isSecure();
         $view->workerPlatform = STTSetting::selectedPlatform();
+        // The download block opens on the platform the administrator last chose, else on the selected model's one.
+        $downloadPlatform = (string)$this->request->getQuery('platform', 'string', '');
+        $view->workerDownloadPlatform = in_array($downloadPlatform, ['macos', 'linux'], true)
+            ? $downloadPlatform
+            : ($view->workerPlatform === 'linux' ? 'linux' : 'macos');
         // The address the administrator reached the PBX by is the best default for a worker's PBX_URL.
-        $view->pbxWorkerUrl = $this->request->getScheme() . '://' . $this->request->getHttpHost();
+        $view->dockerWorkerCommand = DockerWorkerCommand::build(
+            $this->request->getScheme() . '://' . $this->request->getHttpHost(),
+            $generatedApiKey['apiKey'] !== ''
+                ? $generatedApiKey['apiKey']
+                : $this->translation->_('module_local_speech_to_text_WorkerDockerKeyPlaceholder'),
+        );
         $view->logsDataPath = MenuProvider::LOGS_PATH;
     }
 

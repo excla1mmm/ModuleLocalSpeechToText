@@ -1065,17 +1065,43 @@
         $settingsForm.find('[name="voice_activity_detection"]').on('change', updateVadDependentFields);
         updateVadDependentFields();
         $('.module-local-speech-to-text .stt-copy-button').on('click', function () {
-            var text = $(this).data('clipboard-text') || '';
+            var text = String($(this).attr('data-clipboard-text') || '');
             var $button = $(this);
+            function copied() {
+                $button.addClass('positive');
+                setTimeout(function () {
+                    $button.removeClass('positive');
+                }, 900);
+            }
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function () {
-                    $button.addClass('positive');
-                    setTimeout(function () {
-                        $button.removeClass('positive');
-                    }, 900);
-                });
+                navigator.clipboard.writeText(text).then(copied);
+                return;
             }
+            // Over plain HTTP the Clipboard API is missing; a selected textarea still copies.
+            var $buffer = $('<textarea readonly></textarea>').val(text).css({ position: 'fixed', top: 0, left: '-9999px' }).appendTo('body');
+            $buffer[0].select();
+            try {
+                if (document.execCommand('copy')) {
+                    copied();
+                }
+            } catch (error) {
+                // The text stays selectable in the page; nothing else to do.
+            }
+            $buffer.remove();
+        });
+
+        $('.module-local-speech-to-text .stt-worker-platform-switch [data-platform]').on('click', function () {
+            var platform = String($(this).attr('data-platform'));
+            var $download = $(this).closest('.stt-worker-download');
+
+            $(this).addClass('active').attr('aria-pressed', 'true')
+                .siblings().removeClass('active').attr('aria-pressed', 'false');
+            $download.find('.stt-worker-platform-panel').each(function () {
+                $(this).prop('hidden', String($(this).attr('data-platform')) !== platform);
+            });
+            $download.closest('[data-worker-platform]').attr('data-worker-platform', platform)
+                .find('input[name="worker_platform"]').val(platform);
         });
 
         if (typeof Form !== 'undefined' && $settingsForm.length > 0) {

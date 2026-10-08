@@ -128,14 +128,81 @@
     margin: 0;
 }
 
-.module-local-speech-to-text .stt-worker-download .sub.header {
+.module-local-speech-to-text .stt-worker-download-body {
+    margin: 1em 0 0 2.7em;
+}
+
+.module-local-speech-to-text .stt-worker-platform-field > label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.5em;
+}
+
+.module-local-speech-to-text .stt-worker-platform-switch .button > .icon {
+    margin: 0 0.5em 0 0;
+}
+
+.module-local-speech-to-text .stt-worker-platform-panel {
+    margin-top: 1.25em;
+}
+
+.module-local-speech-to-text .stt-worker-platform-panel[hidden] {
+    display: none !important;
+}
+
+.module-local-speech-to-text .stt-worker-download-description {
+    font-size: 1.07em;
     line-height: 1.4;
-    margin-top: 0.3em;
 }
 
 .module-local-speech-to-text .stt-worker-download-meta {
-    margin-left: 2.7em;
     margin-top: 0.45em;
+}
+
+.module-local-speech-to-text .stt-worker-docker-heading {
+    font-weight: 700;
+    margin: 1.75em 0 0.75em;
+}
+
+.module-local-speech-to-text .stt-worker-docker-command-heading {
+    align-items: center;
+    display: flex;
+    gap: 1em;
+    justify-content: space-between;
+}
+
+.module-local-speech-to-text .stt-copy-link {
+    background: none;
+    border: 0;
+    color: #4183c4;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 400;
+    padding: 0;
+}
+
+.module-local-speech-to-text .stt-copy-link:hover {
+    color: #1e70bf;
+}
+
+.module-local-speech-to-text .stt-copy-link.positive {
+    color: #21ba45;
+}
+
+.module-local-speech-to-text .stt-worker-docker-command {
+    background: #f9fafb;
+    border: 1px solid rgba(34, 36, 38, 0.15);
+    border-radius: 0.28571429rem;
+    font-size: 0.95em;
+    line-height: 1.6;
+    margin: 0;
+    overflow-x: auto;
+    padding: 1.25em 1.5em;
+}
+
+/* The Docker panel already carries a newly created key; the key segment need not repeat it. */
+.module-local-speech-to-text [data-worker-platform="linux"] .stt-api-key-message {
+    display: none;
 }
 
 .module-local-speech-to-text .stt-worker-download-action {
@@ -1172,8 +1239,12 @@
         max-width: none;
     }
 
-    .module-local-speech-to-text .stt-worker-download-meta {
+    .module-local-speech-to-text .stt-worker-download-body {
         margin-left: 0;
+    }
+
+    .module-local-speech-to-text .stt-worker-platform-switch {
+        flex-wrap: wrap;
     }
 
     .module-local-speech-to-text .stt-worker-download-action {
@@ -1248,17 +1319,6 @@
     .module-local-speech-to-text .stt-log-time {
         white-space: normal;
     }
-}
-
-.module-local-speech-to-text .stt-worker-env {
-    margin: 0.5em 0 0.25em;
-    padding: 0.6em 0.8em;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 4px;
-    font-size: 0.9em;
-    white-space: pre-wrap;
-    word-break: break-all;
-    user-select: all;
 }
 
 .module-local-speech-to-text .stt-model-platform-field {

@@ -37,6 +37,13 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             : ['apiKey' => '', 'apiKeyId' => 0];
         if ($generatedApiKey['apiKey'] !== '') {
             $this->session->remove(self::SESSION_GENERATED_API_KEY);
+            LocalSpeechToTextLogger::event(
+                'settings',
+                'worker_api_key_shown',
+                'New worker API key shown once',
+                LOG_NOTICE,
+                ['api_key_id' => $generatedApiKey['apiKeyId']]
+            );
         }
 
         $activeTab = $capabilities->normalizeTab($this->activeTabFromRequest($generatedApiKey['apiKey']));
@@ -232,7 +239,11 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->flash->error($this->translation->_('module_local_speech_to_text_OperationFailedError'));
         }
 
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+        // Core sends the redirect from afterExecuteRoute, but the Redis session (no locking) is saved only
+        // at request shutdown: the redirected page could read the session first, miss the one-time key and
+        // then overwrite it with its stale copy. Save the key before the browser can follow the redirect.
+        session_write_close();
+        $this->response->redirect($this->workersTabPath());
     }
 
     public function deleteWorkerApiKeyAction(): void
@@ -246,7 +257,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $apiKeyId = (int)$this->request->getPost('api_key_id', 'int', 0);
             if (!STTSetting::isWorkerApiKeyIdAllowed($apiKeyId)) {
                 $this->flash->warning($this->translation->_('module_local_speech_to_text_WorkerApiKeyNotFound'));
-                $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+                $this->response->redirect($this->workersTabPath());
                 return;
             }
 
@@ -295,7 +306,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->flash->error($this->translation->_('module_local_speech_to_text_OperationFailedError'));
         }
 
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+        $this->response->redirect($this->workersTabPath());
     }
 
     public function transcriptsAction(): void
@@ -439,6 +450,15 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             'apiKey' => is_scalar($generatedApiKey) ? (string)$generatedApiKey : '',
             'apiKeyId' => 0,
         ];
+    }
+
+    /** The Workers tab, reopened on the worker platform the administrator was looking at. */
+    private function workersTabPath(): string
+    {
+        $platform = (string)$this->request->getPost('worker_platform', 'string', '');
+
+        return MenuProvider::DASHBOARD_PATH . '?tab=workers'
+            . (in_array($platform, ['macos', 'linux'], true) ? '&platform=' . $platform : '');
     }
 
     private function activeTabFromRequest(string $generatedApiKey): string
