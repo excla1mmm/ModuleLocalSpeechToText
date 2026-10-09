@@ -47,6 +47,13 @@ expectDockerWorkerCommand(
     'The retired Linux .env onboarding must not come back'
 );
 
+// The command is not enough: the administrator must see the new key on its own, with a copy button, on both platforms.
+$css = (string)file_get_contents($root . '/public/assets/css/module-local-speech-to-text.css');
+expectDockerWorkerCommand(
+    !preg_match('/stt-api-key-message\s*\{[^}]*display:\s*none/', $css),
+    'The new key message must not be hidden on the Docker platform'
+);
+
 $indexViewService = (string)file_get_contents($root . '/Lib/Services/IndexViewService.php');
 expectDockerWorkerCommand(
     str_contains($indexViewService, 'DockerWorkerCommand::build(')

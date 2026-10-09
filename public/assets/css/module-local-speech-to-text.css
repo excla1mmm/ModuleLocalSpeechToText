@@ -200,11 +200,6 @@
     padding: 1.25em 1.5em;
 }
 
-/* The Docker panel already carries a newly created key; the key segment need not repeat it. */
-.module-local-speech-to-text [data-worker-platform="linux"] .stt-api-key-message {
-    display: none;
-}
-
 .module-local-speech-to-text .stt-worker-download-action {
     align-items: flex-end;
     display: flex !important;
