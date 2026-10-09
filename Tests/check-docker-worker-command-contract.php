@@ -18,15 +18,18 @@ $command = DockerWorkerCommand::build('http://172.16.33.103', 'abc123');
 $image = DockerWorkerCommand::IMAGE;
 
 // The Linux worker reads PBX_URL and WORKER_TOKEN (LocalSTTWorkerDocker config.py), not other names.
-expectDockerWorkerCommand(str_starts_with($command, "docker pull {$image}\n"), 'The command must pull the pinned image first');
+expectDockerWorkerCommand(str_starts_with($command, "docker pull {$image}\n"), 'The command must pull the image first');
 expectDockerWorkerCommand(str_contains($command, '-e PBX_URL=http://172.16.33.103 \\'), 'The command must pass PBX_URL');
 expectDockerWorkerCommand(str_contains($command, '-e WORKER_TOKEN=abc123 \\'), 'The command must pass WORKER_TOKEN');
 expectDockerWorkerCommand(str_contains($command, '--restart unless-stopped'), 'The worker must restart with the host');
 expectDockerWorkerCommand(str_contains($command, ':/models \\'), 'Models must live in a volume');
 // The PBX binds a key to one worker UID; the data volume keeps that UID across container re-creation.
 expectDockerWorkerCommand(str_contains($command, ':/data \\'), 'Worker identity must live in a volume');
-expectDockerWorkerCommand(str_ends_with($command, "\n  {$image}"), 'The run command must end with the pinned image');
-expectDockerWorkerCommand(!str_contains($image, ':latest') && str_contains($image, '-cpu'), 'The image must be a pinned CPU tag');
+expectDockerWorkerCommand(str_ends_with($command, "\n  {$image}"), 'The run command must end with the image');
+// latest is the stable multi-arch CPU release, so a re-run docker pull also updates the worker.
+expectDockerWorkerCommand(str_ends_with($image, ':latest'), 'The image must be the latest stable release');
+// Administrators pull from their own servers: the image must come from the public Docker Hub, not the internal Nexus.
+expectDockerWorkerCommand(str_starts_with($image, 'excla1m/mikopbx-stt-worker:'), 'The image must be the public Docker Hub one');
 
 $view = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/index.volt');
 expectDockerWorkerCommand(
