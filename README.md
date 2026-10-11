@@ -150,6 +150,18 @@ The external worker should use `whisperkit_model` or `model_id` as the WhisperKi
 
 Recording download, lease heartbeat/release, and final result/failure submission validate that the job remains assigned to the requesting worker.
 
+### Worker platforms
+
+The PBX serves one worker platform at a time: the `platform` of the selected model preset (`macos`, `linux` or `windows`). Workers send `worker_platform` on `POST /job-leases`; a worker that omits it is macOS. A worker of another platform, or one that sends an unknown platform, receives `job: null` with `platform_mismatch: true` and `required_platform`. `GET /worker-processing-settings` reports the platform as `selected_model.model_platform`.
+
+| Platform | Presets (default first) |
+| --- | --- |
+| `macos` | `parakeet-tdt-0.6b-v3`, `large-v3-turbo`, `podlodka`, `large-v3` |
+| `linux` | `gigaam-v3`, `t-one`, `faster-whisper-large-v3-turbo`, `parakeet-tdt-0.6b-v3-linux`, `gigaam-multilingual` |
+| `windows` | `gigaam-v3-windows`, `parakeet-tdt-0.6b-v3-windows`, `gigaam-multilingual-windows`, `whisper-large-v3-turbo-windows` |
+
+Windows ONNX presets reuse the pinned Linux artifacts; `whisper-large-v3-turbo-windows` is whisper.cpp (`model_engine: whisperCpp`, `model_artifact_type: whisper-ggml`). Every Linux and Windows preset ships `model_revision` and `model_sha256_manifest`. The contract advertises `worker-platform-windows` since module `1.47`; an older module answers `worker_platform: "windows"` with `platform_mismatch: true` and its own `required_platform`, and a module without the `worker-platforms` capability ignores `worker_platform`. The model marketplace does not offer Windows yet; until it does, select a Windows preset by storing its key in `m_STTSetting.selected_model`.
+
 ## Result Payload
 
 `PUT /job-results/{job_id}` requires:

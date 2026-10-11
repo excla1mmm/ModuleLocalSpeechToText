@@ -43,7 +43,7 @@ namespace {
     // Every preset belongs to exactly one known platform.
     foreach (STTSetting::modelPresets() as $modelId => $preset) {
         expectWorkerPlatform(
-            array_key_exists((string)($preset['platform'] ?? ''), STTSetting::PLATFORM_PRESETS),
+            in_array((string)($preset['platform'] ?? ''), STTSetting::WORKER_PLATFORMS, true),
             "{$modelId} must declare a known platform"
         );
     }
@@ -53,6 +53,49 @@ namespace {
     foreach (['gigaam-v3', 't-one', 'faster-whisper-large-v3-turbo', 'parakeet-tdt-0.6b-v3-linux', 'gigaam-multilingual'] as $modelId) {
         expectWorkerPlatform(STTSetting::modelPlatform($modelId) === 'linux', "{$modelId} must be a Linux model");
     }
+    expectWorkerPlatform(
+        STTSetting::WORKER_PLATFORMS === ['macos', 'linux', 'windows'],
+        'The worker API must serve macOS, Linux and Windows'
+    );
+    $windowsModels = ['gigaam-v3-windows', 'parakeet-tdt-0.6b-v3-windows', 'gigaam-multilingual-windows', 'whisper-large-v3-turbo-windows'];
+    foreach ($windowsModels as $modelId) {
+        expectWorkerPlatform(STTSetting::modelPlatform($modelId) === 'windows', "{$modelId} must be a Windows model");
+    }
+    expectWorkerPlatform(
+        array_keys(array_filter(STTSetting::modelPresets(), static fn (array $preset): bool => $preset['platform'] === 'windows')) === $windowsModels,
+        'Windows must offer exactly GigaAM v3, Parakeet, GigaAM Multilingual and whisper.cpp (no T-one)'
+    );
+
+    // Windows ONNX models are the very artifacts of their Linux counterparts.
+    $presets = STTSetting::modelPresets();
+    foreach ([
+        'gigaam-v3-windows' => 'gigaam-v3',
+        'parakeet-tdt-0.6b-v3-windows' => 'parakeet-tdt-0.6b-v3-linux',
+        'gigaam-multilingual-windows' => 'gigaam-multilingual',
+    ] as $windowsId => $linuxId) {
+        foreach (['repo', 'model', 'engine', 'artifact_type', 'revision', 'sha256_manifest', 'display_name', 'supported_languages'] as $field) {
+            expectWorkerPlatform(
+                ($presets[$windowsId][$field] ?? null) === ($presets[$linuxId][$field] ?? null),
+                "{$windowsId} {$field} must match {$linuxId}"
+            );
+        }
+    }
+    $whisperCpp = $presets['whisper-large-v3-turbo-windows'];
+    expectWorkerPlatform(
+        $whisperCpp['repo'] === 'ggerganov/whisper.cpp'
+            && $whisperCpp['model'] === 'large-v3-turbo'
+            && $whisperCpp['engine'] === 'whisperCpp'
+            && $whisperCpp['artifact_type'] === 'whisper-ggml'
+            && $whisperCpp['revision'] === '5359861c739e955e79d9a303bcbc70fb988958b1'
+            && $whisperCpp['sha256_manifest'] === [[
+                'path' => 'ggml-large-v3-turbo.bin',
+                'size' => 1624555275,
+                'sha256' => '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69',
+            ]]
+            && $whisperCpp['display_name'] === 'Whisper Large V3 Turbo (whisper.cpp)'
+            && !isset($whisperCpp['supported_languages']),
+        'whisper.cpp Large V3 Turbo preset mismatch'
+    );
 
     // Core ML artifacts never reach Linux, and Linux artifacts never reach macOS.
     foreach (STTSetting::modelPresets() as $modelId => $preset) {
@@ -64,7 +107,7 @@ namespace {
     }
 
     // Each platform default is a model of that platform.
-    foreach (array_keys(STTSetting::PLATFORM_PRESETS) as $platform) {
+    foreach (STTSetting::WORKER_PLATFORMS as $platform) {
         expectWorkerPlatform(
             STTSetting::modelPlatform(STTSetting::defaultModelForPlatform($platform)) === $platform,
             "Default model for {$platform} must belong to {$platform}"
@@ -78,6 +121,8 @@ namespace {
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'macos', 'A legacy WhisperKit selection must stay macOS');
     ModulesModelsBase::$values = ['selected_model' => 'gigaam-v3'];
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'linux', 'A Linux model selection must switch the PBX to Linux');
+    ModulesModelsBase::$values = ['selected_model' => 'gigaam-v3-windows'];
+    expectWorkerPlatform(STTSetting::selectedPlatform() === 'windows', 'A Windows model selection must switch the PBX to Windows');
     ModulesModelsBase::$values = ['selected_model' => 'unknown-model'];
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'macos', 'An unknown stored model falls back to the macOS default');
 
@@ -89,7 +134,9 @@ namespace {
         ['macos', 'macos'],
         ['linux', 'linux'],
         [' Linux ', 'linux'],
-        ['windows', null],
+        ['windows', 'windows'],
+        [' Windows ', 'windows'],
+        ['win32', null],
         [['linux'], null],
         [1, null],
     ];
@@ -100,9 +147,9 @@ namespace {
         );
     }
 
-    // Every Linux model ships a pinned revision and a SHA-256 manifest: the worker refuses anything else.
+    // Every Linux and Windows model ships a pinned revision and a SHA-256 manifest: the worker refuses anything else.
     foreach (STTSetting::modelPresets() as $modelId => $preset) {
-        if ($preset['platform'] !== 'linux') {
+        if ($preset['platform'] === 'macos') {
             continue;
         }
         expectWorkerPlatform(
@@ -121,9 +168,10 @@ namespace {
         }
     }
     expectWorkerPlatform(STTSetting::defaultModelForPlatform('linux') === 'gigaam-v3', 'GigaAM v3 is the Linux default');
+    expectWorkerPlatform(STTSetting::defaultModelForPlatform('windows') === 'gigaam-v3-windows', 'GigaAM v3 is the Windows default');
 
     // Russian-only engines keep automatic language and reject other explicit languages.
-    foreach (['gigaam-v3', 't-one'] as $modelId) {
+    foreach (['gigaam-v3', 't-one', 'gigaam-v3-windows'] as $modelId) {
         expectWorkerPlatform(STTSetting::modelSupportsLanguage($modelId, 'auto'), "{$modelId} must allow Auto");
         expectWorkerPlatform(STTSetting::modelSupportsLanguage($modelId, 'ru'), "{$modelId} must allow Russian");
         expectWorkerPlatform(!STTSetting::modelSupportsLanguage($modelId, 'en'), "{$modelId} must reject English");
@@ -147,6 +195,12 @@ namespace {
     expectWorkerPlatform(
         array_column($platformRows, 'selected', 'id') === ['macos' => false, 'linux' => true],
         'Platform switch must mark the platform of the selected model'
+    );
+    // The marketplace switch does not offer Windows yet; a Windows selection marks no switch platform.
+    ModulesModelsBase::$values = ['selected_model' => 'gigaam-v3-windows'];
+    expectWorkerPlatform(
+        !in_array(true, array_column($service->platformRows(), 'selected'), true),
+        'A Windows selection must not mark a marketplace switch platform'
     );
     ModulesModelsBase::$values = [];
 

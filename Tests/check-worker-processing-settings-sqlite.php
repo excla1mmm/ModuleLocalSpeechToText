@@ -223,6 +223,38 @@ namespace {
             ($whisperPayload['model_sha256_manifest'] ?? null) === STTSetting::WHISPER_SHA256_MANIFESTS['large-v3-turbo'],
             'Whisper processing settings must carry the reviewed SHA-256 manifest'
         );
+        ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'gigaam-v3-windows';
+        expectProcessingSettingsSqlite(
+            (WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? null) === [
+                'model_id' => 'v3_e2e_rnnt',
+                'model_repo' => 'istupakov/gigaam-v3-onnx',
+                'model_engine' => 'gigaam',
+                'model_artifact_type' => 'gigaam-onnx',
+                'model_platform' => 'windows',
+                'model_display_name' => 'GigaAM v3',
+                'model_revision' => STTSetting::LINUX_MODEL_REVISIONS['gigaam-v3'],
+                'model_sha256_manifest' => STTSetting::LINUX_SHA256_MANIFESTS['gigaam-v3'],
+            ],
+            'A Windows GigaAM selection must reuse the pinned Linux artifact on the windows platform'
+        );
+        ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'whisper-large-v3-turbo-windows';
+        expectProcessingSettingsSqlite(
+            (WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? null) === [
+                'model_id' => 'large-v3-turbo',
+                'model_repo' => 'ggerganov/whisper.cpp',
+                'model_engine' => 'whisperCpp',
+                'model_artifact_type' => 'whisper-ggml',
+                'model_platform' => 'windows',
+                'model_display_name' => 'Whisper Large V3 Turbo (whisper.cpp)',
+                'model_revision' => '5359861c739e955e79d9a303bcbc70fb988958b1',
+                'model_sha256_manifest' => [[
+                    'path' => 'ggml-large-v3-turbo.bin',
+                    'size' => 1624555275,
+                    'sha256' => '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69',
+                ]],
+            ],
+            'A whisper.cpp selection must carry its pinned GGML descriptor'
+        );
         ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'parakeet-tdt-0.6b-v3';
         expectProcessingSettingsSqlite(
             dirtyFlags($connectionA) === ['worker-a' => 0, 'worker-b' => 1],

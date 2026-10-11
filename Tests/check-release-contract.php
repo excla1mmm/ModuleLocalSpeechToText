@@ -22,7 +22,7 @@ $workflow = (string)file_get_contents($workflowPath);
 expectReleaseContract(str_contains($workflow, '- master') && str_contains($workflow, '- develop'), 'Release workflow must run for master and develop');
 expectReleaseContract(str_contains($workflow, 'workflow_dispatch:'), 'Release workflow must support workflow_dispatch');
 expectReleaseContract(str_contains($workflow, 'mikopbx/.github-workflows/.github/workflows/extension-publish.yml@master'), 'Release workflow must use the canonical MikoPBX reusable workflow');
-expectReleaseContract(str_contains($workflow, 'initial_version: "1.46"'), 'Release workflow initial_version must match the module baseline');
+expectReleaseContract(str_contains($workflow, 'initial_version: "1.47"'), 'Release workflow initial_version must match the module baseline');
 expectReleaseContract(str_contains($workflow, 'secrets: inherit'), 'Release workflow must inherit publication secrets');
 
 $gitlab = (string)file_get_contents($root . '/.gitlab-ci.yml');

@@ -72,8 +72,12 @@ namespace {
             'faster-whisper-large-v3-turbo',
             'parakeet-tdt-0.6b-v3-linux',
             'gigaam-multilingual',
+            'gigaam-v3-windows',
+            'parakeet-tdt-0.6b-v3-windows',
+            'gigaam-multilingual-windows',
+            'whisper-large-v3-turbo-windows',
         ],
-        'Built-in marketplace must contain only the approved macOS and Linux models in display order'
+        'Built-in marketplace must contain only the approved macOS, Linux and Windows models in display order'
     );
     expectParakeet(
         (STTSetting::MODEL_PRESETS['parakeet-tdt-0.6b-v3'] ?? null) === $expected,
@@ -105,6 +109,10 @@ namespace {
             'faster-whisper-large-v3-turbo',
             'parakeet-tdt-0.6b-v3-linux',
             'gigaam-multilingual',
+            'gigaam-v3-windows',
+            'parakeet-tdt-0.6b-v3-windows',
+            'gigaam-multilingual-windows',
+            'whisper-large-v3-turbo-windows',
         ],
         'Saved custom model data must not extend the supported marketplace catalog'
     );
@@ -125,6 +133,10 @@ namespace {
             'faster-whisper-large-v3-turbo',
             'parakeet-tdt-0.6b-v3-linux',
             'gigaam-multilingual',
+            'gigaam-v3-windows',
+            'parakeet-tdt-0.6b-v3-windows',
+            'gigaam-multilingual-windows',
+            'whisper-large-v3-turbo-windows',
         ],
         'Marketplace rows must expose only the approved models in display order'
     );

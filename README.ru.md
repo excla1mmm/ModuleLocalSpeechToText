@@ -146,6 +146,12 @@
 
 `download`, `heartbeat`, `submitResult` и `submitError` проверяют, что задание все еще находится в состоянии `processing` и назначено именно запрашивающему обработчику.
 
+### Платформы обработчиков
+
+АТС обслуживает одну платформу за раз: `platform` выбранной модели (`macos`, `linux` или `windows`). Обработчик передает `worker_platform` в `POST /job-leases`; без него он считается macOS. Обработчик другой или неизвестной платформы получает `job: null`, `platform_mismatch: true` и `required_platform`; `GET /worker-processing-settings` сообщает платформу в `selected_model.model_platform`.
+
+Модели Windows: `gigaam-v3-windows` (по умолчанию), `parakeet-tdt-0.6b-v3-windows`, `gigaam-multilingual-windows` (те же закрепленные ONNX-артефакты, что и у Linux) и `whisper-large-v3-turbo-windows` (whisper.cpp: `whisperCpp` + `whisper-ggml`). С версии модуля `1.47` контракт объявляет возможность `worker-platform-windows`; более старый модуль отвечает Windows-обработчику `platform_mismatch: true` со своей `required_platform`. В маркетплейсе моделей Windows пока нет: модель Windows выбирается записью ее ключа в `m_STTSetting.selected_model`.
+
 ## Формат Результата
 
 `submitResult` требует:

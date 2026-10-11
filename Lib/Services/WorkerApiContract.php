@@ -23,6 +23,7 @@ final class WorkerApiContract
         'job-results',
         'job-failures',
         'worker-platforms',
+        'worker-platform-windows',
     ];
 
     public static function requireVersion(array $request): ?PBXApiResult

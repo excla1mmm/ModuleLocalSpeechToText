@@ -21,8 +21,8 @@ class DataStructure extends \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Da
                         'language_hint' => ['type' => 'string'],
                         'model_id' => ['type' => 'string'],
                         'model_repo' => ['type' => 'string'],
-                        'model_engine' => ['type' => 'string', 'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne']],
-                        'model_artifact_type' => ['type' => 'string', 'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx']],
+                        'model_engine' => ['type' => 'string', 'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne', 'whisperCpp']],
+                        'model_artifact_type' => ['type' => 'string', 'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx', 'whisper-ggml']],
                         'whisperkit_model' => ['type' => ['string', 'null']],
                         'model_display_name' => ['type' => 'string'],
                         'model_revision' => ['type' => ['string', 'null']],
@@ -32,7 +32,7 @@ class DataStructure extends \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Da
                 ],
                 'has_settings_changed' => ['type' => 'boolean'],
                 'platform_mismatch' => ['type' => 'boolean', 'description' => 'module_local_speech_to_text_ApiFieldPlatformMismatch'],
-                'required_platform' => ['type' => 'string', 'enum' => ['macos', 'linux']],
+                'required_platform' => ['type' => 'string', 'enum' => ['macos', 'linux', 'windows']],
             ],
         ];
     }

@@ -63,6 +63,17 @@ class STTSetting extends ModulesModelsBase
     // (macOS worker 1.7 and older) send no platform and are treated as macOS.
     public const string PLATFORM_MACOS = 'macos';
     public const string PLATFORM_LINUX = 'linux';
+    public const string PLATFORM_WINDOWS = 'windows';
+    // Every platform the worker API serves (worker_platform, model_platform,
+    // required_platform).
+    public const array WORKER_PLATFORMS = [
+        self::PLATFORM_MACOS,
+        self::PLATFORM_LINUX,
+        self::PLATFORM_WINDOWS,
+    ];
+    // Platforms offered by the model marketplace platform switch. Windows is
+    // served by the worker API but has no marketplace switch yet; its models
+    // are selected outside the marketplace until the admin UI offers them.
     public const array PLATFORM_PRESETS = [
         self::PLATFORM_MACOS => 'module_local_speech_to_text_PlatformMacos',
         self::PLATFORM_LINUX => 'module_local_speech_to_text_PlatformLinux',
@@ -70,6 +81,7 @@ class STTSetting extends ModulesModelsBase
     public const array PLATFORM_DEFAULT_MODELS = [
         self::PLATFORM_MACOS => self::DEFAULT_MODEL,
         self::PLATFORM_LINUX => 'gigaam-v3',
+        self::PLATFORM_WINDOWS => 'gigaam-v3-windows',
     ];
 
     // Recording duration hard limit: an internal safety policy, not a user setting.
@@ -200,6 +212,15 @@ class STTSetting extends ModulesModelsBase
         'faster-whisper-large-v3-turbo' => '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf',
         'parakeet-tdt-0.6b-v3-linux' => '8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce',
         'gigaam-multilingual' => '458860e1983aef670dd9795fb6af603c82767d5d',
+    ];
+
+    // whisper.cpp GGML models (Windows): pinned Hugging Face commit and file.
+    public const string WHISPER_CPP_REVISION = '5359861c739e955e79d9a303bcbc70fb988958b1';
+
+    public const array WHISPER_CPP_SHA256_MANIFESTS = [
+        'large-v3-turbo' => [
+            ['path' => 'ggml-large-v3-turbo.bin', 'size' => 1624555275, 'sha256' => '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69'],
+        ],
     ];
 
     public const array LINUX_SHA256_MANIFESTS = [
@@ -394,6 +415,82 @@ class STTSetting extends ModulesModelsBase
             'license' => 'MIT',
             'supported_languages' => self::GIGAAM_MULTILINGUAL_LANGUAGE_IDS,
         ],
+        // Windows models. The ONNX models are the very artifacts of their Linux
+        // counterparts (same repository, pinned commit and manifest).
+        'gigaam-v3-windows' => [
+            'platform' => self::PLATFORM_WINDOWS,
+            'repo' => 'istupakov/gigaam-v3-onnx',
+            'model' => 'v3_e2e_rnnt',
+            'engine' => 'gigaam',
+            'artifact_type' => 'gigaam-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['gigaam-v3'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['gigaam-v3'],
+            'display_name' => 'GigaAM v3',
+            'label' => 'module_local_speech_to_text_ModelGigaamV3',
+            'description' => 'module_local_speech_to_text_ModelGigaamV3Desc',
+            'source_url' => 'https://huggingface.co/ai-sage/GigaAM-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileGigaamV3',
+            'best_for' => 'module_local_speech_to_text_ModelGigaamV3BestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelGigaamV3Tradeoff',
+            'language' => 'Russian',
+            'license' => 'MIT',
+            'supported_languages' => self::RUSSIAN_LANGUAGE_IDS,
+        ],
+        'parakeet-tdt-0.6b-v3-windows' => [
+            'platform' => self::PLATFORM_WINDOWS,
+            'repo' => 'istupakov/parakeet-tdt-0.6b-v3-onnx',
+            'model' => 'parakeet-tdt-0.6b-v3',
+            'engine' => 'parakeet',
+            'artifact_type' => 'parakeet-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['parakeet-tdt-0.6b-v3-linux'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['parakeet-tdt-0.6b-v3-linux'],
+            'display_name' => 'Parakeet TDT 0.6B v3',
+            'label' => 'module_local_speech_to_text_ModelParakeetV3',
+            'description' => 'module_local_speech_to_text_ModelParakeetV3LinuxDesc',
+            'source_url' => 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+            'profile' => 'module_local_speech_to_text_ModelProfileParakeetV3Linux',
+            'best_for' => 'module_local_speech_to_text_ModelParakeetV3LinuxBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelParakeetV3LinuxTradeoff',
+            'language' => '25 languages',
+            'license' => 'CC BY 4.0',
+            'supported_languages' => self::PARAKEET_LANGUAGE_IDS,
+        ],
+        'gigaam-multilingual-windows' => [
+            'platform' => self::PLATFORM_WINDOWS,
+            'repo' => 'istupakov/gigaam-multilingual-ctc-onnx',
+            'model' => 'multilingual_ctc',
+            'engine' => 'gigaam',
+            'artifact_type' => 'gigaam-onnx',
+            'revision' => self::LINUX_MODEL_REVISIONS['gigaam-multilingual'],
+            'sha256_manifest' => self::LINUX_SHA256_MANIFESTS['gigaam-multilingual'],
+            'display_name' => 'GigaAM Multilingual',
+            'label' => 'module_local_speech_to_text_ModelGigaamMultilingual',
+            'description' => 'module_local_speech_to_text_ModelGigaamMultilingualDesc',
+            'source_url' => 'https://github.com/salute-developers/GigaAM',
+            'profile' => 'module_local_speech_to_text_ModelProfileGigaamMultilingual',
+            'best_for' => 'module_local_speech_to_text_ModelGigaamMultilingualBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelGigaamMultilingualTradeoff',
+            'language' => 'Kazakh, Kyrgyz, Uzbek, Russian, English',
+            'license' => 'MIT',
+            'supported_languages' => self::GIGAAM_MULTILINGUAL_LANGUAGE_IDS,
+        ],
+        'whisper-large-v3-turbo-windows' => [
+            'platform' => self::PLATFORM_WINDOWS,
+            'repo' => 'ggerganov/whisper.cpp',
+            'model' => 'large-v3-turbo',
+            'engine' => 'whisperCpp',
+            'artifact_type' => 'whisper-ggml',
+            'revision' => self::WHISPER_CPP_REVISION,
+            'sha256_manifest' => self::WHISPER_CPP_SHA256_MANIFESTS['large-v3-turbo'],
+            'display_name' => 'Whisper Large V3 Turbo (whisper.cpp)',
+            'label' => 'module_local_speech_to_text_ModelLargeV3Turbo',
+            'description' => 'module_local_speech_to_text_ModelLargeV3TurboDesc',
+            'source_url' => 'https://huggingface.co/ggerganov/whisper.cpp/blob/' . self::WHISPER_CPP_REVISION . '/ggml-large-v3-turbo.bin',
+            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3Turbo',
+            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelLargeV3TurboTradeoff',
+            'license' => 'MIT',
+        ],
     ];
 
     /**
@@ -498,7 +595,7 @@ class STTSetting extends ModulesModelsBase
     {
         $platform = strtolower(trim($platform));
 
-        return array_key_exists($platform, self::PLATFORM_PRESETS) ? $platform : self::PLATFORM_MACOS;
+        return in_array($platform, self::WORKER_PLATFORMS, true) ? $platform : self::PLATFORM_MACOS;
     }
 
     /**
@@ -519,7 +616,7 @@ class STTSetting extends ModulesModelsBase
             return self::PLATFORM_MACOS;
         }
 
-        return array_key_exists($platform, self::PLATFORM_PRESETS) ? $platform : null;
+        return in_array($platform, self::WORKER_PLATFORMS, true) ? $platform : null;
     }
 
     public static function defaultModelForPlatform(string $platform): string

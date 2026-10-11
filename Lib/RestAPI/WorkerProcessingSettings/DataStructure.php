@@ -82,17 +82,17 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             ],
             'model_engine' => [
                 'type' => 'string',
-                'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne'],
+                'enum' => ['whisperKit', 'parakeet', 'fasterWhisper', 'gigaam', 'tOne', 'whisperCpp'],
                 'example' => 'parakeet',
             ],
             'model_artifact_type' => [
                 'type' => 'string',
-                'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx'],
+                'enum' => ['whisperkit-coreml', 'parakeet-coreml', 'ctranslate2', 'gigaam-onnx', 'parakeet-onnx', 't-one-onnx', 'whisper-ggml'],
                 'example' => 'parakeet-coreml',
             ],
             'model_platform' => [
                 'type' => 'string',
-                'enum' => ['macos', 'linux'],
+                'enum' => ['macos', 'linux', 'windows'],
                 'description' => 'module_local_speech_to_text_ApiFieldModelPlatform',
                 'example' => 'macos',
             ],

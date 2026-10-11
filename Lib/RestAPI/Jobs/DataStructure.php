@@ -11,7 +11,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
   'priority'=>['type'=>'integer','minimum'=>1,'maximum'=>10],'ids'=>['type'=>'array','items'=>['type'=>'integer','minimum'=>1]],
   'action'=>['type'=>'string','enum'=>['retry','reset']],'status'=>['type'=>'string'],'limit'=>['type'=>'integer','minimum'=>1,'maximum'=>200],
   'offset'=>['type'=>'integer','minimum'=>0],
-  'worker_platform'=>['type'=>'string','enum'=>['macos','linux'],'description'=>'module_local_speech_to_text_ApiParamWorkerPlatform','example'=>'linux'],
+  'worker_platform'=>['type'=>'string','enum'=>['macos','linux','windows'],'description'=>'module_local_speech_to_text_ApiParamWorkerPlatform','example'=>'linux'],
  ],'response'=>[]];}
  public static function getListItemSchema():array{return self::getDetailSchema();}
  public static function getDetailSchema():array{return['type'=>'object','properties'=>[
