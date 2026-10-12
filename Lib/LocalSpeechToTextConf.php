@@ -55,6 +55,25 @@ class LocalSpeechToTextConf extends ConfigClass
         return 'Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/cdrTranscriptModal';
     }
 
+    /**
+     * Worker submissions carry free text: call transcripts and error messages.
+     * Real conversations sometimes contain word sequences that the MikoPBX WAF
+     * body scan mistakes for SQL injection, and nginx then rejects the whole
+     * result with 403 before it reaches this module; the call never gets a
+     * transcript. These endpoints are authenticated with the restricted worker
+     * key and validate their JSON strictly, so the body scan is switched off for
+     * them only. Picked up by WafRegistry on MikoPBX versions that have a WAF.
+     *
+     * @return array<string, array{scopes: list<string>, prefix: bool}>
+     */
+    public function getWafExemptions(): array
+    {
+        return [
+            '/pbxcore/api/v3/module-local-speech-to-text/job-results' => ['scopes' => ['body-scan'], 'prefix' => true],
+            '/pbxcore/api/v3/module-local-speech-to-text/job-failures' => ['scopes' => ['body-scan'], 'prefix' => true],
+        ];
+    }
+
     public function getModuleWorkers(): array
     {
         return [
