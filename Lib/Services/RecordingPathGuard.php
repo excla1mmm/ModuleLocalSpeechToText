@@ -60,7 +60,12 @@ final class RecordingPathGuard
                 continue;
             }
             $current = $current === '' ? $part : rtrim($current, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $part;
-            if (lstat($current) !== false && is_link($current)) {
+            // is_link() alone: it is false for a missing path without a PHP
+            // warning (lstat() warned, the module raised it as an exception and
+            // a deleted recording answered 500, which workers retry until the
+            // lease times out, instead of file_not_found 404), and it is still
+            // true for a dangling symlink.
+            if (is_link($current)) {
                 return true;
             }
         }
