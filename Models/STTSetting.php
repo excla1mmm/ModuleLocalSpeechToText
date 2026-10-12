@@ -71,12 +71,11 @@ class STTSetting extends ModulesModelsBase
         self::PLATFORM_LINUX,
         self::PLATFORM_WINDOWS,
     ];
-    // Platforms offered by the model marketplace platform switch. Windows is
-    // served by the worker API but has no marketplace switch yet; its models
-    // are selected outside the marketplace until the admin UI offers them.
+    // Platforms offered by the model marketplace platform switch.
     public const array PLATFORM_PRESETS = [
         self::PLATFORM_MACOS => 'module_local_speech_to_text_PlatformMacos',
         self::PLATFORM_LINUX => 'module_local_speech_to_text_PlatformLinux',
+        self::PLATFORM_WINDOWS => 'module_local_speech_to_text_PlatformWindows',
     ];
     public const array PLATFORM_DEFAULT_MODELS = [
         self::PLATFORM_MACOS => self::DEFAULT_MODEL,
@@ -484,11 +483,11 @@ class STTSetting extends ModulesModelsBase
             'sha256_manifest' => self::WHISPER_CPP_SHA256_MANIFESTS['large-v3-turbo'],
             'display_name' => 'Whisper Large V3 Turbo (whisper.cpp)',
             'label' => 'module_local_speech_to_text_ModelLargeV3Turbo',
-            'description' => 'module_local_speech_to_text_ModelLargeV3TurboDesc',
+            'description' => 'module_local_speech_to_text_ModelWhisperCppLargeV3TurboDesc',
             'source_url' => 'https://huggingface.co/ggerganov/whisper.cpp/blob/' . self::WHISPER_CPP_REVISION . '/ggml-large-v3-turbo.bin',
-            'profile' => 'module_local_speech_to_text_ModelProfileFasterWhisperLargeV3Turbo',
-            'best_for' => 'module_local_speech_to_text_ModelFasterWhisperLargeV3TurboBestFor',
-            'tradeoff' => 'module_local_speech_to_text_ModelLargeV3TurboTradeoff',
+            'profile' => 'module_local_speech_to_text_ModelProfileWhisperCppLargeV3Turbo',
+            'best_for' => 'module_local_speech_to_text_ModelWhisperCppLargeV3TurboBestFor',
+            'tradeoff' => 'module_local_speech_to_text_ModelWhisperCppLargeV3TurboTradeoff',
             'license' => 'MIT',
         ],
     ];

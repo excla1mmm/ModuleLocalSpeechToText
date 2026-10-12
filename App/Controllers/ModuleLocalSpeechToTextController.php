@@ -458,7 +458,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $platform = (string)$this->request->getPost('worker_platform', 'string', '');
 
         return MenuProvider::DASHBOARD_PATH . '?tab=workers'
-            . (in_array($platform, ['macos', 'linux'], true) ? '&platform=' . $platform : '');
+            . (in_array($platform, STTSetting::WORKER_PLATFORMS, true) ? '&platform=' . $platform : '');
     }
 
     private function activeTabFromRequest(string $generatedApiKey): string

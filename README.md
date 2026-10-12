@@ -70,9 +70,9 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 The main module page has six tabs:
 
 - `Settings`: language hint, custom vocabulary terms and TXT import, CDR processing period, and transcript retention. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
-- `Model marketplace`: worker platform switch (macOS on Apple Silicon or Linux in Docker) and the built-in models of that platform: WhisperKit/Parakeet Core ML for macOS; faster-whisper (CTranslate2), GigaAM v3 and T-one for Linux. The PBX serves one platform at a time, the platform of the selected model; workers of the other platform receive no jobs.
+- `Model marketplace`: worker platform switch (macOS (Apple Silicon), Docker or Windows) and the built-in models of that platform: WhisperKit/Parakeet Core ML for macOS; faster-whisper (CTranslate2), GigaAM v3, T-one, Parakeet and GigaAM Multilingual for Docker; GigaAM v3, Parakeet, GigaAM Multilingual (ONNX) and Whisper Large V3 Turbo (whisper.cpp) for Windows. The PBX serves one platform at a time, the platform of the selected model; workers of the other platform receive no jobs.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
-- `Workers`: generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
+- `Workers`: worker setup for each platform (the macOS download, the `docker run` command, the Windows service steps; the Windows download button stays disabled until the Windows worker is released), generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
 - `Logging`: aggregated recent module logs with quick time filters.
 
@@ -160,7 +160,7 @@ The PBX serves one worker platform at a time: the `platform` of the selected mod
 | `linux` | `gigaam-v3`, `t-one`, `faster-whisper-large-v3-turbo`, `parakeet-tdt-0.6b-v3-linux`, `gigaam-multilingual` |
 | `windows` | `gigaam-v3-windows`, `parakeet-tdt-0.6b-v3-windows`, `gigaam-multilingual-windows`, `whisper-large-v3-turbo-windows` |
 
-Windows ONNX presets reuse the pinned Linux artifacts; `whisper-large-v3-turbo-windows` is whisper.cpp (`model_engine: whisperCpp`, `model_artifact_type: whisper-ggml`). Every Linux and Windows preset ships `model_revision` and `model_sha256_manifest`. The contract advertises `worker-platform-windows` since module `1.47`; an older module answers `worker_platform: "windows"` with `platform_mismatch: true` and its own `required_platform`, and a module without the `worker-platforms` capability ignores `worker_platform`. The model marketplace does not offer Windows yet; until it does, select a Windows preset by storing its key in `m_STTSetting.selected_model`.
+Windows ONNX presets reuse the pinned Linux artifacts; `whisper-large-v3-turbo-windows` is whisper.cpp (`model_engine: whisperCpp`, `model_artifact_type: whisper-ggml`). Every Linux and Windows preset ships `model_revision` and `model_sha256_manifest`. The contract advertises `worker-platform-windows` since module `1.47`; an older module answers `worker_platform: "windows"` with `platform_mismatch: true` and its own `required_platform`, and a module without the `worker-platforms` capability ignores `worker_platform`. The model marketplace offers Windows models under its Windows platform switch.
 
 ## Result Payload
 

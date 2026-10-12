@@ -35,8 +35,9 @@ $view = (string)file_get_contents($root . '/App/Views/ModuleLocalSpeechToText/in
 expectDockerWorkerCommand(
     str_contains($view, 'stt-worker-platform-switch')
         && str_contains($view, 'data-platform="macos"')
-        && str_contains($view, 'data-platform="linux"'),
-    'The worker download segment must offer both platforms'
+        && str_contains($view, 'data-platform="linux"')
+        && str_contains($view, 'data-platform="windows"'),
+    'The worker download segment must offer every platform'
 );
 expectDockerWorkerCommand(
     substr_count($view, '{{ dockerWorkerCommand|e }}') === 2,
@@ -83,6 +84,15 @@ expectDockerWorkerCommand(
 expectDockerWorkerCommand(
     str_contains($indexViewService, "getQuery('platform'") && str_contains($indexViewService, '$view->workerDownloadPlatform'),
     'The view must open the download block on the requested platform'
+);
+expectDockerWorkerCommand(
+    str_contains($indexViewService, 'in_array($downloadPlatform, STTSetting::WORKER_PLATFORMS, true)')
+        && str_contains($controller, 'in_array($platform, STTSetting::WORKER_PLATFORMS, true)'),
+    'The Workers tab must reopen on any worker platform, Windows included'
+);
+expectDockerWorkerCommand(
+    str_contains($view, 'data-worker-platform="{{ workerDownloadPlatform|e }}"'),
+    'The Workers tab must carry the shown platform, Windows included'
 );
 
 echo "Docker worker command contract OK\n";

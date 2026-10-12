@@ -211,6 +211,22 @@
     margin: 0 !important;
 }
 
+.module-local-speech-to-text .stt-worker-download-soon {
+    margin-top: 0.5em;
+}
+
+.module-local-speech-to-text .stt-worker-windows-steps {
+    margin: 0;
+}
+
+.module-local-speech-to-text .stt-worker-windows-steps code {
+    background: #f9fafb;
+    border: 1px solid rgba(34, 36, 38, 0.15);
+    border-radius: 0.28571429rem;
+    padding: 0.1em 0.4em;
+    white-space: nowrap;
+}
+
 .module-local-speech-to-text .stt-worker-api-key {
     margin-bottom: 1em;
 }

@@ -190,17 +190,46 @@ namespace {
         ($rowsById['gigaam-v3']['technical'] ?? '') === 'GigaAM · ONNX · Russian · MIT',
         'GigaAM technical label mismatch'
     );
-    $platformRows = $service->platformRows();
-    expectWorkerPlatform(array_column($platformRows, 'id') === ['macos', 'linux'], 'Platform switch must list macOS then Linux');
     expectWorkerPlatform(
-        array_column($platformRows, 'selected', 'id') === ['macos' => false, 'linux' => true],
+        ($rowsById['whisper-large-v3-turbo-windows']['technical'] ?? '') === 'whisper.cpp · GGML · MIT',
+        'whisper.cpp technical label mismatch'
+    );
+    expectWorkerPlatform(
+        ($rowsById['whisper-large-v3-turbo-windows']['description'] ?? '') === 'module_local_speech_to_text_ModelWhisperCppLargeV3TurboDesc',
+        'The whisper.cpp card must carry its own Windows copy'
+    );
+    $platformRows = $service->platformRows();
+    expectWorkerPlatform(
+        array_column($platformRows, 'id') === ['macos', 'linux', 'windows'],
+        'Platform switch must list macOS, Docker, then Windows'
+    );
+    expectWorkerPlatform(
+        array_column($platformRows, 'label', 'id') === [
+            'macos' => 'module_local_speech_to_text_PlatformMacos',
+            'linux' => 'module_local_speech_to_text_PlatformLinux',
+            'windows' => 'module_local_speech_to_text_PlatformWindows',
+        ],
+        'Platform switch labels mismatch'
+    );
+    expectWorkerPlatform(
+        array_column($platformRows, 'selected', 'id') === ['macos' => false, 'linux' => true, 'windows' => false],
         'Platform switch must mark the platform of the selected model'
     );
-    // The marketplace switch does not offer Windows yet; a Windows selection marks no switch platform.
+    // Every served platform is offered by the switch and every Windows preset is listed.
+    expectWorkerPlatform(
+        array_keys(STTSetting::PLATFORM_PRESETS) === STTSetting::WORKER_PLATFORMS,
+        'The marketplace switch must offer every worker platform'
+    );
+    $windowsRows = array_keys(array_filter($rowsById, static fn(array $row): bool => $row['platform'] === 'windows'));
+    sort($windowsRows);
+    expectWorkerPlatform(
+        $windowsRows === ['gigaam-multilingual-windows', 'gigaam-v3-windows', 'parakeet-tdt-0.6b-v3-windows', 'whisper-large-v3-turbo-windows'],
+        'The marketplace must list the four Windows presets'
+    );
     ModulesModelsBase::$values = ['selected_model' => 'gigaam-v3-windows'];
     expectWorkerPlatform(
-        !in_array(true, array_column($service->platformRows(), 'selected'), true),
-        'A Windows selection must not mark a marketplace switch platform'
+        array_column($service->platformRows(), 'selected', 'id') === ['macos' => false, 'linux' => false, 'windows' => true],
+        'A Windows selection must mark the Windows switch platform'
     );
     ModulesModelsBase::$values = [];
 

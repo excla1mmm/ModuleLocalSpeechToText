@@ -268,7 +268,7 @@
         </table>
     </div>
 
-    <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers" data-worker-platform="{% if workerDownloadPlatform === 'linux' %}linux{% else %}macos{% endif %}">
+    <div class="ui bottom attached tab segment{% if activeTab === 'workers' %} active{% endif %}" data-tab="workers" data-worker-platform="{{ workerDownloadPlatform|e }}">
         {% if not isSecureConnection %}
             <div class="ui warning message stt-insecure-connection-warning">
                 <i class="exclamation triangle icon"></i>
@@ -287,15 +287,18 @@
                 <div class="stt-worker-platform-field">
                     <label>{{ t._('module_local_speech_to_text_WorkerDownloadPlatform') }}</label>
                     <div class="ui basic buttons stt-worker-platform-switch" role="group">
-                        <button type="button" class="ui button{% if workerDownloadPlatform !== 'linux' %} active{% endif %}" data-platform="macos" aria-pressed="{% if workerDownloadPlatform !== 'linux' %}true{% else %}false{% endif %}">
+                        <button type="button" class="ui button{% if workerDownloadPlatform === 'macos' %} active{% endif %}" data-platform="macos" aria-pressed="{% if workerDownloadPlatform === 'macos' %}true{% else %}false{% endif %}">
                             <i class="apple icon"></i>{{ t._('module_local_speech_to_text_PlatformMacos') }}
                         </button>
                         <button type="button" class="ui button{% if workerDownloadPlatform === 'linux' %} active{% endif %}" data-platform="linux" aria-pressed="{% if workerDownloadPlatform === 'linux' %}true{% else %}false{% endif %}">
-                            <i class="docker icon"></i>{{ t._('module_local_speech_to_text_WorkerDownloadPlatformDocker') }}
+                            <i class="docker icon"></i>{{ t._('module_local_speech_to_text_PlatformLinux') }}
+                        </button>
+                        <button type="button" class="ui button{% if workerDownloadPlatform === 'windows' %} active{% endif %}" data-platform="windows" aria-pressed="{% if workerDownloadPlatform === 'windows' %}true{% else %}false{% endif %}">
+                            <i class="windows icon"></i>{{ t._('module_local_speech_to_text_PlatformWindows') }}
                         </button>
                     </div>
                 </div>
-                <div class="stt-worker-platform-panel" data-platform="macos"{% if workerDownloadPlatform === 'linux' %} hidden{% endif %}>
+                <div class="stt-worker-platform-panel" data-platform="macos"{% if workerDownloadPlatform !== 'macos' %} hidden{% endif %}>
                     <div class="ui middle aligned stackable grid">
                         <div class="ten wide column">
                             <div class="stt-worker-download-description">{{ t._('module_local_speech_to_text_WorkerDownloadDescription') }}</div>
@@ -329,6 +332,40 @@
                         </button>
                     </div>
                     <pre class="stt-worker-docker-command">{{ dockerWorkerCommand|e }}</pre>
+                </div>
+                <div class="stt-worker-platform-panel" data-platform="windows"{% if workerDownloadPlatform !== 'windows' %} hidden{% endif %}>
+                    <div class="ui middle aligned stackable grid">
+                        <div class="ten wide column">
+                            <div class="stt-worker-download-description">{{ t._('module_local_speech_to_text_WorkerWindowsDescription') }}</div>
+                            <div class="stt-table-muted stt-worker-download-meta">{{ t._('module_local_speech_to_text_WorkerWindowsRequirements') }}</div>
+                        </div>
+                        <div class="six wide right aligned column stt-worker-download-action">
+                            {% if windowsWorkerDownloadUrl !== '' %}
+                                <a class="ui left labeled icon blue button" href="{{ windowsWorkerDownloadUrl|e }}" target="_blank" rel="noopener noreferrer">
+                                    <i class="download icon"></i>
+                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }}
+                                </a>
+                            {% else %}
+                                <button class="ui left labeled icon blue disabled button stt-worker-windows-download" type="button" disabled="disabled" aria-disabled="true">
+                                    <i class="download icon"></i>
+                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }}
+                                </button>
+                                <div class="stt-table-muted stt-worker-download-soon">{{ t._('module_local_speech_to_text_WorkerWindowsComingSoon') }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="stt-worker-docker-heading">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</div>
+                    {% if generatedApiKey !== '' %}
+                        <div class="ui positive message">{{ t._('module_local_speech_to_text_WorkerWindowsKeyCreated') }}</div>
+                    {% else %}
+                        <div class="ui warning message">{{ t._('module_local_speech_to_text_WorkerWindowsKeyHint', ['button': t._('module_local_speech_to_text_GenerateWorkerApiKey')]) }}</div>
+                    {% endif %}
+                    <div class="stt-worker-docker-heading">{{ t._('module_local_speech_to_text_WorkerWindowsRunAsAdministrator') }}</div>
+                    <div class="ui ordered list stt-worker-windows-steps">
+                        <div class="item"><code>LocalSTTWorker.exe setup</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepSetup') }}</div>
+                        <div class="item"><code>LocalSTTWorker.exe install</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepInstall') }}</div>
+                        <div class="item"><code>LocalSTTWorker.exe status</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepStatus') }}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -402,7 +439,7 @@
                 </tbody>
             </table>
         </div>
-        {% if workers is empty and workerPlatform !== 'linux' %}
+        {% if workers is empty and workerPlatform === 'macos' %}
         <div class="ui info message stt-workers-onboarding">
             <div class="header">{{ t._('module_local_speech_to_text_WorkersOnboardingTitle') }}</div>
             <div class="ui ordered list">

@@ -115,9 +115,11 @@ final class IndexViewService
         $view->workerPlatform = STTSetting::selectedPlatform();
         // The download block opens on the platform the administrator last chose, else on the selected model's one.
         $downloadPlatform = (string)$this->request->getQuery('platform', 'string', '');
-        $view->workerDownloadPlatform = in_array($downloadPlatform, ['macos', 'linux'], true)
+        $view->workerDownloadPlatform = in_array($downloadPlatform, STTSetting::WORKER_PLATFORMS, true)
             ? $downloadPlatform
-            : ($view->workerPlatform === 'linux' ? 'linux' : 'macos');
+            : $view->workerPlatform;
+        // Empty until the Windows worker is released: the view then shows a disabled "coming soon" button.
+        $view->windowsWorkerDownloadUrl = WindowsWorkerDownload::url();
         // The address the administrator reached the PBX by is the best default for a worker's PBX_URL.
         $view->dockerWorkerCommand = DockerWorkerCommand::build(
             $this->request->getScheme() . '://' . $this->request->getHttpHost(),

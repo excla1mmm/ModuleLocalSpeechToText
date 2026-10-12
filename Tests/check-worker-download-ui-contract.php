@@ -130,4 +130,68 @@ foreach ($messageFiles as $messageFile) {
     );
 }
 
+// Windows: a download button that stays disabled ("coming soon") until the one URL constant is filled.
+$windowsDownload = (string)file_get_contents($root . '/Lib/Services/WindowsWorkerDownload.php');
+expectWorkerDownloadUi(
+    preg_match("/public const string URL = '[^']*';/", $windowsDownload) === 1
+        && str_contains($indexViewService, '$view->windowsWorkerDownloadUrl = WindowsWorkerDownload::url();'),
+    'The Windows worker download URL must live in WindowsWorkerDownload::URL'
+);
+$windowsPanelStart = strpos($view, '<div class="stt-worker-platform-panel" data-platform="windows"');
+expectWorkerDownloadUi($windowsPanelStart !== false, 'The Workers tab must have a Windows panel');
+$windowsPanel = substr($view, (int)$windowsPanelStart, (int)strpos($view, 'stt-worker-api-key', (int)$windowsPanelStart) - (int)$windowsPanelStart);
+expectWorkerDownloadUi(
+    str_contains($windowsPanel, "{% if windowsWorkerDownloadUrl !== '' %}")
+        && str_contains($windowsPanel, 'href="{{ windowsWorkerDownloadUrl|e }}"')
+        && str_contains($windowsPanel, 'disabled="disabled"')
+        && str_contains($windowsPanel, 'module_local_speech_to_text_WorkerWindowsComingSoon')
+        && substr_count($windowsPanel, 'module_local_speech_to_text_DownloadWindowsWorker') === 2,
+    'The Windows download button must be disabled with a coming-soon note while the URL is empty'
+);
+foreach (['setup', 'install', 'status'] as $command) {
+    expectWorkerDownloadUi(
+        str_contains($windowsPanel, "<code>LocalSTTWorker.exe {$command}</code>"),
+        "The Windows panel must explain LocalSTTWorker.exe {$command}"
+    );
+}
+expectWorkerDownloadUi(
+    str_contains($windowsPanel, "{% if generatedApiKey !== '' %}")
+        && str_contains($windowsPanel, 'module_local_speech_to_text_WorkerWindowsKeyCreated'),
+    'The Windows panel must point at a newly created key'
+);
+$windowsKeys = [
+    'module_local_speech_to_text_PlatformWindows',
+    'module_local_speech_to_text_DownloadWindowsWorker',
+    'module_local_speech_to_text_WorkerWindowsComingSoon',
+    'module_local_speech_to_text_WorkerWindowsDescription',
+    'module_local_speech_to_text_WorkerWindowsRequirements',
+    'module_local_speech_to_text_WorkerWindowsKeyHint',
+    'module_local_speech_to_text_WorkerWindowsKeyCreated',
+    'module_local_speech_to_text_WorkerWindowsRunAsAdministrator',
+    'module_local_speech_to_text_WorkerWindowsStepSetup',
+    'module_local_speech_to_text_WorkerWindowsStepInstall',
+    'module_local_speech_to_text_WorkerWindowsStepStatus',
+];
+expectWorkerDownloadUi(($russian['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Скачать обработчик для Windows', 'Russian Windows download label mismatch');
+expectWorkerDownloadUi(($english['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Download the Windows worker', 'English Windows download label mismatch');
+foreach ($messageFiles as $messageFile) {
+    $messages = include $messageFile;
+    foreach ($windowsKeys as $key) {
+        expectWorkerDownloadUi(
+            isset($messages[$key]) && trim((string)$messages[$key]) !== '',
+            basename($messageFile) . " is missing {$key}"
+        );
+    }
+    // The Docker worker is labelled just "Docker" everywhere; the old combined labels are retired.
+    expectWorkerDownloadUi(
+        ($messages['module_local_speech_to_text_PlatformLinux'] ?? null) === 'Docker'
+            && !array_key_exists('module_local_speech_to_text_WorkerDownloadPlatformDocker', $messages),
+        basename($messageFile) . ' must label the Docker platform "Docker"'
+    );
+}
+expectWorkerDownloadUi(
+    !str_contains($view, 'WorkerDownloadPlatformDocker'),
+    'The Workers tab must use the shared Docker platform label'
+);
+
 echo "Worker download UI contract OK\n";

@@ -76,6 +76,7 @@ class ModelMarketplaceService
             'fasterWhisper' => 'faster-whisper',
             'gigaam' => 'GigaAM',
             'tOne' => 'T-one',
+            'whisperCpp' => 'whisper.cpp',
             default => $engine,
         };
     }
@@ -86,6 +87,7 @@ class ModelMarketplaceService
             'whisperkit-coreml', 'parakeet-coreml' => 'Core ML',
             'ctranslate2' => 'CTranslate2',
             'gigaam-onnx', 'parakeet-onnx', 't-one-onnx' => 'ONNX',
+            'whisper-ggml' => 'GGML',
             '' => '',
             default => $artifactType,
         };
