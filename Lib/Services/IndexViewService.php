@@ -39,7 +39,6 @@ final class IndexViewService
         if ($capabilities->canManageSettings()) {
             $view->form = $settingsForm();
             $view->modelPresets = STTSetting::modelPresets();
-            $view->selectedModel = STTSetting::selectedModelId();
             $view->selectedLanguage = STTSetting::selectedLanguageId();
             $marketplace = new ModelMarketplaceService($this->translation);
             $view->modelMarketplaceRows = $marketplace->modelMarketplaceRows();

@@ -32,7 +32,6 @@ class DataStructure extends \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Da
                 ],
                 'has_settings_changed' => ['type' => 'boolean'],
                 'platform_mismatch' => ['type' => 'boolean', 'description' => 'module_local_speech_to_text_ApiFieldPlatformMismatch'],
-                'required_platform' => ['type' => 'string', 'enum' => ['macos', 'linux', 'windows']],
             ],
         ];
     }

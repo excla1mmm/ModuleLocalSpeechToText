@@ -84,6 +84,7 @@ class Controller extends BaseRestController
     #[ApiParameterRef('name')]
     #[ApiParameterRef('model')]
     #[ApiParameterRef('app_version')]
+    #[ApiParameterRef('platform')]
     #[ApiResponse(200, 'rest_response_200_created')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]

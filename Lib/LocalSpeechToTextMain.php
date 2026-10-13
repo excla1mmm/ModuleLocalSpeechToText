@@ -57,6 +57,8 @@ class LocalSpeechToTextMain
 
         try {
             $apiKeyId = WorkerAuthorizationValidator::requestApiKeyId($data);
+            // Workers declare their platform on registration; an unknown one is kept empty.
+            $platform = STTSetting::workerPlatformFromRequest($data['platform'] ?? null);
             $connection = (new STTWorker())->getWriteConnection();
             $worker = (new WorkerRegistrationTransaction())->run(
                 $connection,
@@ -65,11 +67,12 @@ class LocalSpeechToTextMain
                 static fn (): STTWorker => STTWorker::registerWorker(
                     $workerUid,
                     self::stringField($data, 'name', $workerUid),
-                    self::currentWorkerModelName(),
+                    $platform === null ? '' : STTSetting::selectedModelDisplayNameForPlatform($platform),
                     self::clientIp($data),
                     $apiKeyId,
                     WorkerApiContract::API_VERSION,
-                    self::stringField($data, 'app_version')
+                    self::stringField($data, 'app_version'),
+                    $platform ?? ''
                 )
             );
             LocalSpeechToTextLogger::event(
@@ -120,15 +123,15 @@ class LocalSpeechToTextMain
                 return $bindingError;
             }
 
+            // Every platform runs its own selected model, so workers of different
+            // platforms share the queue. Older workers send no platform and are
+            // macOS; a worker of an unknown platform has no model and gets no job.
+            $workerPlatform = STTSetting::workerPlatformFromRequest($data['worker_platform'] ?? null);
+            $platformMismatch = $workerPlatform === null;
+            self::syncWorkerModel($worker, $workerPlatform);
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
-            // A worker of another platform cannot run the selected model; handing it
-            // a job would only turn that job into a failure. Older workers send no
-            // platform and are macOS, so they see an ordinary empty queue.
-            $requiredPlatform = STTSetting::selectedPlatform();
-            $platformMismatch = STTSetting::workerPlatformFromRequest($data['worker_platform'] ?? null) !== $requiredPlatform;
-            self::syncWorkerModel($worker, $platformMismatch);
-            $jobSnapshot = self::prepareJobSnapshot();
+            $jobSnapshot = $platformMismatch ? [] : self::prepareJobSnapshot($workerPlatform);
             $job = $platformMismatch ? null : STTJob::claimNextForWorker($worker);
             if ($job === null) {
                 $payload = [
@@ -137,7 +140,6 @@ class LocalSpeechToTextMain
                 ];
                 if ($platformMismatch) {
                     $payload['platform_mismatch'] = true;
-                    $payload['required_platform'] = $requiredPlatform;
                 }
 
                 return JobApiResponseBuilder::success($payload);
@@ -693,15 +695,15 @@ class LocalSpeechToTextMain
         }
     }
 
-    private static function prepareJobSnapshot(): array
+    private static function prepareJobSnapshot(string $platform): array
     {
-        $modelPreset = STTSetting::selectedModelPreset();
+        $modelPreset = STTSetting::selectedModelPresetForPlatform($platform);
         $modelEngine = (string)$modelPreset['engine'];
         $modelRuntimeId = (string)$modelPreset['model'];
         $modelRepo = (string)$modelPreset['repo'];
 
         return [
-            'language_hint' => STTSetting::selectedLanguageHint(),
+            'language_hint' => STTSetting::languageHintForPlatform($platform),
             'model_id' => $modelRuntimeId,
             'model_repo' => $modelRepo,
             'model_engine' => $modelEngine,
@@ -755,15 +757,13 @@ class LocalSpeechToTextMain
         return $duration > 0 ? $duration : null;
     }
 
-    private static function currentWorkerModelName(): string
+    // The Workers tab shows the platform and model a worker runs: no model for an unknown platform.
+    private static function syncWorkerModel(STTWorker $worker, ?string $platform): void
     {
-        return STTSetting::selectedModelDisplayName();
-    }
-
-    // The Workers tab shows the model a worker runs: none for a worker of the other platform.
-    private static function syncWorkerModel(STTWorker $worker, bool $platformMismatch): void
-    {
-        $worker->updateModel($platformMismatch ? '' : self::currentWorkerModelName());
+        $worker->updatePlatformModel(
+            $platform ?? '',
+            $platform === null ? '' : STTSetting::selectedModelDisplayNameForPlatform($platform)
+        );
     }
 
     private static function safeRecordingPath(string $filePath): ?string

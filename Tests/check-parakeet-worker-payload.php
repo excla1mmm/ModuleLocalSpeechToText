@@ -8,13 +8,16 @@ namespace Modules\ModuleLocalSpeechToText\Models {
         public static string $engine = 'parakeet';
         public static int $presetReads = 0;
 
-        public static function selectedLanguageHint(): string
+        public static ?string $platform = null;
+
+        public static function languageHintForPlatform(string $platform): string
         {
             return 'ru';
         }
 
-        public static function selectedModelPreset(): array
+        public static function selectedModelPresetForPlatform(string $platform): array
         {
+            self::$platform = $platform;
             self::$presetReads++;
             return self::$engine === 'parakeet'
                 ? [
@@ -74,7 +77,8 @@ namespace {
 
     STTSetting::$engine = 'parakeet';
     STTSetting::$presetReads = 0;
-    $parakeet = $snapshotMethod->invoke(null);
+    $parakeet = $snapshotMethod->invoke(null, 'macos');
+    expectParakeetWorkerPayload('macos', STTSetting::$platform, 'A job snapshot must carry the model of the worker platform');
     expectParakeetWorkerPayload(1, STTSetting::$presetReads, 'A job snapshot must read one immutable model preset');
     expectParakeetWorkerPayload('parakeet-tdt-0.6b-v3', $parakeet['model_id'] ?? null, 'Parakeet model_id changed');
     expectParakeetWorkerPayload('FluidInference/parakeet-tdt-0.6b-v3-coreml', $parakeet['model_repo'] ?? null, 'Parakeet model_repo changed');
@@ -113,7 +117,7 @@ namespace {
 
     STTSetting::$engine = 'whisperKit';
     STTSetting::$presetReads = 0;
-    $whisper = $snapshotMethod->invoke(null);
+    $whisper = $snapshotMethod->invoke(null, 'macos');
     expectParakeetWorkerPayload(1, STTSetting::$presetReads, 'A WhisperKit snapshot must read one immutable model preset');
     expectParakeetWorkerPayload('large-v3-v20240930_turbo', $whisper['whisperkit_model'] ?? null, 'WhisperKit must retain its runtime model field');
     expectParakeetWorkerPayload('whisperKit', $whisper['model_engine'] ?? null, 'WhisperKit model_engine changed');

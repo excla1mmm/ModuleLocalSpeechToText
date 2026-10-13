@@ -74,7 +74,7 @@ class ModuleLocalSpeechToTextForm extends BaseForm
     private function languageOptions(): array
     {
         $options = [];
-        foreach (STTSetting::languagePresetsForModel(STTSetting::selectedModelId()) as $languageId => $label) {
+        foreach (STTSetting::languagePresetsForModels(STTSetting::configuredModelIds()) as $languageId => $label) {
             $options[$languageId] = $this->translation->_($label);
         }
 

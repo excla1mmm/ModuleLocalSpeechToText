@@ -114,7 +114,7 @@ namespace {
         );
     }
 
-    // The PBX platform follows the selected model; fresh and legacy installs are macOS.
+    // The marketplace opens on the platform chosen last; fresh and legacy installs are macOS.
     ModulesModelsBase::$values = [];
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'macos', 'Fresh settings must select the macOS platform');
     ModulesModelsBase::$values = ['selected_model' => 'large-v3'];
@@ -125,6 +125,46 @@ namespace {
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'windows', 'A Windows model selection must switch the PBX to Windows');
     ModulesModelsBase::$values = ['selected_model' => 'unknown-model'];
     expectWorkerPlatform(STTSetting::selectedPlatform() === 'macos', 'An unknown stored model falls back to the macOS default');
+
+    // Every platform has its own model at the same time.
+    ModulesModelsBase::$values = [];
+    expectWorkerPlatform(
+        STTSetting::selectedModelIdsByPlatform() === ['macos' => 'parakeet-tdt-0.6b-v3', 'linux' => 'gigaam-v3', 'windows' => 'gigaam-v3-windows'],
+        'Fresh settings must give every platform its default model'
+    );
+    expectWorkerPlatform(STTSetting::configuredModelIds() === [], 'Fresh settings have no chosen model');
+    ModulesModelsBase::$values = ['selected_model' => 't-one'];
+    expectWorkerPlatform(
+        STTSetting::selectedModelIdsByPlatform() === ['macos' => 'parakeet-tdt-0.6b-v3', 'linux' => 't-one', 'windows' => 'gigaam-v3-windows'],
+        'A legacy Linux selection must stay the Linux model and leave the other platforms on their defaults'
+    );
+    expectWorkerPlatform(STTSetting::configuredModelIds() === ['linux' => 't-one'], 'A legacy selection counts as chosen for its platform');
+    ModulesModelsBase::$values = [
+        'selected_model' => 'large-v3',
+        'selected_model_macos' => 'large-v3',
+        'selected_model_linux' => 't-one',
+        'selected_model_windows' => 'whisper-large-v3-turbo-windows',
+    ];
+    expectWorkerPlatform(
+        STTSetting::selectedModelIdsByPlatform() === ['macos' => 'large-v3', 'linux' => 't-one', 'windows' => 'whisper-large-v3-turbo-windows'],
+        'Per-platform selections must coexist'
+    );
+    expectWorkerPlatform(STTSetting::selectedPlatform() === 'macos', 'The platform chosen last follows the legacy key');
+    ModulesModelsBase::$values = ['selected_model_linux' => 'gigaam-v3-windows', 'selected_model_windows' => 'no-such-model'];
+    expectWorkerPlatform(
+        STTSetting::selectedModelIdForPlatform('linux') === 'gigaam-v3' && STTSetting::selectedModelIdForPlatform('windows') === 'gigaam-v3-windows',
+        'A stored model of another platform or an unknown model falls back to the platform default'
+    );
+    // The language hint falls back to automatic detection for a model that does not know the language.
+    ModulesModelsBase::$values = ['default_language' => 'en', 'selected_model_linux' => 't-one', 'selected_model_macos' => 'large-v3'];
+    expectWorkerPlatform(
+        STTSetting::languageHintForPlatform('macos') === 'en' && STTSetting::languageHintForPlatform('linux') === '',
+        'Each platform must get a language hint its model supports'
+    );
+    expectWorkerPlatform(
+        array_keys(STTSetting::languagePresetsForModels(['t-one', 'large-v3'])) === ['auto', 'ru'],
+        'The settings form must offer only the languages every chosen model supports'
+    );
 
     // Worker platform declared on a lease request.
     $requestMatrix = [
@@ -183,6 +223,11 @@ namespace {
     };
     ModulesModelsBase::$values = ['selected_model' => 't-one'];
     $service = new ModelMarketplaceService($translation);
+    expectWorkerPlatform(
+        array_column(array_filter($service->modelMarketplaceRows(), static fn (array $row): bool => $row['selected']), 'id', 'platform')
+            === ['macos' => 'parakeet-tdt-0.6b-v3', 'linux' => 't-one', 'windows' => 'gigaam-v3-windows'],
+        'The marketplace must mark the selected model of every platform'
+    );
     $rowsById = array_column($service->modelMarketplaceRows(), null, 'id');
     expectWorkerPlatform(($rowsById['t-one']['platform'] ?? '') === 'linux', 'Marketplace row must expose its platform');
     expectWorkerPlatform(($rowsById['parakeet-tdt-0.6b-v3']['platform'] ?? '') === 'macos', 'Marketplace row must expose its platform');
@@ -233,30 +278,39 @@ namespace {
     );
     ModulesModelsBase::$values = [];
 
-    // getNextJob() must decide the platform before it claims anything.
+    // getNextJob() serves every known platform with the model of that platform.
     $main = (string)file_get_contents(__DIR__ . '/../Lib/LocalSpeechToTextMain.php');
     $methodStart = strpos($main, 'public static function getNextJob(');
     $methodEnd = strpos($main, 'public static function getWorkerProcessingSettings(');
     $getNext = $methodStart === false || $methodEnd === false ? '' : substr($main, $methodStart, $methodEnd - $methodStart);
     expectWorkerPlatform($getNext !== '', 'Cannot inspect getNextJob()');
     expectWorkerPlatform(
-        str_contains($getNext, "STTSetting::workerPlatformFromRequest(\$data['worker_platform'] ?? null)"),
-        'getNextJob() must read the worker platform from the lease request'
+        str_contains($getNext, "\$workerPlatform = STTSetting::workerPlatformFromRequest(\$data['worker_platform'] ?? null);")
+            && str_contains($getNext, '$platformMismatch = $workerPlatform === null;'),
+        'getNextJob() must read the worker platform and refuse only an unknown one'
     );
     expectWorkerPlatform(
-        str_contains($getNext, '$job = $platformMismatch ? null : STTJob::claimNextForWorker($worker);'),
-        'getNextJob() must not claim a job for a worker of another platform'
+        str_contains($getNext, '$job = $platformMismatch ? null : STTJob::claimNextForWorker($worker);')
+            && str_contains($getNext, 'self::prepareJobSnapshot($workerPlatform)'),
+        'getNextJob() must claim jobs with the model of the worker platform'
     );
     expectWorkerPlatform(
-        str_contains($getNext, "\$payload['platform_mismatch'] = true;")
-            && str_contains($getNext, "\$payload['required_platform'] = \$requiredPlatform;"),
-        'A platform mismatch must be reported to the worker'
+        str_contains($getNext, "\$payload['platform_mismatch'] = true;") && !str_contains($getNext, 'required_platform'),
+        'An unknown platform is reported without a single required platform'
     );
-    // The Workers tab shows each worker's own model: a worker of the other platform runs none.
     expectWorkerPlatform(
-        str_contains($getNext, 'self::syncWorkerModel($worker, $platformMismatch);')
-            && str_contains($main, "\$worker->updateModel(\$platformMismatch ? '' : self::currentWorkerModelName());"),
-        'A worker of another platform must not be shown with the selected model'
+        strpos($getNext, 'self::syncWorkerModel($worker, $workerPlatform);') < strpos($getNext, '$worker->hasProcessingSettingsChanged()'),
+        'A worker that changed platform must be told to refetch its settings on the same lease'
+    );
+    expectWorkerPlatform(
+        str_contains($main, 'STTSetting::selectedModelDisplayNameForPlatform($platform)')
+            && str_contains($main, "\$platform = STTSetting::workerPlatformFromRequest(\$data['platform'] ?? null);"),
+        'Registration and leases must store the worker platform and its model'
+    );
+    $settingsService = (string)file_get_contents(__DIR__ . '/../Lib/Services/WorkerProcessingSettingsService.php');
+    expectWorkerPlatform(
+        str_contains($settingsService, 'STTSetting::normalizePlatform((string)$worker->platform)'),
+        'Processing settings must describe the model of the worker platform'
     );
     $view = (string)file_get_contents(__DIR__ . '/../App/Views/ModuleLocalSpeechToText/index.volt');
     expectWorkerPlatform(

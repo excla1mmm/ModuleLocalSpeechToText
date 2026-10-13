@@ -12,6 +12,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LogicalCallReviewService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleLogReader;
+use Modules\ModuleLocalSpeechToText\Lib\Services\PlatformModelSelection;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
@@ -90,25 +91,24 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         try {
-            $modelId = trim((string)$this->request->getPost(
-                STTSetting::SELECTED_MODEL,
-                'string',
-                STTSetting::selectedModelId()
-            ));
-            $normalizedModelId = STTSetting::normalizeModelId(substr($modelId, 0, 255));
-            $this->assertModelLanguageCompatibility($normalizedModelId, STTSetting::selectedLanguageId());
+            $values = PlatformModelSelection::settingsToSave(
+                $this->request->getPost(STTSetting::SELECTED_MODEL),
+                fn (string $modelId) => $this->assertModelLanguageCompatibility($modelId, STTSetting::selectedLanguageId())
+            );
             (new AdministrativeSettingsWriter())->save(
-                [STTSetting::SELECTED_MODEL => $normalizedModelId],
+                $values,
                 null,
-                true
+                $values !== []
             );
-            LocalSpeechToTextLogger::event(
-                'settings',
-                'settings_changed',
-                'STT module settings changed',
-                LOG_NOTICE,
-                ['changed_fields' => STTSetting::SELECTED_MODEL]
-            );
+            if ($values !== []) {
+                LocalSpeechToTextLogger::event(
+                    'settings',
+                    'settings_changed',
+                    'STT module settings changed',
+                    LOG_NOTICE,
+                    ['changed_fields' => STTSetting::SELECTED_MODEL]
+                );
+            }
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
         } catch (Throwable $exception) {
             $this->logControllerFailure('save_model', $exception);

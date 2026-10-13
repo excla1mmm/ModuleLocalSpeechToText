@@ -225,7 +225,7 @@ namespace {
         );
         ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'gigaam-v3-windows';
         expectProcessingSettingsSqlite(
-            (WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? null) === [
+            (WorkerProcessingSettingsService::apiPayload($changed, 'windows')['selected_model'] ?? null) === [
                 'model_id' => 'v3_e2e_rnnt',
                 'model_repo' => 'istupakov/gigaam-v3-onnx',
                 'model_engine' => 'gigaam',
@@ -239,7 +239,7 @@ namespace {
         );
         ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'whisper-large-v3-turbo-windows';
         expectProcessingSettingsSqlite(
-            (WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? null) === [
+            (WorkerProcessingSettingsService::apiPayload($changed, 'windows')['selected_model'] ?? null) === [
                 'model_id' => 'large-v3-turbo',
                 'model_repo' => 'ggerganov/whisper.cpp',
                 'model_engine' => 'whisperCpp',
@@ -255,6 +255,24 @@ namespace {
             ],
             'A whisper.cpp selection must carry its pinned GGML descriptor'
         );
+        // Every platform has its own model at the same time; a worker gets the one of its platform.
+        ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'gigaam-v3';
+        ModulesModelsBase::$values['selected_model_macos'] = 'large-v3-turbo';
+        ModulesModelsBase::$values['selected_model_windows'] = 'gigaam-v3-windows';
+        $modelsByPlatform = [];
+        foreach (['macos', 'linux', 'windows'] as $platform) {
+            $modelsByPlatform[$platform] = WorkerProcessingSettingsService::apiPayload($changed, $platform)['selected_model']['model_platform'] ?? null;
+        }
+        expectProcessingSettingsSqlite(
+            $modelsByPlatform === ['macos' => 'macos', 'linux' => 'linux', 'windows' => 'windows'],
+            'Processing settings must describe the model of the requested worker platform'
+        );
+        expectProcessingSettingsSqlite(
+            (WorkerProcessingSettingsService::apiPayload($changed, 'linux')['selected_model']['model_repo'] ?? null) === 'istupakov/gigaam-v3-onnx'
+                && (WorkerProcessingSettingsService::apiPayload($changed, 'macos')['selected_model']['model_repo'] ?? null) === 'argmaxinc/whisperkit-coreml',
+            'The legacy selection must keep serving its own platform next to the per-platform ones'
+        );
+        unset(ModulesModelsBase::$values['selected_model_macos'], ModulesModelsBase::$values['selected_model_windows']);
         ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'parakeet-tdt-0.6b-v3';
         expectProcessingSettingsSqlite(
             dirtyFlags($connectionA) === ['worker-a' => 0, 'worker-b' => 1],

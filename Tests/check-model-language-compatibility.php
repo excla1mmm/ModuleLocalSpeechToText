@@ -100,8 +100,8 @@ namespace {
 
     $formSource = (string)file_get_contents(__DIR__ . '/../App/Forms/ModuleLocalSpeechToTextForm.php');
     expectModelLanguageCompatibility(
-        str_contains($formSource, 'STTSetting::languagePresetsForModel(STTSetting::selectedModelId())'),
-        'Settings form must render only language options supported by the selected model'
+        str_contains($formSource, 'STTSetting::languagePresetsForModels(STTSetting::configuredModelIds())'),
+        'Settings form must render only language options every chosen model supports'
     );
 
     $baseControllerSource = (string)file_get_contents(
@@ -138,10 +138,10 @@ namespace {
     );
     foreach (['source' => $sourceJs, 'bundled' => $bundledJs] as $kind => $javascript) {
         expectModelLanguageCompatibility(
-            str_contains($javascript, 'selectedModelSupportsLanguage')
+            str_contains($javascript, 'modelSupportsLanguage($(this))')
                 && str_contains($javascript, 'stt-model-language-compatibility')
-                && str_contains($javascript, 'var compatible = updateCompatibilityState();'),
-            "{$kind} UI must refresh compatibility for every model selection"
+                && str_contains($javascript, 'hasChanges = $changed.length > 0 && compatible;'),
+            "{$kind} UI must check the language against every changed platform model"
         );
     }
 

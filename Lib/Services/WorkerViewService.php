@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
+use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
 final class WorkerViewService
@@ -19,5 +20,6 @@ final class WorkerViewService
         $view->workers = $workers;
         $view->workerCompatibility = $compatibility;
         $view->workerApiVersion = WorkerApiContract::API_VERSION;
+        $view->workerPlatformLabels = STTSetting::PLATFORM_PRESETS;
     }
 }

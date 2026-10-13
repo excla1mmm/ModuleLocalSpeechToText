@@ -42,6 +42,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => false,
                     'maxLength' => 255,
                 ],
+                'platform' => [
+                    'type' => 'string',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerPlatform',
+                    'example' => 'linux',
+                    'required' => false,
+                    'enum' => ['macos', 'linux', 'windows'],
+                ],
                 'status' => [
                     'type' => 'string',
                     'example' => 'online',

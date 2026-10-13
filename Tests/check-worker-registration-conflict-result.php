@@ -17,6 +17,7 @@ namespace Modules\ModuleLocalSpeechToText\Models {
     {
         public static function workerApiKeyIds(): array { return [91]; }
         public static function isWorkerApiKeyIdAllowed(int $id): bool { return $id === 91; }
+        public static function workerPlatformFromRequest(mixed $value): ?string { return 'macos'; }
     }
 
     final class STTWorker

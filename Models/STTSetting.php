@@ -20,7 +20,12 @@ class STTSetting extends ModulesModelsBase
     public const string TRANSCRIPT_RETENTION_DAYS = 'transcript_retention_days';
     public const string TRANSCRIPT_RETENTION_LAST_CLEANUP_AT = 'transcript_retention_last_cleanup_at';
     public const string CALL_TRANSCRIPT_STABILITY_SEC = 'call_transcript_stability_sec';
+    // The model chosen last on any platform. It predates per-platform models:
+    // it still names the selected model of its own platform when that
+    // platform has no SELECTED_MODEL_PREFIX key yet.
     public const string SELECTED_MODEL = 'selected_model';
+    // selected_model_macos, selected_model_linux, selected_model_windows.
+    public const string SELECTED_MODEL_PREFIX = 'selected_model_';
     public const string CUSTOM_VOCABULARY_TERMS = 'custom_vocabulary_terms';
     public const string DELAYED_RECORDINGS = 'delayed_recordings';
     public const string SKIPPED_RECORDINGS = 'skipped_recordings';
@@ -58,9 +63,10 @@ class STTSetting extends ModulesModelsBase
     public const string DEFAULT_MODEL = 'parakeet-tdt-0.6b-v3';
     public const string AUTO_LANGUAGE = 'auto';
 
-    // Worker platforms. A PBX serves exactly one platform at a time: the
-    // platform of the selected model. Workers that predate platform reporting
-    // (macOS worker 1.7 and older) send no platform and are treated as macOS.
+    // Worker platforms. Every platform has its own selected model, so workers
+    // of different platforms run side by side, each with the model of its
+    // platform. Workers that predate platform reporting (macOS worker 1.7 and
+    // older) send no platform and are treated as macOS.
     public const string PLATFORM_MACOS = 'macos';
     public const string PLATFORM_LINUX = 'linux';
     public const string PLATFORM_WINDOWS = 'windows';
@@ -580,6 +586,7 @@ class STTSetting extends ModulesModelsBase
         return (string)self::selectedModelPreset()['artifact_type'];
     }
 
+    /** Platform of the model chosen last; the marketplace and the Workers tab open on it. */
     public static function selectedPlatform(): string
     {
         return self::modelPlatform(self::selectedModelId());
@@ -588,6 +595,86 @@ class STTSetting extends ModulesModelsBase
     public static function modelPlatform(string $modelId): string
     {
         return (string)(self::modelPresets()[self::normalizeModelId($modelId)]['platform'] ?? self::PLATFORM_MACOS);
+    }
+
+    public static function selectedModelKey(string $platform): string
+    {
+        return self::SELECTED_MODEL_PREFIX . self::normalizePlatform($platform);
+    }
+
+    /**
+     * Model an administrator chose for the platform: its own key, else the
+     * pre-per-platform selection when that one belongs to the platform.
+     * Null when the platform was never configured.
+     */
+    public static function configuredModelIdForPlatform(string $platform): ?string
+    {
+        $platform = self::normalizePlatform($platform);
+        $modelId = trim(self::getValue(self::selectedModelKey($platform)));
+        if (array_key_exists($modelId, self::modelPresets()) && self::modelPlatform($modelId) === $platform) {
+            return $modelId;
+        }
+        $legacyModelId = trim(self::getValue(self::SELECTED_MODEL));
+        if ($legacyModelId === '') {
+            return null;
+        }
+        $legacyModelId = self::normalizeModelId($legacyModelId);
+
+        return self::modelPlatform($legacyModelId) === $platform ? $legacyModelId : null;
+    }
+
+    public static function selectedModelIdForPlatform(string $platform): string
+    {
+        return self::configuredModelIdForPlatform($platform) ?? self::defaultModelForPlatform($platform);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function selectedModelPresetForPlatform(string $platform): array
+    {
+        return self::modelPresets()[self::selectedModelIdForPlatform($platform)];
+    }
+
+    public static function selectedModelDisplayNameForPlatform(string $platform): string
+    {
+        $preset = self::selectedModelPresetForPlatform($platform);
+
+        return (string)$preset['repo'] . '/' . (string)$preset['model'];
+    }
+
+    /**
+     * Selected model of every platform, keyed by platform.
+     *
+     * @return array<string, string>
+     */
+    public static function selectedModelIdsByPlatform(): array
+    {
+        $models = [];
+        foreach (self::WORKER_PLATFORMS as $platform) {
+            $models[$platform] = self::selectedModelIdForPlatform($platform);
+        }
+
+        return $models;
+    }
+
+    /**
+     * Models an administrator chose, keyed by platform. A platform that still
+     * runs its default model was never chosen and does not restrict the language.
+     *
+     * @return array<string, string>
+     */
+    public static function configuredModelIds(): array
+    {
+        $models = [];
+        foreach (self::WORKER_PLATFORMS as $platform) {
+            $modelId = self::configuredModelIdForPlatform($platform);
+            if ($modelId !== null) {
+                $models[$platform] = $modelId;
+            }
+        }
+
+        return $models;
     }
 
     public static function normalizePlatform(string $platform): string
@@ -653,6 +740,14 @@ class STTSetting extends ModulesModelsBase
         $language = self::selectedLanguageId();
 
         return $language === self::AUTO_LANGUAGE ? '' : $language;
+    }
+
+    /** The language hint, or automatic detection when the platform's model does not know the language. */
+    public static function languageHintForPlatform(string $platform): string
+    {
+        $language = self::selectedLanguageHint();
+
+        return self::modelSupportsLanguage(self::selectedModelIdForPlatform($platform), $language) ? $language : '';
     }
 
     public static function customVocabularyTermsText(): string
@@ -934,12 +1029,28 @@ class STTSetting extends ModulesModelsBase
      */
     public static function languagePresetsForModel(string $modelId): array
     {
+        return self::languagePresetsForModels([$modelId]);
+    }
+
+    /**
+     * Languages every given model supports.
+     *
+     * @param array<array-key, string> $modelIds
+     * @return array<string, string>
+     */
+    public static function languagePresetsForModels(array $modelIds): array
+    {
         return array_filter(
             self::LANGUAGE_PRESETS,
-            static fn (string $label, string $languageId): bool => self::modelSupportsLanguage(
-                $modelId,
-                $languageId
-            ),
+            static function (string $label, string $languageId) use ($modelIds): bool {
+                foreach ($modelIds as $modelId) {
+                    if (!self::modelSupportsLanguage($modelId, $languageId)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
             ARRAY_FILTER_USE_BOTH
         );
     }

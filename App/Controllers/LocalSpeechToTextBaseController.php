@@ -102,18 +102,15 @@ class LocalSpeechToTextBaseController extends BaseController
         $nextLanguage = STTSetting::normalizeLanguageId(
             $this->postString(STTSetting::DEFAULT_LANGUAGE, STTSetting::AUTO_LANGUAGE, 16)
         );
-        $nextModel = $this->request->hasPost(STTSetting::SELECTED_MODEL)
-            ? STTSetting::normalizeModelId(
-                $this->postString(STTSetting::SELECTED_MODEL, STTSetting::selectedModelId(), 255)
-            )
-            : STTSetting::selectedModelId();
-        $this->assertModelLanguageCompatibility($nextModel, $nextLanguage);
+        // Models are chosen in the marketplace; the language must suit every chosen one.
+        foreach (STTSetting::configuredModelIds() as $modelId) {
+            $this->assertModelLanguageCompatibility($modelId, $nextLanguage);
+        }
 
         $nextValues = [
             STTSetting::DEFAULT_LANGUAGE => $nextLanguage,
             STTSetting::CDR_HISTORY_DAYS => (string)$nextHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$nextRetentionDays,
-            STTSetting::SELECTED_MODEL => $nextModel,
             STTSetting::CUSTOM_VOCABULARY_TERMS => function_exists('mb_substr')
                 ? mb_substr($customTerms, 0, 8000)
                 : substr($customTerms, 0, 8000),
@@ -122,7 +119,6 @@ class LocalSpeechToTextBaseController extends BaseController
             STTSetting::DEFAULT_LANGUAGE => STTSetting::selectedLanguageId(),
             STTSetting::CDR_HISTORY_DAYS => (string)$previousHistoryDays,
             STTSetting::TRANSCRIPT_RETENTION_DAYS => (string)$previousRetentionDays,
-            STTSetting::SELECTED_MODEL => STTSetting::selectedModelId(),
             STTSetting::CUSTOM_VOCABULARY_TERMS => STTSetting::customVocabularyTermsText(),
         ];
 
@@ -160,11 +156,8 @@ class LocalSpeechToTextBaseController extends BaseController
         }
         $changedFields = array_values(array_unique($changedFields));
         sort($changedFields);
-        (new AdministrativeSettingsWriter())->save(
-            $settingsToPersist,
-            $normalizedProcessing,
-            in_array(STTSetting::SELECTED_MODEL, $changedFields, true)
-        );
+        // Processing settings flag the workers themselves; models are saved by saveModelAction().
+        (new AdministrativeSettingsWriter())->save($settingsToPersist, $normalizedProcessing);
         if ($changedFields !== []) {
             LocalSpeechToTextLogger::event(
                 'settings',

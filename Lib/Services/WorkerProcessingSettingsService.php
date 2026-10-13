@@ -120,18 +120,19 @@ final class WorkerProcessingSettingsService
 
     /**
      * @param array<string, mixed> $profile
+     * @param string $platform Worker platform whose selected model is reported.
      * @return array{
      *     schema_version: int,
      *     processing_settings: array<string, float|int|bool>,
      *     selected_model: array<string, mixed>
      * }
      */
-    public static function apiPayload(array $profile): array
+    public static function apiPayload(array $profile, string $platform = STTSetting::PLATFORM_MACOS): array
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'processing_settings' => self::normalize($profile),
-            'selected_model' => self::selectedModelPayload(),
+            'selected_model' => self::selectedModelPayload($platform),
         ];
     }
 
@@ -193,16 +194,18 @@ final class WorkerProcessingSettingsService
                 'Unable to acknowledge worker processing settings'
             );
 
-            return self::apiPayload($this->readCurrent($database));
+            // The model of the platform the worker declared last; a worker that never
+            // declared one is a macOS worker.
+            return self::apiPayload($this->readCurrent($database), STTSetting::normalizePlatform((string)$worker->platform));
         });
     }
 
     /**
      * @return array<string, mixed>
      */
-    private static function selectedModelPayload(): array
+    private static function selectedModelPayload(string $platform): array
     {
-        $preset = STTSetting::selectedModelPreset();
+        $preset = STTSetting::selectedModelPresetForPlatform($platform);
         $modelId = (string)$preset['model'];
         $repository = (string)$preset['repo'];
 

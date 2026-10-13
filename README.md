@@ -70,7 +70,7 @@ When possible, repeated prefixes or suffixes are trimmed instead of rejecting th
 The main module page has six tabs:
 
 - `Settings`: language hint, custom vocabulary terms and TXT import, CDR processing period, and transcript retention. (CDR discovery backoff, batch size, job lease TTL, and the recording duration hard limit are fixed internal policies and are not exposed here.)
-- `Model marketplace`: worker platform switch (macOS (Apple Silicon), Docker or Windows) and the built-in models of that platform: WhisperKit/Parakeet Core ML for macOS; faster-whisper (CTranslate2), GigaAM v3, T-one, Parakeet and GigaAM Multilingual for Docker; GigaAM v3, Parakeet, GigaAM Multilingual (ONNX) and Whisper Large V3 Turbo (whisper.cpp) for Windows. The PBX serves one platform at a time, the platform of the selected model; workers of the other platform receive no jobs.
+- `Model marketplace`: worker platform switch (macOS (Apple Silicon), Docker or Windows) and the built-in models of that platform: WhisperKit/Parakeet Core ML for macOS; faster-whisper (CTranslate2), GigaAM v3, T-one, Parakeet and GigaAM Multilingual for Docker; GigaAM v3, Parakeet, GigaAM Multilingual (ONNX) and Whisper Large V3 Turbo (whisper.cpp) for Windows. Every platform has its own selected model, so macOS, Docker and Windows workers can run at the same time; each receives jobs with the model of its platform.
 - `Queue`: pending, processing, done-today, error, delayed-recording, and skipped-recording counters.
 - `Workers`: worker setup for each platform (the macOS download, the `docker run` command, the Windows service steps; the Windows download button stays disabled until the Windows worker is released), generated worker API keys and registered workers with IP address, status, bound key, model, and last seen time.
 - `Transcripts`: recent transcript list with date filtering and links to the conversation view.
@@ -152,7 +152,7 @@ Recording download, lease heartbeat/release, and final result/failure submission
 
 ### Worker platforms
 
-The PBX serves one worker platform at a time: the `platform` of the selected model preset (`macos`, `linux` or `windows`). Workers send `worker_platform` on `POST /job-leases`; a worker that omits it is macOS. A worker of another platform, or one that sends an unknown platform, receives `job: null` with `platform_mismatch: true` and `required_platform`. `GET /worker-processing-settings` reports the platform as `selected_model.model_platform`.
+Every worker platform (`macos`, `linux`, `windows`) has its own selected model, so workers of different platforms share the queue at the same time. Workers send `platform` on `POST /workers` and `worker_platform` on `POST /job-leases`; a worker that omits it is macOS. The PBX remembers the platform per worker: a lease carries the model of the worker's platform, and `GET /worker-processing-settings` describes that model (`selected_model.model_platform` is the worker's platform). A worker that moves to another platform gets `has_settings_changed: true` on its next lease. A worker that sends an unknown platform receives `job: null` with `platform_mismatch: true`. The language hint falls back to automatic detection for a platform whose model does not support the selected language.
 
 | Platform | Presets (default first) |
 | --- | --- |

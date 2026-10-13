@@ -18,15 +18,16 @@ class ModelMarketplaceService
     public function modelMarketplaceRows(): array
     {
         $rows = [];
-        $selectedModel = STTSetting::selectedModelId();
+        $selectedModels = STTSetting::selectedModelIdsByPlatform();
 
         foreach (STTSetting::modelPresets() as $modelId => $model) {
             $supportedLanguageIds = is_array($model['supported_languages'] ?? null)
                 ? array_values($model['supported_languages'])
                 : array_keys(STTSetting::LANGUAGE_PRESETS);
+            $platform = (string)($model['platform'] ?? STTSetting::PLATFORM_MACOS);
             $rows[] = [
                 'id' => $modelId,
-                'platform' => (string)($model['platform'] ?? STTSetting::PLATFORM_MACOS),
+                'platform' => $platform,
                 'title' => $this->modelText((string)$model['label']),
                 'repo' => (string)($model['repo'] ?? ''),
                 'runtime' => (string)($model['model'] ?? $modelId),
@@ -36,7 +37,7 @@ class ModelMarketplaceService
                 'bestFor' => $this->modelText((string)($model['best_for'] ?? '')),
                 'tradeoff' => $this->modelText((string)($model['tradeoff'] ?? '')),
                 'sourceUrl' => (string)($model['source_url'] ?? ''),
-                'selected' => $modelId === $selectedModel,
+                'selected' => $modelId === ($selectedModels[$platform] ?? null),
                 'supportedLanguageIds' => $supportedLanguageIds,
                 'supportedLanguagesAttribute' => implode(',', $supportedLanguageIds),
                 'technical' => implode(' · ', array_values(array_filter([
@@ -52,6 +53,8 @@ class ModelMarketplaceService
     }
 
     /**
+     * The switch opens on the platform whose model was chosen last.
+     *
      * @return array<int, array{id: string, label: string, selected: bool}>
      */
     public function platformRows(): array

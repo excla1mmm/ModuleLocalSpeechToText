@@ -52,7 +52,7 @@ expectAdminSettingsWrite(
 $saveModelBody = adminActionBody($controller, 'saveModelAction', 'retryErrorsAction');
 expectAdminSettingsWrite(
     str_contains($saveModelBody, 'new AdministrativeSettingsWriter()')
-        && str_contains($saveModelBody, "null,\n                true"),
+        && str_contains($saveModelBody, "null,\n                \$values !== []"),
     'Saving a recognition model must notify every worker to refresh PBX-managed state'
 );
 
@@ -104,9 +104,10 @@ expectAdminSettingsWrite(
     'Processing checkboxes must preserve their posted false values instead of using field presence'
 );
 expectAdminSettingsWrite(
-    str_contains($saveBody, 'in_array(STTSetting::SELECTED_MODEL, $changedFields, true)')
+    !str_contains($saveBody, 'STTSetting::SELECTED_MODEL')
+        && str_contains($saveBody, 'foreach (STTSetting::configuredModelIds() as $modelId)')
         && str_contains($saveBody, 'new AdministrativeSettingsWriter()'),
-    'The full settings save path must notify workers when the selected model changes'
+    'The full settings save path must leave models to the marketplace and check the language against every chosen model'
 );
 
 echo "Administrative settings write contract OK\n";

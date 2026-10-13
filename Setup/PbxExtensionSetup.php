@@ -423,6 +423,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyCallTranscriptStorageCompactionMigration($connection),
                 'stt-schema-018-compact-call-transcript-storage'
             ),
+            new ModuleSchemaMigration(
+                19,
+                'per-worker platform',
+                fn (mixed $connection): null => $this->applyWorkerPlatformMigration($connection),
+                'stt-schema-019-worker-platform'
+            ),
         ];
     }
 
@@ -988,6 +994,22 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $connection->execute(
             'CREATE INDEX IF NOT EXISTS i_m_STTJob_cdr_id ON m_STTJob (cdr_id)'
         );
+    }
+
+    private function applyWorkerPlatformMigration(mixed $connection): null
+    {
+        foreach ($connection->describeColumns((new STTWorker())->getSource()) as $column) {
+            if ($column->getName() === 'platform') {
+                return null;
+            }
+        }
+
+        // A stored model does not tell the platform (offline workers keep stale ones and
+        // Linux and Windows share ONNX models), so workers report it on their next
+        // registration or lease; a changed platform makes them refetch their settings.
+        $connection->execute("ALTER TABLE m_STTWorker ADD COLUMN platform TEXT NOT NULL DEFAULT ''");
+
+        return null;
     }
 
     private function ensureJobRecordingDurationColumn(mixed $connection): void

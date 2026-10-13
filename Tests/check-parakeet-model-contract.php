@@ -245,7 +245,7 @@ namespace {
 
     $view = file_get_contents(__DIR__ . '/../App/Views/ModuleLocalSpeechToText/index.volt');
     expectParakeet(is_string($view), 'Cannot read model marketplace view');
-    expectParakeet(str_contains($view, 'name="selected_model"'), 'Generic model selection radio must remain');
+    expectParakeet(str_contains($view, 'name="selected_model[{{ row[\'platform\']|e }}]"'), 'Generic model selection radio must remain');
     expectParakeet(!str_contains($view, 'parakeet-tdt-0.6b-v3'), 'View must not add a Parakeet-specific control');
     expectParakeet(str_contains($view, "form.render('custom_vocabulary_terms')"), 'Vocabulary field must remain unchanged');
 

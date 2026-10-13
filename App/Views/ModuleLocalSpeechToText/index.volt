@@ -109,7 +109,7 @@
     </div>
 
     <div class="ui bottom attached tab segment{% if activeTab === 'models' %} active{% endif %}" data-tab="models">
-        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}" data-initial-selected-model="{{ selectedModel|e }}" data-selected-language="{{ selectedLanguage|e }}" data-selected-platform="{{ selectedPlatform|e }}"></form>
+        <form id="module-local-speech-to-text-model-form" method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/saveModel') }}" data-selected-language="{{ selectedLanguage|e }}"></form>
         <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_ModelsMarketplaceTab') }}</h4>
         <div class="ui info message">{{ t._('module_local_speech_to_text_ModelsMarketplaceHint') }}</div>
         <div class="field stt-model-platform-field">
@@ -119,9 +119,6 @@
                     <button type="button" class="ui button{% if platform['selected'] %} active{% endif %}" data-platform="{{ platform['id']|e }}" aria-pressed="{% if platform['selected'] %}true{% else %}false{% endif %}">{{ platform['label']|e }}</button>
                 {% endfor %}
             </div>
-        </div>
-        <div class="ui warning message hidden" id="stt-model-platform-change" aria-hidden="true">
-            {{ t._('module_local_speech_to_text_WorkerPlatformChangeWarning') }}
         </div>
         <div class="ui warning message hidden" id="stt-model-language-compatibility" aria-hidden="true">
             {{ t._('module_local_speech_to_text_ModelLanguageIncompatible') }}
@@ -140,7 +137,7 @@
                 <tr data-platform="{{ row['platform']|e }}"{% if row['selected'] %} class="positive"{% endif %}{% if row['platform'] !== selectedPlatform %} hidden="hidden"{% endif %}>
                     <td class="center aligned collapsing">
                         <div class="ui radio checkbox">
-                            <input type="radio" form="module-local-speech-to-text-model-form" name="selected_model" value="{{ row['id']|e }}" data-platform="{{ row['platform']|e }}" data-supported-languages="{{ row['supportedLanguagesAttribute']|e }}" {% if row['selected'] %}checked="checked"{% endif %}>
+                            <input type="radio" form="module-local-speech-to-text-model-form" name="selected_model[{{ row['platform']|e }}]" value="{{ row['id']|e }}" data-platform="{{ row['platform']|e }}" data-supported-languages="{{ row['supportedLanguagesAttribute']|e }}" {% if row['selected'] %}checked="checked"{% endif %}>
                             <label></label>
                         </div>
                     </td>
@@ -455,6 +452,7 @@
                 <th>{{ t._('module_local_speech_to_text_Worker') }}</th>
                 <th>{{ t._('module_local_speech_to_text_WorkerUid') }}</th>
                 <th>{{ t._('module_local_speech_to_text_IP') }}</th>
+                <th>{{ t._('module_local_speech_to_text_WorkerPlatformColumn') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
                 <th>{{ t._('module_local_speech_to_text_AppVersion') }}</th>
                 <th class="center aligned">{{ t._('module_local_speech_to_text_Status') }}</th>
@@ -467,6 +465,7 @@
                     <td>{{ worker.name|e }}</td>
                     <td>{{ worker.worker_uid|e }}</td>
                     <td>{{ worker.ip|e }}</td>
+                    <td>{% if worker.platform and workerPlatformLabels[worker.platform] is defined %}{{ t._(workerPlatformLabels[worker.platform]) }}{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td>{% if worker.model %}<span class="stt-model-text">{{ worker.model|e }}</span>{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td>{{ worker.app_version|e }}</td>
                     <td class="center aligned">
@@ -480,7 +479,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="7" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
+                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
                 </tr>
             {% endfor %}
             </tbody>

@@ -43,7 +43,7 @@ expectWorkerSettingsFlag(
     'Only newly registered workers may have their dirty flag initialized explicitly'
 );
 
-foreach (['registerWorker', 'touchOnline', 'updateModel', 'markStaleOffline'] as $method) {
+foreach (['registerWorker', 'touchOnline', 'updatePlatformModel', 'markStaleOffline'] as $method) {
     $methodStart = strpos($workerModel, 'function ' . $method . '(');
     expectWorkerSettingsFlag($methodStart !== false, "Cannot inspect {$method}");
     $nextPublicMethod = strpos($workerModel, "\n    public ", $methodStart + 1);

@@ -623,66 +623,31 @@
 
     function initializeModelMarketplace($modelForm) {
         var $saveButton = $('#module-local-speech-to-text-model-save');
-        var $modelInputs = $('.module-local-speech-to-text .stt-model-marketplace-table input[name="selected_model"]');
+        var $modelInputs = $('.module-local-speech-to-text .stt-model-marketplace-table input[type="radio"][data-platform]');
         var $compatibilityMessage = $('#stt-model-language-compatibility');
-        var initialSelectedModel = String($modelForm.data('initial-selected-model') || $modelInputs.filter(':checked').val() || '');
         var selectedLanguage = String($modelForm.data('selected-language') || '').trim().toLowerCase();
         var $platformButtons = $('.module-local-speech-to-text .stt-model-platform-switch [data-platform]');
-        var $platformChangeMessage = $('#stt-model-platform-change');
-        var initialPlatform = String($modelForm.data('selected-platform') || 'macos');
+        // Every platform keeps its own model; Save stores the platforms whose choice changed.
+        var initialModels = {};
 
-        function selectedModel() {
-            return String($modelInputs.filter(':checked').val() || '');
-        }
+        $modelInputs.filter(':checked').each(function () {
+            initialModels[String($(this).attr('data-platform'))] = String($(this).val());
+        });
 
-        function selectedModelPlatform() {
-            return String($modelInputs.filter(':checked').attr('data-platform') || '');
-        }
-
-        function updatePlatformChangeState() {
-            var platform = selectedModelPlatform();
-            var changesPlatform = platform !== '' && platform !== initialPlatform;
-
-            $platformChangeMessage
-                .toggleClass('hidden', !changesPlatform)
-                .attr('aria-hidden', changesPlatform ? 'false' : 'true');
-        }
-
-        function showPlatform(platform) {
-            var $rows = $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr');
-
-            $platformButtons.each(function () {
-                var active = String($(this).attr('data-platform')) === platform;
-
-                $(this).toggleClass('active', active).attr('aria-pressed', active ? 'true' : 'false');
+        function changedInputs() {
+            return $modelInputs.filter(':checked').filter(function () {
+                return initialModels[String($(this).attr('data-platform'))] !== String($(this).val());
             });
-            $rows.each(function () {
-                $(this).prop('hidden', String($(this).attr('data-platform')) !== platform);
-            });
-
-            if (selectedModelPlatform() !== platform) {
-                $modelInputs.prop('checked', false);
-                $rows.removeClass('positive');
-                if (platform === initialPlatform) {
-                    $modelInputs.filter(function () {
-                        return String($(this).val()) === initialSelectedModel;
-                    }).closest('.ui.radio.checkbox').checkbox('check');
-                }
-            }
         }
 
-        function selectedModelSupportsLanguage() {
-            var $selectedInput = $modelInputs.filter(':checked');
+        function modelSupportsLanguage($input) {
             var supportedLanguages;
 
             if (selectedLanguage === '' || selectedLanguage === 'auto') {
                 return true;
             }
-            if ($selectedInput.length === 0) {
-                return false;
-            }
 
-            supportedLanguages = String($selectedInput.attr('data-supported-languages') || '')
+            supportedLanguages = String($input.attr('data-supported-languages') || '')
                 .split(',')
                 .map(function (language) { return language.trim().toLowerCase(); })
                 .filter(function (language) { return language !== ''; });
@@ -690,26 +655,30 @@
             return supportedLanguages.indexOf(selectedLanguage) !== -1;
         }
 
-        function updateCompatibilityState() {
-            var compatible = selectedModelSupportsLanguage();
-            // After a platform switch nothing is selected yet; there is no model to warn about.
-            var warn = !compatible && selectedModel() !== '';
+        function showPlatform(platform) {
+            $platformButtons.each(function () {
+                var active = String($(this).attr('data-platform')) === platform;
 
-            $compatibilityMessage
-                .toggleClass('hidden', !warn)
-                .attr('aria-hidden', warn ? 'false' : 'true');
-
-            return compatible;
+                $(this).toggleClass('active', active).attr('aria-pressed', active ? 'true' : 'false');
+            });
+            $('.module-local-speech-to-text .stt-model-marketplace-table tbody tr').each(function () {
+                $(this).prop('hidden', String($(this).attr('data-platform')) !== platform);
+            });
         }
 
         function updateSaveButtonState() {
-            var compatible = updateCompatibilityState();
+            var $changed = changedInputs();
+            var compatible = true;
+            var hasChanges;
 
-            updatePlatformChangeState();
-            var hasChanges = selectedModel() !== ''
-                && selectedModel() !== initialSelectedModel
-                && compatible;
+            $changed.each(function () {
+                compatible = compatible && modelSupportsLanguage($(this));
+            });
+            $compatibilityMessage
+                .toggleClass('hidden', compatible)
+                .attr('aria-hidden', compatible ? 'true' : 'false');
 
+            hasChanges = $changed.length > 0 && compatible;
             $saveButton.toggleClass('disabled', !hasChanges);
             $saveButton.prop('disabled', !hasChanges);
         }
@@ -728,20 +697,19 @@
 
         $platformButtons.on('click', function () {
             showPlatform(String($(this).attr('data-platform')));
-            updateSaveButtonState();
         });
 
         $modelInputs.on('change', function () {
             var $row = $(this).closest('tr');
 
-            $row.addClass('positive').siblings().removeClass('positive');
+            $row.addClass('positive')
+                .siblings('[data-platform="' + String($(this).attr('data-platform')) + '"]')
+                .removeClass('positive');
             updateSaveButtonState();
         });
 
         $modelForm.on('submit', function () {
-            if (!selectedModelSupportsLanguage()
-                || selectedModel() === ''
-                || selectedModel() === initialSelectedModel) {
+            if ($saveButton.prop('disabled')) {
                 return false;
             }
             if ($saveButton.length > 0) {
@@ -1159,10 +1127,5 @@
             });
         }
 
-        $modelForm.form({
-            fields: {
-                selected_model: ['empty']
-            }
-        });
     });
 }());

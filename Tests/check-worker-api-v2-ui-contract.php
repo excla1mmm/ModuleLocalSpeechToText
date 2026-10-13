@@ -53,8 +53,8 @@ expectWorkerApiV2Ui(
     'Workers view must render online status only for compatible online workers'
 );
 expectWorkerApiV2Ui(
-    str_contains($view, 'colspan="7"'),
-    'Workers empty row must span all seven worker columns'
+    str_contains($view, 'colspan="8"'),
+    'Workers empty row must span all eight worker columns'
 );
 expectWorkerApiV2Ui(str_contains($view, 'worker.worker_uid|e'), 'Workers view must display an escaped worker UID');
 expectWorkerApiV2Ui(str_contains($view, 'worker.app_version|e'), 'Workers view must display an escaped app version');

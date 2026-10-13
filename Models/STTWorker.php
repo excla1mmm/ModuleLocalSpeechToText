@@ -74,6 +74,14 @@ class STTWorker extends ModulesModelsBase
     public ?string $app_version = '';
 
     /**
+     * Platform the worker last declared (macos, linux, windows); empty for a
+     * worker that never declared one, which is a macOS worker.
+     *
+     * @Column(type="string", nullable=false)
+     */
+    public ?string $platform = '';
+
+    /**
      * @Column(type="integer", nullable=true)
      */
     public ?string $last_seen = null;
@@ -114,7 +122,8 @@ class STTWorker extends ModulesModelsBase
         ?string $ip,
         ?int $apiKeyId = null,
         int $apiVersion = 1,
-        string $appVersion = ''
+        string $appVersion = '',
+        string $platform = ''
     ): self
     {
         $worker = self::findFirst([
@@ -140,6 +149,7 @@ class STTWorker extends ModulesModelsBase
         $worker->last_seen = (string)time();
         $worker->api_version = $apiVersion;
         $worker->app_version = $appVersion;
+        $worker->platform = $platform;
         $worker->updated_at = (string)time();
 
         if ($worker->id === null) {
@@ -152,7 +162,7 @@ class STTWorker extends ModulesModelsBase
             'UPDATE m_STTWorker
              SET name = :name, model = :model, ip = :ip, api_key_id = :api_key_id,
                  status = :status, last_seen = :last_seen, api_version = :api_version,
-                 app_version = :app_version, updated_at = :updated_at
+                 app_version = :app_version, platform = :platform, updated_at = :updated_at
              WHERE id = :id',
             [
                 'name' => $worker->name,
@@ -163,6 +173,7 @@ class STTWorker extends ModulesModelsBase
                 'last_seen' => $worker->last_seen,
                 'api_version' => $worker->api_version,
                 'app_version' => $worker->app_version,
+                'platform' => $worker->platform,
                 'updated_at' => $worker->updated_at,
                 'id' => (int)$worker->id,
             ]
@@ -211,19 +222,37 @@ class STTWorker extends ModulesModelsBase
         }
     }
 
-    public function updateModel(string $modelName): void
+    /**
+     * Remembers the platform a worker declared on a lease request and the
+     * model it runs there. A worker that moves to another platform must fetch
+     * the processing settings of its new platform.
+     */
+    public function updatePlatformModel(string $platform, string $modelName): void
     {
-        if ((string)$this->model === $modelName) {
+        $platformChanged = (string)$this->platform !== $platform;
+        if (!$platformChanged && (string)$this->model === $modelName) {
             return;
         }
 
         if (!$this->getWriteConnection()->execute(
-            'UPDATE m_STTWorker SET model = :model WHERE id = :id',
-            ['model' => $modelName, 'id' => (int)$this->id]
+            'UPDATE m_STTWorker
+             SET platform = :platform, model = :model,
+                 has_settings_changed = CASE WHEN :platform_changed = 1 THEN 1 ELSE has_settings_changed END
+             WHERE id = :id',
+            [
+                'platform' => $platform,
+                'model' => $modelName,
+                'platform_changed' => $platformChanged ? 1 : 0,
+                'id' => (int)$this->id,
+            ]
         )) {
             throw new RuntimeException('Unable to update worker model');
         }
+        $this->platform = $platform;
         $this->model = $modelName;
+        if ($platformChanged) {
+            $this->has_settings_changed = 1;
+        }
     }
 
     public static function markStaleOffline(): void
