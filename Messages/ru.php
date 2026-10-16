@@ -578,7 +578,7 @@ return [
     'module_local_speech_to_text_ModelProfileWhisperCppLargeV3Turbo' => 'Любой язык',
     'module_local_speech_to_text_ModelWhisperCppLargeV3TurboBestFor' => 'Звонки на языках, которые не поддерживают другие модели',
     'module_local_speech_to_text_ModelWhisperCppLargeV3TurboTradeoff' => 'Распознает любой язык, но на CPU это самая медленная из моделей для Windows.',
-    'module_local_speech_to_text_WorkerWindowsDescription' => 'Установите STT Worker как службу Windows для локального распознавания записей.',
+    'module_local_speech_to_text_WorkerWindowsDescription' => 'MSI автоматически устанавливает службу Windows. ZIP содержит LocalSTTWorker.exe и все файлы для ручной установки.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 или Windows Server 2019+ · x64 · 8 ГБ ОЗУ · среда выполнения Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Скачать обработчик для Windows',
     'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Скоро будет доступно',

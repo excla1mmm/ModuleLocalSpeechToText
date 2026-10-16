@@ -22,12 +22,11 @@ final class WorkerDownloadResolution
     }
 }
 
-/**
- * Resolves the latest arm64 worker DMG through the public release endpoint.
- */
+/** Resolves worker packages through the public release endpoint. */
 class WorkerDownloadService
 {
     private const string RELEASE_DOWNLOAD_ENDPOINT = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerMac';
+    private const string WINDOWS_RELEASE_DOWNLOAD_ENDPOINT = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerWin';
     private const int REQUEST_CONNECT_TIMEOUT = 3;
     private const int REQUEST_TIMEOUT = 10;
     private const string REQUEST_USER_AGENT = 'MikoPBX-ModuleLocalSpeechToText';
@@ -40,13 +39,28 @@ class WorkerDownloadService
 
     public function resolveDownload(): WorkerDownloadResolution
     {
+        return $this->resolveReleaseDownload(self::RELEASE_DOWNLOAD_ENDPOINT, 'arm64', 'dmg');
+    }
+
+    public function resolveWindowsDownload(string $format): WorkerDownloadResolution
+    {
+        if (!in_array($format, ['msi', 'zip'], true)) {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::SERVER_ERROR);
+        }
+
+        return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x64', $format,
+            $format === 'msi' ? WindowsWorkerDownload::msiUrl() : WindowsWorkerDownload::zipUrl());
+    }
+
+    private function resolveReleaseDownload(string $baseUrl, string $arch, string $ext, string $fallback = ''): WorkerDownloadResolution
+    {
         $query = [];
         $licenseHash = $this->licenseHash();
         if ($licenseHash !== null) {
             $query['lk'] = $licenseHash;
         }
-        $query += ['arch' => 'arm64', 'ext' => 'dmg'];
-        $endpoint = self::RELEASE_DOWNLOAD_ENDPOINT . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        $query += ['arch' => $arch, 'ext' => $ext];
+        $endpoint = $baseUrl . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
 
         $response = $this->requestRedirect !== null
             ? ($this->requestRedirect)($endpoint)
@@ -54,6 +68,9 @@ class WorkerDownloadService
         $status = is_array($response) ? (int)($response['status'] ?? 0) : 0;
         if ($status === 403) {
             return new WorkerDownloadResolution(WorkerDownloadAvailability::NOT_ENTITLED);
+        }
+        if ($status === 404 && $fallback !== '') {
+            return new WorkerDownloadResolution(WorkerDownloadAvailability::AVAILABLE, $fallback);
         }
         $location = is_array($response) ? (string)($response['location'] ?? '') : '';
         if ($status !== 302 || !self::isTrustedDownloadLink($location)) {

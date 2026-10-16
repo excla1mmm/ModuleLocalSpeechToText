@@ -118,7 +118,6 @@ final class IndexViewService
             ? $downloadPlatform
             : $view->workerPlatform;
         // Empty until the Windows worker is released: the view then shows a disabled "coming soon" button.
-        $view->windowsWorkerDownloadUrl = WindowsWorkerDownload::url();
         // The address the administrator reached the PBX by is the best default for a worker's PBX_URL.
         $view->dockerWorkerCommand = DockerWorkerCommand::build(
             $this->request->getScheme() . '://' . $this->request->getHttpHost(),

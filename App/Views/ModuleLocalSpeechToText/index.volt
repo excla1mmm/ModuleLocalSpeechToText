@@ -337,18 +337,22 @@
                             <div class="stt-table-muted stt-worker-download-meta">{{ t._('module_local_speech_to_text_WorkerWindowsRequirements') }}</div>
                         </div>
                         <div class="six wide right aligned column stt-worker-download-action">
-                            {% if windowsWorkerDownloadUrl !== '' %}
-                                <a class="ui left labeled icon blue button" href="{{ windowsWorkerDownloadUrl|e }}" target="_blank" rel="noopener noreferrer">
+                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
+                                <input type="hidden" name="platform" value="windows">
+                                <input type="hidden" name="format" value="msi">
+                                <button class="ui left labeled icon blue button" type="submit">
                                     <i class="download icon"></i>
-                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }}
-                                </a>
-                            {% else %}
-                                <button class="ui left labeled icon blue disabled button stt-worker-windows-download" type="button" disabled="disabled" aria-disabled="true">
-                                    <i class="download icon"></i>
-                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }}
+                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }} (MSI)
                                 </button>
-                                <div class="stt-table-muted stt-worker-download-soon">{{ t._('module_local_speech_to_text_WorkerWindowsComingSoon') }}</div>
-                            {% endif %}
+                            </form>
+                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
+                                <input type="hidden" name="platform" value="windows">
+                                <input type="hidden" name="format" value="zip">
+                                <button class="ui left labeled icon blue button" type="submit">
+                                    <i class="download icon"></i>
+                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }} (ZIP)
+                                </button>
+                            </form>
                         </div>
                     </div>
                     <div class="stt-worker-docker-heading">{{ t._('module_local_speech_to_text_WorkerApiKey') }}</div>
@@ -360,7 +364,7 @@
                     <div class="stt-worker-docker-heading">{{ t._('module_local_speech_to_text_WorkerWindowsRunAsAdministrator') }}</div>
                     <div class="ui ordered list stt-worker-windows-steps">
                         <div class="item"><code>LocalSTTWorker.exe setup</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepSetup') }}</div>
-                        <div class="item"><code>LocalSTTWorker.exe install</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepInstall') }}</div>
+                        <div class="item"><strong>ZIP:</strong> <code>LocalSTTWorker.exe install</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepInstall') }}</div>
                         <div class="item"><code>LocalSTTWorker.exe status</code> &mdash; {{ t._('module_local_speech_to_text_WorkerWindowsStepStatus') }}</div>
                     </div>
                 </div>

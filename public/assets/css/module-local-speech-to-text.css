@@ -204,6 +204,7 @@
     align-items: flex-end;
     display: flex !important;
     flex-direction: column;
+    gap: 0.5em;
     justify-content: center;
 }
 
@@ -1264,6 +1265,10 @@
     }
 
     .module-local-speech-to-text .stt-worker-download-action .button {
+        width: 100%;
+    }
+
+    .module-local-speech-to-text .stt-worker-download-action form {
         width: 100%;
     }
 

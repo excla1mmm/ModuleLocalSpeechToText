@@ -6,6 +6,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 
 require_once __DIR__ . '/../Lib/Services/WorkerDownloadService.php';
+require_once __DIR__ . '/../Lib/Services/WindowsWorkerDownload.php';
 
 function expectWorkerDownloadService(bool $condition, string $message): void
 {
@@ -60,6 +61,36 @@ expectWorkerDownloadService(
 );
 expectWorkerDownloadService($requests === [$publicEndpoint], 'An absent license hash must be omitted from the URL');
 
+foreach (['msi', 'zip'] as $format) {
+    $requests = [];
+    $service = workerDownloadServiceUnderTest($licenseHash, 302, $downloadLocation, $requests);
+    $resolution = $service->resolveWindowsDownload($format);
+    expectWorkerDownloadService(
+        $requests === ['https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerWin'
+            . '?lk=' . $licenseHash . '&arch=x64&ext=' . $format],
+        "Windows {$format} must use the same licensed release lookup as macOS"
+    );
+    expectWorkerDownloadService($resolution->url === $downloadLocation, "Windows {$format} must follow the release redirect");
+
+    $requests = [];
+    $service = workerDownloadServiceUnderTest($licenseHash, 404, '', $requests);
+    $resolution = $service->resolveWindowsDownload($format);
+    $expectedFallback = $format === 'msi'
+        ? \Modules\ModuleLocalSpeechToText\Lib\Services\WindowsWorkerDownload::msiUrl()
+        : \Modules\ModuleLocalSpeechToText\Lib\Services\WindowsWorkerDownload::zipUrl();
+    expectWorkerDownloadService(
+        $resolution->availability === WorkerDownloadAvailability::AVAILABLE && $resolution->url === $expectedFallback,
+        "Windows {$format} must fall back to the last signed release while appcast returns 404"
+    );
+}
+
+$requests = [];
+$service = workerDownloadServiceUnderTest($licenseHash, 302, $downloadLocation, $requests);
+expectWorkerDownloadService(
+    $service->resolveWindowsDownload('exe')->availability === WorkerDownloadAvailability::SERVER_ERROR && $requests === [],
+    'Unsupported Windows download formats must not contact the release server'
+);
+
 // Only a canonical lowercase SHA-256 value may be sent as lk.
 foreach ([str_repeat('A', 64), str_repeat('a', 63), 'not-a-hash'] as $invalidHash) {
     $requests = [];
@@ -73,6 +104,10 @@ $service = workerDownloadServiceUnderTest($licenseHash, 403, '', $requests);
 expectWorkerDownloadService(
     $service->resolveDownload()->availability === WorkerDownloadAvailability::NOT_ENTITLED,
     'HTTP 403 must report a missing update entitlement'
+);
+expectWorkerDownloadService(
+    $service->resolveWindowsDownload('msi')->availability === WorkerDownloadAvailability::NOT_ENTITLED,
+    'A denied Windows release must not bypass licensing through the fallback'
 );
 
 foreach (

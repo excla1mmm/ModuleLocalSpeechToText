@@ -66,7 +66,6 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->denyUsersUIAccess();
             return;
         }
-
         try {
             $this->saveSettingsFromPost();
             $this->flash->success($this->translation->_('ms_SuccessfulSaved'));
@@ -157,14 +156,17 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         }
 
         try {
+            $platform = (string)$this->request->getPost('platform', 'string', 'macos');
             $service = new WorkerDownloadService();
-            $resolution = $service->resolveDownload();
+            $resolution = $platform === 'windows'
+                ? $service->resolveWindowsDownload((string)$this->request->getPost('format', 'string', ''))
+                : $service->resolveDownload();
             LocalSpeechToTextLogger::event(
                 'settings',
                 'worker_download_requested',
-                'Worker dmg download requested',
+                'Worker download requested',
                 $resolution->availability === WorkerDownloadAvailability::AVAILABLE ? LOG_NOTICE : LOG_WARNING,
-                ['availability' => $resolution->availability->value]
+                ['availability' => $resolution->availability->value, 'platform' => $platform]
             );
             if ($resolution->availability === WorkerDownloadAvailability::AVAILABLE) {
                 // External redirect keeps the license key out of the page HTML.
@@ -176,8 +178,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
             $this->logControllerFailure('download_worker', $exception);
             $this->flash->error($this->settingsSaveErrorMessage($exception));
         }
-
-        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers');
+        $this->response->redirect(MenuProvider::DASHBOARD_PATH . '?tab=workers' . (($platform ?? '') === 'windows' ? '&platform=windows' : ''));
     }
 
     public function generateWorkerApiKeyAction(): void

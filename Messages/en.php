@@ -578,7 +578,7 @@ return [
     'module_local_speech_to_text_ModelProfileWhisperCppLargeV3Turbo' => 'Any language',
     'module_local_speech_to_text_ModelWhisperCppLargeV3TurboBestFor' => 'Calls in languages the other models do not support',
     'module_local_speech_to_text_ModelWhisperCppLargeV3TurboTradeoff' => 'Recognizes any language, but it is the slowest of the Windows models on CPU.',
-    'module_local_speech_to_text_WorkerWindowsDescription' => 'Install STT Worker as a Windows service for local recording transcription.',
+    'module_local_speech_to_text_WorkerWindowsDescription' => 'The MSI installs the Windows service automatically. The ZIP contains LocalSTTWorker.exe and all files for manual installation.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 or Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 runtime',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Download the Windows worker',
     'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Coming soon',

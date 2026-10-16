@@ -81,8 +81,7 @@ expectWorkerDownloadUi(
 );
 expectWorkerDownloadUi(
     str_contains($service, '/appcast/downloadLatest/LocalSTTWorkerMac')
-        && str_contains($service, "'arch' => 'arm64'")
-        && str_contains($service, "'ext' => 'dmg'"),
+        && str_contains($service, "'arm64', 'dmg'"),
     'Service must resolve the arm64 DMG through the public release endpoint'
 );
 
@@ -130,23 +129,25 @@ foreach ($messageFiles as $messageFile) {
     );
 }
 
-// Windows: a download button that stays disabled ("coming soon") until the one URL constant is filled.
+// Windows: MSI and portable ZIP use the same POST/redirect flow as macOS.
 $windowsDownload = (string)file_get_contents($root . '/Lib/Services/WindowsWorkerDownload.php');
 expectWorkerDownloadUi(
-    preg_match("/public const string URL = '[^']*';/", $windowsDownload) === 1
-        && str_contains($indexViewService, '$view->windowsWorkerDownloadUrl = WindowsWorkerDownload::url();'),
-    'The Windows worker download URL must live in WindowsWorkerDownload::URL'
+    str_contains($windowsDownload, 'RELEASE_SHARE_URL')
+        && str_contains($windowsDownload, 'RELEASE_VERSION')
+        && str_contains($service, 'resolveWindowsDownload'),
+    'The Windows worker must resolve MSI and ZIP through the release service'
 );
 $windowsPanelStart = strpos($view, '<div class="stt-worker-platform-panel" data-platform="windows"');
 expectWorkerDownloadUi($windowsPanelStart !== false, 'The Workers tab must have a Windows panel');
 $windowsPanel = substr($view, (int)$windowsPanelStart, (int)strpos($view, 'stt-worker-api-key', (int)$windowsPanelStart) - (int)$windowsPanelStart);
 expectWorkerDownloadUi(
-    str_contains($windowsPanel, "{% if windowsWorkerDownloadUrl !== '' %}")
-        && str_contains($windowsPanel, 'href="{{ windowsWorkerDownloadUrl|e }}"')
-        && str_contains($windowsPanel, 'disabled="disabled"')
-        && str_contains($windowsPanel, 'module_local_speech_to_text_WorkerWindowsComingSoon')
+    substr_count($windowsPanel, 'module-local-speech-to-text/module-local-speech-to-text/downloadWorker') === 2
+        && substr_count($windowsPanel, 'name="platform" value="windows"') === 2
+        && str_contains($windowsPanel, 'name="format" value="msi"')
+        && str_contains($windowsPanel, 'name="format" value="zip"')
+        && !str_contains($windowsPanel, 'disabled="disabled"')
         && substr_count($windowsPanel, 'module_local_speech_to_text_DownloadWindowsWorker') === 2,
-    'The Windows download button must be disabled with a coming-soon note while the URL is empty'
+    'The Windows panel must offer separate MSI and portable ZIP downloads'
 );
 foreach (['setup', 'install', 'status'] as $command) {
     expectWorkerDownloadUi(
