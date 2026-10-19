@@ -66,8 +66,8 @@ foreach (['msi', 'zip'] as $format) {
     $service = workerDownloadServiceUnderTest($licenseHash, 302, $downloadLocation, $requests);
     $resolution = $service->resolveWindowsDownload($format);
     expectWorkerDownloadService(
-        $requests === ['https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerWin'
-            . '?lk=' . $licenseHash . '&arch=x64&ext=' . $format],
+        $requests === ['https://releases.mikopbx.com/releases/v1/other/downloadLatest/LocalSTTWorkerWin'
+            . '?lk=' . $licenseHash . '&arch=x86_64&ext=' . $format],
         "Windows {$format} must use the same licensed release lookup as macOS"
     );
     expectWorkerDownloadService($resolution->url === $downloadLocation, "Windows {$format} must follow the release redirect");

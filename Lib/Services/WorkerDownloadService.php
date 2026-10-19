@@ -26,7 +26,7 @@ final class WorkerDownloadResolution
 class WorkerDownloadService
 {
     private const string RELEASE_DOWNLOAD_ENDPOINT = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerMac';
-    private const string WINDOWS_RELEASE_DOWNLOAD_ENDPOINT = 'https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerWin';
+    private const string WINDOWS_RELEASE_DOWNLOAD_ENDPOINT = 'https://releases.mikopbx.com/releases/v1/other/downloadLatest/LocalSTTWorkerWin';
     private const int REQUEST_CONNECT_TIMEOUT = 3;
     private const int REQUEST_TIMEOUT = 10;
     private const string REQUEST_USER_AGENT = 'MikoPBX-ModuleLocalSpeechToText';
@@ -48,7 +48,7 @@ class WorkerDownloadService
             return new WorkerDownloadResolution(WorkerDownloadAvailability::SERVER_ERROR);
         }
 
-        return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x64', $format,
+        return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x86_64', $format,
             $format === 'msi' ? WindowsWorkerDownload::msiUrl() : WindowsWorkerDownload::zipUrl());
     }
 
