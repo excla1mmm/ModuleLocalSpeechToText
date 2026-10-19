@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Instale o STT Worker como serviço do Windows para transcrever as gravações localmente.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 ou Windows Server 2019+ · x64 · 8 GB de RAM · runtime Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Transferir o worker para Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Disponível em breve',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'A chave completa só é mostrada na criação. Crie uma com o botão «%button%» abaixo e introduza-a quando o setup pedir a chave API do worker.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'A chave foi criada e é mostrada abaixo. Introduza-a quando o setup pedir a chave API do worker e guarde-a: a chave completa não volta a ser mostrada.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Execute numa linha de comandos como administrador',

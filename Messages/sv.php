@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Installera STT Worker som en Windows-tjänst för att transkribera inspelningar lokalt.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 eller Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64-runtime',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Ladda ned Windows-workern',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Kommer snart',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Den fullständiga nyckeln visas bara när den skapas. Skapa en med knappen ”%button%” nedan och ange den när setup frågar efter workerns API-nyckel.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Nyckeln har skapats och visas nedan. Ange den när setup frågar efter workerns API-nyckel och spara den: den fullständiga nyckeln visas inte igen.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Kör i en kommandotolk som administratör',

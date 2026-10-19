@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Εγκαταστήστε το STT Worker ως υπηρεσία Windows για τοπική απομαγνητοφώνηση των ηχογραφήσεων.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 ή Windows Server 2019+ · x64 · 8 GB RAM · περιβάλλον εκτέλεσης Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Λήψη του worker για Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Σύντομα διαθέσιμο',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Το πλήρες κλειδί εμφανίζεται μόνο κατά τη δημιουργία του. Δημιουργήστε ένα με το κουμπί «%button%» παρακάτω και εισαγάγετέ το όταν το setup ζητήσει το κλειδί API του worker.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Το κλειδί δημιουργήθηκε και εμφανίζεται παρακάτω. Εισαγάγετέ το όταν το setup ζητήσει το κλειδί API του worker και αποθηκεύστε το: το πλήρες κλειδί δεν εμφανίζεται ξανά.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Εκτελέστε σε γραμμή εντολών ως διαχειριστής',

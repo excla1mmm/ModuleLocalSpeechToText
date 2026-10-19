@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Installer STT Worker som en Windows-tjeneste for at transskribere optagelser lokalt.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 eller Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64-runtime',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Download Windows-workeren',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Kommer snart',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Den fulde nøgle vises kun, når den oprettes. Opret en med knappen “%button%” nedenfor, og indtast den, når setup beder om workerens API-nøgle.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Nøglen er oprettet og vises nedenfor. Indtast den, når setup beder om workerens API-nøgle, og gem den: den fulde nøgle vises ikke igen.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Kør i en kommandoprompt som administrator',

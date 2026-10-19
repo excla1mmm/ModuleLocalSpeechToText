@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => '録音をローカルで文字起こしするには、STT Worker を Windows サービスとしてインストールします。',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 または Windows Server 2019 以降 · x64 · RAM 8 GB · Visual C++ 2015–2022 x64 ランタイム',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows 用ワーカーをダウンロード',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => '近日公開',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => '完全なキーは作成時にのみ表示されます。下の「%button%」ボタンでキーを作成し、setup がワーカーの API キーを求めたら入力してください。',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'キーを作成し、下に表示しました。setup がワーカーの API キーを求めたら入力し、保存してください。完全なキーは再表示されません。',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => '管理者としてコマンド プロンプトで実行',

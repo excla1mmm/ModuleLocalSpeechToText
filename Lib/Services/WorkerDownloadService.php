@@ -48,11 +48,10 @@ class WorkerDownloadService
             return new WorkerDownloadResolution(WorkerDownloadAvailability::SERVER_ERROR);
         }
 
-        return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x86_64', $format,
-            $format === 'msi' ? WindowsWorkerDownload::msiUrl() : WindowsWorkerDownload::zipUrl());
+        return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x86_64', $format);
     }
 
-    private function resolveReleaseDownload(string $baseUrl, string $arch, string $ext, string $fallback = ''): WorkerDownloadResolution
+    private function resolveReleaseDownload(string $baseUrl, string $arch, string $ext): WorkerDownloadResolution
     {
         $query = [];
         $licenseHash = $this->licenseHash();
@@ -68,9 +67,6 @@ class WorkerDownloadService
         $status = is_array($response) ? (int)($response['status'] ?? 0) : 0;
         if ($status === 403) {
             return new WorkerDownloadResolution(WorkerDownloadAvailability::NOT_ENTITLED);
-        }
-        if ($status === 404 && $fallback !== '') {
-            return new WorkerDownloadResolution(WorkerDownloadAvailability::AVAILABLE, $fallback);
         }
         $location = is_array($response) ? (string)($response['location'] ?? '') : '';
         if ($status !== 302 || !self::isTrustedDownloadLink($location)) {

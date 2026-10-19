@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Бичлэгийг дотооддоо танихын тулд STT Worker-ийг Windows үйлчилгээ болгон суулгана уу.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 эсвэл Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 ажиллах орчин',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows-д зориулсан воркерийг татах',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Удахгүй боломжтой болно',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Бүтэн түлхүүр зөвхөн үүсгэх үед харагдана. Доорх “%button%” товчоор түлхүүр үүсгээд setup воркерийн API түлхүүрийг асуух үед оруулна уу.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Түлхүүр үүсч, доор харагдаж байна. Setup воркерийн API түлхүүрийг асуух үед оруулаад хадгалж аваарай: бүтэн түлхүүр дахин харагдахгүй.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Командын мөрөнд администраторын эрхээр ажиллуулна уу',

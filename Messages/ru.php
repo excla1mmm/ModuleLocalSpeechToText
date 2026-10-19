@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'MSI автоматически устанавливает службу Windows. ZIP содержит LocalSTTWorker.exe и все файлы для ручной установки.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 или Windows Server 2019+ · x64 · 8 ГБ ОЗУ · среда выполнения Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Скачать обработчик для Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Скоро будет доступно',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Полный ключ показывается только при создании. Создайте его кнопкой «%button%» ниже и введите, когда setup запросит ключ доступа обработчика.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Ключ создан и показан ниже. Введите его, когда setup запросит ключ доступа обработчика, и сохраните: повторно полный ключ не показывается.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Выполните в командной строке от имени администратора',

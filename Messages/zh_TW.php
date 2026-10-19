@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => '將 STT Worker 安裝為 Windows 服務，於本機轉寫錄音。',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 或 Windows Server 2019+ · x64 · 8 GB 記憶體 · Visual C++ 2015–2022 x64 執行階段',
     'module_local_speech_to_text_DownloadWindowsWorker' => '下載 Windows 版 worker',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => '即將推出',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => '完整金鑰僅在建立時顯示。請使用下方的「%button%」按鈕建立金鑰，並在 setup 詢問 worker API 金鑰時輸入。',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => '金鑰已建立並顯示於下方。請在 setup 詢問 worker API 金鑰時輸入，並妥善保存：完整金鑰不會再次顯示。',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => '以系統管理員身分在命令提示字元中執行',

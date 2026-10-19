@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Asenna STT Worker Windows-palveluksi tallenteiden paikallista litterointia varten.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 tai Windows Server 2019+ · x64 · 8 Gt RAM · Visual C++ 2015–2022 x64 -ajonaikainen ympäristö',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Lataa Windows-worker',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Tulossa pian',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Koko avain näytetään vain luotaessa. Luo avain alla olevalla ”%button%”-painikkeella ja syötä se, kun setup kysyy workerin API-avainta.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Avain on luotu ja näkyy alla. Syötä se, kun setup kysyy workerin API-avainta, ja tallenna se: koko avainta ei näytetä uudelleen.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Suorita komentokehotteessa järjestelmänvalvojana',

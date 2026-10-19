@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Zainstaluj STT Worker jako usługę Windows, aby lokalnie transkrybować nagrania.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 lub Windows Server 2019+ · x64 · 8 GB RAM · środowisko uruchomieniowe Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Pobierz workera dla Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Wkrótce dostępne',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Pełny klucz jest pokazywany tylko podczas tworzenia. Utwórz go przyciskiem „%button%” poniżej i wpisz, gdy setup zapyta o klucz API workera.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Klucz został utworzony i jest pokazany poniżej. Wpisz go, gdy setup zapyta o klucz API workera, i zapisz go: pełny klucz nie zostanie ponownie pokazany.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Uruchom w wierszu polecenia jako administrator',

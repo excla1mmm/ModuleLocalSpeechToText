@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => '녹음을 로컬에서 텍스트로 변환하려면 STT Worker를 Windows 서비스로 설치하세요.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 또는 Windows Server 2019 이상 · x64 · RAM 8GB · Visual C++ 2015–2022 x64 런타임',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows용 워커 다운로드',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => '곧 제공 예정',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => '전체 키는 생성할 때만 표시됩니다. 아래의 “%button%” 버튼으로 키를 만들고 setup이 워커 API 키를 요청하면 입력하세요.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => '키가 생성되어 아래에 표시됩니다. setup이 워커 API 키를 요청하면 입력하고 저장해 두세요. 전체 키는 다시 표시되지 않습니다.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => '관리자 권한으로 명령 프롬프트에서 실행',

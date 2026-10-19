@@ -130,12 +130,11 @@ foreach ($messageFiles as $messageFile) {
 }
 
 // Windows: MSI and portable ZIP use the same POST/redirect flow as macOS.
-$windowsDownload = (string)file_get_contents($root . '/Lib/Services/WindowsWorkerDownload.php');
 expectWorkerDownloadUi(
-    str_contains($windowsDownload, 'RELEASE_SHARE_URL')
-        && str_contains($windowsDownload, 'RELEASE_VERSION')
-        && str_contains($service, 'resolveWindowsDownload'),
-    'The Windows worker must resolve MSI and ZIP through the release service'
+    str_contains($service, '/other/downloadLatest/LocalSTTWorkerWin')
+        && str_contains($service, "'x86_64', \$format")
+        && !file_exists($root . '/Lib/Services/WindowsWorkerDownload.php'),
+    'The Windows worker must resolve MSI and ZIP through the release service only'
 );
 $windowsPanelStart = strpos($view, '<div class="stt-worker-platform-panel" data-platform="windows"');
 expectWorkerDownloadUi($windowsPanelStart !== false, 'The Workers tab must have a Windows panel');
@@ -163,7 +162,6 @@ expectWorkerDownloadUi(
 $windowsKeys = [
     'module_local_speech_to_text_PlatformWindows',
     'module_local_speech_to_text_DownloadWindowsWorker',
-    'module_local_speech_to_text_WorkerWindowsComingSoon',
     'module_local_speech_to_text_WorkerWindowsDescription',
     'module_local_speech_to_text_WorkerWindowsRequirements',
     'module_local_speech_to_text_WorkerWindowsKeyHint',

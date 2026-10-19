@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Cài đặt STT Worker dưới dạng dịch vụ Windows để chuyển ghi âm thành văn bản ngay tại chỗ.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 hoặc Windows Server 2019+ · x64 · RAM 8 GB · môi trường chạy Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Tải worker cho Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Sắp ra mắt',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Khóa đầy đủ chỉ hiển thị khi được tạo. Hãy tạo khóa bằng nút “%button%” bên dưới và nhập khóa khi setup hỏi khóa API của worker.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Khóa đã được tạo và hiển thị bên dưới. Hãy nhập khóa khi setup hỏi khóa API của worker và lưu lại: khóa đầy đủ sẽ không hiển thị lại.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Chạy trong dấu nhắc lệnh với quyền quản trị viên',

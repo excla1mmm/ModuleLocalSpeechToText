@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Telepítse az STT Workert Windows-szolgáltatásként a felvételek helyi átírásához.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 vagy Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 futtatókörnyezet',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'A Windows-worker letöltése',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Hamarosan elérhető',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'A teljes kulcs csak létrehozáskor jelenik meg. Hozzon létre egyet az alábbi „%button%” gombbal, és adja meg, amikor a setup a worker API-kulcsát kéri.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'A kulcs elkészült, és alább látható. Adja meg, amikor a setup a worker API-kulcsát kéri, és mentse el: a teljes kulcs többé nem jelenik meg.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Futtassa parancssorban rendszergazdaként',

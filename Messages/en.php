@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'The MSI installs the Windows service automatically. The ZIP contains LocalSTTWorker.exe and all files for manual installation.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 or Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 runtime',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Download the Windows worker',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Coming soon',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'The full key is shown only when it is created. Create one with the “%button%” button below and enter it when setup asks for the worker API key.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'The key is created and shown below. Enter it when setup asks for the worker API key and save it: the full key is not shown again.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Run in a command prompt as administrator',

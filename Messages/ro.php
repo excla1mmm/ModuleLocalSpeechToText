@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Instalați STT Worker ca serviciu Windows pentru transcrierea locală a înregistrărilor.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 sau Windows Server 2019+ · x64 · 8 GB RAM · runtime Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Descărcați workerul pentru Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'În curând',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Cheia completă este afișată doar la creare. Creați una cu butonul „%button%” de mai jos și introduceți-o când setup cere cheia API a workerului.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Cheia a fost creată și este afișată mai jos. Introduceți-o când setup cere cheia API a workerului și salvați-o: cheia completă nu mai este afișată.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Rulați într-un prompt de comandă ca administrator',

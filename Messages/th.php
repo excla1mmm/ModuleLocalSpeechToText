@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'ติดตั้ง STT Worker เป็นบริการของ Windows เพื่อถอดความไฟล์บันทึกภายในเครื่อง',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 หรือ Windows Server 2019 ขึ้นไป · x64 · RAM 8 GB · รันไทม์ Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'ดาวน์โหลด worker สำหรับ Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'เร็ว ๆ นี้',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'คีย์แบบเต็มจะแสดงเฉพาะตอนสร้างเท่านั้น สร้างคีย์ด้วยปุ่ม “%button%” ด้านล่าง แล้วป้อนคีย์เมื่อ setup ถามหาคีย์ API ของ worker',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'สร้างคีย์แล้วและแสดงอยู่ด้านล่าง ป้อนคีย์เมื่อ setup ถามหาคีย์ API ของ worker และบันทึกไว้: คีย์แบบเต็มจะไม่แสดงอีก',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'เรียกใช้ในพรอมต์คำสั่งในฐานะผู้ดูแลระบบ',

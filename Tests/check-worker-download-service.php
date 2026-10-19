@@ -6,7 +6,6 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadAvailability;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerDownloadService;
 
 require_once __DIR__ . '/../Lib/Services/WorkerDownloadService.php';
-require_once __DIR__ . '/../Lib/Services/WindowsWorkerDownload.php';
 
 function expectWorkerDownloadService(bool $condition, string $message): void
 {
@@ -74,13 +73,9 @@ foreach (['msi', 'zip'] as $format) {
 
     $requests = [];
     $service = workerDownloadServiceUnderTest($licenseHash, 404, '', $requests);
-    $resolution = $service->resolveWindowsDownload($format);
-    $expectedFallback = $format === 'msi'
-        ? \Modules\ModuleLocalSpeechToText\Lib\Services\WindowsWorkerDownload::msiUrl()
-        : \Modules\ModuleLocalSpeechToText\Lib\Services\WindowsWorkerDownload::zipUrl();
     expectWorkerDownloadService(
-        $resolution->availability === WorkerDownloadAvailability::AVAILABLE && $resolution->url === $expectedFallback,
-        "Windows {$format} must fall back to the last signed release while appcast returns 404"
+        $service->resolveWindowsDownload($format)->availability === WorkerDownloadAvailability::SERVER_ERROR,
+        "Windows {$format} must report a server error when the release server lists no release"
     );
 }
 
@@ -107,7 +102,7 @@ expectWorkerDownloadService(
 );
 expectWorkerDownloadService(
     $service->resolveWindowsDownload('msi')->availability === WorkerDownloadAvailability::NOT_ENTITLED,
-    'A denied Windows release must not bypass licensing through the fallback'
+    'HTTP 403 must report a missing entitlement for the Windows worker too'
 );
 
 foreach (

@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Installeer STT Worker als Windows-service om opnamen lokaal te transcriberen.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 of Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64-runtime',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows-worker downloaden',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Binnenkort beschikbaar',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'De volledige sleutel wordt alleen bij het aanmaken getoond. Maak er een aan met de knop ‘%button%’ hieronder en voer hem in wanneer setup om de API-sleutel van de worker vraagt.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'De sleutel is aangemaakt en wordt hieronder getoond. Voer hem in wanneer setup om de API-sleutel van de worker vraagt en bewaar hem: de volledige sleutel wordt niet opnieuw getoond.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Voer uit in een opdrachtprompt als administrator',

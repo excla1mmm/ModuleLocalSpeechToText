@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Instalirajte STT Worker kao Windows uslugu za lokalnu transkripciju snimki.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 ili Windows Server 2019+ · x64 · 8 GB RAM-a · okruženje za izvođenje Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Preuzmite worker za Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Uskoro dostupno',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Puni ključ prikazuje se samo pri izradi. Izradite ga gumbom „%button%” u nastavku i unesite ga kada setup zatraži API ključ workera.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Ključ je izrađen i prikazan u nastavku. Unesite ga kada setup zatraži API ključ workera i spremite ga: puni ključ više se neće prikazati.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Pokrenite u naredbenom retku kao administrator',

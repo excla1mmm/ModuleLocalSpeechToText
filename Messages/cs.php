@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Nainstalujte STT Worker jako službu Windows pro lokální přepis nahrávek.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 nebo Windows Server 2019+ · x64 · 8 GB RAM · runtime Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Stáhnout worker pro Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Brzy k dispozici',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Celý klíč se zobrazí pouze při vytvoření. Vytvořte jej tlačítkem „%button%“ níže a zadejte jej, až se setup zeptá na API klíč workeru.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Klíč byl vytvořen a je zobrazen níže. Zadejte jej, až se setup zeptá na API klíč workeru, a uložte si jej: celý klíč se znovu nezobrazí.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Spusťte v příkazovém řádku jako správce',

@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Kayıtları yerel olarak yazıya dökmek için STT Worker’ı bir Windows hizmeti olarak kurun.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 veya Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 çalışma zamanı',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows worker’ını indir',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Yakında',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Tam anahtar yalnızca oluşturulurken gösterilir. Aşağıdaki “%button%” düğmesiyle bir anahtar oluşturun ve setup worker API anahtarını sorduğunda girin.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Anahtar oluşturuldu ve aşağıda gösteriliyor. Setup worker API anahtarını sorduğunda girin ve kaydedin: tam anahtar bir daha gösterilmez.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Komut isteminde yönetici olarak çalıştırın',

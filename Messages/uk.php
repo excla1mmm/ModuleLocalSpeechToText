@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Установіть STT Worker як службу Windows для локального розпізнавання записів.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 або Windows Server 2019+ · x64 · 8 ГБ ОЗП · середовище виконання Visual C++ 2015–2022 x64',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Завантажити воркер для Windows',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Незабаром буде доступно',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Повний ключ показується лише під час створення. Створіть його кнопкою «%button%» нижче та введіть, коли setup запитає ключ доступу воркера.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Ключ створено й показано нижче. Введіть його, коли setup запитає ключ доступу воркера, і збережіть: повторно повний ключ не показується.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Виконайте в командному рядку від імені адміністратора',

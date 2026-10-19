@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'Yazıları yerli olaraq tanımaq üçün STT Worker-i Windows xidməti kimi quraşdırın.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 və ya Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 icra mühiti',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'Windows üçün worker-i yükləyin',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'Tezliklə əlçatan olacaq',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'Tam açar yalnız yaradılarkən göstərilir. Aşağıdakı “%button%” düyməsi ilə açar yaradın və setup worker-in API açarını soruşduqda onu daxil edin.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'Açar yaradıldı və aşağıda göstərilir. Setup worker-in API açarını soruşduqda onu daxil edin və saxlayın: tam açar bir daha göstərilmir.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'Əmr sətrində administrator kimi icra edin',

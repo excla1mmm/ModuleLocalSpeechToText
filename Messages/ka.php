@@ -581,7 +581,6 @@ return [
     'module_local_speech_to_text_WorkerWindowsDescription' => 'ჩანაწერების ლოკალური ამოცნობისთვის დააინსტალირეთ STT Worker Windows-ის სერვისად.',
     'module_local_speech_to_text_WorkerWindowsRequirements' => 'Windows 10/11 ან Windows Server 2019+ · x64 · 8 GB RAM · Visual C++ 2015–2022 x64 გაშვების გარემო',
     'module_local_speech_to_text_DownloadWindowsWorker' => 'ვორკერის ჩამოტვირთვა Windows-ისთვის',
-    'module_local_speech_to_text_WorkerWindowsComingSoon' => 'მალე იქნება ხელმისაწვდომი',
     'module_local_speech_to_text_WorkerWindowsKeyHint' => 'სრული გასაღები მხოლოდ შექმნისას ჩანს. შექმენით ის ქვემოთ მოცემული ღილაკით „%button%“ და შეიყვანეთ, როცა setup ვორკერის API გასაღებს მოითხოვს.',
     'module_local_speech_to_text_WorkerWindowsKeyCreated' => 'გასაღები შეიქმნა და ქვემოთ ჩანს. შეიყვანეთ ის, როცა setup ვორკერის API გასაღებს მოითხოვს, და შეინახეთ: სრული გასაღები აღარ გამოჩნდება.',
     'module_local_speech_to_text_WorkerWindowsRunAsAdministrator' => 'შეასრულეთ ბრძანების სტრიქონში ადმინისტრატორის სახელით',
