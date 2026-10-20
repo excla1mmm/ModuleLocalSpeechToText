@@ -337,21 +337,30 @@
                             <div class="stt-table-muted stt-worker-download-meta">{{ t._('module_local_speech_to_text_WorkerWindowsRequirements') }}</div>
                         </div>
                         <div class="six wide right aligned column stt-worker-download-action">
-                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
+                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}" class="stt-worker-windows-download-form">
                                 <input type="hidden" name="platform" value="windows">
                                 <input type="hidden" name="format" value="msi">
-                                <button class="ui left labeled icon blue button" type="submit">
+                                <div class="ui blue left labeled icon dropdown button stt-worker-windows-download" tabindex="0" data-packages-url="{{ url(windowsWorkerPackagesPath) }}">
                                     <i class="download icon"></i>
-                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }} (MSI)
-                                </button>
-                            </form>
-                            <form method="post" action="{{ url('module-local-speech-to-text/module-local-speech-to-text/downloadWorker') }}">
-                                <input type="hidden" name="platform" value="windows">
-                                <input type="hidden" name="format" value="zip">
-                                <button class="ui left labeled icon blue button" type="submit">
-                                    <i class="download icon"></i>
-                                    {{ t._('module_local_speech_to_text_DownloadWindowsWorker') }} (ZIP)
-                                </button>
+                                    <span class="text">{{ t._('module_local_speech_to_text_DownloadWindowsWorker') }}</span>
+                                    <span class="stt-worker-windows-download-caret"><i class="dropdown icon"></i></span>
+                                    <div class="menu">
+                                        <div class="item" data-value="msi">
+                                            <i class="file archive outline icon"></i>
+                                            <div class="stt-worker-package">
+                                                <div class="stt-worker-package-name">MSI</div>
+                                                <div class="stt-worker-package-hint">{{ t._('module_local_speech_to_text_WorkerWindowsMsiHint') }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="item" data-value="zip">
+                                            <i class="file archive outline icon"></i>
+                                            <div class="stt-worker-package">
+                                                <div class="stt-worker-package-name">ZIP</div>
+                                                <div class="stt-worker-package-hint">{{ t._('module_local_speech_to_text_WorkerWindowsZipHint') }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>

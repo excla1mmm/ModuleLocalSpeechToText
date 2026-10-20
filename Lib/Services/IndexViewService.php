@@ -126,6 +126,7 @@ final class IndexViewService
                 : $this->translation->_('module_local_speech_to_text_WorkerDockerKeyPlaceholder'),
         );
         $view->logsDataPath = MenuProvider::LOGS_PATH;
+        $view->windowsWorkerPackagesPath = MenuProvider::WINDOWS_WORKER_PACKAGES_PATH;
     }
 
     private function countJobs(string $status): int

@@ -86,6 +86,57 @@ expectWorkerDownloadService(
     'Unsupported Windows download formats must not contact the release server'
 );
 
+// The Windows menu shows the release file name and size; anything unexpected stays unknown.
+$sizeRequests = [];
+$service = new WorkerDownloadService(
+    static fn (): ?string => $licenseHash,
+    static fn (string $url): array => [
+        'status' => 302,
+        'location' => 'https://filescdn.miko.ru/s/win/download?path=%2F&files=MikoPBX-LocalSTTWorker-0.1.22-'
+            . (str_contains($url, 'ext=msi') ? 'x64.msi' : 'win-x64.zip'),
+    ],
+    static function (string $url) use (&$sizeRequests): int {
+        $sizeRequests[] = $url;
+
+        return str_contains($url, '.msi') ? 95674368 : 119376002;
+    }
+);
+expectWorkerDownloadService(
+    $service->describeWindowsPackages() === [
+        ['format' => 'msi', 'filename' => 'MikoPBX-LocalSTTWorker-0.1.22-x64.msi', 'size' => 95674368],
+        ['format' => 'zip', 'filename' => 'MikoPBX-LocalSTTWorker-0.1.22-win-x64.zip', 'size' => 119376002],
+    ] && count($sizeRequests) === 2,
+    'Windows packages must be described with the release file name and size'
+);
+
+$sizeRequests = [];
+$service = new WorkerDownloadService(
+    static fn (): ?string => $licenseHash,
+    static fn (string $url): array => ['status' => 302, 'location' => 'https://filescdn.miko.ru/s/win/download?files=%3Cscript%3E.msi'],
+    static function (string $url) use (&$sizeRequests): int {
+        $sizeRequests[] = $url;
+
+        return 1;
+    }
+);
+expectWorkerDownloadService(
+    $service->describeWindowsPackages() === [
+        ['format' => 'msi', 'filename' => null, 'size' => null],
+        ['format' => 'zip', 'filename' => null, 'size' => null],
+    ] && $sizeRequests === [],
+    'An unexpected release file name must not be shown or probed'
+);
+
+$service = new WorkerDownloadService(
+    static fn (): ?string => $licenseHash,
+    static fn (string $url): array => ['status' => 403, 'location' => ''],
+    static fn (string $url): int => 1
+);
+expectWorkerDownloadService(
+    array_column($service->describeWindowsPackages(), 'filename') === [null, null],
+    'A denied Windows release must leave the package names unknown'
+);
+
 // Only a canonical lowercase SHA-256 value may be sent as lk.
 foreach ([str_repeat('A', 64), str_repeat('a', 63), 'not-a-hash'] as $invalidHash) {
     $requests = [];

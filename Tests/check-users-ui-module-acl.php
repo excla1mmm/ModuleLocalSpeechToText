@@ -26,6 +26,7 @@ namespace {
     $controller = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\ModuleLocalSpeechToTextController';
     $cdrController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
     $transcriptActionsController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\TranscriptActionsController';
+    $workerPackagesController = 'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\WorkerPackagesController';
     $rules = ModuleLocalSpeechToTextACL::getLinkedControllerActions();
     $actions = $rules[$controller] ?? [];
 
@@ -48,7 +49,8 @@ namespace {
         'Settings access must open the shared page and own both settings write actions'
     );
     expectUsersUiAcl(
-        ($actions['system'][$controller] ?? []) === ['index', 'retryErrors', 'downloadWorker', 'generateWorkerApiKey', 'deleteWorkerApiKey', 'logs'],
+        ($actions['system'][$controller] ?? []) === ['index', 'retryErrors', 'downloadWorker', 'generateWorkerApiKey', 'deleteWorkerApiKey', 'logs']
+            && ($actions['system'][$workerPackagesController] ?? []) === ['windows'],
         'System access must open the shared page and own queue, worker download, worker-key, and log actions'
     );
 

@@ -33,7 +33,8 @@ class WorkerDownloadService
 
     public function __construct(
         private readonly ?Closure $licenseHashProvider = null,
-        private readonly ?Closure $requestRedirect = null
+        private readonly ?Closure $requestRedirect = null,
+        private readonly ?Closure $requestSize = null
     ) {
     }
 
@@ -49,6 +50,33 @@ class WorkerDownloadService
         }
 
         return $this->resolveReleaseDownload(self::WINDOWS_RELEASE_DOWNLOAD_ENDPOINT, 'x86_64', $format);
+    }
+
+    /**
+     * File name and size of each Windows package for the download menu.
+     * A package the release server does not list, or whose size is unknown, has null fields.
+     *
+     * @return list<array{format: string, filename: ?string, size: ?int}>
+     */
+    public function describeWindowsPackages(): array
+    {
+        $packages = [];
+        foreach (['msi', 'zip'] as $format) {
+            $resolution = $this->resolveWindowsDownload($format);
+            $filename = $resolution->availability === WorkerDownloadAvailability::AVAILABLE
+                ? self::windowsPackageFilename($resolution->url, $format)
+                : null;
+            $size = $filename === null ? null : ($this->requestSize !== null
+                ? ($this->requestSize)($resolution->url)
+                : $this->requestSizeWithCurl($resolution->url));
+            $packages[] = [
+                'format' => $format,
+                'filename' => $filename,
+                'size' => is_int($size) && $size > 0 ? $size : null,
+            ];
+        }
+
+        return $packages;
     }
 
     private function resolveReleaseDownload(string $baseUrl, string $arch, string $ext): WorkerDownloadResolution
@@ -101,6 +129,43 @@ class WorkerDownloadService
     {
         return str_starts_with($link, 'https://')
             && filter_var($link, FILTER_VALIDATE_URL) !== false;
+    }
+
+    /** Only a release file name of the expected shape is shown to the administrator. */
+    private static function windowsPackageFilename(string $url, string $format): ?string
+    {
+        parse_str((string)parse_url($url, PHP_URL_QUERY), $query);
+        $name = is_string($query['files'] ?? null)
+            ? $query['files']
+            : rawurldecode(basename((string)parse_url($url, PHP_URL_PATH)));
+        $suffix = $format === 'msi' ? 'x64\.msi' : 'win-x64\.zip';
+
+        return preg_match('/^MikoPBX-LocalSTTWorker-\d+\.\d+\.\d+-' . $suffix . '$/D', $name) === 1 ? $name : null;
+    }
+
+    private function requestSizeWithCurl(string $url): ?int
+    {
+        $handle = curl_init($url);
+        if ($handle === false) {
+            return null;
+        }
+
+        curl_setopt_array($handle, [
+            CURLOPT_NOBODY => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_CONNECTTIMEOUT => self::REQUEST_CONNECT_TIMEOUT,
+            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT,
+            CURLOPT_USERAGENT => self::REQUEST_USER_AGENT,
+        ]);
+        if (curl_exec($handle) === false || (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE) !== 200) {
+            return null;
+        }
+        $size = (int)curl_getinfo($handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T);
+
+        return $size > 0 ? $size : null;
     }
 
     /**

@@ -151,6 +151,53 @@
         });
     }
 
+    function formatPackageSize(bytes) {
+        return (bytes / 1048576).toFixed(2) + ' MB';
+    }
+
+    // The Windows download is one button with an MSI/ZIP menu. File names and sizes come
+    // from the release server through the PBX, once, when the Windows panel is first shown.
+    function initializeWindowsWorkerDownload() {
+        var $dropdown = $('.module-local-speech-to-text .stt-worker-windows-download');
+        var requested = false;
+
+        if ($dropdown.length === 0) {
+            return function () {};
+        }
+
+        $dropdown.dropdown({
+            action: function (text, value) {
+                var $form = $dropdown.closest('form');
+                $dropdown.dropdown('hide');
+                if (value === 'msi' || value === 'zip') {
+                    $form.find('input[name="format"]').val(value);
+                    $form.trigger('submit');
+                }
+            }
+        });
+
+        return function loadPackages() {
+            if (requested || $dropdown.closest('.stt-worker-platform-panel').prop('hidden')) {
+                return;
+            }
+            requested = true;
+            $.ajax({
+                url: $dropdown.attr('data-packages-url'),
+                method: 'GET',
+                dataType: 'json'
+            }).done(function (response) {
+                var packages = response && Array.isArray(response.packages) ? response.packages : [];
+                packages.forEach(function (item) {
+                    if (!item || typeof item.filename !== 'string' || item.filename === '') {
+                        return;
+                    }
+                    var label = item.filename + (typeof item.size === 'number' ? ' (' + formatPackageSize(item.size) + ')' : '');
+                    $dropdown.find('.item[data-value="' + String(item.format) + '"] .stt-worker-package-name').text(label);
+                });
+            });
+        };
+    }
+
     function initializeModuleLogs() {
         var $form = $('#stt-module-logs-form');
         var $segment = $('#system-logs-segment');
@@ -937,7 +984,9 @@
             $tabItems.tab('change tab', requestedTab());
         }
 
-        $('.module-local-speech-to-text .ui.dropdown').dropdown();
+        $('.module-local-speech-to-text .ui.dropdown').not('.stt-worker-windows-download').dropdown();
+        var loadWindowsWorkerPackages = initializeWindowsWorkerDownload();
+        loadWindowsWorkerPackages();
         $('.module-local-speech-to-text .ui.checkbox').checkbox();
         $('.module-local-speech-to-text [data-content]').popup();
         initializeModelMarketplace($modelForm);
@@ -1070,6 +1119,7 @@
             });
             $download.closest('[data-worker-platform]').attr('data-worker-platform', platform)
                 .find('input[name="worker_platform"]').val(platform);
+            loadWindowsWorkerPackages();
         });
 
         if (typeof Form !== 'undefined' && $settingsForm.length > 0) {

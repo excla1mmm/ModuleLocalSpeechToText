@@ -212,6 +212,56 @@
     margin: 0 !important;
 }
 
+.module-local-speech-to-text .stt-worker-windows-download.ui.dropdown.button {
+    padding-right: 3em !important;
+}
+
+.module-local-speech-to-text .stt-worker-windows-download-caret {
+    position: absolute;
+    right: 1em;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.module-local-speech-to-text .stt-worker-windows-download-caret > .dropdown.icon {
+    margin: 0;
+}
+
+.module-local-speech-to-text .stt-worker-windows-download.ui.dropdown > .menu {
+    left: auto;
+    margin-top: 0.5em;
+    min-width: 100%;
+    right: 0;
+}
+
+.module-local-speech-to-text .stt-worker-windows-download.ui.dropdown > .menu > .item {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.75em;
+    padding: 0.85em 1.25em !important;
+    white-space: nowrap;
+}
+
+.module-local-speech-to-text .stt-worker-windows-download.ui.dropdown > .menu > .item > .icon {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 1.2em;
+    margin: 0.1em 0 0;
+}
+
+.module-local-speech-to-text .stt-worker-package-name {
+    color: #4183c4;
+}
+
+.module-local-speech-to-text .stt-worker-windows-download.ui.dropdown > .menu > .item:hover .stt-worker-package-name {
+    color: #1e70bf;
+}
+
+.module-local-speech-to-text .stt-worker-package-hint {
+    color: rgba(0, 0, 0, 0.55);
+    font-size: 0.93em;
+    margin-top: 0.2em;
+}
+
 .module-local-speech-to-text .stt-worker-download-soon {
     margin-top: 0.5em;
 }
@@ -1270,6 +1320,10 @@
 
     .module-local-speech-to-text .stt-worker-download-action form {
         width: 100%;
+    }
+
+    .module-local-speech-to-text .stt-worker-windows-download.ui.dropdown > .menu > .item {
+        white-space: normal;
     }
 
     .module-local-speech-to-text .stt-recording-player,

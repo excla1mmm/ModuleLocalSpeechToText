@@ -17,6 +17,8 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\CdrTranscriptController';
     private const string TRANSCRIPT_ACTIONS_CONTROLLER =
         'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\TranscriptActionsController';
+    private const string WORKER_PACKAGES_CONTROLLER =
+        'Modules\\ModuleLocalSpeechToText\\App\\Controllers\\WorkerPackagesController';
 
     public static function getLinkedControllerActions(): array
     {
@@ -42,6 +44,7 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
                         'deleteWorkerApiKey',
                         'logs',
                     ],
+                    self::WORKER_PACKAGES_CONTROLLER => ['windows'],
                 ],
             ],
         ];

@@ -140,13 +140,36 @@ $windowsPanelStart = strpos($view, '<div class="stt-worker-platform-panel" data-
 expectWorkerDownloadUi($windowsPanelStart !== false, 'The Workers tab must have a Windows panel');
 $windowsPanel = substr($view, (int)$windowsPanelStart, (int)strpos($view, 'stt-worker-api-key', (int)$windowsPanelStart) - (int)$windowsPanelStart);
 expectWorkerDownloadUi(
-    substr_count($windowsPanel, 'module-local-speech-to-text/module-local-speech-to-text/downloadWorker') === 2
-        && substr_count($windowsPanel, 'name="platform" value="windows"') === 2
+    substr_count($windowsPanel, 'module-local-speech-to-text/module-local-speech-to-text/downloadWorker') === 1
+        && substr_count($windowsPanel, 'name="platform" value="windows"') === 1
         && str_contains($windowsPanel, 'name="format" value="msi"')
-        && str_contains($windowsPanel, 'name="format" value="zip"')
+        && str_contains($windowsPanel, 'stt-worker-windows-download')
+        && str_contains($windowsPanel, 'data-packages-url="{{ url(windowsWorkerPackagesPath) }}"')
+        && str_contains($windowsPanel, '<div class="item" data-value="msi">')
+        && str_contains($windowsPanel, '<div class="item" data-value="zip">')
+        && str_contains($windowsPanel, 'module_local_speech_to_text_WorkerWindowsMsiHint')
+        && str_contains($windowsPanel, 'module_local_speech_to_text_WorkerWindowsZipHint')
         && !str_contains($windowsPanel, 'disabled="disabled"')
-        && substr_count($windowsPanel, 'module_local_speech_to_text_DownloadWindowsWorker') === 2,
-    'The Windows panel must offer separate MSI and portable ZIP downloads'
+        && substr_count($windowsPanel, 'module_local_speech_to_text_DownloadWindowsWorker') === 1,
+    'The Windows panel must offer one download menu with the MSI and the portable ZIP'
+);
+$script = (string)file_get_contents($root . '/public/assets/js/src/module-local-speech-to-text.js');
+expectWorkerDownloadUi(
+    str_contains($script, "$('.module-local-speech-to-text .ui.dropdown').not('.stt-worker-windows-download').dropdown();")
+        && str_contains($script, "$form.find('input[name=\"format\"]').val(value);")
+        && str_contains($script, "$dropdown.attr('data-packages-url')"),
+    'The Windows menu must submit the chosen format and load package names and sizes'
+);
+$packagesController = (string)file_get_contents($root . '/App/Controllers/WorkerPackagesController.php');
+expectWorkerDownloadUi(
+    str_contains($packagesController, 'public function windowsAction(): void')
+        && str_contains($packagesController, 'canManageSystem()')
+        && str_contains($packagesController, 'describeWindowsPackages()'),
+    'The Windows package endpoint must be limited to system managers'
+);
+expectWorkerDownloadUi(
+    str_contains($indexViewService, '$view->windowsWorkerPackagesPath = MenuProvider::WINDOWS_WORKER_PACKAGES_PATH;'),
+    'The Windows menu must get the package endpoint from the view service'
 );
 foreach (['setup', 'install', 'status'] as $command) {
     expectWorkerDownloadUi(
@@ -162,6 +185,8 @@ expectWorkerDownloadUi(
 $windowsKeys = [
     'module_local_speech_to_text_PlatformWindows',
     'module_local_speech_to_text_DownloadWindowsWorker',
+    'module_local_speech_to_text_WorkerWindowsMsiHint',
+    'module_local_speech_to_text_WorkerWindowsZipHint',
     'module_local_speech_to_text_WorkerWindowsDescription',
     'module_local_speech_to_text_WorkerWindowsRequirements',
     'module_local_speech_to_text_WorkerWindowsKeyHint',
@@ -171,8 +196,8 @@ $windowsKeys = [
     'module_local_speech_to_text_WorkerWindowsStepInstall',
     'module_local_speech_to_text_WorkerWindowsStepStatus',
 ];
-expectWorkerDownloadUi(($russian['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Скачать обработчик для Windows', 'Russian Windows download label mismatch');
-expectWorkerDownloadUi(($english['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Download the Windows worker', 'English Windows download label mismatch');
+expectWorkerDownloadUi(($russian['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Скачать для Windows', 'Russian Windows download label mismatch');
+expectWorkerDownloadUi(($english['module_local_speech_to_text_DownloadWindowsWorker'] ?? null) === 'Download for Windows', 'English Windows download label mismatch');
 foreach ($messageFiles as $messageFile) {
     $messages = include $messageFile;
     foreach ($windowsKeys as $key) {
