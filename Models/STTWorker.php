@@ -82,6 +82,14 @@ class STTWorker extends ModulesModelsBase
     public ?string $platform = '';
 
     /**
+     * Optional features the worker last declared, comma-separated (see
+     * WorkerCapabilities); empty for an older worker that declares none.
+     *
+     * @Column(type="string", nullable=false)
+     */
+    public ?string $capabilities = '';
+
+    /**
      * @Column(type="integer", nullable=true)
      */
     public ?string $last_seen = null;
@@ -123,7 +131,8 @@ class STTWorker extends ModulesModelsBase
         ?int $apiKeyId = null,
         int $apiVersion = 1,
         string $appVersion = '',
-        string $platform = ''
+        string $platform = '',
+        string $capabilities = ''
     ): self
     {
         $worker = self::findFirst([
@@ -150,6 +159,7 @@ class STTWorker extends ModulesModelsBase
         $worker->api_version = $apiVersion;
         $worker->app_version = $appVersion;
         $worker->platform = $platform;
+        $worker->capabilities = $capabilities;
         $worker->updated_at = (string)time();
 
         if ($worker->id === null) {
@@ -162,7 +172,8 @@ class STTWorker extends ModulesModelsBase
             'UPDATE m_STTWorker
              SET name = :name, model = :model, ip = :ip, api_key_id = :api_key_id,
                  status = :status, last_seen = :last_seen, api_version = :api_version,
-                 app_version = :app_version, platform = :platform, updated_at = :updated_at
+                 app_version = :app_version, platform = :platform, capabilities = :capabilities,
+                 updated_at = :updated_at
              WHERE id = :id',
             [
                 'name' => $worker->name,
@@ -174,6 +185,7 @@ class STTWorker extends ModulesModelsBase
                 'api_version' => $worker->api_version,
                 'app_version' => $worker->app_version,
                 'platform' => $worker->platform,
+                'capabilities' => $worker->capabilities,
                 'updated_at' => $worker->updated_at,
                 'id' => (int)$worker->id,
             ]
@@ -253,6 +265,37 @@ class STTWorker extends ModulesModelsBase
         if ($platformChanged) {
             $this->has_settings_changed = 1;
         }
+    }
+
+    /** Stores the features declared on a job lease; writes only when they changed. */
+    public function updateCapabilities(string $capabilities): void
+    {
+        if ((string)$this->capabilities === $capabilities) {
+            return;
+        }
+        if (!$this->getWriteConnection()->execute(
+            'UPDATE m_STTWorker SET capabilities = :capabilities WHERE id = :id',
+            ['capabilities' => $capabilities, 'id' => (int)$this->id]
+        )) {
+            throw new RuntimeException('Unable to update worker capabilities');
+        }
+        $this->capabilities = $capabilities;
+    }
+
+    /** Whether any online worker declared the feature (see WorkerCapabilities). */
+    public static function anyOnlineWithCapability(string $capability): bool
+    {
+        foreach (self::find([
+            'conditions' => 'status = :status: AND capabilities <> :empty:',
+            'bind' => ['status' => self::STATUS_ONLINE, 'empty' => ''],
+            'columns' => 'capabilities',
+        ]) as $row) {
+            if (in_array($capability, explode(',', (string)$row->capabilities), true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function markStaleOffline(): void

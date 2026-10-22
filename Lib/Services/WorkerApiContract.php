@@ -27,6 +27,8 @@ final class WorkerApiContract
         'summary-leases',
         'summary-results',
         'summary-failures',
+        // Accepts `capabilities` on POST /workers and `worker_capabilities` on POST /job-leases.
+        'worker-capabilities',
     ];
 
     public static function requireVersion(array $request): ?PBXApiResult

@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Получить суммаризацию звонка по идентификатору звонка',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Возвращает суммаризацию последней опубликованной ревизии расшифровки звонка по идентификатору звонка АТС (linkedid или UNIQUEID любой записанной части): общий статус, тему и текст звонка и суммаризацию каждой записанной части.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Суммаризация звонка по последней ревизии расшифровки',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Дополнительные возможности обработчика, например call-summaries. Заменяет сохранённый список; обработчик, который ничего не прислал, их не поддерживает.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Дополнительные возможности обработчика, например call-summaries. Добавляются к списку, заявленному при регистрации.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Дополнительные возможности, заявленные обработчиком, например call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Ваш обработчик не поддерживает суммаризацию. Обновите его на последнюю версию для корректной работы.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Суммаризация',
 ];

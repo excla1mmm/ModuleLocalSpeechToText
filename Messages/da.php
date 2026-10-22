@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Hent opkaldsresumé via opkalds-ID',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Returnerer resuméet af den senest offentliggjorte transskriptionsrevision af et opkald via dets PBX-opkalds-ID (linkedid eller UNIQUEID for en vilkårlig optaget del): én status, ét emne og én tekst for opkaldet samt resuméet af hver optaget del.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Opkaldsresumé af den seneste transskriptionsrevision',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Valgfrie funktioner, som Worker understøtter, for eksempel call-summaries. Erstatter den gemte liste; en Worker, der ikke sender nogen, understøtter ingen.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Valgfrie funktioner, som Worker understøtter, for eksempel call-summaries. Tilføjes til listen, der blev angivet ved registreringen.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Valgfrie funktioner, som Worker har angivet, for eksempel call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Din worker understøtter ikke opsummering. Opdater den til den nyeste version for korrekt drift.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Opsummering',
 ];

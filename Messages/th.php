@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'รับบทสรุปของสายตามรหัสสาย',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'ส่งคืนบทสรุปของการแก้ไขล่าสุดของข้อความถอดเสียงที่เผยแพร่แล้วของสายตามรหัสสายของ PBX (linkedid หรือ UNIQUEID ของช่วงที่บันทึกเสียงช่วงใดก็ได้): สถานะ หัวข้อ และข้อความหนึ่งชุดสำหรับสาย พร้อมบทสรุปของแต่ละช่วงที่บันทึกเสียง',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'บทสรุปของสายจากการแก้ไขล่าสุดของข้อความถอดเสียง',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'ฟีเจอร์เสริมที่ Worker รองรับ เช่น call-summaries แทนที่รายการที่จัดเก็บไว้ Worker ที่ไม่ส่งอะไรมาถือว่าไม่รองรับฟีเจอร์ใดเลย',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'ฟีเจอร์เสริมที่ Worker รองรับ เช่น call-summaries เพิ่มเข้าไปในรายการที่ประกาศไว้ตอนลงทะเบียน',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'ฟีเจอร์เสริมที่ Worker ประกาศไว้ เช่น call-summaries',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Worker ของคุณไม่รองรับการสรุป โปรดอัปเดตเป็นเวอร์ชันล่าสุดเพื่อให้ทำงานได้อย่างถูกต้อง',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'สรุป',
 ];

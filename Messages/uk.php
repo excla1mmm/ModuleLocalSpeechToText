@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Отримати підсумок дзвінка за ідентифікатором дзвінка',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Повертає підсумок останньої опублікованої ревізії розшифровки дзвінка за ідентифікатором дзвінка АТС (linkedid або UNIQUEID будь-якої записаної частини): загальний статус, тему й текст дзвінка та підсумок кожної записаної частини.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Підсумок дзвінка за останньою ревізією розшифровки',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Додаткові можливості, які підтримує Worker, наприклад call-summaries. Замінює збережений список; Worker, який нічого не надіслав, нічого не підтримує.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Додаткові можливості, які підтримує Worker, наприклад call-summaries. Додаються до списку, заявленого під час реєстрації.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Додаткові можливості, заявлені Worker, наприклад call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Ваш обробник не підтримує підсумовування. Оновіть його до останньої версії для коректної роботи.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Підсумок',
 ];

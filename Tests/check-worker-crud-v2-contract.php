@@ -376,6 +376,7 @@ namespace {
     $serviceFile = $root . '/Lib/Services/STTWorkerResourceService.php';
     expectWorkerCrud(is_file($serviceFile), 'STTWorkerResourceService CRUD implementation is missing');
 
+    require_once $root . '/Lib/Services/WorkerCapabilities.php';
     require_once $root . '/Lib/Services/WorkerApiContract.php';
     require_once $root . '/Lib/Services/WorkerApiKeyService.php';
     require_once $root . '/Lib/RestAPI/Common/WorkerRequestContext.php';
@@ -409,7 +410,7 @@ namespace {
     expectWorkerCrud(
         array_keys($filtered->data[0] ?? []) === [
             'id', 'worker_uid', 'name', 'ip', 'status', 'model', 'api_key_id', 'api_version',
-            'app_version', 'compatible', 'last_seen', 'created_at', 'updated_at',
+            'app_version', 'capabilities', 'compatible', 'last_seen', 'created_at', 'updated_at',
         ],
         'Worker responses must expose the exact public resource fields',
         $filtered->data[0] ?? null,

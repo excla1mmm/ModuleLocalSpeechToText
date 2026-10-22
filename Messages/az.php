@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Zəngin xülasəsini zəng ID-si ilə əldə et',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Zəngin transkriptinin ən son dərc edilmiş redaksiyasının xülasəsini PBX zəng ID-sinə görə qaytarır (linkedid və ya qeydə alınmış istənilən hissənin UNIQUEID dəyəri): zəng üçün bir status, mövzu və mətn, həmçinin qeydə alınmış hər hissənin xülasəsi.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Transkriptin son redaksiyasının zəng xülasəsi',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker-in dəstəklədiyi əlavə imkanlar, məsələn call-summaries. Saxlanılan siyahını əvəz edir; heç nə göndərməyən Worker heç bir imkanı dəstəkləmir.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker-in dəstəklədiyi əlavə imkanlar, məsələn call-summaries. Qeydiyyat zamanı bildirilmiş siyahıya əlavə olunur.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker-in bildirdiyi əlavə imkanlar, məsələn call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Worker-iniz xülasəni dəstəkləmir. Düzgün işləməsi üçün onu ən son versiyaya yeniləyin.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Xülasə',
 ];

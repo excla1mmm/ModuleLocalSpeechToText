@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Obține rezumatul apelului după ID-ul apelului',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Returnează rezumatul ultimei revizii publicate a transcrierii unui apel după ID-ul apelului din PBX (linkedid sau UNIQUEID al oricărei părți înregistrate): o stare, un subiect și un text pentru apel și rezumatul fiecărei părți înregistrate.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Rezumatul apelului din ultima revizie a transcrierii',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Funcții opționale pe care Worker le acceptă, de exemplu call-summaries. Înlocuiește lista salvată; un Worker care nu trimite niciuna nu acceptă nicio funcție.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Funcții opționale pe care Worker le acceptă, de exemplu call-summaries. Se adaugă la lista declarată la înregistrare.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Funcții opționale declarate de Worker, de exemplu call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Worker-ul dvs. nu acceptă rezumarea. Actualizați-l la cea mai recentă versiune pentru funcționare corectă.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Rezumat',
 ];

@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Ottieni il riepilogo di una chiamata tramite il suo ID',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Restituisce il riepilogo dell’ultima revisione pubblicata della trascrizione di una chiamata tramite il suo ID chiamata del PBX (linkedid o UNIQUEID di qualsiasi parte registrata): uno stato, un argomento e un testo per la chiamata e il riepilogo di ogni parte registrata.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Riepilogo della chiamata dell’ultima revisione della trascrizione',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Funzionalità opzionali supportate dal Worker, ad esempio call-summaries. Sostituisce l’elenco salvato; un Worker che non ne invia nessuna non ne supporta nessuna.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Funzionalità opzionali supportate dal Worker, ad esempio call-summaries. Aggiunte all’elenco dichiarato alla registrazione.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Funzionalità opzionali dichiarate dal Worker, ad esempio call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Il tuo worker non supporta il riepilogo. Aggiornalo all’ultima versione per un funzionamento corretto.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Riepilogo',
 ];

@@ -442,6 +442,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyCallSummaryIndexMigration($connection),
                 'stt-schema-021-call-summary-indexes'
             ),
+            new ModuleSchemaMigration(
+                22,
+                'worker capabilities',
+                fn (mixed $connection): null => $this->applyWorkerCapabilitiesMigration($connection),
+                'stt-schema-022-worker-capabilities'
+            ),
         ];
     }
 
@@ -1033,6 +1039,20 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         // Linux and Windows share ONNX models), so workers report it on their next
         // registration or lease; a changed platform makes them refetch their settings.
         $connection->execute("ALTER TABLE m_STTWorker ADD COLUMN platform TEXT NOT NULL DEFAULT ''");
+
+        return null;
+    }
+
+    private function applyWorkerCapabilitiesMigration(mixed $connection): null
+    {
+        foreach ($connection->describeColumns((new STTWorker())->getSource()) as $column) {
+            if ($column->getName() === 'capabilities') {
+                return null;
+            }
+        }
+
+        // Workers declare their features on the next registration or lease.
+        $connection->execute("ALTER TABLE m_STTWorker ADD COLUMN capabilities TEXT NOT NULL DEFAULT ''");
 
         return null;
     }

@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Získat shrnutí hovoru podle ID hovoru',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Vrací shrnutí nejnovější zveřejněné revize přepisu hovoru podle ID hovoru ústředny (linkedid nebo UNIQUEID libovolné nahrané části): jeden stav, téma a text pro hovor a shrnutí každé nahrané části.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Shrnutí hovoru z nejnovější revize přepisu',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Volitelné funkce, které Worker podporuje, například call-summaries. Nahradí uložený seznam; Worker, který nic neodešle, nepodporuje nic.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Volitelné funkce, které Worker podporuje, například call-summaries. Přidají se k seznamu uvedenému při registraci.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Volitelné funkce, které Worker deklaroval, například call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Váš worker nepodporuje shrnutí. Aktualizujte jej na nejnovější verzi, aby fungoval správně.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Shrnutí',
 ];

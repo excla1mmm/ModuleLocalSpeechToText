@@ -26,6 +26,7 @@ class Controller extends BaseRestController
     #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('worker_platform', required: false)]
+    #[ApiParameterRef('worker_capabilities', required: false)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseJobClaimed')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
     public function create(): void {}

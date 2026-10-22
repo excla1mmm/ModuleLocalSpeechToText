@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Anrufzusammenfassung anhand der Anruf-ID abrufen',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Gibt die Zusammenfassung der neuesten veröffentlichten Transkriptionsrevision eines Anrufs anhand seiner PBX-Anruf-ID zurück (linkedid oder UNIQUEID eines beliebigen aufgezeichneten Teils): ein Status, Thema und Text für den Anruf sowie die Zusammenfassung jedes aufgezeichneten Teils.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Anrufzusammenfassung der neuesten Transkriptionsrevision',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Optionale Funktionen, die der Worker unterstützt, zum Beispiel call-summaries. Ersetzt die gespeicherte Liste; ein Worker, der keine sendet, unterstützt keine.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Optionale Funktionen, die der Worker unterstützt, zum Beispiel call-summaries. Wird zur bei der Registrierung angegebenen Liste hinzugefügt.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Optionale Funktionen, die der Worker angegeben hat, zum Beispiel call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Ihr Worker unterstützt keine Zusammenfassung. Aktualisieren Sie ihn auf die neueste Version, damit alles korrekt funktioniert.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Zusammenfassung',
 ];

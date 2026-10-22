@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Дуудлагын хураангуйг дуудлагын ID-аар авах',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Дуудлагын хамгийн сүүлд нийтлэгдсэн бичвэрийн засварын хураангуйг PBX-ийн дуудлагын ID-аар (linkedid эсвэл бичигдсэн аль ч хэсгийн UNIQUEID) буцаана: дуудлагын нэг төлөв, сэдэв, текст болон бичигдсэн хэсэг бүрийн хураангуй.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Бичвэрийн сүүлийн засварын дуудлагын хураангуй',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker-ийн дэмждэг нэмэлт боломжууд, жишээ нь call-summaries. Хадгалсан жагсаалтыг солино; юу ч илгээгээгүй Worker юуг ч дэмждэггүй.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker-ийн дэмждэг нэмэлт боломжууд, жишээ нь call-summaries. Бүртгүүлэх үед зарласан жагсаалтад нэмэгдэнэ.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker-ийн зарласан нэмэлт боломжууд, жишээ нь call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Таны worker хураангуйг дэмжихгүй байна. Зөв ажиллуулахын тулд хамгийн сүүлийн хувилбар руу шинэчилнэ үү.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Хураангуй',
 ];

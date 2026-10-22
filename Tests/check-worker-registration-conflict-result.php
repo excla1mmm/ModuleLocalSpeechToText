@@ -55,7 +55,7 @@ namespace {
     use Modules\ModuleLocalSpeechToText\Lib\LocalSpeechToTextMain;
 
     require_once __DIR__ . '/../Lib/Exceptions/WorkerApiKeyBindingConflictException.php';
-    require_once __DIR__ . '/../Lib/Services/JobApiResponseBuilder.php';require_once __DIR__ . '/../Lib/Services/WorkerAuthorizationValidator.php';require_once __DIR__ . '/../Lib/Services/JobResultPayloadNormalizer.php';require_once __DIR__ . '/../Lib/LocalSpeechToTextMain.php';
+    require_once __DIR__ . '/../Lib/Services/JobApiResponseBuilder.php';require_once __DIR__ . '/../Lib/Services/WorkerAuthorizationValidator.php';require_once __DIR__ . '/../Lib/Services/JobResultPayloadNormalizer.php';require_once __DIR__ . '/../Lib/Services/WorkerCapabilities.php';require_once __DIR__ . '/../Lib/LocalSpeechToTextMain.php';
 
     $result = LocalSpeechToTextMain::registerWorker([
         'worker_uid' => 'race-loser',

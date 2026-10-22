@@ -120,6 +120,25 @@
     min-height: 11em;
 }
 
+.module-local-speech-to-text .stt-summarization-segment {
+    margin-bottom: 0;
+    padding: 1.1em 1.2em;
+}
+
+/* Semantic UI hides warning messages inside a form that is not in the
+   warning state; this one is shown by the server, so it stays visible. */
+.module-local-speech-to-text .ui.form .ui.warning.message.stt-summarization-workers-warning {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.9em;
+    margin-top: 1em;
+}
+
+.module-local-speech-to-text .stt-summarization-workers-warning > .icon {
+    flex: none;
+    margin: 0.15em 0 0;
+}
+
 .module-local-speech-to-text .stt-worker-download {
     margin-bottom: 1em;
 }

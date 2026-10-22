@@ -194,6 +194,7 @@ final class STTWorkerResourceService
             'api_key_id' => $worker->api_key_id === null ? null : (int)$worker->api_key_id,
             'api_version' => (int)$worker->api_version,
             'app_version' => (string)$worker->app_version,
+            'capabilities' => WorkerCapabilities::decode($worker->capabilities),
             'compatible' => (int)$worker->api_version === WorkerApiContract::API_VERSION,
             'last_seen' => $worker->last_seen === null ? null : (int)$worker->last_seen,
             'created_at' => (int)$worker->created_at,

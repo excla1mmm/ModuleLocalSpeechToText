@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Çağrı özetini çağrı kimliğiyle al',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Bir çağrının en son yayımlanan transkript revizyonunun özetini PBX çağrı kimliğiyle döndürür (linkedid veya kaydedilmiş herhangi bir bölümün UNIQUEID değeri): çağrı için tek bir durum, konu ve metin ile kaydedilen her bölümün özeti.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'En son transkript revizyonunun çağrı özeti',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker’ın desteklediği isteğe bağlı özellikler, örneğin call-summaries. Kayıtlı listenin yerini alır; hiçbir şey göndermeyen Worker hiçbirini desteklemez.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker’ın desteklediği isteğe bağlı özellikler, örneğin call-summaries. Kayıt sırasında bildirilen listeye eklenir.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker’ın bildirdiği isteğe bağlı özellikler, örneğin call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Worker\'ınız özetlemeyi desteklemiyor. Doğru çalışması için en son sürüme güncelleyin.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Özet',
 ];

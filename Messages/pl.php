@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Pobierz podsumowanie rozmowy według identyfikatora',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Zwraca podsumowanie najnowszej opublikowanej rewizji transkrypcji rozmowy według identyfikatora rozmowy centrali (linkedid lub UNIQUEID dowolnej nagranej części): jeden status, temat i tekst dla rozmowy oraz podsumowanie każdej nagranej części.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Podsumowanie rozmowy z najnowszej rewizji transkrypcji',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Opcjonalne funkcje obsługiwane przez Worker, na przykład call-summaries. Zastępuje zapisaną listę; Worker, który nie przesyła żadnej, nie obsługuje żadnej.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Opcjonalne funkcje obsługiwane przez Worker, na przykład call-summaries. Dodawane do listy zgłoszonej podczas rejestracji.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Opcjonalne funkcje zgłoszone przez Worker, na przykład call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Twój worker nie obsługuje podsumowań. Zaktualizuj go do najnowszej wersji, aby działał poprawnie.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Podsumowanie',
 ];

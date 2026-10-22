@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Dohvati sažetak poziva prema ID-u poziva',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Vraća sažetak najnovije objavljene revizije transkripta poziva prema ID-u poziva centrale (linkedid ili UNIQUEID bilo kojeg snimljenog dijela): jedan status, temu i tekst za poziv te sažetak svakog snimljenog dijela.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Sažetak poziva iz najnovije revizije transkripta',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Neobavezne značajke koje Worker podržava, na primjer call-summaries. Zamjenjuje spremljeni popis; Worker koji ne pošalje nijednu ne podržava nijednu.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Neobavezne značajke koje Worker podržava, na primjer call-summaries. Dodaju se popisu navedenom pri registraciji.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Neobavezne značajke koje je Worker naveo, na primjer call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Vaš worker ne podržava sažimanje. Ažurirajte ga na najnoviju verziju za ispravan rad.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Sažetak',
 ];

@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'ზარის შეჯამების მიღება ზარის იდენტიფიკატორით',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'აბრუნებს ზარის ტრანსკრიპტის უახლესი გამოქვეყნებული რევიზიის შეჯამებას ATS-ის ზარის იდენტიფიკატორით (linkedid ან ჩაწერილი ნებისმიერი ნაწილის UNIQUEID): ერთი სტატუსი, თემა და ტექსტი ზარისთვის და ყოველი ჩაწერილი ნაწილის შეჯამება.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'ზარის შეჯამება ტრანსკრიპტის უახლესი რევიზიიდან',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'არასავალდებულო ფუნქციები, რომლებსაც Worker მხარს უჭერს, მაგალითად call-summaries. ანაცვლებს შენახულ სიას; Worker, რომელიც არაფერს აგზავნის, არაფერს უჭერს მხარს.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'არასავალდებულო ფუნქციები, რომლებსაც Worker მხარს უჭერს, მაგალითად call-summaries. ემატება რეგისტრაციისას გამოცხადებულ სიას.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'არასავალდებულო ფუნქციები, რომლებიც Worker-მა გამოაცხადა, მაგალითად call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'თქვენი worker არ უჭერს მხარს შეჯამებას. სწორი მუშაობისთვის განაახლეთ ის უახლეს ვერსიამდე.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'შეჯამება',
 ];

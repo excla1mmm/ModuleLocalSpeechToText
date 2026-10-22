@@ -44,12 +44,6 @@
                     {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
                 </div>
             </div>
-            <div class="field">
-                <div class="ui toggle checkbox stt-summarization-toggle">
-                    {{ form.render('summarization_enabled') }}
-                    <label>{{ t._('module_local_speech_to_text_SummarizationEnabled') }} <i class="small info circle icon field-info-icon" data-content="{{ summarizationHint|e }}" data-variation="wide"></i></label>
-                </div>
-            </div>
             {# Keep these values in form submissions; remove hidden when the UI is ready to return. #}
             <div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>
                 <div class="title">
@@ -105,6 +99,22 @@
             <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_VocabularyTermsTitle') }} <i class="small info circle icon field-info-icon" data-content="{{ t._('module_local_speech_to_text_VocabularyTermsHint') }} {{ t._('module_local_speech_to_text_CustomVocabularyTermsHint') }}" data-variation="wide"></i></h4>
             <div class="field stt-vocabulary-terms-field">
                 {{ form.render('custom_vocabulary_terms') }}
+            </div>
+            <h4 class="ui dividing header">{{ t._('module_local_speech_to_text_Summarization') }} <i class="small info circle icon field-info-icon" data-content="{{ summarizationHint|e }}" data-variation="wide"></i></h4>
+            <div class="field stt-summarization-field">
+                <div class="ui segment stt-summarization-segment">
+                    <div class="ui toggle checkbox stt-summarization-toggle">
+                        {{ form.render('summarization_enabled') }}
+                        <label>{{ t._('module_local_speech_to_text_SummarizationEnabled') }}</label>
+                    </div>
+                </div>
+                {# Only while summarization is on and no online worker supports it. #}
+                {% if summarizationWithoutWorkers is defined and summarizationWithoutWorkers %}
+                    <div class="ui warning message stt-summarization-workers-warning">
+                        <i class="exclamation triangle icon"></i>
+                        <div class="content">{{ t._('module_local_speech_to_text_SummarizationNoCapableWorker') }}</div>
+                    </div>
+                {% endif %}
             </div>
             <div class="ui clearing basic segment stt-form-actions">
                 <button class="ui left labeled icon large positive right floated button prevent-word-wrap" type="submit" id="submitbutton">
@@ -474,6 +484,7 @@
                 <th>{{ t._('module_local_speech_to_text_WorkerPlatformColumn') }}</th>
                 <th>{{ t._('module_local_speech_to_text_Model') }}</th>
                 <th>{{ t._('module_local_speech_to_text_AppVersion') }}</th>
+                <th class="center aligned">{{ t._('module_local_speech_to_text_WorkerSummariesColumn') }}</th>
                 <th class="center aligned">{{ t._('module_local_speech_to_text_Status') }}</th>
                 <th>{{ t._('module_local_speech_to_text_LastSeen') }}</th>
             </tr>
@@ -487,6 +498,7 @@
                     <td>{% if worker.platform and workerPlatformLabels[worker.platform] is defined %}{{ t._(workerPlatformLabels[worker.platform]) }}{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td>{% if worker.model %}<span class="stt-model-text">{{ worker.model|e }}</span>{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td>{{ worker.app_version|e }}</td>
+                    <td class="center aligned">{% if workerSupportsSummaries[worker.id] %}<i class="green check icon" title="{{ t._('module_local_speech_to_text_WorkerSummariesColumn')|e }}"></i>{% else %}<span class="stt-table-muted">&mdash;</span>{% endif %}</td>
                     <td class="center aligned">
                         {% if workerCompatibility[worker.id] and worker.status === 'online' %}
                             <span class="ui tiny green label">{{ t._('module_local_speech_to_text_Online') }}</span>
@@ -498,7 +510,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="8" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
+                    <td colspan="9" class="center aligned disabled">{{ t._('module_local_speech_to_text_NoWorkers') }}</td>
                 </tr>
             {% endfor %}
             </tbody>

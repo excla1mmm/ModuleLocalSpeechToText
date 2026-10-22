@@ -49,6 +49,14 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'required' => false,
                     'enum' => ['macos', 'linux', 'windows'],
                 ],
+                'capabilities' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string', 'pattern' => '^[a-z0-9][a-z0-9_-]{0,63}$'],
+                    'maxItems' => 32,
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerCapabilities',
+                    'example' => ['call-summaries'],
+                    'required' => false,
+                ],
                 'status' => [
                     'type' => 'string',
                     'example' => 'online',
@@ -106,6 +114,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'api_key_id' => ['type' => 'integer', 'nullable' => true, 'example' => 7],
                 'api_version' => ['type' => 'integer', 'example' => 2],
                 'app_version' => ['type' => 'string', 'example' => '2.5.0'],
+                'capabilities' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'module_local_speech_to_text_ApiFieldWorkerCapabilities', 'example' => ['call-summaries']],
                 'compatible' => ['type' => 'boolean', 'example' => true],
                 'last_seen' => ['type' => 'integer', 'nullable' => true, 'example' => 1786512000],
                 'created_at' => ['type' => 'integer', 'example' => 1786500000],
@@ -113,7 +122,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             ],
             'required' => [
                 'id', 'worker_uid', 'name', 'ip', 'status', 'model', 'api_key_id', 'api_version',
-                'app_version', 'compatible', 'last_seen', 'created_at', 'updated_at',
+                'app_version', 'capabilities', 'compatible', 'last_seen', 'created_at', 'updated_at',
             ],
             'example' => [
                 'id' => 1,
@@ -125,6 +134,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'api_key_id' => 7,
                 'api_version' => 2,
                 'app_version' => '2.5.0',
+                'capabilities' => ['call-summaries'],
                 'compatible' => true,
                 'last_seen' => 1786512000,
                 'created_at' => 1786500000,

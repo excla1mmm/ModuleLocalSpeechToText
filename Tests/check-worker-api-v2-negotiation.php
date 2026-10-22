@@ -269,6 +269,7 @@ namespace {
             'summary-leases',
             'summary-results',
             'summary-failures',
+            'worker-capabilities',
         ],
     ], 'contract response shape changed', $contract->data);
 

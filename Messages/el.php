@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Λήψη περίληψης κλήσης βάσει αναγνωριστικού κλήσης',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Επιστρέφει την περίληψη της τελευταίας δημοσιευμένης αναθεώρησης της απομαγνητοφώνησης μιας κλήσης βάσει του αναγνωριστικού κλήσης του PBX (linkedid ή UNIQUEID οποιουδήποτε ηχογραφημένου τμήματος): μία κατάσταση, θέμα και κείμενο για την κλήση και την περίληψη κάθε ηχογραφημένου τμήματος.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Περίληψη κλήσης της τελευταίας αναθεώρησης της απομαγνητοφώνησης',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Προαιρετικές δυνατότητες που υποστηρίζει ο Worker, για παράδειγμα call-summaries. Αντικαθιστά την αποθηκευμένη λίστα· ένας Worker που δεν στέλνει καμία δεν υποστηρίζει καμία.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Προαιρετικές δυνατότητες που υποστηρίζει ο Worker, για παράδειγμα call-summaries. Προστίθενται στη λίστα που δηλώθηκε κατά την εγγραφή.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Προαιρετικές δυνατότητες που δήλωσε ο Worker, για παράδειγμα call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Ο worker σας δεν υποστηρίζει σύνοψη. Ενημερώστε τον στην πιο πρόσφατη έκδοση για σωστή λειτουργία.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Σύνοψη',
 ];

@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Obtenir le résumé d’un appel par son identifiant',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Renvoie le résumé de la dernière révision publiée de la transcription d’un appel selon son identifiant d’appel PBX (linkedid ou UNIQUEID de n’importe quelle partie enregistrée) : un statut, un sujet et un texte pour l’appel, ainsi que le résumé de chaque partie enregistrée.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Résumé de l’appel pour la dernière révision de la transcription',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Fonctionnalités facultatives prises en charge par le Worker, par exemple call-summaries. Remplace la liste enregistrée ; un Worker qui n’en envoie aucune n’en prend aucune en charge.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Fonctionnalités facultatives prises en charge par le Worker, par exemple call-summaries. Ajoutées à la liste déclarée lors de l’enregistrement.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Fonctionnalités facultatives déclarées par le Worker, par exemple call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Votre worker ne prend pas en charge le résumé. Mettez-le à jour vers la dernière version pour un fonctionnement correct.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Résumé',
 ];

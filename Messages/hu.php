@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Hívás-összefoglaló lekérése a hívásazonosító alapján',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Visszaadja a hívás átirata legutóbb közzétett revíziójának összefoglalóját a központ hívásazonosítója alapján (linkedid vagy bármely rögzített szakasz UNIQUEID-ja): egy állapotot, témát és szöveget a híváshoz, valamint minden rögzített szakasz összefoglalóját.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'A hívás összefoglalója az átirat legfrissebb revíziójából',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'A Worker által támogatott opcionális funkciók, például call-summaries. Lecseréli a tárolt listát; az a Worker, amely nem küld semmit, semmit sem támogat.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'A Worker által támogatott opcionális funkciók, például call-summaries. Hozzáadódnak a regisztrációkor megadott listához.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'A Worker által bejelentett opcionális funkciók, például call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'A workere nem támogatja az összefoglalást. Frissítse a legújabb verzióra a megfelelő működéshez.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Összefoglaló',
 ];

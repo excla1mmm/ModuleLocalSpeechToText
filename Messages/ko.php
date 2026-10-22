@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => '통화 ID로 통화 요약 가져오기',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'PBX 통화 ID(linkedid 또는 녹음된 임의 구간의 UNIQUEID)로 통화의 최신 게시된 전사본 리비전의 요약을 반환합니다. 통화 전체의 상태, 주제, 텍스트와 녹음된 각 구간의 요약이 포함됩니다.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => '최신 전사본 리비전의 통화 요약',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker가 지원하는 선택 기능입니다(예: call-summaries). 저장된 목록을 대체하며, 아무것도 보내지 않은 Worker는 어떤 기능도 지원하지 않는 것으로 간주됩니다.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker가 지원하는 선택 기능입니다(예: call-summaries). 등록 시 선언된 목록에 추가됩니다.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker가 선언한 선택 기능입니다(예: call-summaries).',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => '워커가 요약을 지원하지 않습니다. 올바르게 작동하려면 최신 버전으로 업데이트하세요.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => '요약',
 ];

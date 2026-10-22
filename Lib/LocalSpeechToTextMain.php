@@ -17,6 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingDurationProbe;
 use Modules\ModuleLocalSpeechToText\Lib\Services\RecordingPathGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiContract;
+use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerCapabilities;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerRegistrationTransaction;
 use Modules\ModuleLocalSpeechToText\Lib\Services\JobApiResponseBuilder;
@@ -59,6 +60,8 @@ class LocalSpeechToTextMain
             $apiKeyId = WorkerAuthorizationValidator::requestApiKeyId($data);
             // Workers declare their platform on registration; an unknown one is kept empty.
             $platform = STTSetting::workerPlatformFromRequest($data['platform'] ?? null);
+            // An older worker declares no optional features.
+            $capabilities = WorkerCapabilities::encode(WorkerCapabilities::fromRequest($data['capabilities'] ?? null));
             $connection = (new STTWorker())->getWriteConnection();
             $worker = (new WorkerRegistrationTransaction())->run(
                 $connection,
@@ -72,7 +75,8 @@ class LocalSpeechToTextMain
                     $apiKeyId,
                     WorkerApiContract::API_VERSION,
                     self::stringField($data, 'app_version'),
-                    $platform ?? ''
+                    $platform ?? '',
+                    $capabilities
                 )
             );
             LocalSpeechToTextLogger::event(
@@ -129,6 +133,14 @@ class LocalSpeechToTextMain
             $workerPlatform = STTSetting::workerPlatformFromRequest($data['worker_platform'] ?? null);
             $platformMismatch = $workerPlatform === null;
             self::syncWorkerModel($worker, $workerPlatform);
+            // Registration replaces the declared features; a lease can only add
+            // to them, so a worker that sends a shorter list there keeps the rest.
+            if (array_key_exists('worker_capabilities', $data)) {
+                $worker->updateCapabilities(WorkerCapabilities::encode(WorkerCapabilities::fromRequest([
+                    ...WorkerCapabilities::decode($worker->capabilities),
+                    ...WorkerCapabilities::fromRequest($data['worker_capabilities']),
+                ])));
+            }
             $hasSettingsChanged = $worker->hasProcessingSettingsChanged();
             $worker->touchOnline(self::clientIp($data));
             $jobSnapshot = $platformMismatch ? [] : self::prepareJobSnapshot($workerPlatform);

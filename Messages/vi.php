@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Lấy bản tóm tắt cuộc gọi theo ID cuộc gọi',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Trả về bản tóm tắt của bản sửa đổi chép lời được xuất bản mới nhất của cuộc gọi theo ID cuộc gọi của tổng đài (linkedid hoặc UNIQUEID của bất kỳ đoạn nào đã ghi âm): một trạng thái, chủ đề và văn bản cho cuộc gọi cùng bản tóm tắt của từng đoạn đã ghi âm.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Bản tóm tắt cuộc gọi của bản sửa đổi chép lời mới nhất',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Các tính năng tùy chọn mà Worker hỗ trợ, ví dụ call-summaries. Thay thế danh sách đã lưu; Worker không gửi gì thì không hỗ trợ tính năng nào.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Các tính năng tùy chọn mà Worker hỗ trợ, ví dụ call-summaries. Được thêm vào danh sách đã khai báo khi đăng ký.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Các tính năng tùy chọn mà Worker đã khai báo, ví dụ call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Worker của bạn không hỗ trợ tóm tắt. Hãy cập nhật lên phiên bản mới nhất để hoạt động chính xác.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Tóm tắt',
 ];

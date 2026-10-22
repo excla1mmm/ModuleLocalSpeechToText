@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Gespreksamenvatting ophalen op gespreks-ID',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Geeft de samenvatting van de nieuwste gepubliceerde transcriptierevisie van een gesprek terug op basis van de PBX-gespreks-ID (linkedid of UNIQUEID van een willekeurig opgenomen deel): één status, onderwerp en tekst voor het gesprek en de samenvatting van elk opgenomen deel.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Gespreksamenvatting van de nieuwste transcriptierevisie',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Optionele functies die de Worker ondersteunt, bijvoorbeeld call-summaries. Vervangt de opgeslagen lijst; een Worker die er geen stuurt, ondersteunt er geen.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Optionele functies die de Worker ondersteunt, bijvoorbeeld call-summaries. Wordt toegevoegd aan de bij registratie opgegeven lijst.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Optionele functies die de Worker heeft opgegeven, bijvoorbeeld call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Uw worker ondersteunt geen samenvatting. Werk hem bij naar de nieuwste versie voor een correcte werking.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Samenvatting',
 ];

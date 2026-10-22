@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Get call summary by call ID',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Returns the summary of the latest published transcript revision of a call by its PBX call ID (linkedid, or the UNIQUEID of any recorded leg): one status, topic and text for the call and the summary of every recorded part.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Call summary of the latest transcript revision',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Optional features the worker supports, for example call-summaries. Replaces the stored list; a worker that sends none supports none.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Optional features the worker supports, for example call-summaries. Added to the list declared on registration.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Optional features the worker declared, for example call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Your worker does not support summarization. Update it to the latest version for correct operation.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Summarization',
 ];

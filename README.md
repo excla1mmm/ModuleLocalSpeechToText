@@ -166,6 +166,10 @@ Windows ONNX presets reuse the pinned Linux artifacts; `whisper-large-v3-turbo-w
 
 The "Get call summarization" setting (off by default) adds a "Summarization" field to the transcript card: a topic and 1–2 sentences about the conversation. The worker makes it with one local model, Gemma 3 4B (`ggml-org/gemma-3-4b-it-GGUF`, `gemma-3-4b-it-Q4_K_M.gguf`), through llama.cpp `llama-server`; the worker needs about 4 GB of RAM and 3 GB of disk. Transcripts created after the setting is turned on are summarized. Summaries have the lowest priority: a worker asks for one (`POST /summary-leases`) only after `POST /job-leases` returned `job: null`, and the module hands none out while a transcription job is pending. The module builds the whole model request (speaker sides and direction from the CDR, answer language, a JSON schema); the worker sends it unchanged and returns the model answer with `PUT /summary-results/{id}`. Contract: `docs/superpowers/specs/2026-10-21-call-summarization-design.md`.
 
+#### Worker capabilities
+
+Workers declare optional features they support: `capabilities` on `POST /workers` replaces the stored list, `worker_capabilities` on `POST /job-leases` adds to it. Values are names like `call-summaries` (`^[a-z0-9][a-z0-9_-]{0,63}$`, at most 32); anything else is ignored, and a worker that sends neither field, an older one, supports none. The contract advertises `worker-capabilities`; an older module ignores both fields, so workers send them unconditionally. `GET /workers` returns each worker's `capabilities`. When summarization is on and no online worker declares `call-summaries`, the settings show a warning, and the Workers tab marks which workers summarize. A newer worker on an older module stays a plain transcription worker: its contract lacks `summary-leases`, so the worker never asks for summaries and never downloads the summary model.
+
 ## Result Payload
 
 `PUT /job-results/{job_id}` requires:

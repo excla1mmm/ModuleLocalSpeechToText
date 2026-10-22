@@ -8,6 +8,7 @@ use Closure;
 use Modules\ModuleLocalSpeechToText\App\Providers\MenuProvider;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 
 /** Prepares only the STT dashboard sections authorized for the current user. */
 final class IndexViewService
@@ -43,6 +44,10 @@ final class IndexViewService
                 SummaryModel::RAM_GB,
                 SummaryModel::DISK_GB
             );
+            // Older workers never take summaries; tell the admin instead of
+            // leaving every summary waiting.
+            $view->summarizationWithoutWorkers = STTSetting::summarizationEnabled()
+                && !STTWorker::anyOnlineWithCapability(WorkerCapabilities::CALL_SUMMARIES);
             $view->modelPresets = STTSetting::modelPresets();
             $view->selectedLanguage = STTSetting::selectedLanguageId();
             $marketplace = new ModelMarketplaceService($this->translation);

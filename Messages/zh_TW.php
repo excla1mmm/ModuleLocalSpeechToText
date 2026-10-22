@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => '依通話 ID 取得通話摘要',
     'module_local_speech_to_text_GetCallSummaryDesc' => '依 PBX 通話 ID（linkedid，或任一已錄音片段的 UNIQUEID）傳回通話最新發布的逐字稿修訂版本的摘要：通話的統一狀態、主題與文字，以及每個已錄音片段的摘要。',
     'module_local_speech_to_text_ApiSchemaCallSummary' => '最新逐字稿修訂版本的通話摘要',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker 支援的選用功能,例如 call-summaries。會取代已儲存的清單;未傳送任何內容的 Worker 視為不支援任何功能。',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker 支援的選用功能,例如 call-summaries。會加入註冊時宣告的清單中。',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker 宣告的選用功能,例如 call-summaries。',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => '您的 Worker 不支援摘要。請將其更新至最新版本以正常運作。',
+    'module_local_speech_to_text_WorkerSummariesColumn' => '摘要',
 ];

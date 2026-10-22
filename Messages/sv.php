@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Hämta samtalssammanfattning via samtals-ID',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Returnerar sammanfattningen av den senast publicerade transkriptionsrevisionen för ett samtal via dess PBX-samtals-ID (linkedid eller UNIQUEID för valfri inspelad del): en status, ett ämne och en text för samtalet samt sammanfattningen av varje inspelad del.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Samtalssammanfattning av den senaste transkriptionsrevisionen',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Valfria funktioner som Worker stöder, till exempel call-summaries. Ersätter den sparade listan; en Worker som inte skickar några stöder inga.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Valfria funktioner som Worker stöder, till exempel call-summaries. Läggs till i listan som angavs vid registreringen.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Valfria funktioner som Worker har angett, till exempel call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Din worker stöder inte sammanfattning. Uppdatera den till den senaste versionen för korrekt funktion.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Sammanfattning',
 ];

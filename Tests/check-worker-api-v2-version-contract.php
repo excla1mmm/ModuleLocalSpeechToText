@@ -490,13 +490,14 @@ namespace {
     $setup = (string)file_get_contents($root . '/Setup/PbxExtensionSetup.php');
     preg_match_all('/new ModuleSchemaMigration\(\s*(?<version>\d+),.*?[\'\"](?<key>stt-schema-[^\'\"]+)[\'\"]/s', $setup, $migrations);
     expectWorkerApiV2Version(
-        array_map('intval', $migrations['version'] ?? []) === range(1, 21)
+        array_map('intval', $migrations['version'] ?? []) === range(1, 22)
             && ($migrations['key'][15] ?? null) === 'stt-schema-016-transcript-full-text-search'
             && ($migrations['key'][16] ?? null) === 'stt-schema-017-module-owned-partial-indexes'
             && ($migrations['key'][17] ?? null) === 'stt-schema-018-compact-call-transcript-storage'
             && ($migrations['key'][18] ?? null) === 'stt-schema-019-worker-platform'
             && ($migrations['key'][19] ?? null) === 'stt-schema-020-call-summaries'
-            && ($migrations['key'][20] ?? null) === 'stt-schema-021-call-summary-indexes',
+            && ($migrations['key'][20] ?? null) === 'stt-schema-021-call-summary-indexes'
+            && ($migrations['key'][21] ?? null) === 'stt-schema-022-worker-capabilities',
         'Database schema migration registry changed'
     );
 

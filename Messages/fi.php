@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => 'Hae puhelun yhteenveto puhelutunnuksella',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'Palauttaa puhelun viimeisimmän julkaistun litteroinnin version yhteenvedon PBX:n puhelutunnuksen mukaan (linkedid tai minkä tahansa tallennetun osan UNIQUEID): yksi tila, aihe ja teksti puhelulle sekä jokaisen tallennetun osan yhteenveto.',
     'module_local_speech_to_text_ApiSchemaCallSummary' => 'Puhelun yhteenveto viimeisimmästä litteroinnin versiosta',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Valinnaiset ominaisuudet, joita Worker tukee, esimerkiksi call-summaries. Korvaa tallennetun luettelon; Worker, joka ei lähetä mitään, ei tue mitään.',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Valinnaiset ominaisuudet, joita Worker tukee, esimerkiksi call-summaries. Lisätään rekisteröinnissä ilmoitettuun luetteloon.',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Valinnaiset ominaisuudet, jotka Worker ilmoitti, esimerkiksi call-summaries.',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'Workerisi ei tue tiivistelmiä. Päivitä se uusimpaan versioon, jotta se toimii oikein.',
+    'module_local_speech_to_text_WorkerSummariesColumn' => 'Yhteenveto',
 ];

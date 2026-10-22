@@ -640,4 +640,9 @@ return [
     'module_local_speech_to_text_GetCallSummary' => '通話 ID で通話の要約を取得',
     'module_local_speech_to_text_GetCallSummaryDesc' => 'PBX の通話 ID（linkedid、または録音された任意の区間の UNIQUEID）で、通話の最新の公開済み文字起こしリビジョンの要約を返します。通話全体のステータス・トピック・テキストと、録音された各区間の要約が含まれます。',
     'module_local_speech_to_text_ApiSchemaCallSummary' => '最新の文字起こしリビジョンの通話の要約',
+    'module_local_speech_to_text_ApiParamWorkerCapabilities' => 'Worker がサポートするオプション機能(例: call-summaries)。保存済みの一覧を置き換えます。何も送信しない Worker は、いずれもサポートしていないものとみなされます。',
+    'module_local_speech_to_text_ApiParamLeaseWorkerCapabilities' => 'Worker がサポートするオプション機能(例: call-summaries)。登録時に宣言された一覧に追加されます。',
+    'module_local_speech_to_text_ApiFieldWorkerCapabilities' => 'Worker が宣言したオプション機能(例: call-summaries)。',
+    'module_local_speech_to_text_SummarizationNoCapableWorker' => 'お使いのワーカーは要約に対応していません。正しく動作させるには最新バージョンに更新してください。',
+    'module_local_speech_to_text_WorkerSummariesColumn' => '要約',
 ];
