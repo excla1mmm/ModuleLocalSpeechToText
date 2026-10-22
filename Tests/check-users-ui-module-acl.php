@@ -75,6 +75,8 @@ namespace {
     $denied = ModuleLocalSpeechToTextACL::getAlwaysDenied();
     foreach ([
         '/pbxcore/api/modules/module-local-speech-to-text',
+        '/pbxcore/api/v3/module-local-speech-to-text/call-dialogs',
+        '/pbxcore/api/v3/module-local-speech-to-text/call-summaries',
         '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts',
         '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events',
         '/pbxcore/api/v3/module-local-speech-to-text/job-failures',

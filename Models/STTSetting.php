@@ -59,6 +59,11 @@ class STTSetting extends ModulesModelsBase
     public const string VOICE_ACTIVITY_DETECTION = 'voice_activity_detection';
     public const string MAX_SEGMENT_DURATION_MS = 'max_segment_duration_ms';
     public const string SEGMENT_OVERLAP_MS = 'segment_overlap_ms';
+    // Call summarization: '1' turns it on. SUMMARIZATION_ENABLED_AT is the unix
+    // time of the last off->on switch; only transcripts created since then are
+    // summarized.
+    public const string SUMMARIZATION_ENABLED = 'summarization_enabled';
+    public const string SUMMARIZATION_ENABLED_AT = 'summarization_enabled_at';
 
     public const string DEFAULT_MODEL = 'parakeet-tdt-0.6b-v3';
     public const string AUTO_LANGUAGE = 'auto';
@@ -873,6 +878,16 @@ class STTSetting extends ModulesModelsBase
         return in_array($days, self::TRANSCRIPT_RETENTION_PRESETS, true)
             ? $days
             : self::DEFAULT_TRANSCRIPT_RETENTION_DAYS;
+    }
+
+    public static function summarizationEnabled(): bool
+    {
+        return self::getValue(self::SUMMARIZATION_ENABLED, '0') === '1';
+    }
+
+    public static function summarizationEnabledAt(): int
+    {
+        return max(0, (int)self::getValue(self::SUMMARIZATION_ENABLED_AT, '0'));
     }
 
     public static function retentionAllowsProcessing(int $processingDays, int $retentionDays): bool

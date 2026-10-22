@@ -134,6 +134,8 @@ namespace {
         'Transcripts' => 'Local STT Transcripts',
         'CallTranscripts' => 'Local STT Call Transcripts',
         'CallTranscriptEvents' => 'Local STT Call Transcripts',
+        'CallDialogs' => 'Local STT Call Transcripts',
+        'CallSummaries' => 'Local STT Call Transcripts',
     ];
 
     foreach ($resourceContracts as $resource => $expectedTag) {
@@ -311,6 +313,8 @@ namespace {
 
     foreach ([
         '../Lib/RestAPI/Transcripts/DataStructure.php', '../Lib/RestAPI/Transcripts/ListDataStructure.php',
+        '../Lib/RestAPI/CallDialogs/DataStructure.php',
+        '../Lib/RestAPI/CallSummaries/DataStructure.php',
         '../Lib/RestAPI/CallTranscripts/DataStructure.php',
         '../Lib/RestAPI/CallTranscriptEvents/DataStructure.php',
     ] as $file) {
@@ -409,6 +413,8 @@ namespace {
         'GET /pbxcore/api/v3/module-local-speech-to-text/transcripts/{id} getLocalSpeechToTextTranscript',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/{id} getLocalSpeechToTextCallTranscript',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events listLocalSpeechToTextCallTranscriptEvents',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/call-dialogs/{id} getLocalSpeechToTextCallDialog',
+        'GET /pbxcore/api/v3/module-local-speech-to-text/call-summaries/{id} getLocalSpeechToTextCallSummary',
     ];
     sort($generatedTuples);
     sort($expectedGeneratedTuples);
@@ -428,6 +434,8 @@ namespace {
             || str_ends_with($tuple, ' getLocalSpeechToTextTranscript')
             || str_ends_with($tuple, ' getLocalSpeechToTextCallTranscript')
             || str_ends_with($tuple, ' listLocalSpeechToTextCallTranscriptEvents')
+            || str_ends_with($tuple, ' getLocalSpeechToTextCallDialog')
+            || str_ends_with($tuple, ' getLocalSpeechToTextCallSummary')
     ));
     sort($selectedGeneratedTuples);
     expectOpenApi($selectedGeneratedTuples === $expectedGeneratedTuples, 'Generated OpenAPI method/path tuple map changed');

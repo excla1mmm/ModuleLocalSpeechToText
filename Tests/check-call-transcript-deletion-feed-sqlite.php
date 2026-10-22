@@ -83,7 +83,7 @@ $pdo->exec(
      INSERT INTO m_STTSetting VALUES ('source_instance_id', '0123456789abcdef0123456789abcdef');
      CREATE TABLE m_STTJob (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL, status TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0);
      CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL);
-     CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL);"
+     CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL); CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL UNIQUE);"
 );
 \Modules\ModuleLocalSpeechToText\Models\STTSetting::$connection = $connection;
 \Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent::$connection = $connection;
@@ -112,7 +112,7 @@ $seedCall(2, 'call-two', 2, 12, 4_000_000_200);
 
 $feed = new CallTranscriptIntegrationService();
 $before = $feed->callTranscriptEvents(['cursor' => '0:0']);
-expectDeletionFeed(($before['contract_version'] ?? null) === 2, 'event feed must advertise contract version 2');
+expectDeletionFeed(($before['contract_version'] ?? null) === 3, 'event feed must advertise contract version 3');
 expectDeletionFeed(count($before['events']) === 2, 'both published calls must be visible before deletion');
 $consumerCursor = $before['next_cursor'];
 expectDeletionFeed($consumerCursor === '4000000200:2', 'unexpected consumer cursor ' . $consumerCursor);

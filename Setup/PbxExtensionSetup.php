@@ -18,6 +18,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLegacyLogMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogWriter;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallSummaryMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\JobSubmissionReceiptMigration;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleBatchMigrationRunner;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabaseBackup;
@@ -429,6 +430,18 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyWorkerPlatformMigration($connection),
                 'stt-schema-019-worker-platform'
             ),
+            new ModuleSchemaMigration(
+                20,
+                'call summaries',
+                fn (mixed $connection): null => $this->applyCallSummaryMigration($connection),
+                'stt-schema-020-call-summaries'
+            ),
+            new ModuleSchemaMigration(
+                21,
+                'call summary integration indexes',
+                fn (mixed $connection): null => $this->applyCallSummaryIndexMigration($connection),
+                'stt-schema-021-call-summary-indexes'
+            ),
         ];
     }
 
@@ -617,6 +630,18 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     private function applyJobSubmissionReceiptMigration(mixed $connection): null
     {
         (new JobSubmissionReceiptMigration())->migrate($connection);
+        return null;
+    }
+
+    private function applyCallSummaryMigration(mixed $connection): null
+    {
+        (new CallSummaryMigration())->migrate($connection);
+        return null;
+    }
+
+    private function applyCallSummaryIndexMigration(mixed $connection): null
+    {
+        (new CallSummaryMigration())->migrateIndexes($connection);
         return null;
     }
 

@@ -418,6 +418,38 @@
             return $details;
         }
 
+        // The "Summarization" field: one block per transcribed leg of the
+        // call, present only while summarization is turned on.
+        function renderSummaries(summaries) {
+            if (!Array.isArray(summaries) || summaries.length === 0) {
+                return null;
+            }
+            const states = {
+                pending: 'module_local_speech_to_text_SummaryPending',
+                skipped: 'module_local_speech_to_text_SummarySkipped',
+                error: 'module_local_speech_to_text_SummaryFailed',
+                unavailable: 'module_local_speech_to_text_SummaryUnavailable',
+            };
+            const $list = $('<div>', { class: 'stt-summary-list' });
+            summaries.forEach(function (card) {
+                const state = card && typeof card.state === 'string' ? card.state : 'unavailable';
+                const $panel = $('<div>', { class: `stt-summary-panel stt-summary-${state}`, 'data-stt-summary-state': state })
+                    .append($('<div>', { class: 'stt-summary-label' })
+                        .append($('<i>', { class: 'align left icon' }))
+                        .append(document.createTextNode(translate('module_local_speech_to_text_Summarization'))));
+                if (state === 'done') {
+                    if (card.topic) {
+                        $panel.append($('<div>', { class: 'stt-summary-topic', dir: 'auto' }).text(String(card.topic)));
+                    }
+                    $panel.append($('<div>', { class: 'stt-summary-text', dir: 'auto' }).text(String(card.summary || '')));
+                } else {
+                    $panel.append($('<div>', { class: 'stt-summary-status' }).text(translate(states[state] || states.unavailable)));
+                }
+                $list.append($panel);
+            });
+            return $list;
+        }
+
         function renderConversation(transcript, rowData, callId, canDelete) {
             const conversation = transcript && typeof transcript.conversation === 'object'
                 ? transcript.conversation
@@ -440,6 +472,7 @@
             const $target = $modal.find('.stt-cdr-transcript-conversation').removeAttr('hidden');
             $modal.find('.stt-cdr-transcript-loading').attr('hidden', true);
             $modal.find('.stt-cdr-transcript-error').attr('hidden', true).text('');
+            $target.append(renderSummaries(transcript ? transcript.summaries : null));
             if (timeline.length === 0) {
                 $target.append($('<div>', { class: 'ui message' }).text(labels.empty));
                 return;

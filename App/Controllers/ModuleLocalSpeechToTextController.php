@@ -369,6 +369,7 @@ class ModuleLocalSpeechToTextController extends LocalSpeechToTextBaseController
         $this->view->canDeleteTranscript = $this->usersUIViewCapabilities()->canDeleteTranscripts();
         $this->view->result = $result;
         $this->view->transcriptStages = $review['stages'];
+        $this->assignSummaryCards(array_column($review['stages'], 'result'));
         $this->view->transcriptGroups = $review['groups'];
         $this->view->showCallLegTabs = $review['showTabs'];
         $this->view->showTranscriptStageTitles = count($review['stages']) > 1;

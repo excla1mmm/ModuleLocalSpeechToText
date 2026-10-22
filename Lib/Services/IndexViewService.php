@@ -38,6 +38,11 @@ final class IndexViewService
 
         if ($capabilities->canManageSettings()) {
             $view->form = $settingsForm();
+            $view->summarizationHint = sprintf(
+                (string)$this->translation->_('module_local_speech_to_text_SummarizationEnabledHint'),
+                SummaryModel::RAM_GB,
+                SummaryModel::DISK_GB
+            );
             $view->modelPresets = STTSetting::modelPresets();
             $view->selectedLanguage = STTSetting::selectedLanguageId();
             $marketplace = new ModelMarketplaceService($this->translation);

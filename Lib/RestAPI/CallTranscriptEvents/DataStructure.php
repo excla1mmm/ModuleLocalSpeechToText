@@ -35,6 +35,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'default' => false,
                     'required' => false,
                 ],
+                'include_summaries' => [
+                    'type' => 'boolean',
+                    'description' => 'module_local_speech_to_text_ApiParamIncludeSummaries',
+                    'example' => false,
+                    'default' => false,
+                    'required' => false,
+                ],
             ],
             'response' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId'],
@@ -53,7 +60,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'required' => ['cursor', 'event_type', 'call_id', 'aggregate_id', 'revision', 'content_hash', 'parts_hash', 'completeness_status'],
             'properties' => [
                 'cursor' => ['type' => 'string', 'pattern' => '^\\d+:\\d+$', 'description' => 'module_local_speech_to_text_ApiFieldCursor', 'example' => '1784455400:81'],
-                'event_type' => ['type' => 'string', 'enum' => ['call-transcript.completed', 'call-transcript.updated', 'call-transcript.deleted'], 'description' => 'module_local_speech_to_text_ApiFieldCallTranscriptEventType', 'example' => 'call-transcript.updated'],
+                'event_type' => ['type' => 'string', 'enum' => ['call-transcript.completed', 'call-transcript.updated', 'call-transcript.deleted', 'call-summary.completed'], 'description' => 'module_local_speech_to_text_ApiFieldCallTranscriptEventType', 'example' => 'call-transcript.updated'],
                 'call_id' => ['type' => ['string', 'null'], 'minLength' => 1, 'maxLength' => 255, 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => '1784455200.42'],
                 'aggregate_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldAggregateId', 'example' => 77],
                 'revision' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldRevision', 'example' => 2],
@@ -74,13 +81,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'required' => ['source_instance_id', 'contract_version', 'events', 'next_cursor'],
             'properties' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
-                'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 2],
+                'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 3],
                 'events' => ['type' => 'array', 'description' => 'module_local_speech_to_text_ApiFieldCallTranscriptEvents', 'items' => self::getListItemSchema()],
                 'next_cursor' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldNextCursor', 'example' => '1784455400:81'],
             ],
             'example' => [
                 'source_instance_id' => '0123456789abcdef0123456789abcdef',
-                'contract_version' => 2,
+                'contract_version' => 3,
                 'events' => [[
                     'cursor' => '1784455400:81',
                     'event_type' => 'call-transcript.updated',

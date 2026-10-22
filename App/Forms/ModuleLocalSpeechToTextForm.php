@@ -62,10 +62,13 @@ class ModuleLocalSpeechToTextForm extends BaseForm
             $this->add(new Numeric($field, $attributes));
         }
 
-        foreach (['audio_normalization', 'voice_activity_detection'] as $field) {
+        foreach (['audio_normalization', 'voice_activity_detection', STTSetting::SUMMARIZATION_ENABLED] as $field) {
             $attributes = ['value' => '1'];
+            // Phalcon 5 renders a checkbox checked only when `checked` equals
+            // its `value`; `checked => 'checked'` always rendered it unchecked,
+            // so the next save switched the setting off.
             if ((bool)($entity->{$field} ?? false)) {
-                $attributes['checked'] = 'checked';
+                $attributes['checked'] = '1';
             }
             $this->add(new Check($field, $attributes));
         }

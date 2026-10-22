@@ -92,6 +92,7 @@ final class TranscriptDeletionService
             $this->deleteByIds($connection, 'm_STTCallTranscriptPart', 'call_transcript_id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTCallTranscript', 'id', $callTranscriptIds);
             $this->deleteByIds($connection, 'm_STTTranscriptEvent', 'result_id', $resultIds);
+            $this->deleteByIds($connection, 'm_STTSummary', 'result_id', $resultIds);
             $this->deleteByIds($connection, 'm_STTResult', 'id', $resultIds);
             $deletionEvents->publish($connection, $tombstones, CallTranscriptDeletionEvents::REASON_MANUAL, $deletedAt);
 

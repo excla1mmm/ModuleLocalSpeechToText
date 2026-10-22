@@ -45,7 +45,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'required' => ['source_instance_id', 'contract_version', 'aggregate_id', 'call_id', 'revision', 'content_hash', 'parts_hash', 'completeness_status'],
             'properties' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
-                'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 2],
+                'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 3],
                 'aggregate_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldAggregateId', 'example' => 77],
                 'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => '1784455200.42'],
                 'revision' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldRevision', 'example' => 2],
@@ -188,7 +188,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
 
         return [
             'source_instance_id' => '0123456789abcdef0123456789abcdef',
-            'contract_version' => 2,
+            'contract_version' => 3,
             'aggregate_id' => 77,
             'call_id' => '1784455200.42',
             'revision' => 2,

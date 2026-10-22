@@ -276,6 +276,15 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
         }
     }
 
+    final class CallSummaryEvents
+    {
+        public function publishReady(mixed $connection): int
+        {
+            ScannerWorkerProbe::reachPhase('call_summary_publish');
+            return 0;
+        }
+    }
+
     final class TranscriptRetentionService
     {
         /** @return array{calls: int, results: int, has_more: bool} */
@@ -288,6 +297,14 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services {
 
 namespace Modules\ModuleLocalSpeechToText\Models {
     use MikoPBX\Common\Models\ScannerWorkerConnection;
+
+    final class STTCallTranscriptEvent
+    {
+        public function getWriteConnection(): ScannerWorkerConnection
+        {
+            return new ScannerWorkerConnection();
+        }
+    }
 
     final class STTJob
     {
@@ -659,6 +676,7 @@ namespace {
         'skipped_recordings',
         'cdr_scan',
         'call_transcript_publish',
+        'call_summary_publish',
         'retention_cleanup',
     ];
     $forbiddenContextKeys = ['exception_message', 'sql', 'dsn', 'database_path', 'trace'];

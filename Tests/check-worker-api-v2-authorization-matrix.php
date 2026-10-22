@@ -19,8 +19,23 @@ $expected = [
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
     '/api/v3/module-local-speech-to-text/job-failures' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-leases' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-results' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-failures' => 'write',
 ];
 expectAuthorizationMatrix(WorkerApiKeyService::WORKER_ALLOWED_PATHS === $expected, 'Exact v2 worker permission map changed');
+
+$summaryGate = (string)file_get_contents(__DIR__ . '/../Lib/RestAPI/Common/SummaryRequestDispatcher.php');
+expectAuthorizationMatrix(
+    str_contains($summaryGate, 'WorkerApiContract::requireVersion($request)')
+        && str_contains($summaryGate, 'WorkerRequestContext::isRestrictedWorkerKey($data)')
+        && str_contains($summaryGate, 'WorkerBindingDecision::authorize('),
+    'Summary routes must require the API version, a restricted worker key and the worker binding'
+);
+foreach (['SummaryLeases', 'SummaryResults', 'SummaryFailures'] as $resource) {
+    $source = (string)file_get_contents(__DIR__ . "/../Lib/RestAPI/{$resource}/Processor.php");
+    expectAuthorizationMatrix(str_contains($source, 'SummaryRequestDispatcher::dispatch('), "{$resource} must go through the gated summary dispatcher");
+}
 
 foreach (['Workers','WorkerProcessingSettings','WorkerUpdateLicense','JobLeases','JobRecordings','JobResults','JobFailures','Jobs'] as $resource) {
     $source = (string)file_get_contents(__DIR__ . "/../Lib/RestAPI/{$resource}/Processor.php");

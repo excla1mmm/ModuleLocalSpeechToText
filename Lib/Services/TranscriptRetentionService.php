@@ -126,6 +126,7 @@ final class TranscriptRetentionService
                 $this->deleteByIds($connection, 'm_STTCallTranscriptPart', 'call_transcript_id', $callTranscriptIds, 'call_part');
                 $this->deleteByIds($connection, 'm_STTCallTranscript', 'id', $callTranscriptIds, 'call_transcript');
                 $this->deleteByIds($connection, 'm_STTTranscriptEvent', 'result_id', $resultIds, 'result_event');
+                $this->deleteByIds($connection, 'm_STTSummary', 'result_id', $resultIds, 'summary');
                 $this->deleteByIds($connection, 'm_STTResult', 'id', $resultIds, 'result');
                 $deletionEvents->publish($connection, $tombstones, CallTranscriptDeletionEvents::REASON_RETENTION, $now);
 

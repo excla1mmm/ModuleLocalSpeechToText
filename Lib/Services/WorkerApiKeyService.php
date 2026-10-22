@@ -22,6 +22,9 @@ class WorkerApiKeyService
         '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
         '/api/v3/module-local-speech-to-text/job-results' => 'write',
         '/api/v3/module-local-speech-to-text/job-failures' => 'write',
+        '/api/v3/module-local-speech-to-text/summary-leases' => 'write',
+        '/api/v3/module-local-speech-to-text/summary-results' => 'write',
+        '/api/v3/module-local-speech-to-text/summary-failures' => 'write',
     ];
 
     private mixed $coreDatabase = null;

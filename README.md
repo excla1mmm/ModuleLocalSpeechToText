@@ -162,6 +162,10 @@ Every worker platform (`macos`, `linux`, `windows`) has its own selected model, 
 
 Windows ONNX presets reuse the pinned Linux artifacts; `whisper-large-v3-turbo-windows` is whisper.cpp (`model_engine: whisperCpp`, `model_artifact_type: whisper-ggml`). Every Linux and Windows preset ships `model_revision` and `model_sha256_manifest`. The contract advertises `worker-platform-windows` since module `1.47`; an older module answers `worker_platform: "windows"` with `platform_mismatch: true` and its own `required_platform`, and a module without the `worker-platforms` capability ignores `worker_platform`. The model marketplace offers Windows models under its Windows platform switch.
 
+### Call summarization
+
+The "Get call summarization" setting (off by default) adds a "Summarization" field to the transcript card: a topic and 1–2 sentences about the conversation. The worker makes it with one local model, Gemma 3 4B (`ggml-org/gemma-3-4b-it-GGUF`, `gemma-3-4b-it-Q4_K_M.gguf`), through llama.cpp `llama-server`; the worker needs about 4 GB of RAM and 3 GB of disk. Transcripts created after the setting is turned on are summarized. Summaries have the lowest priority: a worker asks for one (`POST /summary-leases`) only after `POST /job-leases` returned `job: null`, and the module hands none out while a transcription job is pending. The module builds the whole model request (speaker sides and direction from the CDR, answer language, a JSON schema); the worker sends it unchanged and returns the model answer with `PUT /summary-results/{id}`. Contract: `docs/superpowers/specs/2026-10-21-call-summarization-design.md`.
+
 ## Result Payload
 
 `PUT /job-results/{job_id}` requires:
@@ -194,16 +198,39 @@ Public segments and turns use integer `start_ms`/`end_ms` and expose only the ph
 
 Downstream imports follow the call-transcript event feed below; the earlier per-recording `GET /transcripts/events` feed is retired. Each stored result still records an idempotent `transcript.completed` row in `m_STTTranscriptEvent`: its id is returned to the worker as `published_event_id`, and summary generation can fall back from job data to that row and to CDR lookup, which keeps integrations usable even when older rows have partial job metadata.
 
+### Call dialog and summary by PBX call ID
+
+The simplest way to pull a call into a third-party service is a request by the MikoPBX call ID. The transcript (dialog) and the summary are served by two separate endpoints:
+
+```bash
+curl -H "Authorization: Bearer <REST API key>" \
+  https://<pbx>/pbxcore/api/v3/module-local-speech-to-text/call-dialogs/mikopbx-1791275140.999663_claea922
+curl -H "Authorization: Bearer <REST API key>" \
+  https://<pbx>/pbxcore/api/v3/module-local-speech-to-text/call-summaries/mikopbx-1791275140.999663_claea922
+```
+
+- The ID is the call `linkedid` or the `UNIQUEID` of any recorded leg (`[A-Za-z0-9][A-Za-z0-9._-]*`, up to 255 characters).
+- Both endpoints always serve the latest published revision; there is no revision to choose. Both responses carry `call_id`, `aggregate_id` and `revision`.
+- `call-dialogs`: `turns` are phrases already joined into turns: `start_ms`/`end_ms` on the call timeline, `channel`, `speaker` (`client`/`employee` from the CDR, or `null` when the channel cannot be mapped: mono recording, unknown direction), `speaker_name` (the employee's PBX name), `text`.
+- `text` is the whole dialog, one turn per line, each signed with the speaker ("Ivan Petrov: …", "Client: …", "Speaker 1: …").
+- `direction` is `incoming`/`outgoing`/`internal` or `null`; `language` is as in the transcript detail.
+- `call-summaries`: `status` (`done`, `pending`, `error`, `skipped`, `unavailable`), `topic`, `summary` and `parts` for every recorded part (`result_id`, `status`, `topic`, `summary`, `model`, `finished_at`). For a call of several parts `topic` is the topic of the first summarized part and `summary` joins the part summaries with a blank line. While any part is still queued the call status is `pending`.
+- 404 `call_transcript_not_found`: the call was not transcribed or its transcript is not published yet.
+
+Access is as for the other integration APIs: localhost, or a REST API Bearer key allowed to read this path; worker keys and web users are denied. The summary is read at request time and never creates a transcript revision. To learn about new calls and finished summaries, read the event feed below with `include_summaries=true`: on `call-transcript.completed`/`updated` request `call-dialogs/{call_id}`, on `call-summary.completed` request `call-summaries/{call_id}`. The earlier `events` → `call-transcripts/{aggregate_id}` chain keeps working unchanged.
+
 ### Call transcripts
 
 Logical-call transcripts (all recording parts of one call, versioned by revision) are served by:
 
-- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true]`
+- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true][&include_summaries=true]`
 - `GET /call-transcripts/{aggregate_id}?revision=N`
 
-Both responses carry `contract_version` (currently `2`). By default the event feed returns only `call-transcript.completed` and `call-transcript.updated` events, exactly as in version 1. A consumer that passes `include_deleted=true` also receives `call-transcript.deleted` tombstones when a transcript is deleted by an administrator (`deletion_reason: manual`) or purged by the retention period (`deletion_reason: retention`). A tombstone carries the deleted `aggregate_id`, its last `revision` and `deleted_at`; `call_id`, `content_hash`, `parts_hash` and `completeness_status` are `null`. Tombstones follow the same cursor order as other events and are kept for 90 days. Opt in only after checking `contract_version >= 2`, and handle every event type your importer receives.
+Both responses carry `contract_version` (currently `3`). By default the event feed returns only `call-transcript.completed` and `call-transcript.updated` events, exactly as in version 1. A consumer that passes `include_deleted=true` also receives `call-transcript.deleted` tombstones when a transcript is deleted by an administrator (`deletion_reason: manual`) or purged by the retention period (`deletion_reason: retention`). A tombstone carries the deleted `aggregate_id`, its last `revision` and `deleted_at`; `call_id`, `content_hash`, `parts_hash` and `completeness_status` are `null`. Tombstones follow the same cursor order as other events and are kept for 90 days. Opt in only after checking `contract_version >= 2`, and handle every event type your importer receives.
 
 The call transcript detail also carries `language`: the ISO 639 code (for example `ru`, `kk`) that the worker reported for every part of the call, or `null` when it is unknown or the parts are in different languages. It is read from the part results on each request, so it never changes `content_hash` or creates a new revision.
+
+A consumer that passes `include_summaries=true` (with `contract_version >= 3`) receives `call-summary.completed` events: one per call revision, once every part of it has a final summary (`done`, `skipped` or `error`). The event carries the same fields as that revision's `call-transcript.completed` and comes after it. Parts transcribed before summarization was turned on do not hold the event back. Opt-in events share the feed's cursor order, so a consumer that adds `include_summaries=true` (or `include_deleted=true`) to an existing cursor sees only events created after it: start from `0:0`, or backfill earlier calls through `call-summaries/{call_id}`. `contract_version` is 3 in every response, flags or not; the version 2 fields and events are unchanged. Downgrade: an earlier module version does not know `call-summary.completed` rows and its default feed stops at the first one, so delete them (`DELETE FROM m_STTCallTranscriptEvent WHERE event_type = 'call-summary.completed'`) before installing an earlier package.
 
 These endpoints use the same MikoPBX REST v3 `PBXApiResult` envelope and should be used instead of direct table reads by new modules.
 

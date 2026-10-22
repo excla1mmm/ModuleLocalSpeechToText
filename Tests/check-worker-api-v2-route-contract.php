@@ -254,6 +254,9 @@ namespace {
         '/job-recordings' => 'job_id',
         '/job-results' => 'job_id',
         '/job-failures' => 'job_id',
+        '/summary-leases' => 'summary_id',
+        '/summary-results' => 'summary_id',
+        '/summary-failures' => 'summary_id',
         '/jobs' => 'id',
     ];
     $expectedProcessors = [
@@ -265,6 +268,9 @@ namespace {
         '/job-recordings' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobRecordings\\Processor',
         '/job-results' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobResults\\Processor',
         '/job-failures' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\JobFailures\\Processor',
+        '/summary-leases' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\SummaryLeases\\Processor',
+        '/summary-results' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\SummaryResults\\Processor',
+        '/summary-failures' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\SummaryFailures\\Processor',
         '/jobs' => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\Jobs\\Processor',
     ];
     $expected = [
@@ -275,11 +281,13 @@ namespace {
         'GET /worker-update-license getList',
         'POST /job-leases create', 'PATCH /job-leases/{job_id} patch', 'DELETE /job-leases/{job_id} delete',
         'GET /job-recordings/{job_id} getRecord', 'PUT /job-results/{job_id} update', 'PUT /job-failures/{job_id} update',
+        'POST /summary-leases create', 'PATCH /summary-leases/{summary_id} patch', 'DELETE /summary-leases/{summary_id} delete',
+        'PUT /summary-results/{summary_id} update', 'PUT /summary-failures/{summary_id} update',
         'GET /jobs getList', 'GET /jobs/{id} getRecord', 'POST /jobs create', 'PATCH /jobs/{id} patch',
         'PATCH /jobs patchCollection', 'DELETE /jobs/{id} delete', 'DELETE /jobs deleteCollection',
     ];
     $root = dirname(__DIR__);
-    $nonWorkerResources = ['/transcripts', '/call-transcripts', '/call-transcripts/events'];
+    $nonWorkerResources = ['/transcripts', '/call-transcripts', '/call-transcripts/events', '/call-dialogs', '/call-summaries'];
     $operations = reflectedWorkerApiV2Operations($root, $v2Resources, $nonWorkerResources);
     $allowed = $expected;
     $actual = [];

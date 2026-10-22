@@ -152,6 +152,10 @@
 
 Модели Windows: `gigaam-v3-windows` (по умолчанию), `parakeet-tdt-0.6b-v3-windows`, `gigaam-multilingual-windows` (те же закрепленные ONNX-артефакты, что и у Linux) и `whisper-large-v3-turbo-windows` (whisper.cpp: `whisperCpp` + `whisper-ggml`). С версии модуля `1.47` контракт объявляет возможность `worker-platform-windows`; более старый модуль отвечает Windows-обработчику `platform_mismatch: true` со своей `required_platform`. Модели Windows выбираются в каталоге моделей на платформе Windows.
 
+### Суммаризация звонков
+
+Настройка «Получать суммаризацию звонка» (по умолчанию выключена) добавляет в карточку расшифровки поле «Суммаризация»: тему и 1–2 предложения о разговоре. Суммаризацию выполняет обработчик локальной моделью Gemma 3 4B (`ggml-org/gemma-3-4b-it-GGUF`, `gemma-3-4b-it-Q4_K_M.gguf`) через llama.cpp `llama-server`; на обработчике нужно около 4 ГБ оперативной памяти и 3 ГБ диска. Суммаризируются расшифровки, созданные после включения настройки. У суммаризации самый низкий приоритет: обработчик запрашивает задачу (`POST /summary-leases`) только когда `POST /job-leases` вернул `job: null`, а модуль не выдает ее, пока есть ожидающие задания распознавания. Запрос к модели целиком собирает модуль (стороны и направление звонка из CDR, язык ответа, JSON-схема), обработчик отправляет его без изменений и возвращает ответ модели в `PUT /summary-results/{id}`. Контракт: `docs/superpowers/specs/2026-10-21-call-summarization-design.md`.
+
 ## Формат Результата
 
 `submitResult` требует:
@@ -184,16 +188,39 @@
 
 Другие модули импортируют расшифровки по ленте событий звонков, описанной ниже; прежняя лента по отдельным записям `GET /transcripts/events` больше не предоставляется. Для каждого сохранённого результата по-прежнему создаётся идемпотентная запись `transcript.completed` в `m_STTTranscriptEvent`: её идентификатор возвращается обработчику как `published_event_id`, а сводка расшифровки может брать из неё `job_id` и `call_id`, если данных задания не хватает.
 
+### Диалог и суммаризация звонка по идентификатору АТС
+
+Самый простой способ забрать звонок в сторонний сервис — запрос по идентификатору звонка MikoPBX. Расшифровка (диалог) и суммаризация отдаются двумя отдельными эндпоинтами:
+
+```bash
+curl -H "Authorization: Bearer <ключ REST API>" \
+  https://<АТС>/pbxcore/api/v3/module-local-speech-to-text/call-dialogs/mikopbx-1791275140.999663_claea922
+curl -H "Authorization: Bearer <ключ REST API>" \
+  https://<АТС>/pbxcore/api/v3/module-local-speech-to-text/call-summaries/mikopbx-1791275140.999663_claea922
+```
+
+- Идентификатор — `linkedid` звонка или `UNIQUEID` любой его записанной части (`[A-Za-z0-9][A-Za-z0-9._-]*`, до 255 символов).
+- Оба эндпоинта всегда отдают последнюю опубликованную ревизию; номер ревизии выбирать не нужно. В обоих ответах есть `call_id`, `aggregate_id` и `revision`.
+- `call-dialogs`: `turns` — фразы, уже склеенные в реплики: `start_ms`/`end_ms` на шкале звонка, `channel`, `speaker` (`client`/`employee` по CDR или `null`, если канал не сопоставить: моно-запись, неизвестное направление), `speaker_name` (имя сотрудника в АТС), `text`.
+- `text` — весь диалог одной строкой на реплику, перед каждой — участник («Иван Петров: …», «Клиент: …», «Собеседник 1: …»).
+- `direction` — `incoming`/`outgoing`/`internal` или `null`; `language` — как в детали расшифровки.
+- `call-summaries`: `status` (`done`, `pending`, `error`, `skipped`, `unavailable`), `topic`, `summary` и `parts` по каждой записанной части (`result_id`, `status`, `topic`, `summary`, `model`, `finished_at`). Для звонка из нескольких частей `topic` — тема первой суммаризированной части, `summary` — суммаризации частей через пустую строку. Пока какая-то часть в очереди, статус звонка `pending`.
+- 404 `call_transcript_not_found` — звонок не распознан или его расшифровка ещё не опубликована.
+
+Доступ — как у остальных API для интеграций: localhost или Bearer-ключ REST API с правом чтения этого пути; ключам обработчиков и веб-пользователям путь закрыт. Суммаризация читается при запросе и не создаёт новых ревизий расшифровки. Чтобы узнавать о новых звонках и готовых суммаризациях, читайте ленту событий ниже с `include_summaries=true`: по `call-transcript.completed`/`updated` запрашивайте `call-dialogs/{call_id}`, по `call-summary.completed` — `call-summaries/{call_id}`. Прежняя цепочка `events` → `call-transcripts/{aggregate_id}` работает как раньше.
+
 ### Расшифровки звонков
 
 Расшифровки логических звонков (все части записи одного звонка с версиями-ревизиями) отдают методы:
 
-- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true]`
+- `GET /call-transcripts/events?cursor=created_at:event_id&limit=100[&include_deleted=true][&include_summaries=true]`
 - `GET /call-transcripts/{aggregate_id}?revision=N`
 
-Оба ответа содержат `contract_version` (сейчас `2`). По умолчанию лента событий возвращает только `call-transcript.completed` и `call-transcript.updated`, как в версии 1. Потребитель, передающий `include_deleted=true`, дополнительно получает события `call-transcript.deleted`, когда расшифровку удалил администратор (`deletion_reason: manual`) или она удалена по сроку хранения (`deletion_reason: retention`). Событие удаления содержит `aggregate_id` удалённой расшифровки, её последнюю `revision` и `deleted_at`; поля `call_id`, `content_hash`, `parts_hash` и `completeness_status` равны `null`. События удаления идут в общем порядке курсора и хранятся 90 дней. Включайте их только после проверки `contract_version >= 2` и обрабатывайте каждый тип событий, который получает импортёр.
+Оба ответа содержат `contract_version` (сейчас `3`). По умолчанию лента событий возвращает только `call-transcript.completed` и `call-transcript.updated`, как в версии 1. Потребитель, передающий `include_deleted=true`, дополнительно получает события `call-transcript.deleted`, когда расшифровку удалил администратор (`deletion_reason: manual`) или она удалена по сроку хранения (`deletion_reason: retention`). Событие удаления содержит `aggregate_id` удалённой расшифровки, её последнюю `revision` и `deleted_at`; поля `call_id`, `content_hash`, `parts_hash` и `completeness_status` равны `null`. События удаления идут в общем порядке курсора и хранятся 90 дней. Включайте их только после проверки `contract_version >= 2` и обрабатывайте каждый тип событий, который получает импортёр.
 
 Деталь расшифровки звонка также содержит `language` — код ISO 639 (например, `ru`, `kk`), который обработчик указал для всех частей звонка, или `null`, если язык неизвестен или части на разных языках. Поле вычисляется из результатов частей при каждом запросе, поэтому не меняет `content_hash` и не создаёт новых ревизий.
+
+Потребитель, передающий `include_summaries=true` (при `contract_version >= 3`), получает события `call-summary.completed` — одно на ревизию звонка, когда у всех её частей суммаризация завершена (`done`, `skipped` или `error`). Поля события те же, что у `call-transcript.completed` этой ревизии, событие идёт после него. Части, распознанные до включения суммаризации, событие не задерживают. События по флагам идут в общем порядке курсора, поэтому потребитель, добавивший `include_summaries=true` (или `include_deleted=true`) к уже сохранённому курсору, увидит только события после него: начните с `0:0` или заберите прежние звонки через `call-summaries/{call_id}`. `contract_version` равен 3 во всех ответах, с флагами и без; поля и события версии 2 не изменились. Откат: прежняя версия модуля не знает событий `call-summary.completed`, и её лента по умолчанию останавливается на первом из них, поэтому перед установкой прежнего пакета удалите их (`DELETE FROM m_STTCallTranscriptEvent WHERE event_type = 'call-summary.completed'`).
 
 Новые модули должны использовать эти эндпоинты вместо прямого чтения таблиц.
 

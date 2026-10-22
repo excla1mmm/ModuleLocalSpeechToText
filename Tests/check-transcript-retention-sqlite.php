@@ -74,7 +74,7 @@ function retentionDatabase(): PDO
     $pdo->exec(
         'CREATE TABLE m_STTJob (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL, file_path TEXT NOT NULL UNIQUE);
          CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL UNIQUE, created_at INTEGER NOT NULL);
-         CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL);
+         CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL); CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL UNIQUE);
          CREATE TABLE m_STTCallTranscript (id INTEGER PRIMARY KEY AUTOINCREMENT, call_id TEXT NOT NULL UNIQUE, current_revision INTEGER NOT NULL DEFAULT 1);
          CREATE TABLE m_STTCallTranscriptPart (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL, result_id INTEGER NOT NULL);
          CREATE TABLE m_STTCallTranscriptRevision (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL);
@@ -100,6 +100,7 @@ function seedRetentionGraph(PDO $pdo, int $now): void
         $insertJob->execute([$jobId, $callId, $path]);
         $insertResult->execute([$resultId, $jobId, $createdAt]);
         $pdo->exec("INSERT INTO m_STTTranscriptEvent (id, result_id) VALUES ({$resultId}, {$resultId})");
+        $pdo->exec("INSERT INTO m_STTSummary (id, result_id) VALUES ({$resultId}, {$resultId})");
     }
     foreach ([
         [201, 'call-old', [101]],
@@ -139,6 +140,7 @@ expectRetentionSqlite($summary['cutoff'] === $now - (365 * 86400), 'retention cu
 expectRetentionSqlite(retentionCount($pdo, 'm_STTJob') === 5, 'job tombstones must remain');
 expectRetentionSqlite(retentionCount($pdo, 'm_STTResult') === 3, 'recent and mixed-age calls must remain');
 expectRetentionSqlite(retentionCount($pdo, 'm_STTTranscriptEvent') === 3, 'raw events must follow retained results');
+expectRetentionSqlite(retentionCount($pdo, 'm_STTSummary') === 3, 'call summaries must follow retained results');
 expectRetentionSqlite(retentionCount($pdo, 'm_STTCallTranscript') === 2, 'only expired call aggregate must be removed');
 expectRetentionSqlite(retentionCount($pdo, 'm_STTCallTranscriptPart') === 3, 'mixed-age aggregate parts must remain atomic');
 expectRetentionSqlite(

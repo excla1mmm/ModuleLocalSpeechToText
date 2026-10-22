@@ -58,6 +58,8 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
     public static function getAlwaysDenied(): array
     {
         $paths = [
+            '/call-dialogs',
+            '/call-summaries',
             '/call-transcripts',
             '/call-transcripts/events',
             '/job-failures',
@@ -65,6 +67,9 @@ final class ModuleLocalSpeechToTextACL implements ACLInterface
             '/job-recordings',
             '/job-results',
             '/jobs',
+            '/summary-failures',
+            '/summary-leases',
+            '/summary-results',
             '/transcripts',
             '/worker-api-contract',
             '/worker-processing-settings',

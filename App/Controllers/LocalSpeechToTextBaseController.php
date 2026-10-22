@@ -17,6 +17,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\CdrTranscriptService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ConversationSpeakerLabelResolver;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ModuleDatabasePragmas;
+use Modules\ModuleLocalSpeechToText\Lib\Services\SummaryCardService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptConversationService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptListService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptUserJsonService;
@@ -28,6 +29,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\UsersUIViewCapabilities;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerApiKeyService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\WorkerProcessingSettingsService;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use InvalidArgumentException;
 use stdClass;
@@ -60,6 +62,20 @@ class LocalSpeechToTextBaseController extends BaseController
     protected function buildSettingsForm(): ModuleLocalSpeechToTextForm
     {
         return new ModuleLocalSpeechToTextForm($this->settingsEntity());
+    }
+
+    /**
+     * The "Summarization" field of the transcript card, shown only while
+     * summarization is turned on.
+     *
+     * @param array<int, STTResult> $results
+     */
+    protected function assignSummaryCards(array $results): void
+    {
+        $this->view->summarizationEnabled = SummaryCardService::enabled();
+        $this->view->summaryCards = $this->view->summarizationEnabled
+            ? (new SummaryCardService())->forResults($results)
+            : [];
     }
 
     protected function saveSettingsFromPost(): void
@@ -123,6 +139,20 @@ class LocalSpeechToTextBaseController extends BaseController
         ];
 
         $settingsToPersist = $nextValues;
+        $previousSummarization = STTSetting::summarizationEnabled();
+        $nextSummarization = in_array(
+            $this->request->getPost(STTSetting::SUMMARIZATION_ENABLED, null, false),
+            [true, 1, '1', 'on', 'true'],
+            true
+        );
+        $summarizationChanged = $previousSummarization !== $nextSummarization;
+        if ($summarizationChanged) {
+            $settingsToPersist[STTSetting::SUMMARIZATION_ENABLED] = $nextSummarization ? '1' : '0';
+            if ($nextSummarization) {
+                // Only transcripts created from now on are summarized.
+                $settingsToPersist[STTSetting::SUMMARIZATION_ENABLED_AT] = (string)time();
+            }
+        }
         if ($previousHistoryDays !== $nextHistoryDays) {
             // Do NOT touch the realtime cursor (CDR_SCAN_CURSOR_ID): it is a
             // strictly id-based watermark (see
@@ -154,10 +184,15 @@ class LocalSpeechToTextBaseController extends BaseController
                 $changedFields[] = $key;
             }
         }
+        if ($summarizationChanged) {
+            $changedFields[] = STTSetting::SUMMARIZATION_ENABLED;
+        }
         $changedFields = array_values(array_unique($changedFields));
         sort($changedFields);
-        // Processing settings flag the workers themselves; models are saved by saveModelAction().
-        (new AdministrativeSettingsWriter())->save($settingsToPersist, $normalizedProcessing);
+        // Processing settings flag the workers themselves; models are saved by
+        // saveModelAction(). Workers download or stop the summary model when
+        // summarization is switched, so they refetch their settings.
+        (new AdministrativeSettingsWriter())->save($settingsToPersist, $normalizedProcessing, $summarizationChanged);
         if ($changedFields !== []) {
             LocalSpeechToTextLogger::event(
                 'settings',
@@ -384,6 +419,7 @@ class LocalSpeechToTextBaseController extends BaseController
         $settings->transcript_retention_days = (string)STTSetting::transcriptRetentionDays();
         $settings->selected_model = STTSetting::selectedModelId();
         $settings->custom_vocabulary_terms = STTSetting::customVocabularyTermsText();
+        $settings->summarization_enabled = STTSetting::summarizationEnabled();
         $processing = WorkerProcessingSettingsService::current();
         foreach ($processing as $key => $value) {
             $settings->{$key} = $value;

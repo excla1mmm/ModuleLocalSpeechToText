@@ -42,6 +42,7 @@ namespace {
     require_once __DIR__ . '/../Models/STTWorker.php';
     require_once __DIR__ . '/../Lib/Services/TransactionRecoveryException.php';
     require_once __DIR__ . '/../Lib/Services/ModuleTransaction.php';
+    require_once __DIR__ . '/../Lib/Services/SummaryModel.php';
     require_once __DIR__ . '/../Lib/Services/WorkerProcessingSettingsService.php';
 
     final class ProcessingSettingsSqliteConnection
@@ -213,6 +214,19 @@ namespace {
             ],
             'Fetch must return the PBX-selected model descriptor'
         );
+        expectProcessingSettingsSqlite(
+            ($payload['summarization']['enabled'] ?? null) === false
+                && ($payload['summarization']['model']['model_file'] ?? null) === 'gemma-3-4b-it-Q4_K_M.gguf'
+                && ($payload['summarization']['model']['model_sha256_manifest'][0]['size'] ?? null) === 2489757856
+                && preg_match('/^[0-9a-f]{40}$/', (string)($payload['summarization']['model']['model_revision'] ?? '')) === 1,
+            'Fetch must describe the pinned summary model and report summarization off by default'
+        );
+        ModulesModelsBase::$values[STTSetting::SUMMARIZATION_ENABLED] = '1';
+        expectProcessingSettingsSqlite(
+            (WorkerProcessingSettingsService::apiPayload($changed)['summarization']['enabled'] ?? null) === true,
+            'Turning summarization on must reach the workers'
+        );
+        unset(ModulesModelsBase::$values[STTSetting::SUMMARIZATION_ENABLED]);
         ModulesModelsBase::$values[STTSetting::SELECTED_MODEL] = 'large-v3-turbo';
         $whisperPayload = WorkerProcessingSettingsService::apiPayload($changed)['selected_model'] ?? [];
         expectProcessingSettingsSqlite(

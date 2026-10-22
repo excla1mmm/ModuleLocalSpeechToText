@@ -63,7 +63,8 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec(
     "CREATE TABLE m_STTSetting (key TEXT PRIMARY KEY, value TEXT NOT NULL);
      INSERT INTO m_STTSetting VALUES ('source_instance_id', '0123456789abcdef0123456789abcdef');
-     CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, language TEXT);"
+     CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, language TEXT, created_at INTEGER NOT NULL DEFAULT 0);
+     CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL UNIQUE, status TEXT, topic TEXT, summary TEXT, model_used TEXT, finished_at INTEGER);"
 );
 $connection = new CallLanguageConnection($pdo);
 \Modules\ModuleLocalSpeechToText\Models\STTSetting::$connection = $connection;

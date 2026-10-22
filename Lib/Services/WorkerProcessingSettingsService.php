@@ -124,7 +124,8 @@ final class WorkerProcessingSettingsService
      * @return array{
      *     schema_version: int,
      *     processing_settings: array<string, float|int|bool>,
-     *     selected_model: array<string, mixed>
+     *     selected_model: array<string, mixed>,
+     *     summarization: array{enabled: bool, model: array<string, mixed>}
      * }
      */
     public static function apiPayload(array $profile, string $platform = STTSetting::PLATFORM_MACOS): array
@@ -133,6 +134,7 @@ final class WorkerProcessingSettingsService
             'schema_version' => self::SCHEMA_VERSION,
             'processing_settings' => self::normalize($profile),
             'selected_model' => self::selectedModelPayload($platform),
+            'summarization' => SummaryModel::settingsPayload(),
         ];
     }
 
@@ -181,7 +183,8 @@ final class WorkerProcessingSettingsService
      * @return array{
      *     schema_version: int,
      *     processing_settings: array<string, float|int|bool>,
-     *     selected_model: array<string, mixed>
+     *     selected_model: array<string, mixed>,
+     *     summarization: array{enabled: bool, model: array<string, mixed>}
      * }
      */
     public function fetchForWorker(STTWorker $worker): array

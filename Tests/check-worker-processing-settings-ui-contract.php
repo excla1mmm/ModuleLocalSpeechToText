@@ -140,4 +140,13 @@ foreach ($messageFiles as $messageFile) {
     }
 }
 
+$settingsForm = (string)file_get_contents(__DIR__ . '/../App/Forms/ModuleLocalSpeechToTextForm.php');
+expectProcessingSettingsUi(
+    str_contains($settingsForm, 'STTSetting::SUMMARIZATION_ENABLED] as $field')
+        && str_contains($settingsForm, '$attributes = [\'value\' => \'1\'];')
+        && str_contains($settingsForm, '$attributes[\'checked\'] = \'1\';')
+        && !str_contains($settingsForm, '$attributes[\'checked\'] = \'checked\';'),
+    'Settings toggles must render checked: Phalcon 5 checks a box only when its checked attribute equals its value'
+);
+
 echo "Worker processing settings UI contract OK\n";

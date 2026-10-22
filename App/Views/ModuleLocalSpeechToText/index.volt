@@ -44,6 +44,12 @@
                     {{ t._('module_local_speech_to_text_TranscriptRetentionConflict') }}
                 </div>
             </div>
+            <div class="field">
+                <div class="ui toggle checkbox stt-summarization-toggle">
+                    {{ form.render('summarization_enabled') }}
+                    <label>{{ t._('module_local_speech_to_text_SummarizationEnabled') }} <i class="small info circle icon field-info-icon" data-content="{{ summarizationHint|e }}" data-variation="wide"></i></label>
+                </div>
+            </div>
             {# Keep these values in form submissions; remove hidden when the UI is ready to return. #}
             <div class="ui fluid styled accordion stt-advanced-settings-dropdown" hidden>
                 <div class="title">

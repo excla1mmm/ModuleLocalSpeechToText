@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\ModuleLocalSpeechToText\App\Controllers;
 
 use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CdrTranscriptNotFoundException;
+use Modules\ModuleLocalSpeechToText\Lib\Services\SummaryCardService;
 
 final class CdrTranscriptController extends LocalSpeechToTextBaseController
 {
@@ -35,10 +36,14 @@ final class CdrTranscriptController extends LocalSpeechToTextBaseController
         $this->view->canDeleteTranscript = $capabilities->canDeleteTranscripts();
 
         try {
-            $this->view->transcript = $this->cdrTranscriptService()->detail(
+            $transcript = $this->cdrTranscriptService()->detail(
                 (string)$this->request->getQuery('call_id', 'string', ''),
                 $this->usersUICallScope(),
             );
+            $transcript['summaries'] = SummaryCardService::enabled()
+                ? (new SummaryCardService())->forCall($transcript['callId'])
+                : [];
+            $this->view->transcript = $transcript;
         } catch (CdrTranscriptNotFoundException) {
             $this->response->setStatusCode(404, 'Not Found');
             $this->view->success = false;

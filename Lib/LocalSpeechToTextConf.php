@@ -56,7 +56,8 @@ class LocalSpeechToTextConf extends ConfigClass
     }
 
     /**
-     * Worker submissions carry free text: call transcripts and error messages.
+     * Worker submissions carry free text: call transcripts, model summaries of
+     * them and error messages.
      * Real conversations sometimes contain word sequences that the MikoPBX WAF
      * body scan mistakes for SQL injection, and nginx then rejects the whole
      * result with 403 before it reaches this module; the call never gets a
@@ -71,6 +72,8 @@ class LocalSpeechToTextConf extends ConfigClass
         return [
             '/pbxcore/api/v3/module-local-speech-to-text/job-results' => ['scopes' => ['body-scan'], 'prefix' => true],
             '/pbxcore/api/v3/module-local-speech-to-text/job-failures' => ['scopes' => ['body-scan'], 'prefix' => true],
+            '/pbxcore/api/v3/module-local-speech-to-text/summary-results' => ['scopes' => ['body-scan'], 'prefix' => true],
+            '/pbxcore/api/v3/module-local-speech-to-text/summary-failures' => ['scopes' => ['body-scan'], 'prefix' => true],
         ];
     }
 

@@ -16,6 +16,8 @@ $required = [
     "public function getWafExemptions(): array",
     "'/pbxcore/api/v3/module-local-speech-to-text/job-results' => ['scopes' => ['body-scan'], 'prefix' => true]",
     "'/pbxcore/api/v3/module-local-speech-to-text/job-failures' => ['scopes' => ['body-scan'], 'prefix' => true]",
+    "'/pbxcore/api/v3/module-local-speech-to-text/summary-results' => ['scopes' => ['body-scan'], 'prefix' => true]",
+    "'/pbxcore/api/v3/module-local-speech-to-text/summary-failures' => ['scopes' => ['body-scan'], 'prefix' => true]",
 ];
 foreach ($required as $needle) {
     if (!str_contains($source, $needle)) {
@@ -24,7 +26,7 @@ foreach ($required as $needle) {
     }
 }
 
-if (preg_match("~'/pbxcore/api/v3/module-local-speech-to-text/(?!job-results'|job-failures')[^']*' => \\['scopes'~", $source)) {
+if (preg_match("~'/pbxcore/api/v3/module-local-speech-to-text/(?!job-results'|job-failures'|summary-results'|summary-failures')[^']*' => \\['scopes'~", $source)) {
     fwrite(STDERR, "Only the worker result endpoints may be exempt from the WAF\n");
     exit(1);
 }

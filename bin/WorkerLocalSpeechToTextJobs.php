@@ -11,6 +11,7 @@ use MikoPBX\Common\Providers\DatabaseProviderBase;
 use MikoPBX\Core\Workers\WorkerBase;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogger;
 use Modules\ModuleLocalSpeechToText\Lib\Services\LocalSpeechToTextLogSanitizer;
+use Modules\ModuleLocalSpeechToText\Lib\Services\CallSummaryEvents;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CallTranscriptRevisionService;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CdrDiscoveryBackoffPolicy;
 use Modules\ModuleLocalSpeechToText\Lib\Services\CdrDiscoveryScanner;
@@ -26,6 +27,7 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerIterationFailureHandler;
 use Modules\ModuleLocalSpeechToText\Lib\Services\ScannerProcessGuard;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionCoordinator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
+use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
@@ -233,6 +235,17 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                                     'scanned_count' => $publication['scanned'],
                                     'blocked_jobs' => $publication['blocked_jobs'],
                                 ]
+                            );
+                        }
+                        $scanPhase = 'call_summary_publish';
+                        $summaryEvents = (new CallSummaryEvents())->publishReady((new STTCallTranscriptEvent())->getWriteConnection());
+                        if ($summaryEvents > 0) {
+                            LocalSpeechToTextLogger::event(
+                                'transcript',
+                                'call_summaries_published',
+                                'Call summary events published',
+                                LOG_NOTICE,
+                                ['published_count' => $summaryEvents]
                             );
                         }
                         $scanPhase = 'retention_cleanup';

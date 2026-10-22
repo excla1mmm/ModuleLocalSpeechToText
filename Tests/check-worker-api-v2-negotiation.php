@@ -266,6 +266,9 @@ namespace {
             'job-failures',
             'worker-platforms',
             'worker-platform-windows',
+            'summary-leases',
+            'summary-results',
+            'summary-failures',
         ],
     ], 'contract response shape changed', $contract->data);
 

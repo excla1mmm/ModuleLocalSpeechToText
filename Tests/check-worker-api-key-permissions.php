@@ -25,6 +25,9 @@ $expectedPaths = [
     '/api/v3/module-local-speech-to-text/job-recordings' => 'read',
     '/api/v3/module-local-speech-to-text/job-results' => 'write',
     '/api/v3/module-local-speech-to-text/job-failures' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-leases' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-results' => 'write',
+    '/api/v3/module-local-speech-to-text/summary-failures' => 'write',
 ];
 
 expectWorkerPermission(
@@ -36,7 +39,7 @@ expectWorkerPermission(
 $allowedPaths = WorkerApiKeyService::WORKER_ALLOWED_PATHS;
 expectWorkerPermission(
     $allowedPaths === $expectedPaths,
-    'Worker credentials must contain the exact eight worker API v2 paths'
+    'Worker credentials must contain the exact eleven worker API v2 paths'
 );
 
 $key = (object)[
@@ -71,6 +74,8 @@ foreach ([
     '/pbxcore/api/v3/module-local-speech-to-text/transcripts',
     '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/42',
     '/pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events',
+    '/pbxcore/api/v3/module-local-speech-to-text/call-dialogs/mikopbx-1784455200.42_a1b2c3',
+    '/pbxcore/api/v3/module-local-speech-to-text/call-summaries/mikopbx-1784455200.42_a1b2c3',
 ] as $path) {
     expectWorkerPermission(
         !$checker->checkPermission($key, $path, 'GET'),
