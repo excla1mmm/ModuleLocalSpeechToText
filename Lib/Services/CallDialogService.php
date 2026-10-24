@@ -57,8 +57,30 @@ final class CallDialogService
     /** @return array<string, mixed> */
     public function forCallId(string $callId): array
     {
-        $detail = $this->transcripts->callTranscriptDetail($this->requireAggregateId($callId));
+        $dialog = $this->signedDialog($this->transcripts->callTranscriptDetail($this->requireAggregateId($callId)));
 
+        $dialog['turns'] = array_map(static fn (array $turn): array => array_diff_key($turn, ['result_id' => true]), $dialog['turns']);
+
+        return array_diff_key($dialog, ['content_hash' => true]);
+    }
+
+    /**
+     * The signed dialog of one call revision for the summary prompt: every
+     * turn also names the part result (the leg) it comes from.
+     *
+     * @return array<string, mixed>
+     */
+    public function forAggregateRevision(int $aggregateId, int $revision): array
+    {
+        return $this->signedDialog($this->transcripts->callTranscriptDetail($aggregateId, $revision));
+    }
+
+    /**
+     * @param array<string, mixed> $detail
+     * @return array<string, mixed>
+     */
+    private function signedDialog(array $detail): array
+    {
         $contexts = [];
         $turns = [];
         $lines = [];
@@ -79,6 +101,7 @@ final class CallDialogService
                 'speaker' => $speaker['role'] ?? null,
                 'speaker_name' => $speaker['name'] ?? null,
                 'text' => $text,
+                'result_id' => $resultId,
             ];
             $lines[] = $this->speakerLabel($speaker, $channel) . ': ' . $text;
         }
@@ -91,6 +114,7 @@ final class CallDialogService
             'call_id' => $detail['call_id'],
             'aggregate_id' => $detail['aggregate_id'],
             'revision' => $detail['revision'],
+            'content_hash' => $detail['content_hash'] ?? '',
             'completeness_status' => $detail['completeness_status'],
             'language' => $detail['language'],
             'direction' => $contexts[$firstResultId]['direction'] ?? null,
@@ -100,15 +124,14 @@ final class CallDialogService
     }
 
     /**
-     * The summary of the latest published revision. Read at request time, so
-     * a summary that appears later never changes the transcript revision.
+     * The summary of the whole call, every leg in it. Read at request time,
+     * so a summary that appears later never changes the transcript revision.
      *
      * @return array<string, mixed>
      */
     public function summaryForCallId(string $callId): array
     {
         $detail = $this->transcripts->callTranscriptDetail($this->requireAggregateId($callId));
-        $manifest = is_array($detail['part_manifest'] ?? null) ? $detail['part_manifest'] : [];
 
         return [
             'source_instance_id' => $detail['source_instance_id'],
@@ -116,7 +139,7 @@ final class CallDialogService
             'call_id' => $detail['call_id'],
             'aggregate_id' => $detail['aggregate_id'],
             'revision' => $detail['revision'],
-        ] + (new CallSummaryProjection())->forResultIds($this->transcripts->manifestResultIds($manifest));
+        ] + (new CallSummaryProjection())->forAggregateId((int)$detail['aggregate_id']);
     }
 
     private function requireAggregateId(string $callId): int

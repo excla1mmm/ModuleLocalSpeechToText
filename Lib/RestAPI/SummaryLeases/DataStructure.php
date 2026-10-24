@@ -14,6 +14,9 @@ class DataStructure extends \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\Da
                     'type' => ['object', 'null'],
                     'properties' => [
                         'id' => ['type' => 'integer'],
+                        'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId'],
+                        'aggregate_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldAggregateId'],
+                        'revision' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldDialogRevision'],
                         'result_id' => ['type' => 'integer'],
                         'lease_token' => ['type' => 'string'],
                         'lease_expires_at' => ['type' => 'integer'],

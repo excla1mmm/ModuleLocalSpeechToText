@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 
-use JsonException;
-
 /**
- * Builds the complete llama-server chat request that summarizes one
- * transcript. Workers send it unchanged, so prompt tuning stays in the module.
+ * Builds the complete llama-server chat request that summarizes one call.
+ * Workers send it unchanged, so prompt tuning stays in the module.
+ *
+ * The prompt is made from the call's published revision: every leg of the
+ * call (a transfer, a consultation) in one time-ordered dialog, each turn
+ * signed with the speaker side from that leg's CDR, and a marker where the
+ * next leg starts, so a transferred call gets one summary of the whole call.
  *
  * The prompt was tuned on real calls with Gemma 3 4B: speaker sides and the
  * call direction come from the PBX (CDR), and the task is repeated after the
@@ -16,9 +19,9 @@ use JsonException;
  */
 final class SummaryPromptBuilder
 {
-    // Head and tail of a longer dialog are kept; ~12k characters fit the
+    // Head and tail of a longer dialog are kept; ~18k characters fit the
     // 8192-token context together with the instructions and the answer.
-    private const int MAX_DIALOG_CHARS = 12000;
+    private const int MAX_DIALOG_CHARS = 18000;
     private const int MAX_TOKENS = 300;
 
     public const string CLIENT_LABEL = 'Клиент';
@@ -43,20 +46,21 @@ final class SummaryPromptBuilder
     ];
 
     /**
-     * @param string $transcriptJson STTResult::$transcript (segments with text and channel)
-     * @param string $direction CallDirectionResolver direction, '' when unknown
-     * @param array{left: string, right: string}|null $labels speaker labels by channel, null when unknown
+     * @param array<int, array<string, mixed>> $turns CallDialogService turns of the revision, in time order:
+     *        text, channel, speaker (client/employee or null when unknown), speaker_name, result_id (the leg)
+     * @param string $direction CallDirectionResolver direction of the first leg, '' when unknown
      * @param string $language ISO code of the conversation, '' when unknown
      * @return array<string, mixed>
-     * @throws JsonException
      */
-    public function build(string $transcriptJson, string $direction, ?array $labels, string $language): array
+    public function build(array $turns, string $direction, string $language): array
     {
-        $segments = json_decode($transcriptJson === '' ? '[]' : $transcriptJson, true, 64, JSON_THROW_ON_ERROR);
-        $segments = is_array($segments) ? $segments : [];
+        $turns = array_values(array_filter($turns, static fn (mixed $turn): bool => is_array($turn)
+            && is_string($turn['text'] ?? null) && trim($turn['text']) !== ''));
+        $labeled = $turns !== [] && array_filter($turns, static fn (array $turn): bool => !is_string($turn['speaker'] ?? null)) === [];
+        $legs = $this->legs($turns);
 
-        $system = self::SYSTEM_PROMPT . ($labels === null ? self::UNLABELED_SPEAKERS : self::LABELED_SPEAKERS) . self::JSON_ONLY;
-        $user = "Расшифровка разговора:\n\n" . $this->dialog($segments, $labels) . "\n\n" . $this->task($direction, $labels, $language);
+        $system = self::SYSTEM_PROMPT . ($labeled ? self::LABELED_SPEAKERS : self::UNLABELED_SPEAKERS) . self::JSON_ONLY;
+        $user = "Расшифровка разговора:\n\n" . $this->dialog($turns, $legs) . "\n\n" . $this->task($direction, $labeled, $legs, $language);
 
         return [
             'messages' => [
@@ -76,30 +80,64 @@ final class SummaryPromptBuilder
         ];
     }
 
-    /** @param array<int, mixed> $segments */
-    private function dialog(array $segments, ?array $labels): string
+    /**
+     * Legs in the order they join the call, each with its named employees.
+     *
+     * @param array<int, array<string, mixed>> $turns
+     * @return array<int, array<int, string>> employee names by leg result id
+     */
+    private function legs(array $turns): array
     {
-        $segments = array_values(array_filter($segments, static fn (mixed $segment): bool => is_array($segment)
-            && is_string($segment['text'] ?? null) && trim($segment['text']) !== ''));
-        usort($segments, static fn (array $left, array $right): int => (int)($left['start_ms'] ?? 0) <=> (int)($right['start_ms'] ?? 0));
-
-        $anonymous = [];
-        $turns = [];
-        foreach ($segments as $segment) {
-            $side = (string)($segment['channel'] ?? $segment['speaker'] ?? '');
-            $speaker = $labels === null
-                ? ($anonymous[$side] ??= 'Собеседник ' . (count($anonymous) + 1))
-                : $this->speakerName((string)($labels[$side] ?? ''));
-            $text = trim(preg_replace('/\s+/u', ' ', (string)$segment['text']) ?? '');
-            $last = array_key_last($turns);
-            if ($last !== null && $turns[$last][0] === $speaker) {
-                $turns[$last][1] .= ' ' . $text;
-            } else {
-                $turns[] = [$speaker, $text];
+        $legs = [];
+        foreach ($turns as $turn) {
+            $leg = (int)($turn['result_id'] ?? 0);
+            $legs[$leg] ??= [];
+            $name = trim((string)($turn['speaker_name'] ?? ''));
+            if (($turn['speaker'] ?? null) === CallDialogService::ROLE_EMPLOYEE && $name !== '' && !in_array($name, $legs[$leg], true)) {
+                $legs[$leg][] = $name;
             }
         }
 
-        $dialog = implode("\n", array_map(static fn (array $turn): string => $turn[0] . ': ' . $turn[1], $turns));
+        return $legs;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $turns
+     * @param array<int, array<int, string>> $legs
+     */
+    private function dialog(array $turns, array $legs): string
+    {
+        $anonymous = [];
+        $joined = [];
+        $lines = [];
+        $last = null;
+        foreach ($turns as $turn) {
+            $leg = (int)($turn['result_id'] ?? 0);
+            if ($joined !== [] && !isset($joined[$leg])) {
+                $names = $legs[$leg] ?? [];
+                $lines[] = '— Следующий участок звонка (перевод или консультация)'
+                    . ($names === [] ? '' : ', участвует ' . implode(', ', $names)) . ' —';
+                $last = null;
+            }
+            $joined[$leg] = true;
+
+            $role = $turn['speaker'] ?? null;
+            $speaker = match (true) {
+                $role === CallDialogService::ROLE_CLIENT => self::CLIENT_LABEL,
+                $role === CallDialogService::ROLE_EMPLOYEE => $this->speakerName(trim((string)($turn['speaker_name'] ?? ''))),
+                // Without the CDR sides, a leg's channel is all that is known.
+                default => $anonymous[$leg . '|' . (string)($turn['channel'] ?? '')] ??= 'Собеседник ' . (count($anonymous) + 1),
+            };
+            $text = trim(preg_replace('/\s+/u', ' ', (string)$turn['text']) ?? '');
+            if ($last !== null && $lines[$last][0] === $speaker) {
+                $lines[$last][1] .= ' ' . $text;
+            } else {
+                $lines[] = [$speaker, $text];
+                $last = array_key_last($lines);
+            }
+        }
+
+        $dialog = implode("\n", array_map(static fn (array|string $line): string => is_array($line) ? $line[0] . ': ' . $line[1] : $line, $lines));
         if (mb_strlen($dialog) > self::MAX_DIALOG_CHARS) {
             $half = intdiv(self::MAX_DIALOG_CHARS, 2);
             $dialog = mb_substr($dialog, 0, $half) . "\n[...]\n" . mb_substr($dialog, -$half);
@@ -108,22 +146,16 @@ final class SummaryPromptBuilder
         return $dialog;
     }
 
-    private function speakerName(string $label): string
+    private function speakerName(string $name): string
     {
-        if ($label === '' || $label === self::EMPLOYEE_LABEL) {
-            return self::EMPLOYEE_LABEL;
-        }
-
-        return $label === self::CLIENT_LABEL ? $label : $label . ' (сотрудник)';
+        return $name === '' ? self::EMPLOYEE_LABEL : $name . ' (сотрудник)';
     }
 
-    private function task(string $direction, ?array $labels, string $language): string
+    /** @param array<int, array<int, string>> $legs */
+    private function task(string $direction, bool $labeled, array $legs, string $language): string
     {
-        $employees = array_values(array_filter(
-            $labels ?? [],
-            static fn (string $label): bool => $label !== '' && $label !== self::CLIENT_LABEL && $label !== self::EMPLOYEE_LABEL
-        ));
-        $employee = $employees === [] ? 'сотрудник' : 'сотрудник ' . implode(' и ', array_unique($employees));
+        $first = array_values($legs)[0] ?? [];
+        $employee = $first === [] ? 'сотрудник' : 'сотрудник ' . implode(' и ', $first);
         [$directionText, $purpose] = match ($direction) {
             CallDirectionResolver::DIRECTION_INCOMING => [
                 "Это ВХОДЯЩИЙ звонок: Клиент сам позвонил в компанию, ответил {$employee}.",
@@ -139,16 +171,24 @@ final class SummaryPromptBuilder
             ],
             default => ['Направление звонка неизвестно.', 'кто и зачем звонил'],
         };
+        $sentences = '1-2 коротких предложения';
+        if (count($legs) > 1) {
+            $all = array_values(array_unique(array_merge(...array_values($legs))));
+            $directionText .= ' Звонок состоит из нескольких участков: его переводили или сотрудник консультировался с коллегой'
+                . ($all === [] ? '' : ' (участвовали: ' . implode(', ', $all) . ')')
+                . '. Это один звонок — опиши его целиком, а не только один участок.';
+            $sentences = '1-3 коротких предложения';
+        }
         $languageName = self::LANGUAGE_NAMES[strtolower(substr(trim($language), 0, 2))] ?? null;
         $languageText = $languageName === null
             ? 'Пиши topic и summary на том языке, на котором идёт разговор.'
             : "Пиши topic и summary на {$languageName} языке.";
-        $names = $labels === null ? '' : 'Используй имена из подписей, не путай клиента и сотрудника. ';
+        $names = $labeled ? 'Используй имена из подписей, не путай клиента и сотрудника. ' : '';
 
         return "Задание. {$directionText}\n"
             . "Верни JSON с двумя полями:\n"
             . "- \"topic\": тема разговора, 3-8 слов, без точки в конце;\n"
-            . "- \"summary\": 1-2 коротких предложения: {$purpose} и чем закончился разговор "
+            . "- \"summary\": {$sentences}: {$purpose} и чем закончился разговор "
             . "(о чём договорились, что пообещали, что осталось нерешённым).\n"
             . $names
             . 'Не выдумывай факты, которых нет в тексте. Если разговора по сути нет '

@@ -40,8 +40,9 @@ final class CdrTranscriptController extends LocalSpeechToTextBaseController
                 (string)$this->request->getQuery('call_id', 'string', ''),
                 $this->usersUICallScope(),
             );
+            // One summary of the whole call, every leg in it.
             $transcript['summaries'] = SummaryCardService::enabled()
-                ? (new SummaryCardService())->forCall($transcript['callId'])
+                ? [(new SummaryCardService())->forCall($transcript['callId'])]
                 : [];
             $this->view->transcript = $transcript;
         } catch (CdrTranscriptNotFoundException) {

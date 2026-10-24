@@ -29,6 +29,8 @@ use Modules\ModuleLocalSpeechToText\Lib\Services\TranscriptRetentionCoordinator;
 use Modules\ModuleLocalSpeechToText\Lib\Services\TransactionRecoveryException;
 use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
+use Modules\ModuleLocalSpeechToText\Models\STTSetting;
+use Modules\ModuleLocalSpeechToText\Models\STTSummary;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
 use Throwable;
 
@@ -236,6 +238,22 @@ class WorkerLocalSpeechToTextJobs extends WorkerBase
                                     'blocked_jobs' => $publication['blocked_jobs'],
                                 ]
                             );
+                        }
+                        $scanPhase = 'call_summary_queue';
+                        if (STTSetting::summarizationEnabled()) {
+                            // Calls published since the last pass, and calls whose
+                            // content changed after their summary was made.
+                            $queued = STTSummary::enqueueMissing(STTSetting::summarizationEnabledAt());
+                            $requeued = STTSummary::requeueChangedCalls();
+                            if ($requeued > 0) {
+                                LocalSpeechToTextLogger::event(
+                                    'queue',
+                                    'summaries_requeued',
+                                    'Call summaries queued again after the call changed',
+                                    LOG_NOTICE,
+                                    ['requeued_count' => $requeued, 'queued_count' => $queued]
+                                );
+                            }
                         }
                         $scanPhase = 'call_summary_publish';
                         $summaryEvents = (new CallSummaryEvents())->publishReady((new STTCallTranscriptEvent())->getWriteConnection());

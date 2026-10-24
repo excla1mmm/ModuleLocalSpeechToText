@@ -9,7 +9,8 @@ use MikoPBX\Modules\Models\ModulesModelsBase;
 /**
  * @Indexes(
  *     [name='call_id', columns=['call_id'], type='UNIQUE'],
- *     [name='publish', columns=['stable_after', 'pending_content_hash'], type='']
+ *     [name='publish', columns=['stable_after', 'pending_content_hash'], type=''],
+ *     [name='created_at', columns=['created_at'], type='']
  * )
  */
 class STTCallTranscript extends ModulesModelsBase

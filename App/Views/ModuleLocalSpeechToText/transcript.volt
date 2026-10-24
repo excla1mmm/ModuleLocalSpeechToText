@@ -8,6 +8,8 @@
         <div class="sub header">#{{ result.job_id|e }} - {{ result.STTJob.call_id|e }}</div>
     </div>
 
+    {% include "Modules/ModuleLocalSpeechToText/ModuleLocalSpeechToText/_summary_panel.volt" %}
+
     {% if showCallLegTabs %}
         <div class="stt-call-leg-review">
             <div class="ui secondary pointing menu stt-call-leg-tabs" role="tablist">

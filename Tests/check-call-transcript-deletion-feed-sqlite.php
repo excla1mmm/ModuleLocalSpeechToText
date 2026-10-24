@@ -83,7 +83,7 @@ $pdo->exec(
      INSERT INTO m_STTSetting VALUES ('source_instance_id', '0123456789abcdef0123456789abcdef');
      CREATE TABLE m_STTJob (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL, status TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0);
      CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL);
-     CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL); CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL UNIQUE);"
+     CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL); CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL UNIQUE);"
 );
 \Modules\ModuleLocalSpeechToText\Models\STTSetting::$connection = $connection;
 \Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent::$connection = $connection;

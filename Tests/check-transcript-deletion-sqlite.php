@@ -62,7 +62,7 @@ function deletionDatabase(): PDO
         'CREATE TABLE m_STTJob (id INTEGER PRIMARY KEY, call_id TEXT NOT NULL, status TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0);
          CREATE TABLE m_STTResult (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL);
          CREATE TABLE m_STTTranscriptEvent (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL);
-         CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, result_id INTEGER NOT NULL UNIQUE);
+         CREATE TABLE m_STTSummary (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL UNIQUE);
          CREATE TABLE m_STTCallTranscript (id INTEGER PRIMARY KEY AUTOINCREMENT, call_id TEXT NOT NULL UNIQUE, current_revision INTEGER NOT NULL DEFAULT 0);
          CREATE TABLE m_STTCallTranscriptPart (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL, result_id INTEGER NOT NULL);
          CREATE TABLE m_STTCallTranscriptRevision (id INTEGER PRIMARY KEY, call_transcript_id INTEGER NOT NULL);
@@ -74,7 +74,7 @@ function deletionDatabase(): PDO
             (1, 'call-a', 'done'), (2, 'call-a', 'done'), (3, 'call-b', 'done');
          INSERT INTO m_STTResult VALUES (11, 1), (12, 2), (13, 3);
          INSERT INTO m_STTTranscriptEvent VALUES (21, 11), (22, 12), (23, 13);
-         INSERT INTO m_STTSummary VALUES (71, 11), (72, 13);
+         INSERT INTO m_STTSummary VALUES (71, 31), (72, 32);
          INSERT INTO m_STTCallTranscript VALUES (31, 'call-a', 3), (32, 'call-b', 1);
          INSERT INTO m_STTCallTranscriptPart VALUES (41, 31, 11), (42, 31, 12), (43, 32, 13);
          INSERT INTO m_STTCallTranscriptRevision VALUES (51, 31), (52, 32);
@@ -113,7 +113,7 @@ expectDeletion(
 expectDeletion(deletionCount($pdo, 'm_STTJob') === 3, 'Jobs and their CDR identity must remain');
 expectDeletion(deletionCount($pdo, 'm_STTResult') === 1, 'All result parts of the selected call must be deleted');
 expectDeletion(deletionCount($pdo, 'm_STTTranscriptEvent') === 1, 'Result events must follow deleted results');
-expectDeletion(deletionCount($pdo, 'm_STTSummary') === 1, 'Call summaries must follow deleted results');
+expectDeletion(deletionCount($pdo, 'm_STTSummary') === 1, 'Call summaries must follow deleted calls');
 expectDeletion(deletionCount($pdo, 'm_STTCallTranscript') === 1, 'Selected call aggregate must be deleted');
 expectDeletion(deletionCount($pdo, 'm_STTCallTranscriptPart') === 1, 'Selected call parts must be deleted');
 expectDeletion(deletionCount($pdo, 'm_STTCallTranscriptRevision') === 1, 'Selected call revisions must be deleted');

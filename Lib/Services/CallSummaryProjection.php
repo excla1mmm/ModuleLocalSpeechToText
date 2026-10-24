@@ -8,9 +8,10 @@ use Modules\ModuleLocalSpeechToText\Models\STTCallTranscriptEvent;
 use Phalcon\Db\Enum;
 
 /**
- * The call summary block of the integration API: the summary of every part of
- * a call and one status for the whole call. Read at request time, so a summary
- * that appears later never changes the transcript content_hash or revision.
+ * The summary of a call for the integration API and the transcript cards:
+ * one summary of the whole published call, every leg in it. Read at request
+ * time, so a summary that appears later never changes the transcript
+ * content_hash or revision.
  */
 final class CallSummaryProjection
 {
@@ -20,125 +21,61 @@ final class CallSummaryProjection
     public const string STATUS_ERROR = 'error';
     // Too little speech to summarize.
     public const string STATUS_SKIPPED = 'skipped';
-    // Summarization is off, or the part was transcribed before it was turned on.
+    // Summarization is off, or the call was transcribed before it was turned on.
     public const string STATUS_UNAVAILABLE = 'unavailable';
 
-    /**
-     * @param array<int, int> $resultIds part results in call order
-     * @return array{status: string, topic: ?string, summary: ?string, parts: array<int, array<string, mixed>>}
-     */
-    public function forResultIds(array $resultIds): array
-    {
-        $resultIds = array_values(array_unique(array_filter(
-            array_map('intval', $resultIds),
-            static fn (int $id): bool => $id > 0
-        )));
-        if ($resultIds === []) {
-            return ['status' => self::STATUS_UNAVAILABLE, 'topic' => null, 'summary' => null, 'parts' => []];
-        }
-        $rows = $this->rows($resultIds);
-        [$enabled, $enabledAt] = $this->settings();
+    private const array FINAL_STATUSES = [self::STATUS_DONE, self::STATUS_ERROR, self::STATUS_SKIPPED];
 
-        $parts = [];
-        foreach ($resultIds as $resultId) {
-            $row = $rows[$resultId] ?? null;
-            $status = $this->partStatus($row, $enabled, $enabledAt);
+    /**
+     * @return array{status: string, topic: ?string, summary: ?string, model: ?string, finished_at: ?int}
+     */
+    public function forAggregateId(int $aggregateId): array
+    {
+        $none = ['status' => self::STATUS_UNAVAILABLE, 'topic' => null, 'summary' => null, 'model' => null, 'finished_at' => null];
+        if ($aggregateId <= 0) {
+            return $none;
+        }
+        $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
+            'SELECT c.created_at AS call_created_at, c.current_content_hash, s.id AS summary_id, s.status,
+                    s.content_hash, s.topic, s.summary, s.model_used, s.finished_at
+               FROM m_STTCallTranscript c
+          LEFT JOIN m_STTSummary s ON s.call_transcript_id = c.id
+              WHERE c.id = :id',
+            Enum::FETCH_ASSOC,
+            ['id' => $aggregateId]
+        );
+        $row = $rows[0] ?? null;
+        if (!is_array($row)) {
+            return $none;
+        }
+        [$enabled, $enabledAt] = $this->settings();
+        $status = (string)($row['status'] ?? '');
+        // A finished summary of earlier content is about to be redone.
+        $current = (string)($row['content_hash'] ?? '') === (string)($row['current_content_hash'] ?? '');
+
+        if (in_array($status, self::FINAL_STATUSES, true) && ($current || !$enabled)) {
             $done = $status === self::STATUS_DONE;
-            $parts[] = [
-                'result_id' => $resultId,
+
+            return [
                 'status' => $status,
                 'topic' => $done ? (string)($row['topic'] ?? '') : null,
                 'summary' => $done ? (string)($row['summary'] ?? '') : null,
                 'model' => $done && trim((string)($row['model_used'] ?? '')) !== '' ? (string)$row['model_used'] : null,
-                'finished_at' => $done && (int)($row['finished_at'] ?? 0) > 0 ? (int)$row['finished_at'] : null,
+                'finished_at' => (int)($row['finished_at'] ?? 0) > 0 ? (int)$row['finished_at'] : null,
             ];
-        }
-
-        $done = array_values(array_filter($parts, static fn (array $part): bool => $part['status'] === self::STATUS_DONE));
-        $texts = array_values(array_filter(array_map(static fn (array $part): string => trim((string)$part['summary']), $done)));
-
-        return [
-            'status' => self::callStatus(array_column($parts, 'status')),
-            'topic' => $done === [] ? null : (string)$done[0]['topic'],
-            'summary' => $texts === [] ? null : implode("\n\n", $texts),
-            'parts' => $parts,
-        ];
-    }
-
-    /**
-     * Pending wins while any part may still get a summary; then a summary that
-     * exists; then an error; skipped only when every part was skipped.
-     *
-     * @param array<int, string> $statuses
-     */
-    public static function callStatus(array $statuses): string
-    {
-        foreach ([self::STATUS_PENDING, self::STATUS_DONE, self::STATUS_ERROR] as $status) {
-            if (in_array($status, $statuses, true)) {
-                return $status;
-            }
-        }
-
-        return $statuses !== [] && array_unique($statuses) === [self::STATUS_SKIPPED]
-            ? self::STATUS_SKIPPED
-            : self::STATUS_UNAVAILABLE;
-    }
-
-    /** @param array<string, mixed>|null $row */
-    private function partStatus(?array $row, bool $enabled, int $enabledAt): string
-    {
-        $status = (string)($row['status'] ?? '');
-        if (in_array($status, [self::STATUS_DONE, self::STATUS_ERROR, self::STATUS_SKIPPED], true)) {
-            return $status;
         }
         if (!$enabled) {
             // Nothing summarizes while the setting is off.
-            return self::STATUS_UNAVAILABLE;
+            return $none;
         }
-        if ($status === 'pending' || $status === 'processing') {
-            return self::STATUS_PENDING;
+        if ($status !== '') {
+            return ['status' => self::STATUS_PENDING] + $none;
         }
-        // No summary row yet: the queue adds one only for transcripts created
-        // since summarization was turned on.
-        $createdAt = (int)($row['result_created_at'] ?? 0);
+        // No summary row yet: the queue adds one only for calls created since
+        // summarization was turned on.
+        $createdAt = (int)($row['call_created_at'] ?? 0);
 
-        return $createdAt > 0 && $createdAt >= $enabledAt ? self::STATUS_PENDING : self::STATUS_UNAVAILABLE;
-    }
-
-    /**
-     * @param array<int, int> $resultIds
-     * @return array<int, array<string, mixed>> keyed by result id
-     */
-    private function rows(array $resultIds): array
-    {
-        if ($resultIds === []) {
-            return [];
-        }
-        $placeholders = [];
-        $bind = [];
-        foreach ($resultIds as $index => $resultId) {
-            $placeholders[] = ':result_' . $index;
-            $bind['result_' . $index] = $resultId;
-        }
-        $rows = (new STTCallTranscriptEvent())->getReadConnection()->fetchAll(
-            'SELECT r.id AS result_id, r.created_at AS result_created_at, s.status, s.topic, s.summary,
-                    s.model_used, s.finished_at
-               FROM m_STTResult r
-          LEFT JOIN m_STTSummary s ON s.result_id = r.id
-              WHERE r.id IN (' . implode(', ', $placeholders) . ')',
-            Enum::FETCH_ASSOC,
-            $bind
-        );
-
-        $byResult = [];
-        foreach ($rows as $row) {
-            $resultId = (int)($row['result_id'] ?? 0);
-            if (in_array($resultId, $resultIds, true)) {
-                $byResult[$resultId] = $row;
-            }
-        }
-
-        return $byResult;
+        return ['status' => $createdAt > 0 && $createdAt >= $enabledAt ? self::STATUS_PENDING : self::STATUS_UNAVAILABLE] + $none;
     }
 
     /** @return array{0: bool, 1: int} */

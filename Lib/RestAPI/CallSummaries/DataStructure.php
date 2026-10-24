@@ -37,7 +37,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaCallSummary',
-            'required' => ['source_instance_id', 'contract_version', 'call_id', 'aggregate_id', 'revision', 'status', 'topic', 'summary', 'parts'],
+            'required' => ['source_instance_id', 'contract_version', 'call_id', 'aggregate_id', 'revision', 'status', 'topic', 'summary', 'model', 'finished_at'],
             'properties' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
                 'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 3],
@@ -58,31 +58,16 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     /** @return array<string, mixed> */
     private static function summaryBody(): array
     {
-        $statuses = ['done', 'pending', 'error', 'skipped', 'unavailable'];
-
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiFieldCallSummary',
-            'required' => ['status', 'topic', 'summary', 'parts'],
+            'required' => ['status', 'topic', 'summary', 'model', 'finished_at'],
             'properties' => [
-                'status' => ['type' => 'string', 'enum' => $statuses, 'description' => 'module_local_speech_to_text_ApiFieldSummaryStatus', 'example' => 'done'],
+                'status' => ['type' => 'string', 'enum' => ['done', 'pending', 'error', 'skipped', 'unavailable'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryStatus', 'example' => 'done'],
                 'topic' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryTopic', 'example' => 'Статус заказа'],
                 'summary' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryText', 'example' => 'Клиент уточнил статус заказа; сотрудник обещал перезвонить.'],
-                'parts' => [
-                    'type' => 'array',
-                    'description' => 'module_local_speech_to_text_ApiFieldSummaryParts',
-                    'items' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'result_id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldResultId', 'example' => 501],
-                            'status' => ['type' => 'string', 'enum' => $statuses, 'description' => 'module_local_speech_to_text_ApiFieldSummaryStatus', 'example' => 'done'],
-                            'topic' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryTopic', 'example' => 'Статус заказа'],
-                            'summary' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryText', 'example' => 'Клиент уточнил статус заказа; сотрудник обещал перезвонить.'],
-                            'model' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryModel', 'example' => 'gemma-3-4b-it-Q4_K_M'],
-                            'finished_at' => ['type' => ['integer', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryFinishedAt', 'example' => 1784455900],
-                        ],
-                    ],
-                ],
+                'model' => ['type' => ['string', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryModel', 'example' => 'gemma-3-4b-it-Q4_K_M'],
+                'finished_at' => ['type' => ['integer', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldSummaryFinishedAt', 'example' => 1784455900],
             ],
         ];
     }
@@ -90,16 +75,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     /** @return array<string, mixed> */
     private static function summaryExample(): array
     {
-        $part = [
-            'result_id' => 501,
+        return [
             'status' => 'done',
             'topic' => 'Статус заказа',
             'summary' => 'Клиент уточнил статус заказа; сотрудник обещал перезвонить.',
             'model' => 'gemma-3-4b-it-Q4_K_M',
             'finished_at' => 1784455900,
         ];
-
-        return ['status' => 'done', 'topic' => $part['topic'], 'summary' => $part['summary'], 'parts' => [$part]];
     }
 
     public static function getRelatedSchemas(): array

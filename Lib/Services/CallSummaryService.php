@@ -7,8 +7,8 @@ namespace Modules\ModuleLocalSpeechToText\Lib\Services;
 use DomainException;
 use JsonException;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleLocalSpeechToText\Lib\Exceptions\CallTranscriptNotFoundException;
 use Modules\ModuleLocalSpeechToText\Models\STTJob;
-use Modules\ModuleLocalSpeechToText\Models\STTResult;
 use Modules\ModuleLocalSpeechToText\Models\STTSetting;
 use Modules\ModuleLocalSpeechToText\Models\STTSummary;
 use Modules\ModuleLocalSpeechToText\Models\STTWorker;
@@ -40,7 +40,8 @@ final class CallSummaryService
             }
             LocalSpeechToTextLogger::event('queue', 'summary_claimed', 'Summary task claimed by a worker', LOG_INFO, [
                 'summary_id' => (int)$summary['id'],
-                'result_id' => (int)$summary['result_id'],
+                'call_transcript_id' => (int)$summary['aggregate_id'],
+                'revision' => (int)$summary['revision'],
                 'worker_uid' => (string)$worker->worker_uid,
             ]);
 
@@ -111,7 +112,8 @@ final class CallSummaryService
             }
             LocalSpeechToTextLogger::event('queue', 'summary_completed', 'Call summary completed', LOG_NOTICE, [
                 'summary_id' => (int)$summary->id,
-                'result_id' => (int)$summary->result_id,
+                'call_transcript_id' => (int)$summary->call_transcript_id,
+                'revision' => (int)$summary->revision,
                 'worker_uid' => (string)$worker->worker_uid,
                 'duration_ms' => is_numeric($data['duration_ms'] ?? null) ? (int)$data['duration_ms'] : null,
                 'prompt_tokens' => is_numeric($data['prompt_tokens'] ?? null) ? (int)$data['prompt_tokens'] : null,
@@ -168,15 +170,22 @@ final class CallSummaryService
             }
             $tried[] = (int)$summary->id;
             try {
+                $dialog = (new CallDialogService())->forAggregateRevision((int)$summary->call_transcript_id, (int)$summary->revision);
+                $resultIds = array_values(array_unique(array_filter(array_column($dialog['turns'], 'result_id'))));
+
                 return [
                     'id' => (int)$summary->id,
-                    'result_id' => (int)$summary->result_id,
+                    'call_id' => (string)$dialog['call_id'],
+                    'aggregate_id' => (int)$summary->call_transcript_id,
+                    'revision' => (int)$summary->revision,
+                    // The first leg, for workers that log it; the summary covers every leg.
+                    'result_id' => (int)($resultIds[0] ?? 0),
                     'lease_token' => (string)$summary->lease_token,
                     'lease_expires_at' => (int)$summary->lease_expires_at,
                     'model_id' => SummaryModel::MODEL_ID,
-                    'request' => $this->request((int)$summary->result_id),
+                    'request' => $this->request($dialog),
                 ];
-            } catch (JsonException|DomainException $exception) {
+            } catch (CallTranscriptNotFoundException|JsonException|DomainException $exception) {
                 $summary->markFailedForWorker((int)$worker->id, (string)$summary->lease_token, 'Summary prompt could not be built', true);
                 LocalSpeechToTextLogger::event('queue', 'summary_prompt_failed', 'Summary prompt could not be built', LOG_WARNING, [
                     'summary_id' => (int)$summary->id,
@@ -205,42 +214,22 @@ final class CallSummaryService
         ]) !== null;
     }
 
-    /** @return array<string, mixed> */
-    private function request(int $resultId): array
+    /**
+     * @param array<string, mixed> $dialog CallDialogService::forAggregateRevision()
+     * @return array<string, mixed>
+     */
+    private function request(array $dialog): array
     {
-        $result = STTResult::findFirstById($resultId);
-        if (!$result instanceof STTResult) {
-            throw new DomainException('Summarized transcript no longer exists');
-        }
-
-        // The prompt is Russian whatever the admin UI language is; the answer
-        // language follows the conversation.
-        $translation = new class {
-            public function _(string $key): string
-            {
-                return match ($key) {
-                    'module_local_speech_to_text_Client' => SummaryPromptBuilder::CLIENT_LABEL,
-                    'module_local_speech_to_text_Employee' => SummaryPromptBuilder::EMPLOYEE_LABEL,
-                    default => $key,
-                };
-            }
-        };
-        $recordings = new CallRecordingService($translation, null, null, null);
-        $directions = new CallDirectionResolver(CallDirectionResolver::loadInternalNumbers());
-        $job = $result->STTJob;
-        $cdr = $job instanceof STTJob ? $recordings->cdrRecordForJob($job) : null;
-        $cdr ??= $recordings->cdrRecordForResult($result);
-        $direction = $directions->resolve($cdr)['direction'];
-        $labels = (new ConversationSpeakerLabelResolver($translation, $directions, $recordings->employeeName(...)))->resolve($cdr);
-        $language = trim((string)$result->language);
+        $language = trim((string)($dialog['language'] ?? ''));
         if ($language === '' || $language === STTSetting::AUTO_LANGUAGE) {
             $language = STTSetting::selectedLanguageId();
         }
 
+        // The prompt is Russian whatever the admin UI language is; the answer
+        // language follows the conversation.
         return (new SummaryPromptBuilder())->build(
-            (string)$result->transcript,
-            $direction === CallDirectionResolver::DIRECTION_UNKNOWN ? '' : $direction,
-            $labels,
+            is_array($dialog['turns'] ?? null) ? $dialog['turns'] : [],
+            (string)($dialog['direction'] ?? ''),
             $language === STTSetting::AUTO_LANGUAGE ? '' : $language
         );
     }

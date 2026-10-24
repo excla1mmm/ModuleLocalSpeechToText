@@ -376,9 +376,33 @@ namespace Modules\ModuleLocalSpeechToText\Models {
             return '';
         }
 
+        public static function summarizationEnabled(): bool
+        {
+            return true;
+        }
+
+        public static function summarizationEnabledAt(): int
+        {
+            return 0;
+        }
+
         public static function transcriptRetentionDays(): int
         {
             \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('retention_cleanup');
+            return 0;
+        }
+    }
+
+    final class STTSummary
+    {
+        public static function enqueueMissing(int $enabledAt): int
+        {
+            \Modules\ModuleLocalSpeechToText\Lib\Services\ScannerWorkerProbe::reachPhase('call_summary_queue');
+            return 0;
+        }
+
+        public static function requeueChangedCalls(): int
+        {
             return 0;
         }
     }
@@ -676,6 +700,7 @@ namespace {
         'skipped_recordings',
         'cdr_scan',
         'call_transcript_publish',
+        'call_summary_queue',
         'call_summary_publish',
         'retention_cleanup',
     ];

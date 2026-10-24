@@ -65,17 +65,15 @@ class LocalSpeechToTextBaseController extends BaseController
     }
 
     /**
-     * The "Summarization" field of the transcript card, shown only while
-     * summarization is turned on.
-     *
-     * @param array<int, STTResult> $results
+     * The "Summarization" field of the transcript card: one summary of the
+     * whole call, shown only while summarization is turned on.
      */
-    protected function assignSummaryCards(array $results): void
+    protected function assignSummaryCard(string $callId): void
     {
         $this->view->summarizationEnabled = SummaryCardService::enabled();
-        $this->view->summaryCards = $this->view->summarizationEnabled
-            ? (new SummaryCardService())->forResults($results)
-            : [];
+        $this->view->summaryCard = $this->view->summarizationEnabled
+            ? (new SummaryCardService())->forCall($callId)
+            : null;
     }
 
     protected function saveSettingsFromPost(): void

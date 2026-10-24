@@ -418,8 +418,8 @@
             return $details;
         }
 
-        // The "Summarization" field: one block per transcribed leg of the
-        // call, present only while summarization is turned on.
+        // The "Summarization" field: one summary of the whole call,
+        // every leg in it, present only while summarization is turned on.
         function renderSummaries(summaries) {
             if (!Array.isArray(summaries) || summaries.length === 0) {
                 return null;

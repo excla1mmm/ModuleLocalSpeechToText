@@ -448,6 +448,12 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 fn (mixed $connection): null => $this->applyWorkerCapabilitiesMigration($connection),
                 'stt-schema-022-worker-capabilities'
             ),
+            new ModuleSchemaMigration(
+                23,
+                'call summaries per call',
+                fn (mixed $connection): null => $this->applyCallSummaryPerCallMigration($connection),
+                'stt-schema-023-call-summaries-per-call'
+            ),
         ];
     }
 
@@ -648,6 +654,19 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
     private function applyCallSummaryIndexMigration(mixed $connection): null
     {
         (new CallSummaryMigration())->migrateIndexes($connection);
+        return null;
+    }
+
+    private function applyCallSummaryPerCallMigration(mixed $connection): null
+    {
+        $kept = (new CallSummaryMigration())->migrateToCalls($connection);
+        LocalSpeechToTextLogger::event(
+            'setup',
+            'call_summaries_moved_to_calls',
+            'Call summaries now cover whole calls; multi-leg calls are summarized again',
+            LOG_NOTICE,
+            ['kept_count' => $kept]
+        );
         return null;
     }
 

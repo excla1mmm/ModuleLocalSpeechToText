@@ -9,13 +9,18 @@ use PDO;
 use Throwable;
 
 /**
- * The summary of one transcript (STTResult) and the lease of the worker that
- * produces it. Summaries are the lowest-priority work: a worker asks for one
- * only when no transcription job is pending.
+ * The summary of one call (STTCallTranscript), made from its published
+ * revision with every leg in it, and the lease of the worker that produces
+ * it. Summaries are the lowest-priority work: a worker asks for one only when
+ * no transcription job is pending.
+ *
+ * revision/content_hash name the revision the summary was made (or is being
+ * made) from; a call that publishes different content later is summarized
+ * again.
  *
  * @Indexes(
- *     [name='result_id', columns=['result_id'], type='UNIQUE'],
- *     [name='status', columns=['status', 'result_id'], type=''],
+ *     [name='call_transcript_id', columns=['call_transcript_id'], type='UNIQUE'],
+ *     [name='queue', columns=['status', 'call_endtime'], type=''],
  *     [name='finished', columns=['status', 'finished_at'], type='']
  * )
  */
@@ -25,7 +30,7 @@ class STTSummary extends ModulesModelsBase
     public const string STATUS_PROCESSING = 'processing';
     public const string STATUS_DONE = 'done';
     public const string STATUS_ERROR = 'error';
-    // The transcript has too little text to summarize.
+    // The call has too little text to summarize.
     public const string STATUS_SKIPPED = 'skipped';
 
     public const int LEASE_TTL_SECONDS = 600;
@@ -33,6 +38,17 @@ class STTSummary extends ModulesModelsBase
     // Fewer characters of recognized text than this is not a conversation.
     public const int MIN_TEXT_CHARS = 40;
     private const int ENQUEUE_BATCH = 200;
+
+    // Recognized characters of the call's current parts, and when its latest
+    // leg ended: the queue order.
+    private const string CALL_FACTS_SQL = '(SELECT COALESCE(SUM(LENGTH(TRIM(COALESCE(r.search_text, \'\')))), 0)
+               FROM m_STTCallTranscriptPart p JOIN m_STTResult r ON r.id = p.result_id
+              WHERE p.call_transcript_id = c.id AND p.is_current = 1) AS text_chars,
+            (SELECT MAX(CAST(j.cdr_endtime AS INTEGER)) FROM m_STTJob j WHERE j.call_id = c.call_id) AS call_endtime';
+    // A published call with no newer revision staged and no leg still transcribed.
+    private const string CALL_SETTLED_SQL = 'CAST(c.current_revision AS INTEGER) > 0
+            AND c.pending_content_hash = \'\'
+            AND NOT EXISTS (SELECT 1 FROM m_STTJob j WHERE j.call_id = c.call_id AND j.status IN (\'pending\', \'processing\'))';
 
     /**
      * @Primary
@@ -44,7 +60,22 @@ class STTSummary extends ModulesModelsBase
     /**
      * @Column(type="integer", nullable=false)
      */
-    public ?int $result_id = null;
+    public ?string $call_transcript_id = null;
+
+    /**
+     * @Column(type="integer", nullable=false, default=0)
+     */
+    public ?string $revision = '0';
+
+    /**
+     * @Column(type="string", nullable=false, allow_empty_string=true, default="")
+     */
+    public ?string $content_hash = '';
+
+    /**
+     * @Column(type="integer", nullable=true)
+     */
+    public ?string $call_endtime = null;
 
     /**
      * @Column(type="string", nullable=false)
@@ -113,28 +144,32 @@ class STTSummary extends ModulesModelsBase
     }
 
     /**
-     * Creates the missing summary rows of transcripts created since
-     * summarization was turned on, newest first. A transcript with almost no
-     * text is stored as skipped so it is not looked at again.
+     * Creates the missing summary rows of calls created since summarization
+     * was turned on, once the call is published with all its legs, newest
+     * first. A call with almost no text is stored as skipped so it is not
+     * looked at again.
      */
     public static function enqueueMissing(int $enabledAt): int
     {
         $connection = (new self())->getWriteConnection();
         $now = (string)time();
         $connection->execute(
-            'INSERT OR IGNORE INTO m_STTSummary (result_id, status, attempts, created_at, updated_at, finished_at)
-             SELECT r.id,
-                    CASE WHEN LENGTH(TRIM(COALESCE(r.search_text, \'\'))) < CAST(:min_chars AS INTEGER) THEN :skipped ELSE :pending END,
+            'INSERT OR IGNORE INTO m_STTSummary
+                (call_transcript_id, revision, content_hash, call_endtime, status, attempts, created_at, updated_at, finished_at)
+             SELECT id, current_revision, current_content_hash, call_endtime,
+                    CASE WHEN text_chars < CAST(:min_chars AS INTEGER) THEN :skipped ELSE :pending END,
                     0, :now, :now,
-                    CASE WHEN LENGTH(TRIM(COALESCE(r.search_text, \'\'))) < CAST(:min_chars AS INTEGER) THEN :now ELSE NULL END
-               FROM m_STTResult r
-               LEFT JOIN m_STTSummary s ON s.result_id = r.id
-              WHERE s.id IS NULL
-                -- created_at has INTEGER affinity, so the bound text compares
-                -- as a number and the created_at index is used.
-                AND r.created_at >= :enabled_at
-              ORDER BY r.id DESC
-              LIMIT ' . self::ENQUEUE_BATCH,
+                    CASE WHEN text_chars < CAST(:min_chars AS INTEGER) THEN :now ELSE NULL END
+               FROM (SELECT c.id, c.current_revision, c.current_content_hash, ' . self::CALL_FACTS_SQL . '
+                       FROM m_STTCallTranscript c
+                       LEFT JOIN m_STTSummary s ON s.call_transcript_id = c.id
+                      WHERE s.id IS NULL
+                        -- created_at has INTEGER affinity, so the bound text compares
+                        -- as a number and the created_at index is used.
+                        AND c.created_at >= :enabled_at
+                        AND ' . self::CALL_SETTLED_SQL . '
+                      ORDER BY c.id DESC
+                      LIMIT ' . self::ENQUEUE_BATCH . ')',
             [
                 'min_chars' => self::MIN_TEXT_CHARS,
                 'skipped' => self::STATUS_SKIPPED,
@@ -148,7 +183,58 @@ class STTSummary extends ModulesModelsBase
     }
 
     /**
-     * Leases the pending summary of the freshest call to the worker, or returns null.
+     * Queues again the summaries of calls that published different content
+     * since (a leg that arrived after publication, a redone transcript). A
+     * summary being made right now is left to finish and looked at on a later
+     * pass.
+     */
+    public static function requeueChangedCalls(): int
+    {
+        $connection = (new self())->getWriteConnection();
+        $rows = $connection->fetchAll(
+            'SELECT s.id, s.content_hash AS summary_hash, c.current_revision, c.current_content_hash, ' . self::CALL_FACTS_SQL . '
+               FROM m_STTSummary s
+               JOIN m_STTCallTranscript c ON c.id = s.call_transcript_id
+              WHERE s.status <> :processing
+                AND s.content_hash <> c.current_content_hash
+                AND ' . self::CALL_SETTLED_SQL . '
+              LIMIT ' . self::ENQUEUE_BATCH,
+            PDO::FETCH_ASSOC,
+            ['processing' => self::STATUS_PROCESSING]
+        );
+        $requeued = 0;
+        foreach ($rows as $row) {
+            $now = (string)time();
+            $skipped = (int)($row['text_chars'] ?? 0) < self::MIN_TEXT_CHARS;
+            $connection->execute(
+                'UPDATE m_STTSummary
+                    SET revision = :revision, content_hash = :content_hash, call_endtime = :call_endtime,
+                        status = :status, topic = NULL, summary = NULL, model_used = NULL, attempts = 0,
+                        error_msg = NULL, worker_id = NULL, lease_token = NULL, lease_expires_at = NULL,
+                        updated_at = :now, finished_at = :finished_at
+                  WHERE id = :id AND status <> :processing AND content_hash = :summary_hash',
+                [
+                    'revision' => (int)$row['current_revision'],
+                    'content_hash' => (string)$row['current_content_hash'],
+                    'call_endtime' => $row['call_endtime'] === null ? null : (int)$row['call_endtime'],
+                    'status' => $skipped ? self::STATUS_SKIPPED : self::STATUS_PENDING,
+                    'now' => $now,
+                    'finished_at' => $skipped ? $now : null,
+                    'id' => (int)$row['id'],
+                    'processing' => self::STATUS_PROCESSING,
+                    'summary_hash' => (string)$row['summary_hash'],
+                ]
+            );
+            $requeued += (int)$connection->affectedRows();
+        }
+
+        return $requeued;
+    }
+
+    /**
+     * Leases the pending summary of the freshest call to the worker, or
+     * returns null. The lease pins the call's current revision: the prompt is
+     * built from it, and a later revision queues the call again.
      *
      * @param array<int, int> $excludeIds summaries already tried in this request
      */
@@ -164,18 +250,18 @@ class STTSummary extends ModulesModelsBase
         self::requeueStaleProcessing();
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            // The freshest call first, by when the call ended, not by when it
-            // was transcribed: transcription runs newest call first, so the
-            // newest calls get the smallest result ids.
+            // The freshest call first, by when its last leg ended.
             $next = $connection->fetchOne(
-                'SELECT s.id FROM m_STTSummary s
-                   LEFT JOIN m_STTResult r ON r.id = s.result_id
-                   LEFT JOIN m_STTJob j ON j.id = r.job_id
-                  WHERE s.status = :pending' . ($exclude === '' ? '' : ' AND s.id NOT IN (' . $exclude . ')') . '
-                  ORDER BY CAST(COALESCE(j.cdr_endtime, 0) AS INTEGER) DESC, s.result_id DESC
+                'SELECT s.id, c.current_revision, c.current_content_hash
+                   FROM m_STTSummary s
+                   JOIN m_STTCallTranscript c ON c.id = s.call_transcript_id
+                  WHERE s.status = :pending
+                    AND CAST(c.current_revision AS INTEGER) > 0
+                    AND c.pending_content_hash = :empty' . ($exclude === '' ? '' : ' AND s.id NOT IN (' . $exclude . ')') . '
+                  ORDER BY CAST(COALESCE(s.call_endtime, 0) AS INTEGER) DESC, s.id DESC
                   LIMIT 1',
                 PDO::FETCH_ASSOC,
-                ['pending' => self::STATUS_PENDING] + $excludeBind
+                ['pending' => self::STATUS_PENDING, 'empty' => ''] + $excludeBind
             );
             $summary = is_array($next) ? self::findFirstById((int)$next['id']) : null;
             if (!$summary instanceof self) {
@@ -188,6 +274,8 @@ class STTSummary extends ModulesModelsBase
             $connection->execute(
                 'UPDATE m_STTSummary
                     SET status = :processing,
+                        revision = :revision,
+                        content_hash = :content_hash,
                         worker_id = :worker_id,
                         lease_token = :lease_token,
                         lease_expires_at = :lease_expires_at,
@@ -196,6 +284,8 @@ class STTSummary extends ModulesModelsBase
                   WHERE id = :id AND status = :pending',
                 [
                     'processing' => self::STATUS_PROCESSING,
+                    'revision' => (int)$next['current_revision'],
+                    'content_hash' => (string)$next['current_content_hash'],
                     'worker_id' => $workerId,
                     'lease_token' => $leaseToken,
                     'lease_expires_at' => (string)$leaseExpiresAt,
@@ -206,6 +296,8 @@ class STTSummary extends ModulesModelsBase
             );
             if ((int)$connection->affectedRows() === 1) {
                 $summary->status = self::STATUS_PROCESSING;
+                $summary->revision = (string)(int)$next['current_revision'];
+                $summary->content_hash = (string)$next['current_content_hash'];
                 $summary->worker_id = (string)$workerId;
                 $summary->lease_token = $leaseToken;
                 $summary->lease_expires_at = (string)$leaseExpiresAt;
@@ -324,35 +416,21 @@ class STTSummary extends ModulesModelsBase
         return $updated;
     }
 
-    /**
-     * Summaries of the given transcripts, keyed by result id.
-     *
-     * @param array<int, int> $resultIds
-     * @return array<int, self>
-     */
-    public static function forResultIds(array $resultIds): array
+    /** The summary row of a call, or null. */
+    public static function forCallTranscriptId(int $callTranscriptId): ?self
     {
-        $resultIds = array_values(array_unique(array_filter(array_map('intval', $resultIds), static fn (int $id): bool => $id > 0)));
-        if ($resultIds === []) {
-            return [];
+        if ($callTranscriptId <= 0) {
+            return null;
         }
-
-        $summaries = [];
         try {
-            foreach (self::find([
-                'conditions' => 'result_id IN ({ids:array})',
-                'bind' => ['ids' => $resultIds],
-            ]) as $summary) {
-                if ($summary instanceof self) {
-                    $summaries[(int)$summary->result_id] = $summary;
-                }
-            }
+            return self::findFirst([
+                'conditions' => 'call_transcript_id = :id:',
+                'bind' => ['id' => $callTranscriptId],
+            ]);
         } catch (Throwable) {
             // The table appears with the module update; a card must still render without it.
-            return [];
+            return null;
         }
-
-        return $summaries;
     }
 
     /** @param array<string, mixed> $bind */

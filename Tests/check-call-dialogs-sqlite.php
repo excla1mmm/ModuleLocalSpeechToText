@@ -116,8 +116,8 @@ $payload = static fn (array $resultIds, array $segments): string => json_encode(
 $pdo->exec("INSERT INTO m_STTJob VALUES (11, '{$linkedId}', 'done'), (12, '{$linkedId}', 'done')");
 $pdo->exec("INSERT INTO m_STTResult VALUES (11, 11, 'ru', 2000), (12, 12, 'ru', 2100)");
 $pdo->exec(
-    "INSERT INTO m_STTCallTranscript (id, call_id, current_revision, completeness_status, created_at, updated_at)
-     VALUES (7, '{$linkedId}', 2, 'complete', 3000, 3000)"
+    "INSERT INTO m_STTCallTranscript (id, call_id, current_revision, current_content_hash, completeness_status, created_at, updated_at)
+     VALUES (7, '{$linkedId}', 2, '{$hashA}', 'complete', 3000, 3000)"
 );
 foreach ([[11, 'leg-11.1'], [12, 'leg-12.1']] as [$resultId, $uniqueId]) {
     $pdo->exec(
@@ -179,17 +179,25 @@ expectDialog(
     'dialog text must be signed line by line: ' . $dialog['text']
 );
 expectDialog(!array_key_exists('summary', $dialog), 'the dialog must not carry the summary');
+expectDialog(!array_key_exists('result_id', $dialog['turns'][0]) && !array_key_exists('content_hash', $dialog), 'the public dialog keeps its shape');
+$promptDialog = $dialogs->forAggregateRevision(7, 2);
+expectDialog(
+    array_column($promptDialog['turns'], 'result_id') === [11, 11, 12] && $promptDialog['content_hash'] === $hashA,
+    'the summary prompt dialog must name the leg of every turn and the revision content'
+);
+expectDialog(count($dialogs->forAggregateRevision(7, 1)['turns']) === 1, 'the summary prompt must be built from the leased revision');
 $detail = (new CallTranscriptIntegrationService())->callTranscriptDetail(7);
 expectDialog(!array_key_exists('summary', $detail) && $detail['revision'] === 2, 'the call transcript detail keeps its earlier shape');
 $pending = $dialogs->summaryForCallId($linkedId);
-expectDialog($pending['status'] === 'pending' && $pending['summary'] === null, 'parts without a summary row yet are pending');
+expectDialog($pending['status'] === 'pending' && $pending['summary'] === null, 'a call without a summary row yet is pending');
+expectDialog(!array_key_exists('parts', $pending) && array_key_exists('model', $pending) && array_key_exists('finished_at', $pending), 'the summary covers the whole call, not its parts');
 expectDialog($pending['call_id'] === $linkedId && $pending['aggregate_id'] === 7 && $pending['revision'] === 2, 'the summary must identify the latest revision');
 expectDialog($dialogs->summaryForCallId('leg-11.1')['aggregate_id'] === 7, 'the summary must be found by a leg UNIQUEID');
 
 expectDialog($dialogs->forCallId('leg-12.1')['aggregate_id'] === 7, 'dialog must be found by a leg UNIQUEID');
 $plan = implode(' ', array_column($pdo->query("EXPLAIN QUERY PLAN SELECT id FROM m_STTCallTranscriptPart WHERE cdr_uniqueid = 'leg-12.1'")->fetchAll(PDO::FETCH_ASSOC), 'detail'));
 expectDialog(str_contains($plan, 'i_m_STTCallTranscriptPart_cdr_uniqueid'), 'the leg UNIQUEID lookup must use its index: ' . $plan);
-$plan = implode(' ', array_column($pdo->query("EXPLAIN QUERY PLAN SELECT result_id FROM m_STTSummary WHERE status IN ('done', 'skipped', 'error') AND finished_at >= '100'")->fetchAll(PDO::FETCH_ASSOC), 'detail'));
+$plan = implode(' ', array_column($pdo->query("EXPLAIN QUERY PLAN SELECT call_transcript_id FROM m_STTSummary WHERE status IN ('done', 'skipped', 'error') AND finished_at >= '100'")->fetchAll(PDO::FETCH_ASSOC), 'detail'));
 expectDialog(str_contains($plan, 'i_m_STTSummary_finished'), 'the summary event scan must range over finished summaries: ' . $plan);
 foreach (['unknown-call', '', '../etc/passwd', str_repeat('x', 300)] as $missing) {
     try {
@@ -204,22 +212,19 @@ foreach (['unknown-call', '', '../etc/passwd', str_repeat('x', 300)] as $missing
     }
 }
 
-// Summary events wait for every part.
+// One summary of the whole call; its event waits until it is final.
 $feed = new CallTranscriptIntegrationService();
 $events = new CallSummaryEvents();
-$pdo->exec("INSERT INTO m_STTSummary (result_id, status, topic, summary, model_used, finished_at) VALUES (11, 'done', 'Статус заказа', 'Клиент спросил о заказе.', 'gemma-3-4b-it-Q4_K_M', 3100)");
-$pdo->exec("INSERT INTO m_STTSummary (result_id, status) VALUES (12, 'processing')");
-expectDialog($events->publishReady($connection, 3200) === 0, 'no summary event while a part is still summarized');
-$partial = $dialogs->summaryForCallId($linkedId);
-expectDialog($partial['status'] === 'pending' && $partial['topic'] === 'Статус заказа', 'a done part shows while the call is still pending');
+$pdo->exec("INSERT INTO m_STTSummary (call_transcript_id, revision, content_hash, status) VALUES (7, 2, '{$hashA}', 'processing')");
+expectDialog($events->publishReady($connection, 3200) === 0, 'no summary event while the call is still summarized');
+expectDialog($dialogs->summaryForCallId($linkedId)['status'] === 'pending', 'a call being summarized is pending');
 
-$pdo->exec("UPDATE m_STTSummary SET status = 'done', topic = 'Перевод', summary = 'Звонок переведён в доставку.', finished_at = 3300 WHERE result_id = 12");
+$pdo->exec("UPDATE m_STTSummary SET status = 'done', topic = 'Статус заказа', summary = 'Клиент спросил о заказе, его перевели в доставку.', model_used = 'gemma-3-4b-it-Q4_K_M', finished_at = 3300 WHERE call_transcript_id = 7");
 $summary = $dialogs->summaryForCallId($linkedId);
-expectDialog($summary['status'] === 'done' && $summary['topic'] === 'Статус заказа', 'the call topic is the first summarized part topic');
-expectDialog($summary['summary'] === "Клиент спросил о заказе.\n\nЗвонок переведён в доставку.", 'part summaries are joined');
-expectDialog(array_column($summary['parts'], 'result_id') === [11, 12] && $summary['parts'][0]['model'] === 'gemma-3-4b-it-Q4_K_M', 'parts keep call order and model');
+expectDialog($summary['status'] === 'done' && $summary['topic'] === 'Статус заказа', 'the call summary must be served');
+expectDialog($summary['summary'] === 'Клиент спросил о заказе, его перевели в доставку.' && $summary['model'] === 'gemma-3-4b-it-Q4_K_M' && $summary['finished_at'] === 3300, 'the call summary must carry its text, model and finish time');
 
-expectDialog($events->publishReady($connection, 3400) === 1, 'one summary event once every part is final');
+expectDialog($events->publishReady($connection, 3400) === 1, 'one summary event once the call summary is final');
 expectDialog($events->publishReady($connection, 3500) === 0, 'summary events are idempotent per revision');
 
 $default = $feed->callTranscriptEvents(['cursor' => '0:0']);
@@ -237,10 +242,20 @@ expectDialog($event['cursor'] === '3400:2', 'summary event must sort after the t
 $withBoth = $feed->callTranscriptEvents(['cursor' => '0:0', 'include_summaries' => '1', 'include_deleted' => '1']);
 expectDialog(array_column($withBoth['events'], 'event_type') === ['call-transcript.completed', 'call-summary.completed'], 'both opt-ins must work together');
 
-// Turning summarization off hides parts that never got a summary.
-$pdo->exec("DELETE FROM m_STTSummary WHERE result_id = 12");
+// A summary of earlier content is about to be redone and gets no event for
+// the new revision until then.
+$hashD = str_repeat('d', 64);
+$pdo->exec("UPDATE m_STTCallTranscript SET current_revision = 3, current_content_hash = '{$hashD}' WHERE id = 7");
+$pdo->exec("INSERT INTO m_STTCallTranscriptRevision (call_transcript_id, revision, content_hash, parts_hash, completeness_status, payload, created_at)
+     SELECT 7, 3, '{$hashD}', parts_hash, completeness_status, payload, 3600 FROM m_STTCallTranscriptRevision WHERE call_transcript_id = 7 AND revision = 2");
+expectDialog($dialogs->summaryForCallId($linkedId)['status'] === 'pending', 'a summary of earlier content must show as pending');
+expectDialog($events->publishReady($connection, 3700) === 0, 'a summary of earlier content must not complete the new revision');
+
+// Turning summarization off keeps the last finished summary and hides calls
+// that never got one.
 $pdo->exec("UPDATE m_STTSetting SET value = '0' WHERE key = 'summarization_enabled'");
-$off = $dialogs->summaryForCallId($linkedId);
-expectDialog($off['parts'][1]['status'] === 'unavailable' && $off['status'] === 'done', 'a part without a summary is unavailable while summarization is off');
+expectDialog($dialogs->summaryForCallId($linkedId)['status'] === 'done', 'a finished summary stays visible while summarization is off');
+$pdo->exec("DELETE FROM m_STTSummary WHERE call_transcript_id = 7");
+expectDialog($dialogs->summaryForCallId($linkedId)['status'] === 'unavailable', 'a call without a summary is unavailable while summarization is off');
 
 echo "Call dialog SQLite contract OK\n";
