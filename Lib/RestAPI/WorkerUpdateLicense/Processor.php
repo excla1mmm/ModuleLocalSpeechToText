@@ -54,7 +54,7 @@ final class Processor extends Injectable
         $result = new PBXApiResult();
         $result->success = false;
         $result->httpCode = $status;
-        $result->data = ['error_code' => $code];
+        $result->data = ['error' => $code, 'error_code' => $code];
         $result->messages['error'][] = match ($code) {
             'license_not_configured' => 'PBX license is not configured',
             'module_unavailable' => 'ModuleLocalSpeechToText is temporarily unavailable during maintenance',

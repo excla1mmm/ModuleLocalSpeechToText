@@ -73,12 +73,14 @@ $expectedRussian = [
     'rest_tag_LocalSTTJobs' => 'Задания STT',
     'rest_tag_LocalSTTTranscripts' => 'Транскрипции STT',
     'rest_tag_LocalSTTCallTranscripts' => 'Транскрипции звонков STT',
+    'rest_tag_LocalSTTSummaries' => 'Суммаризация STT',
 ];
 $expectedEnglish = [
     'rest_tag_LocalSTTWorkers' => 'STT Workers',
     'rest_tag_LocalSTTJobs' => 'STT Jobs',
     'rest_tag_LocalSTTTranscripts' => 'STT Transcripts',
     'rest_tag_LocalSTTCallTranscripts' => 'STT Call Transcripts',
+    'rest_tag_LocalSTTSummaries' => 'STT Summaries',
 ];
 
 $root = dirname(__DIR__);

@@ -44,7 +44,8 @@ final class DataStructure extends AbstractDataStructure implements OpenApiSchema
                 ],
                 'module_version' => [
                     'type' => 'string',
-                    'example' => '1.45',
+                    'description' => 'module_local_speech_to_text_ApiFieldModuleVersion',
+                    'example' => '1.47',
                 ],
                 'capabilities' => [
                     'type' => 'array',

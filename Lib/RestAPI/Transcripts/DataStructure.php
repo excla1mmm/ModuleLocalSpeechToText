@@ -24,6 +24,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'type' => 'integer',
                     'description' => 'module_local_speech_to_text_ApiParamLimit',
                     'example' => 50,
+                    'default' => 50,
                     'required' => false,
                     'minimum' => 1,
                     'maximum' => 200,
@@ -32,6 +33,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'type' => 'integer',
                     'description' => 'module_local_speech_to_text_ApiParamOffset',
                     'example' => 0,
+                    'default' => 0,
                     'required' => false,
                     'minimum' => 0,
                 ],
@@ -95,12 +97,10 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'type' => 'object',
                     'description' => 'module_local_speech_to_text_ApiFieldTranscript',
                     'properties' => [
-                        'segment_count' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldSegmentCount', 'example' => 2],
-                        'turn_count' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldTurnCount', 'example' => 2],
                         'text' => [
                             'type' => 'string',
                             'description' => 'module_local_speech_to_text_ApiFieldTranscriptText',
-                            'example' => "operator: Здравствуйте, чем я могу помочь?\ncustomer: Подскажите статус заказа.",
+                            'example' => "[left] Здравствуйте, чем я могу помочь?\n[right] Подскажите статус заказа.",
                         ],
                         'turns' => [
                             'type' => 'array',
@@ -114,18 +114,6 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                                     'end_ms' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldEndMs', 'example' => 4210],
                                     'text' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldText', 'example' => 'Здравствуйте, чем я могу помочь?'],
                                     'channel' => ['type' => 'string', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldChannel', 'example' => 'left'],
-                                    'source_segment_ids' => [
-                                        'type' => 'array',
-                                        'description' => 'module_local_speech_to_text_ApiFieldSourceSegmentIds',
-                                        'items' => ['type' => 'string'],
-                                        'example' => ['seg-0001'],
-                                    ],
-                                    'source_indexes' => [
-                                        'type' => 'array',
-                                        'description' => 'module_local_speech_to_text_ApiFieldSourceIndexes',
-                                        'items' => ['type' => 'integer'],
-                                        'example' => [0],
-                                    ],
                                 ],
                             ],
                         ],
@@ -135,7 +123,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                             'items' => [
                                 'type' => 'object',
                                 'properties' => [
-                                    'segment_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldSegmentId', 'example' => 'seg-0001'],
+                                    'segment_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldSegmentId', 'example' => 'stt:501:0'],
                                     'index' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldIndex', 'example' => 0],
                                     'start_ms' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldStartMs', 'example' => 0],
                                     'end_ms' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldEndMs', 'example' => 4210],
@@ -172,7 +160,8 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'call_id' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldCallId', 'example' => 'mikopbx-1784455200.42'],
                 'cdr_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldCdrId', 'example' => 7301],
                 'cdr_endtime' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldCdrEndTime', 'example' => 1784455283],
-                'call_timestamp' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldCallTimestamp', 'example' => 1784455283],
+                'cdr_start_ms' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldCdrStartMs', 'example' => 1784455200000],
+                'call_timestamp' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldCallTimestamp', 'example' => 1784455200],
                 'finished_at' => ['type' => 'integer', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldFinishedAt', 'example' => 1784455350],
                 'result_created_at' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldResultCreatedAt', 'example' => 1784455350],
                 'duration' => ['type' => 'number', 'nullable' => true, 'description' => 'module_local_speech_to_text_ApiFieldDurationSeconds', 'example' => 83.4],
@@ -198,6 +187,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                         'disposition' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldDisposition', 'example' => 'ANSWERED'],
                     ],
                 ],
+                'pbx_timezone' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldPbxTimezone', 'example' => 'Europe/Moscow'],
             ],
         ];
     }
@@ -211,7 +201,8 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'call_id' => 'mikopbx-1784455200.42',
             'cdr_id' => 7301,
             'cdr_endtime' => 1784455283,
-            'call_timestamp' => 1784455283,
+            'cdr_start_ms' => 1784455200000,
+            'call_timestamp' => 1784455200,
             'finished_at' => 1784455350,
             'result_created_at' => 1784455350,
             'duration' => 83.4,
@@ -226,6 +217,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 'did' => '74950000000',
                 'disposition' => 'ANSWERED',
             ],
+            'pbx_timezone' => 'Europe/Moscow',
         ];
     }
 
@@ -233,7 +225,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     private static function detailExample(): array
     {
         $segment = [
-            'segment_id' => 'seg-0001',
+            'segment_id' => 'stt:501:0',
             'index' => 0,
             'start_ms' => 0,
             'end_ms' => 4210,
@@ -247,18 +239,14 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'end_ms' => 4210,
             'text' => 'Здравствуйте, чем я могу помочь?',
             'channel' => 'left',
-            'source_segment_ids' => ['seg-0001'],
-            'source_indexes' => [0],
         ];
 
         return self::summaryExample() + [
             'technical_info' => ['voice_analytics' => ['speech_ratio' => 0.73]],
             'transcript' => [
                 'segments' => [$segment],
-                'segment_count' => 1,
                 'turns' => [$turn],
-                'turn_count' => 1,
-                'text' => 'operator: Здравствуйте, чем я могу помочь?',
+                'text' => '[left] Здравствуйте, чем я могу помочь?',
             ],
         ];
     }

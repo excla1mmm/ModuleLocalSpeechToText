@@ -56,7 +56,7 @@ class Processor extends Injectable
     private static function forbidden(): PBXApiResult
     {
         $result = new PBXApiResult(); $result->success = false; $result->httpCode = 403;
-        $result->data = ['error_code' => 'worker_identity_forbidden'];
+        $result->data = ['error' => 'worker_identity_forbidden', 'error_code' => 'worker_identity_forbidden'];
         $result->messages['error'][] = 'Worker identity does not match the restricted API key';
         return $result;
     }
@@ -64,7 +64,7 @@ class Processor extends Injectable
     private static function unavailable(): PBXApiResult
     {
         $result = new PBXApiResult(); $result->success = false; $result->httpCode = 503;
-        $result->data = ['retry_after' => 5];
+        $result->data = ['error' => 'module_unavailable', 'error_code' => 'module_unavailable', 'retry_after' => 5];
         $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
         return $result;
     }
@@ -72,7 +72,7 @@ class Processor extends Injectable
     private static function databaseBusy(): PBXApiResult
     {
         $result = new PBXApiResult(); $result->success = false; $result->httpCode = 503;
-        $result->data = ['error_code' => 'database_busy', 'retry_after' => 2];
+        $result->data = ['error' => 'database_busy', 'error_code' => 'database_busy', 'retry_after' => 2];
         $result->messages['error'][] = 'ModuleLocalSpeechToText database writer is temporarily busy';
         return $result;
     }

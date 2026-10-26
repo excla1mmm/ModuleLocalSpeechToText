@@ -76,7 +76,7 @@ class Processor extends Injectable
             $result->httpCode = 503;
             $result->function = $actionString;
             $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance';
-            $result->data['retry_after'] = 5;
+            $result->data = ['error' => 'module_unavailable', 'error_code' => 'module_unavailable', 'retry_after' => 5];
 
             return $result;
         }
@@ -117,7 +117,7 @@ class Processor extends Injectable
         $result->success = false;
         $result->httpCode = 503;
         $result->function = $action;
-        $result->data = ['error_code' => 'database_busy', 'retry_after' => 2];
+        $result->data = ['error' => 'database_busy', 'error_code' => 'database_busy', 'retry_after' => 2];
         $result->messages['error'][] = 'ModuleLocalSpeechToText database writer is temporarily busy';
         return $result;
     }

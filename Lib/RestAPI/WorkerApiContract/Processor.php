@@ -19,6 +19,7 @@ final class Processor extends Injectable
             $result = new PBXApiResult();
             $result->success = false;
             $result->httpCode = 404;
+            $result->data = ['error' => 'unknown_action', 'error_code' => 'unknown_action'];
             $result->messages['error'][] = "Unknown action - {$action} in " . __CLASS__;
         }
 

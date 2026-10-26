@@ -112,7 +112,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaProcessingSettings',
-            'required' => ['schema_version', 'processing_settings', 'selected_model'],
+            'required' => ['schema_version', 'processing_settings', 'selected_model', 'summarization'],
             'properties' => [
                 'schema_version' => [
                     'type' => 'integer',
@@ -133,6 +133,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'properties' => $selectedModelProperties,
                     'additionalProperties' => false,
                 ],
+                'summarization' => self::summarizationSchema(),
             ],
             'additionalProperties' => false,
             'example' => [
@@ -159,7 +160,77 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'model_platform' => 'macos',
                     'model_display_name' => 'Parakeet TDT 0.6B v3',
                 ],
+                'summarization' => [
+                    'enabled' => false,
+                    'model' => [
+                        'model_id' => 'gemma-3-4b-it-Q4_K_M',
+                        'model_display_name' => 'Gemma 3 4B',
+                        'model_repo' => 'ggml-org/gemma-3-4b-it-GGUF',
+                        'model_revision' => 'd0976223747697cb51e056d85c532013931fe52e',
+                        'model_file' => 'gemma-3-4b-it-Q4_K_M.gguf',
+                        'model_sha256_manifest' => [
+                            [
+                                'path' => 'gemma-3-4b-it-Q4_K_M.gguf',
+                                'size' => 2489757856,
+                                'sha256' => '882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863',
+                            ],
+                        ],
+                        'context_tokens' => 8192,
+                    ],
+                ],
             ],
+        ];
+    }
+
+    /**
+     * The `summarization` block: SummaryModel::settingsPayload().
+     */
+    private static function summarizationSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'description' => 'module_local_speech_to_text_ApiFieldSummarization',
+            'required' => ['enabled', 'model'],
+            'properties' => [
+                'enabled' => [
+                    'type' => 'boolean',
+                    'description' => 'module_local_speech_to_text_ApiFieldSummarizationEnabled',
+                    'example' => false,
+                ],
+                'model' => [
+                    'type' => 'object',
+                    'description' => 'module_local_speech_to_text_ApiFieldSummarizationModel',
+                    'required' => [
+                        'model_id', 'model_display_name', 'model_repo', 'model_revision',
+                        'model_file', 'model_sha256_manifest', 'context_tokens',
+                    ],
+                    'properties' => [
+                        'model_id' => ['type' => 'string', 'example' => 'gemma-3-4b-it-Q4_K_M'],
+                        'model_display_name' => ['type' => 'string', 'example' => 'Gemma 3 4B'],
+                        'model_repo' => ['type' => 'string', 'example' => 'ggml-org/gemma-3-4b-it-GGUF'],
+                        'model_revision' => [
+                            'type' => 'string',
+                            'pattern' => '^[a-f0-9]{40}$',
+                            'description' => 'module_local_speech_to_text_ApiFieldModelRevision',
+                            'example' => 'd0976223747697cb51e056d85c532013931fe52e',
+                        ],
+                        'model_file' => [
+                            'type' => 'string',
+                            'description' => 'module_local_speech_to_text_ApiFieldModelFile',
+                            'example' => 'gemma-3-4b-it-Q4_K_M.gguf',
+                        ],
+                        'model_sha256_manifest' => self::modelManifestSchema(),
+                        'context_tokens' => [
+                            'type' => 'integer',
+                            'minimum' => 1,
+                            'description' => 'module_local_speech_to_text_ApiFieldContextTokens',
+                            'example' => 8192,
+                        ],
+                    ],
+                    'additionalProperties' => false,
+                ],
+            ],
+            'additionalProperties' => false,
         ];
     }
 

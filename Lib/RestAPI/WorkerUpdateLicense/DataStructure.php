@@ -45,7 +45,7 @@ final class DataStructure extends AbstractDataStructure implements OpenApiSchema
                 'license_hash' => [
                     'type' => 'string',
                     'pattern' => '^[a-f0-9]{64}$',
-                    'description' => 'module_local_speech_to_text_WorkerUpdateLicenseApiDescription',
+                    'description' => 'module_local_speech_to_text_ApiFieldLicenseHash',
                     'example' => str_repeat('a', 64),
                 ],
             ],

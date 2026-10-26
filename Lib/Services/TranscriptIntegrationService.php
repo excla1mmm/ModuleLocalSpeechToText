@@ -126,16 +126,16 @@ class TranscriptIntegrationService
     }
 
     /**
-     * @return array<string, mixed>
+     * Decoded technical_info, always a JSON object: malformed, empty or list
+     * payloads become an empty object, never a JSON array.
+     *
+     * @return array<string, mixed>|\stdClass
      */
-    private function technicalInfo(STTResult $result): array
+    private function technicalInfo(STTResult $result): array|\stdClass
     {
         $decoded = json_decode((string)$result->technical_info, true);
-        if (!is_array($decoded)) {
-            return [];
-        }
-        if ($this->isListPayload($decoded)) {
-            return [];
+        if (!is_array($decoded) || $decoded === [] || $this->isListPayload($decoded)) {
+            return new \stdClass();
         }
 
         return $decoded;

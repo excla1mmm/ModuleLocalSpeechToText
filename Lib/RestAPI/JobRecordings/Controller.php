@@ -25,6 +25,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseRecordingDownloaded')]
     #[ApiResponse(206, 'module_local_speech_to_text_ApiResponseRecordingDownloaded')]
+    #[ApiResponse(403, 'module_local_speech_to_text_ApiResponseWorkerForbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'module_local_speech_to_text_ApiResponseRecordingNotFound', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseLeaseConflict', 'PBXApiResult')]
+    #[ApiResponse(413, 'module_local_speech_to_text_ApiResponseRecordingTooLarge', 'PBXApiResult')]
+    #[ApiResponse(416, 'rest_response_416_range_not_satisfiable', 'PBXApiResult')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getRecord(string $job_id): void {}
 }

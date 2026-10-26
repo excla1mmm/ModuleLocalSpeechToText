@@ -28,12 +28,14 @@ final class CallTranscriptIntegrationService
      * receive exactly the version 1 events.
      */
     public const int CONTRACT_VERSION = 3;
+    private const int DEFAULT_EVENT_LIMIT = 100;
+    private const int MAX_EVENT_LIMIT = 200;
     private const array LIVE_EVENT_TYPES = ['call-transcript.completed', 'call-transcript.updated'];
 
     /** @param array<string, mixed> $filters @return array<string, mixed> */
     public function callTranscriptEvents(array $filters): array
     {
-        $limit = max(1, min(200, (int)($filters['limit'] ?? 100)));
+        $limit = $this->eventLimit($filters['limit'] ?? null);
         [$createdAt, $eventId] = $this->decodeCursor((string)($filters['cursor'] ?? '0:0'));
         $includeDeleted = $this->flag($filters['include_deleted'] ?? null);
         $liveTypes = $this->flag($filters['include_summaries'] ?? null)
@@ -332,7 +334,15 @@ final class CallTranscriptIntegrationService
         return $value === true || in_array(strtolower(trim((string)(is_scalar($value) ? $value : ''))), ['1', 'true', 'yes'], true);
     }
 
-    /** @return array{0: int, 1: int} */
+    /** Missing, zero, negative or non-numeric limits fall back to 100; capped at 200. */
+    private function eventLimit(mixed $value): int
+    {
+        $limit = is_numeric($value) ? (int)$value : 0;
+
+        return $limit > 0 ? min(self::MAX_EVENT_LIMIT, $limit) : self::DEFAULT_EVENT_LIMIT;
+    }
+
+    /** Malformed cursors read from the beginning (0:0). @return array{0: int, 1: int} */
     private function decodeCursor(string $cursor): array
     {
         if (preg_match('/^(\d+):(\d+)$/', trim($cursor), $matches) !== 1) {

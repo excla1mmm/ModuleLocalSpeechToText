@@ -136,6 +136,9 @@ namespace {
         'CallTranscriptEvents' => 'Local STT Call Transcripts',
         'CallDialogs' => 'Local STT Call Transcripts',
         'CallSummaries' => 'Local STT Call Transcripts',
+        'SummaryLeases' => 'Local STT Summaries',
+        'SummaryResults' => 'Local STT Summaries',
+        'SummaryFailures' => 'Local STT Summaries',
     ];
 
     foreach ($resourceContracts as $resource => $expectedTag) {
@@ -179,16 +182,23 @@ namespace {
     $controller = static fn(string $resource): string => 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\Controller';
     $operationContracts = [
         'WorkerApiContract' => ['getList' => ['getLocalSTTWorkerApiContract', 'LocalSTTWorkerApiContract', [200, 401, 403, 500]]],
-        'WorkerProcessingSettings' => ['getList' => ['getLocalSTTWorkerProcessingSettings', 'LocalSTTWorkerProcessingSettings', [200, 403, 426]]],
-        'WorkerUpdateLicense' => ['getList' => ['getLocalSTTWorkerUpdateLicense', 'LocalSTTWorkerUpdateLicense', [200, 403, 409, 426]]],
+        'WorkerProcessingSettings' => ['getList' => ['getLocalSTTWorkerProcessingSettings', 'LocalSTTWorkerProcessingSettings', [200, 403, 409, 422, 426, 500, 503]]],
+        'WorkerUpdateLicense' => ['getList' => ['getLocalSTTWorkerUpdateLicense', 'LocalSTTWorkerUpdateLicense', [200, 403, 409, 426, 500, 503]]],
         'JobLeases' => [
-            'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200, 426]],
-            'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200, 426]],
-            'delete' => ['deleteLocalSTTJobLease', null, [200, 426]],
+            'create' => ['createLocalSTTJobLease', 'LocalSTTJobLease', [200, 403, 409, 426, 500, 503]],
+            'patch' => ['patchLocalSTTJobLease', 'LocalSTTJobLeaseHeartbeat', [200, 403, 404, 409, 426, 500, 503]],
+            'delete' => ['deleteLocalSTTJobLease', 'LocalSTTJobLeaseRelease', [200, 403, 404, 409, 426, 500, 503]],
         ],
-        'JobRecordings' => ['getRecord' => ['getLocalSTTJobRecording', null, [200, 206, 426]]],
-        'JobResults' => ['update' => ['updateLocalSTTJobResult', 'LocalSTTJobResult', [200, 426]]],
-        'JobFailures' => ['update' => ['updateLocalSTTJobFailure', 'LocalSTTJobFailure', [200, 426]]],
+        'JobRecordings' => ['getRecord' => ['getLocalSTTJobRecording', null, [200, 206, 403, 404, 409, 413, 416, 426, 500, 503]]],
+        'JobResults' => ['update' => ['updateLocalSTTJobResult', 'LocalSTTJobResult', [200, 403, 404, 409, 422, 426, 500, 503]]],
+        'JobFailures' => ['update' => ['updateLocalSTTJobFailure', 'LocalSTTJobFailure', [200, 403, 404, 409, 426, 500, 503]]],
+        'SummaryLeases' => [
+            'create' => ['createLocalSTTSummaryLease', 'LocalSTTSummaryLease', [200, 403, 409, 426, 500, 503]],
+            'patch' => ['patchLocalSTTSummaryLease', 'LocalSTTSummaryLeaseHeartbeat', [200, 403, 404, 409, 422, 426, 500, 503]],
+            'delete' => ['deleteLocalSTTSummaryLease', 'LocalSTTSummaryLeaseRelease', [200, 403, 404, 409, 422, 426, 500, 503]],
+        ],
+        'SummaryResults' => ['update' => ['updateLocalSTTSummaryResult', 'LocalSTTSummaryResult', [200, 403, 404, 409, 422, 426, 500, 503]]],
+        'SummaryFailures' => ['update' => ['updateLocalSTTSummaryFailure', 'LocalSTTSummaryFailure', [200, 403, 404, 409, 422, 426, 500, 503]]],
     ];
     $operationIds = [];
     foreach ($operationContracts as $resource => $methods) {
@@ -218,15 +228,24 @@ namespace {
         ['JobLeases', 'patch', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
         ['JobLeases', 'delete', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
         ['JobRecordings', 'getRecord', ['X-MikoPBX-Worker-API-Version', 'X-MikoPBX-Worker-UID', 'X-MikoPBX-Job-Lease-Token', 'id']],
-        ['JobResults', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
-        ['JobFailures', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['JobResults', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token', 'transcript', 'technical_info', 'language', 'language_hint', 'model_used', 'duration_ms']],
+        ['JobFailures', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token', 'error_msg']],
+        ['SummaryLeases', 'create', ['X-MikoPBX-Worker-API-Version', 'worker_uid']],
+        ['SummaryLeases', 'patch', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['SummaryLeases', 'delete', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token']],
+        ['SummaryResults', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token', 'content', 'model_used', 'duration_ms', 'prompt_tokens', 'completion_tokens']],
+        ['SummaryFailures', 'update', ['X-MikoPBX-Worker-API-Version', 'id', 'worker_uid', 'lease_token', 'error_msg']],
     ];
     foreach ($requiredParameters as [$resource, $method, $expected]) {
         $parameters = methodAttributes($controller($resource), $method, ApiParameterRef::class);
         expectOpenApi(array_map(static fn(ApiParameterRef $parameter): string => $parameter->name, $parameters) === $expected, "{$resource}::{$method} v2 request parameters changed");
         // worker_platform is optional: workers that predate it are macOS;
         // worker_capabilities too: workers that predate it declare no features.
-        $optional = ['worker_platform', 'worker_capabilities'];
+        // Result bodies carry optional metadata and diagnostics.
+        $optional = [
+            'worker_platform', 'worker_capabilities', 'technical_info', 'language', 'language_hint',
+            'model_used', 'duration_ms', 'prompt_tokens', 'completion_tokens', 'error_msg',
+        ];
         foreach ($parameters as $parameter) {
             expectOpenApi(
                 $parameter->required === !in_array($parameter->name, $optional, true),
@@ -241,11 +260,41 @@ namespace {
         '../Lib/RestAPI/JobRecordings/DataStructure.php',
         '../Lib/RestAPI/WorkerProcessingSettings/DataStructure.php',
         '../Lib/RestAPI/WorkerUpdateLicense/DataStructure.php',
+        '../Lib/RestAPI/JobLeases/HeartbeatDataStructure.php',
+        '../Lib/RestAPI/JobLeases/ReleaseDataStructure.php',
+        '../Lib/RestAPI/JobResults/DataStructure.php',
+        '../Lib/RestAPI/JobFailures/DataStructure.php',
+        '../Lib/RestAPI/SummaryLeases/DataStructure.php',
+        '../Lib/RestAPI/SummaryLeases/HeartbeatDataStructure.php',
+        '../Lib/RestAPI/SummaryLeases/ReleaseDataStructure.php',
+        '../Lib/RestAPI/SummaryResults/DataStructure.php',
+        '../Lib/RestAPI/SummaryFailures/DataStructure.php',
     ] as $file) {
         require_once __DIR__ . '/' . $file;
     }
+
+    // Core silently drops an ApiParameterRef whose name the operation's
+    // DataStructure does not define, so every reference must resolve.
+    foreach ($requiredParameters as [$resource, $method]) {
+        $schemas = methodAttributes($controller($resource), $method, ApiDataSchema::class);
+        $dataStructure = $schemas[0]->schemaClass ?? 'Modules\\ModuleLocalSpeechToText\\Lib\\RestAPI\\' . $resource . '\\DataStructure';
+        $definitions = $dataStructure::getParameterDefinitions();
+        $defined = ($definitions['request'] ?? []) + ($definitions['related'] ?? []);
+        foreach (methodAttributes($controller($resource), $method, ApiParameterRef::class) as $parameter) {
+            expectOpenApi(isset($defined[$parameter->name]), "{$resource}::{$method} references undefined parameter {$parameter->name}");
+        }
+    }
     $headerContracts = [
         \Modules\ModuleLocalSpeechToText\Lib\RestAPI\Jobs\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\SummaryLeases\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\SummaryResults\DataStructure::class => [
+            'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
+        ],
+        \Modules\ModuleLocalSpeechToText\Lib\RestAPI\SummaryFailures\DataStructure::class => [
             'X-MikoPBX-Worker-API-Version' => ['integer', 'module_local_speech_to_text_ApiVersion', [2], 2],
         ],
         \Modules\ModuleLocalSpeechToText\Lib\RestAPI\JobRecordings\DataStructure::class => [
@@ -416,6 +465,11 @@ namespace {
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-transcripts/events listLocalSpeechToTextCallTranscriptEvents',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-dialogs/{id} getLocalSpeechToTextCallDialog',
         'GET /pbxcore/api/v3/module-local-speech-to-text/call-summaries/{id} getLocalSpeechToTextCallSummary',
+        'POST /pbxcore/api/v3/module-local-speech-to-text/summary-leases createLocalSTTSummaryLease',
+        'PATCH /pbxcore/api/v3/module-local-speech-to-text/summary-leases/{id} patchLocalSTTSummaryLease',
+        'DELETE /pbxcore/api/v3/module-local-speech-to-text/summary-leases/{id} deleteLocalSTTSummaryLease',
+        'PUT /pbxcore/api/v3/module-local-speech-to-text/summary-results/{id} updateLocalSTTSummaryResult',
+        'PUT /pbxcore/api/v3/module-local-speech-to-text/summary-failures/{id} updateLocalSTTSummaryFailure',
     ];
     sort($generatedTuples);
     sort($expectedGeneratedTuples);
@@ -437,6 +491,9 @@ namespace {
             || str_ends_with($tuple, ' listLocalSpeechToTextCallTranscriptEvents')
             || str_ends_with($tuple, ' getLocalSpeechToTextCallDialog')
             || str_ends_with($tuple, ' getLocalSpeechToTextCallSummary')
+            || str_ends_with($tuple, 'LocalSTTSummaryLease')
+            || str_ends_with($tuple, ' updateLocalSTTSummaryResult')
+            || str_ends_with($tuple, ' updateLocalSTTSummaryFailure')
     ));
     sort($selectedGeneratedTuples);
     expectOpenApi($selectedGeneratedTuples === $expectedGeneratedTuples, 'Generated OpenAPI method/path tuple map changed');

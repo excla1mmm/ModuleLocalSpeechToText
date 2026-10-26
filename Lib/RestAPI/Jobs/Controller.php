@@ -96,54 +96,106 @@ class Controller extends BaseRestController
         return array_diff_key($merged, $query);
     }
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list', isArray: true)]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list', schemaName: 'LocalSTTJobListItem', isArray: true)]
     #[ApiOperation(summary: 'module_local_speech_to_text_ListJobs', description: 'module_local_speech_to_text_ListJobsDesc', operationId: 'getLocalSTTJobs')]
     #[ApiParameterRef('status')]
     #[ApiParameterRef('call_id')]
     #[ApiParameterRef('limit')]
     #[ApiParameterRef('offset')]
+    #[ApiResponse(200, 'rest_response_200_list')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getList(): void
     {
     }
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJob')]
     #[ApiOperation(summary: 'module_local_speech_to_text_GetJob', description: 'module_local_speech_to_text_GetJobDesc', operationId: 'getLocalSTTJob')]
     #[ApiParameterRef('id', required: true)]
+    #[ApiResponse(200, 'rest_response_200_get')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getRecord(string $id): void
     {
     }
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail')]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJob')]
     #[ApiOperation(summary: 'module_local_speech_to_text_CreateJob', description: 'module_local_speech_to_text_CreateJobDesc', operationId: 'createLocalSTTJob')]
     #[ApiParameterRef('call_id', required: true)]
     #[ApiParameterRef('file_path', required: true)]
     #[ApiParameterRef('priority')]
+    #[ApiResponse(201, 'rest_response_201_created')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseDuplicateJob', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function create(): void
     {
     }
 
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTJob')]
     #[ApiOperation(summary: 'module_local_speech_to_text_RetryJob', description: 'module_local_speech_to_text_RetryJobDesc', operationId: 'patchLocalSTTJob')]
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('action', required: true)]
+    #[ApiResponse(200, 'rest_response_200_patched')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseJobTransitionConflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function patch(string $id): void
     {
     }
 
+    #[ApiDataSchema(schemaClass: BulkActionDataStructure::class, type: 'detail', schemaName: 'LocalSTTJobBulkAction')]
     #[ApiOperation(summary: 'module_local_speech_to_text_RetryJobs', description: 'module_local_speech_to_text_RetryJobsDesc', operationId: 'patchLocalSTTJobs')]
     #[ApiParameterRef('ids', required: true)]
     #[ApiParameterRef('action', required: true)]
+    #[ApiResponse(200, 'rest_response_200_patched')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseJobTransitionConflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function patchCollection(): void
     {
     }
 
+    #[ApiDataSchema(schemaClass: DeletionDataStructure::class, type: 'detail', schemaName: 'LocalSTTJobDeletion')]
     #[ApiOperation(summary: 'module_local_speech_to_text_DeleteJob', description: 'module_local_speech_to_text_DeleteJobDesc', operationId: 'deleteLocalSTTJob')]
     #[ApiParameterRef('id', required: true)]
+    #[ApiResponse(200, 'rest_response_200_deleted')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseJobDeleteConflict', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function delete(string $id): void
     {
     }
 
+    #[ApiDataSchema(schemaClass: DeletionDataStructure::class, type: 'detail', schemaName: 'LocalSTTJobDeletion')]
     #[ApiOperation(summary: 'module_local_speech_to_text_DeleteJobs', description: 'module_local_speech_to_text_DeleteJobsDesc', operationId: 'deleteLocalSTTJobs')]
     #[ApiParameterRef('status', required: true)]
+    #[ApiResponse(200, 'rest_response_200_deleted')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseJobDeleteConflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function deleteCollection(): void
     {
     }

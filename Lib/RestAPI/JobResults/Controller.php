@@ -92,8 +92,20 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
+    #[ApiParameterRef('transcript', required: true)]
+    #[ApiParameterRef('technical_info')]
+    #[ApiParameterRef('language')]
+    #[ApiParameterRef('language_hint')]
+    #[ApiParameterRef('model_used')]
+    #[ApiParameterRef('duration_ms')]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseResultAccepted')]
+    #[ApiResponse(403, 'module_local_speech_to_text_ApiResponseWorkerForbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'module_local_speech_to_text_ApiResponseJobNotFound', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseLeaseConflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'module_local_speech_to_text_ApiResponseResultInvalid', 'PBXApiResult')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function update(string $job_id): void
     {
     }

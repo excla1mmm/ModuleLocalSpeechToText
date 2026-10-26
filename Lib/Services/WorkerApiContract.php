@@ -63,6 +63,7 @@ final class WorkerApiContract
         $result->success = false;
         $result->httpCode = 426;
         $result->data = [
+            'error' => 'worker_upgrade_required',
             'error_code' => 'worker_upgrade_required',
             'module' => self::MODULE_ID,
             'module_version' => self::moduleVersion(),

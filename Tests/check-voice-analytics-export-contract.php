@@ -22,7 +22,7 @@ expectTrueVoiceAnalyticsExport(
 );
 expectTrueVoiceAnalyticsExport(
     str_contains($service, 'json_decode((string)$result->technical_info, true)')
-        && str_contains($service, 'return []'),
+        && str_contains($service, 'return new \stdClass();'),
     'Malformed technical_info must resolve to an empty object payload'
 );
 expectTrueVoiceAnalyticsExport(

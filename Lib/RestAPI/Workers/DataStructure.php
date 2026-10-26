@@ -13,6 +13,13 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     {
         return [
             'request' => [
+                'X-MikoPBX-Worker-API-Version' => [
+                    'type' => 'integer',
+                    'in' => 'header',
+                    'description' => 'module_local_speech_to_text_ApiParamRegistrationApiVersion',
+                    'enum' => [2],
+                    'example' => 2,
+                ],
                 'id' => [
                     'type' => 'integer',
                     'description' => 'module_local_speech_to_text_ApiFieldWorkerId',
@@ -48,6 +55,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'example' => 'linux',
                     'required' => false,
                     'enum' => ['macos', 'linux', 'windows'],
+                    'default' => 'macos',
                 ],
                 'capabilities' => [
                     'type' => 'array',
@@ -59,18 +67,21 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                 ],
                 'status' => [
                     'type' => 'string',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerStatus',
                     'example' => 'online',
                     'required' => false,
                     'enum' => ['online', 'offline'],
                 ],
                 'api_version' => [
                     'type' => 'integer',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerApiVersion',
                     'example' => 2,
                     'required' => false,
                     'minimum' => 1,
                 ],
                 'app_version' => [
                     'type' => 'string',
+                    'description' => 'module_local_speech_to_text_ApiParamWorkerAppVersion',
                     'example' => '2.5.0',
                     'required' => false,
                     'maxLength' => 255,
@@ -103,17 +114,17 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
     {
         return [
             'type' => 'object',
-            'description' => 'module_local_speech_to_text_ApiSchemaWorkerRegistration',
+            'description' => 'module_local_speech_to_text_ApiSchemaWorker',
             'properties' => [
                 'id' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldWorkerId', 'example' => 1],
                 'worker_uid' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiParamWorkerUid', 'example' => 'mac-mini-stt-01'],
                 'name' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiParamWorkerName', 'example' => 'Mac mini STT'],
                 'ip' => ['type' => 'string', 'example' => '192.0.2.10'],
-                'status' => ['type' => 'string', 'enum' => ['online', 'offline'], 'example' => 'online'],
+                'status' => ['type' => 'string', 'enum' => ['online', 'offline'], 'description' => 'module_local_speech_to_text_ApiParamWorkerStatus', 'example' => 'online'],
                 'model' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiParamWorkerModel', 'example' => 'Whisper Large v3'],
                 'api_key_id' => ['type' => 'integer', 'nullable' => true, 'example' => 7],
-                'api_version' => ['type' => 'integer', 'example' => 2],
-                'app_version' => ['type' => 'string', 'example' => '2.5.0'],
+                'api_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiParamWorkerApiVersion', 'example' => 2],
+                'app_version' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiParamWorkerAppVersion', 'example' => '2.5.0'],
                 'capabilities' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'module_local_speech_to_text_ApiFieldWorkerCapabilities', 'example' => ['call-summaries']],
                 'compatible' => ['type' => 'boolean', 'example' => true],
                 'last_seen' => ['type' => 'integer', 'nullable' => true, 'example' => 1786512000],

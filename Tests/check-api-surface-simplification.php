@@ -28,7 +28,7 @@ expectSimplifiedSTTSurface(!str_contains($jobs, "'file_path'=>(string)\$job->fil
 
 $jobsSchema = $read('Lib/RestAPI/Jobs/DataStructure.php');
 $leaseSchema = $read('Lib/RestAPI/JobLeases/DataStructure.php');
-expectSimplifiedSTTSurface(substr_count($jobsSchema, "'file_path'=>") === 1, 'job response schema still exposes file_path');
+expectSimplifiedSTTSurface(substr_count($jobsSchema, "'file_path' =>") === 1, 'job response schema still exposes file_path');
 expectSimplifiedSTTSurface(!str_contains($leaseSchema, "'model_source_url'=>"), 'job lease schema still exposes model_source_url');
 
 $workersController = $read('Lib/RestAPI/Workers/Controller.php');

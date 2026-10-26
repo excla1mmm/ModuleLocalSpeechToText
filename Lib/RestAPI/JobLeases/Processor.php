@@ -83,26 +83,27 @@ class Processor extends Injectable
 
     private static function forbidden(string $code): PBXApiResult
     {
-        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 403; $result->data = ['error_code' => $code];
+        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 403; $result->data = ['error' => $code, 'error_code' => $code];
         $result->messages['error'][] = 'Worker lease authorization failed'; return $result;
     }
 
     private static function conflict(string $code): PBXApiResult
     {
-        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 409; $result->data = ['error_code' => $code];
+        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 409; $result->data = ['error' => $code, 'error_code' => $code];
         $result->messages['error'][] = 'Worker lease ownership data conflicts with the route'; return $result;
     }
 
     private static function unavailable(): PBXApiResult
     {
-        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 503; $result->data = ['retry_after' => 5];
+        $result = new PBXApiResult(); $result->success = false; $result->httpCode = 503;
+        $result->data = ['error' => 'module_unavailable', 'error_code' => 'module_unavailable', 'retry_after' => 5];
         $result->messages['error'][] = 'ModuleLocalSpeechToText is temporarily unavailable during maintenance'; return $result;
     }
 
     private static function databaseBusy(): PBXApiResult
     {
         $result = new PBXApiResult(); $result->success = false; $result->httpCode = 503;
-        $result->data = ['error_code' => 'database_busy', 'retry_after' => 2];
+        $result->data = ['error' => 'database_busy', 'error_code' => 'database_busy', 'retry_after' => 2];
         $result->messages['error'][] = 'ModuleLocalSpeechToText database writer is temporarily busy'; return $result;
     }
 }

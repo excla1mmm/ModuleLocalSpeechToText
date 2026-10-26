@@ -23,12 +23,14 @@ final class Controller extends BaseRestController
     protected string $processorClass = Processor::class;
 
     #[ApiDataSchema(schemaClass: DataStructure::class, type: 'detail', schemaName: 'LocalSTTWorkerUpdateLicense')]
-    #[ApiOperation(summary: 'module_local_speech_to_text_WorkerUpdateLicenseApiDescription', description: 'module_local_speech_to_text_WorkerUpdateLicenseApiDescription', operationId: 'getLocalSTTWorkerUpdateLicense')]
+    #[ApiOperation(summary: 'module_local_speech_to_text_GetWorkerUpdateLicense', description: 'module_local_speech_to_text_GetWorkerUpdateLicenseDesc', operationId: 'getLocalSTTWorkerUpdateLicense')]
     #[ApiParameterRef('X-MikoPBX-Worker-API-Version', required: true)]
     #[ApiParameterRef('X-MikoPBX-Worker-UID', required: true)]
     #[ApiResponse(200, 'rest_response_200_get')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
-    #[ApiResponse(409, 'module_local_speech_to_text_WorkerUpdateLicenseApiDescription', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseLicenseNotConfigured', 'PBXApiResult')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getList(): void {}
 }

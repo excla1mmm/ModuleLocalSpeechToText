@@ -62,7 +62,18 @@ class Controller extends BaseRestController
     #[ApiParameterRef('id', required: true)]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('lease_token', required: true)]
+    #[ApiParameterRef('content', required: true)]
+    #[ApiParameterRef('model_used', required: false)]
+    #[ApiParameterRef('duration_ms', required: false)]
+    #[ApiParameterRef('prompt_tokens', required: false)]
+    #[ApiParameterRef('completion_tokens', required: false)]
     #[ApiResponse(200, 'module_local_speech_to_text_ApiResponseSummaryAccepted')]
+    #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseSummaryLeaseConflict', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseWorkerRetryLater', 'PBXApiResult')]
     public function update(string $summary_id): void {}
 }

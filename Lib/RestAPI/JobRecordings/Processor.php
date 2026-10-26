@@ -52,5 +52,5 @@ class Processor extends Injectable
         $result->processor = __METHOD__; $result->function = 'getRecord'; return $result;
     }
     private static function error(int $status, string $code, int $retryAfter = 5): PBXApiResult
-    { $r = new PBXApiResult(); $r->success = false; $r->httpCode = $status; $r->data = ['error_code' => $code]; if ($status === 503) $r->data['retry_after'] = $retryAfter; return $r; }
+    { $r = new PBXApiResult(); $r->success = false; $r->httpCode = $status; $r->data = ['error' => $code, 'error_code' => $code]; if ($status === 503) $r->data['retry_after'] = $retryAfter; return $r; }
 }

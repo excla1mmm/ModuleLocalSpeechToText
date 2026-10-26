@@ -27,6 +27,10 @@ class Controller extends BaseRestController
     #[ApiParameterRef('X-MikoPBX-Worker-UID', required: true)]
     #[ApiResponse(200, 'rest_response_200_get')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(409, 'module_local_speech_to_text_ApiResponseWorkerKeyAmbiguous', 'PBXApiResult')]
+    #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
     #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getList(): void {}
 }

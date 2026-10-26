@@ -42,7 +42,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaCallTranscript',
-            'required' => ['source_instance_id', 'contract_version', 'aggregate_id', 'call_id', 'revision', 'content_hash', 'parts_hash', 'completeness_status'],
+            'required' => ['source_instance_id', 'contract_version', 'aggregate_id', 'call_id', 'revision', 'content_hash', 'parts_hash', 'completeness_status', 'language', 'is_current', 'created_at'],
             'properties' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
                 'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 3],
@@ -140,7 +140,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                         ],
                     ],
                 ],
-                'text' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldTranscriptText', 'example' => '[part:501] Здравствуйте, чем я могу помочь?'],
+                'text' => ['type' => 'string', 'description' => 'module_local_speech_to_text_ApiFieldTranscriptText', 'example' => '[left] Здравствуйте, чем я могу помочь?'],
                 'timeline_reliable' => ['type' => 'boolean', 'description' => 'module_local_speech_to_text_ApiFieldTimelineReliable', 'example' => true],
             ],
         ];
@@ -202,7 +202,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
             'transcript' => [
                 'segments' => [$segment],
                 'turns' => [$turn],
-                'text' => '[part:501] Здравствуйте, чем я могу помочь?',
+                'text' => '[left] Здравствуйте, чем я могу помочь?',
                 'timeline_reliable' => true,
             ],
         ];

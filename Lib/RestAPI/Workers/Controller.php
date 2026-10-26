@@ -38,7 +38,7 @@ class Controller extends BaseRestController
 {
     protected string $processorClass = Processor::class;
 
-    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list', isArray: true)]
+    #[ApiDataSchema(schemaClass: DataStructure::class, type: 'list', schemaName: 'LocalSTTWorkerListItem', isArray: true)]
     #[ApiOperation(
         summary: 'module_local_speech_to_text_ListWorkers',
         description: 'module_local_speech_to_text_ListWorkersDesc',
@@ -53,6 +53,8 @@ class Controller extends BaseRestController
     #[ApiResponse(200, 'rest_response_200_list')]
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getList(): void
     {
         // Implementation handled by BaseRestController.
@@ -69,6 +71,8 @@ class Controller extends BaseRestController
     #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function getRecord(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -80,6 +84,7 @@ class Controller extends BaseRestController
         description: 'module_local_speech_to_text_RegisterWorkerDesc',
         operationId: 'createLocalSTTWorker'
     )]
+    #[ApiParameterRef('X-MikoPBX-Worker-API-Version')]
     #[ApiParameterRef('worker_uid', required: true)]
     #[ApiParameterRef('name')]
     #[ApiParameterRef('model')]
@@ -87,9 +92,13 @@ class Controller extends BaseRestController
     #[ApiParameterRef('platform')]
     #[ApiParameterRef('capabilities')]
     #[ApiResponse(200, 'rest_response_200_created')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(426, 'module_local_speech_to_text_ApiResponseUpgradeRequired', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function create(): void
     {
         // Implementation handled by BaseRestController.
@@ -106,9 +115,12 @@ class Controller extends BaseRestController
     #[ApiParameterRef('model', required: true)]
     #[ApiParameterRef('status', required: true)]
     #[ApiResponse(200, 'rest_response_200_updated')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function update(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -125,9 +137,12 @@ class Controller extends BaseRestController
     #[ApiParameterRef('model')]
     #[ApiParameterRef('status')]
     #[ApiResponse(200, 'rest_response_200_patched')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(422, 'rest_response_422_validation_error', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function patch(string $id): void
     {
         // Implementation handled by BaseRestController.
@@ -140,9 +155,12 @@ class Controller extends BaseRestController
     )]
     #[ApiParameterRef('id', required: true)]
     #[ApiResponse(200, 'rest_response_200_deleted')]
+    #[ApiResponse(401, 'rest_response_401_unauthorized', 'PBXApiResult')]
     #[ApiResponse(403, 'rest_response_403_forbidden', 'PBXApiResult')]
     #[ApiResponse(404, 'rest_response_404_not_found', 'PBXApiResult')]
     #[ApiResponse(409, 'rest_response_409_conflict', 'PBXApiResult')]
+    #[ApiResponse(500, 'rest_response_500_error', 'PBXApiResult')]
+    #[ApiResponse(503, 'module_local_speech_to_text_ApiResponseServiceUnavailable', 'PBXApiResult')]
     public function delete(string $id): void
     {
         // Implementation handled by BaseRestController.

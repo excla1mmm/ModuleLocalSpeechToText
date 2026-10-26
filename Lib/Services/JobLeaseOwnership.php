@@ -27,7 +27,7 @@ final class JobLeaseOwnership
         $result = new PBXApiResult();
         $result->success = false;
         $result->httpCode = $httpCode;
-        $result->data = ['error' => $code];
+        $result->data = ['error' => $code, 'error_code' => $code];
         $result->messages['error'][] = $message;
         return $result;
     }

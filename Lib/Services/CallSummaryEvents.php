@@ -9,7 +9,8 @@ use PDO;
 /**
  * Publishes `call-summary.completed` into m_STTCallTranscriptEvent once the
  * summary of a published call revision is final (done, skipped or error), so
- * importers learn when the summary in the call detail is ready.
+ * importers learn when GET /call-summaries/{call_id} returns the final summary
+ * of that revision.
  *
  * One event per aggregate revision (the event_key is unique), and only for a
  * summary made from that revision's content: a call that changes is

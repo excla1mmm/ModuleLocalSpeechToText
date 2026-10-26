@@ -65,6 +65,6 @@ final class JobSubmissionReceiptService
         }
     }
 
-    private static function conflict(): PBXApiResult { $r=new PBXApiResult(); $r->success=false; $r->httpCode=409; $r->data=['error_code'=>'job_submission_conflict']; $r->messages['error'][]='A different terminal submission already exists for this lease'; return $r; }
+    private static function conflict(): PBXApiResult { $r=new PBXApiResult(); $r->success=false; $r->httpCode=409; $r->data=['error'=>'job_submission_conflict','error_code'=>'job_submission_conflict']; $r->messages['error'][]='A different terminal submission already exists for this lease'; return $r; }
     private static function sortRecursive(array &$value): void { foreach ($value as &$item) if (is_array($item)) self::sortRecursive($item); unset($item); if (!array_is_list($value)) ksort($value, SORT_STRING); }
 }

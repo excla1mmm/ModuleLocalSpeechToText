@@ -38,7 +38,7 @@ final class JobApiResponseBuilder
     {
         $result = new PBXApiResult();
         $result->success = false;
-        $result->data = ['error' => $code];
+        $result->data = ['error' => $code, 'error_code' => $code];
         $result->messages['error'][] = $message;
         $result->httpCode = $httpCode;
 

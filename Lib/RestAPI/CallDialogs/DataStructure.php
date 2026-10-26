@@ -35,7 +35,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
         return [
             'type' => 'object',
             'description' => 'module_local_speech_to_text_ApiSchemaCallDialog',
-            'required' => ['source_instance_id', 'contract_version', 'call_id', 'aggregate_id', 'revision', 'turns', 'text'],
+            'required' => ['source_instance_id', 'contract_version', 'call_id', 'aggregate_id', 'revision', 'completeness_status', 'language', 'direction', 'turns', 'text'],
             'properties' => [
                 'source_instance_id' => ['type' => 'string', 'pattern' => '^[a-f0-9]{32}$', 'description' => 'module_local_speech_to_text_ApiFieldSourceInstanceId', 'example' => '0123456789abcdef0123456789abcdef'],
                 'contract_version' => ['type' => 'integer', 'description' => 'module_local_speech_to_text_ApiFieldContractVersion', 'example' => 3],
@@ -50,6 +50,7 @@ class DataStructure extends AbstractDataStructure implements OpenApiSchemaProvid
                     'description' => 'module_local_speech_to_text_ApiFieldDialogTurns',
                     'items' => [
                         'type' => 'object',
+                        'required' => ['start_ms', 'end_ms', 'channel', 'speaker', 'speaker_name', 'text'],
                         'properties' => [
                             'start_ms' => ['type' => ['integer', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldStartMs', 'example' => 0],
                             'end_ms' => ['type' => ['integer', 'null'], 'description' => 'module_local_speech_to_text_ApiFieldEndMs', 'example' => 4210],
