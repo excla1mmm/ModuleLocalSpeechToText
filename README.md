@@ -279,6 +279,22 @@ The package script writes `ModuleLocalSpeechToText.<version>.zip` and validates 
 
 GitLab CI runs standalone `Tests/check-*.php` checks before packaging. On `develop` it runs test and package jobs only. Publishing to WebDAV, release registration, and release notes are limited to `master` through the shared `infrastructure/ci-templates` pipeline. Release note context is stored in `.gitlab/release-context.json`.
 
+## Outgoing Connections
+
+The module itself opens exactly one kind of outgoing connection; everything else is inbound (workers call the PBX).
+
+| From | To | When | What is sent |
+|---|---|---|---|
+| Admin UI, worker download menu (`Lib/Services/WorkerDownloadService.php`) | `https://releases.mikopbx.com/releases/v1/appcast/downloadLatest/LocalSTTWorkerMac` and `https://releases.mikopbx.com/releases/v1/other/downloadLatest/LocalSTTWorkerWin` | When an administrator opens the worker download links | `arch`, `ext` and, if the PBX has a licence key, `lk` — the **SHA-256 hash of the PBX licence key** (never the key itself). MIKO's release server uses it to decide whether the PBX may download the licensed worker package. |
+| Same | The download host returned by that release server (HTTPS only, at most 5 redirects) | To show the Windows package size | An HTTPS `HEAD` request, no PBX data |
+
+HTTPS only, 3 s connect / 10 s total timeout, user agent `MikoPBX-ModuleLocalSpeechToText`. Nothing is sent when the download menu is not opened.
+
+Related data that leaves the PBX through the worker API (inbound requests from workers you configured):
+
+- `GET` worker update licence (`Lib/RestAPI/WorkerUpdateLicense`) returns the same licence-key SHA-256 to a worker that holds a restricted worker API key bound to its worker UID, so the worker can fetch its own updates from the release server.
+- The Linux Docker worker command shown in the UI uses the image `excla1m/mikopbx-stt-worker:latest` from Docker Hub, published by the module's author. It receives the PBX URL and a worker API key.
+
 ## Notes
 
 - Recordings are served only from the MikoPBX monitor directory after `realpath` validation.
